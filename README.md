@@ -36,5 +36,4 @@ fill priority, coverage notes, and role expectations. One HTML file, no build st
 ## Development
 
 Everything is in `index.html`. Open it locally in Chrome/Edge to test.
-The proxy endpoint lives in the (private) `tribute-api` project: `src/functions/vivProxy.js`,
-endpoint `csm_hub`, gated by the `RETENTION_KEY` app setting.
+The sync endpoint lives in the team's private `tribute-api` project (endpoint `csm_hub`, key-gated).
