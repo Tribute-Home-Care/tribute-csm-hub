@@ -2775,7 +2775,7 @@ function vivPretty(n){n=(n||'').trim();if(n.includes(',')){const i=n.indexOf(','
 function vivStatusBadge(c){
   const st=(c.vivStatus||'').toLowerCase();
   if(!st||st==='active')return'';
-  const map={'pending-discharge':['Pending discharge','#d97706','#fffbeb'],'onhold':['On hold','#0891b2','#ecfeff'],'on-hold':['On hold','#0891b2','#ecfeff'],'processing':['Processing','#7c3aed','#f5f3ff'],'inactive':['Discharged','#dc2626','#fef2f2'],'removed':['No longer on your Viv caseload','#6b7280','#f3f4f6']};
+  const map={'pending-discharge':['Pending discharge','#d97706','#fffbeb'],'onhold':['On hold','#0891b2','#ecfeff'],'on-hold':['On hold','#0891b2','#ecfeff'],'processing':['Processing','#7c3aed','#f5f3ff']};
   const m=map[st]||(st.includes('hospital')?['Hospitalized','#dc2626','#fef2f2']:st.includes('facility')?['In facility','#0891b2','#ecfeff']:[c.vivStatus,'#6b7280','#f3f4f6']);
   return `<div style="margin-top:3px;"><span style="font-size:10px;font-weight:700;color:${m[1]};background:${m[2]};padding:1px 7px;border-radius:8px;">⟳ ${m[0]}${c.vivDischarged?' '+c.vivDischarged:''}</span></div>`;
 }
@@ -2851,14 +2851,25 @@ function mergeVivProfile(pid,data){
     c.tributeSecure=!!vc.tributeSecure;
     c.vivSyncedAt=data.generatedAt;
   }
+  // Active-only roster (same convention as the MA tracker): once a client is
+  // discharged or leaves this CSM's Viv caseload they drop off the Hub entirely —
+  // retroactive data lives in Viv. Manually-added clients (no vivId) are kept.
+  // Guard: never prune off a partial/empty feed (network blip ≠ everyone discharged).
   const mineIds=new Set(mine.map(m=>m.vivId));
-  cl.forEach(c=>{if(c.vivId&&!mineIds.has(c.vivId))c.vivStatus='removed';});
+  const dropIds=new Set();
+  if(data.clientsComplete!==false&&mine.length>0){
+    cl.forEach(c=>{if(c.vivId&&!mineIds.has(c.vivId))dropIds.add(c.id);});
+  }
+  const roster=pr.clients=cl.filter(c=>!dropIds.has(c.id));
 
   // viv client id → hub client id
-  const vmap={};cl.forEach(c=>{if(c.vivId)vmap[c.vivId]=c.id;});
+  const vmap={};roster.forEach(c=>{if(c.vivId)vmap[c.vivId]=c.id;});
 
   // ── Visits: past supervisory visits land in the Visit Log; future ones in vivUpcoming ──
-  const vs=pr.visits=pr.visits||[];
+  // Viv-sourced visit rows of dropped clients go too (retro data lives in Viv);
+  // manually-logged visits are never pruned.
+  pr.visits=(pr.visits||[]).filter(v=>!(v.source==='viv'&&v.clientId&&dropIds.has(v.clientId)));
+  const vs=pr.visits;
   const mineV=(data.visits||[]).filter(v=>names.includes(v.csm));
   for(const vv of mineV){
     if(vv.day>todayStr)continue;
@@ -2875,7 +2886,7 @@ function mergeVivProfile(pid,data){
   // lastVisit: newest past visit per client wins if newer than what's stored
   const lastByClient={};
   vs.forEach(v=>{if(v.clientId&&v.date&&v.date<=todayStr&&(!lastByClient[v.clientId]||v.date>lastByClient[v.clientId]))lastByClient[v.clientId]=v.date;});
-  cl.forEach(c=>{const lv=lastByClient[c.id];if(lv&&(!c.lastVisit||lv>c.lastVisit))c.lastVisit=lv;});
+  roster.forEach(c=>{const lv=lastByClient[c.id];if(lv&&(!c.lastVisit||lv>c.lastVisit))c.lastVisit=lv;});
 
   // ── Open (unfilled) visits on my caseload — replaced wholesale each sync; ranks persist ──
   pr.vivOpenVisits=(data.openVisits||[]).filter(ov=>vmap[ov.cid]).map(ov=>({...ov,clientId:vmap[ov.cid]}));
@@ -2902,7 +2913,7 @@ function mergeVivProfile(pid,data){
     l.stage=hlead.won?'Converted':hlead.lost?'Lost':(/assessment[^a-z]*sched/i.test(hlead.stageLabel||hlead.stage)?'Assessment Scheduled':/assessment[^a-z]*(comp|done)/i.test(hlead.stageLabel||hlead.stage)?'Assessment Completed':'New Lead');
     if(hlead.stageLabel)l.hsStage=hlead.stageLabel;
     if(hlead.vivId&&vmap[hlead.vivId]){l.clientId=vmap[hlead.vivId];l.stage='Converted';}
-    if(l.stage==='Converted'&&!l.clientId){const m=cl.find(c=>vivNorm(c.name)===vivNorm(vivPretty(hlead.name)));if(m)l.clientId=m.id;}
+    if(l.stage==='Converted'&&!l.clientId){const m=roster.find(c=>vivNorm(c.name)===vivNorm(vivPretty(hlead.name)));if(m)l.clientId=m.id;}
     l.updatedAt=data.generatedAt;
   }
 }
