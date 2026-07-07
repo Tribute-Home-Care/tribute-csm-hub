@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
+<script src="./entra-auth.js?v=2026-07-07a"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tribute CSM Hub</title>
@@ -2791,11 +2793,16 @@ function submitVivKey(){
 let _vivSyncing=false;
 async function vivSyncNow(interactive){
   if(_vivSyncing)return;
+  // Prefer the signed-in Microsoft account; fall back to a manually-entered
+  // key only if that's unavailable (shouldn't happen now that the page
+  // itself requires sign-in, kept as a safety net).
+  const token=window.tributeKsfGate&&window.tributeKsfGate.getToken?await window.tributeKsfGate.getToken():null;
   const key=vivKey();
-  if(!key){if(interactive)openVivKeyModal();else setVivLabel('Viv: tap to connect');return;}
+  if(!token&&!key){if(interactive)openVivKeyModal();else setVivLabel('Viv: tap to connect');return;}
   _vivSyncing=true;setVivLabel('Viv: syncing…');
   try{
-    const r=await fetch(VIV_PROXY+'?endpoint=csm_hub',{headers:{'X-Retention-Key':key}});
+    const headers=token?{'Authorization':'Bearer '+token}:{'X-Retention-Key':key};
+    const r=await fetch(VIV_PROXY+'?endpoint=csm_hub',{headers});
     if(r.status===401){
       localStorage.removeItem(VIV_KEY_LS);setVivLabel('Viv: wrong key');
       if(interactive){openVivKeyModal();document.getElementById('vivkey-error').textContent='That key was not accepted — check with Courtney or Andrew.';}
