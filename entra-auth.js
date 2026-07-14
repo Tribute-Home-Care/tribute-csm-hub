@@ -173,6 +173,14 @@
 
   window.tributeKsfGate = {
     getToken,
+    // Who is signed in — lets pages scope what they show to the account
+    // (e.g. the CSM Hub auto-opening the right profile). Waits for init()
+    // like getToken() does, so it's safe to call at any point.
+    async getAccount() {
+      await readyPromise;
+      if (!state.account) return null;
+      return { username: state.account.username || '', name: state.account.name || '', oid: state.account.localAccountId || '' };
+    },
     isSignedIn() { return !!state.account; },
     signOut() {
       if (!state.msal) return;
