@@ -34,14 +34,15 @@ If asked to edit an HTML copy outside the repo, point this out and edit the repo
 
 A daily-use web app for home care CSMs (Client Solutions Managers) that replaces scattered spreadsheets and trackers. Users open the Pages URL in Chrome/Edge. Data is read/written to a shared JSON file on OneDrive via the File System Access API — no server or login required. Viv/HubSpot facts arrive via the sync layer; CSM judgment stays manual.
 
-**Markets served:** Chicago, Maryland, Massachusetts
-**Users:** CSMs + one Senior CSM / manager (Courtney)
+**Markets served:** three market hubs — Massachusetts (🦞), Chicago (🌆), Maryland (🦀) — chosen on a hub-picker screen.
+**Users:** 12 profiles: CSMs, CSCs, and two Senior CSM / managers (one per coast). One CSM is dual-market (MA+CHI) with an in-app market filter.
+**Access:** the page is gated by Microsoft sign-in (MSAL, `entra-auth.js`). The signed-in account decides access: a CSM's login auto-opens their own profile (matched by display name / UPN local part against `PROFILES` + the `VIV_NAMES` aliases, with an explicit override map at `DATA.shared.settings.loginMap = {"upn": "profileId"}`); managers and admin UPNs (`ADMIN_UPNS`) get the full hub/profile picker; unknown accounts get a no-access notice. The manager password modal only remains as a no-account fallback.
 
 ---
 
 ## Viv Live Sync layer (added 2026-06-04)
 
-One fetch per sync: `GET {VIV_PROXY}?endpoint=csm_hub` with header `X-Retention-Key` (key entered once per computer; localStorage `tribute_csm_viv_key`). Server caches 30 min; first build after idle takes ~2 min, warm hits <1 s. Params: `weeksBack` (≤26, default 9), `weeksFwd` (≤9, default 4).
+One fetch per sync: `GET {VIV_PROXY}?endpoint=csm_hub`, authenticated with the Microsoft sign-in bearer token (preferred) or an `X-Retention-Key` fallback key (localStorage `tribute_csm_viv_key`). Server caches 30 min; first build after idle takes ~2 min, warm hits <1 s. Params: `weeksBack` (≤26, default 9), `weeksFwd` (≤9, default 4).
 
 Returns `{clients, visits, openVisits, leads, metrics}`:
 - **clients** — active Viv clients (+120d of discharges). CSM attribution = Viv `queries.clinicalManager.name`, falling back to `queries.admin.name`.
@@ -52,7 +53,7 @@ Returns `{clients, visits, openVisits, leads, metrics}`:
 
 **Merge semantics (sacred):** *Viv wins on facts* — `name, loc(community), city, startDate, market, vivStatus, vivDischarged, tributeSecure`. *Manual judgment is never overwritten* — `tier, freq, notes, contact(s), comm, caregivers, carePlanDate, vacation, rateHistory, birthday`, all priority factors. Clients are anchored by `vivId`; first sync matches existing manual entries by normalized name. A sync merges **all** profiles (shared data file), then `queueSave()`.
 
-**Name map:** `VIV_NAMES` in index.html maps profile id → Viv/HubSpot spellings. Viv spells Emily "**Willson**". New CSM = add to `PROFILES` *and* `VIV_NAMES`.
+**Name map:** `VIV_NAMES` in index.html maps profile id → Viv/HubSpot spellings. Viv spells Emily "**Willson**"; Carrie is "**Faerber**". New CSM = add to `PROFILES` *and* `VIV_NAMES` (the same aliases also drive login→profile matching).
 
 **New per-profile data keys:** `vivUpcoming` (future visits, replaced each sync), `vivOpenVisits` (replaced each sync), `fillRanks` (`{visitId: 'high'|'med'|'low'}`, persists, pruned when filled). New client fields: `vivId, vivNum, vivStatus, vivDischarged, tributeSecure, vivSyncedAt, market`. Viv-sourced visits: `{id:'viv<id>', source:'viv', vivType, vivClient}` — rendered read-only. Shared: `DATA.shared.viv = {generatedAt, window, counts, metrics}`.
 
@@ -94,22 +95,25 @@ vivProxy.js / csm_hub    ← server-side: Viv auth, schedule scan, HubSpot slim-
 
 ## Design language
 
-**Color palette (CSS variables):**
+The hub uses the **Tribute Intelligence design system** — the same light, warm-stone look as the company's other operating dashboards. Light theme only.
+
+**Color tokens (CSS variables in `:root`):**
 ```css
---navy: #1e3a5f      /* primary brand, sidebar, buttons */
---navy-h: #162d4a    /* hover state */
---gold: #c9982a      /* accent, active nav indicator */
---gold-l: #f0c050    /* active nav text */
---cream: #faf8f4     /* page background */
---hi: #dc2626        /* High Need / danger */
---hi-bg: #fef2f2
---med: #d97706       /* Medium Need / warning */
---med-bg: #fffbeb
---lo: #16a34a        /* Low Need / good */
---lo-bg: #f0fdf4
+--canvas: #FAF8F4    /* page + sidebar background (warm stone) */
+--surface: #FFFFFF   /* cards */
+--line: #EAE6DF      /* borders */   --line-soft: #F1EEE8  /* soft bg/borders */
+--ink: #1C1A17       /* text */      --muted: #8C857B      --muted-soft: #B7B0A6
+--orange: #FF5A1F    /* accent — used SPARINGLY: brand dot + primary buttons */
+--orange-dark: #E25309  --orange-soft: #FBEADF
+--hi: #A4271E / --hi-bg: #F8E5E2     /* High Need / danger (soft/fg pill pair) */
+--med: #92580B / --med-bg: #F8EEDB   /* Medium / warning */
+--lo: #0F6E56 / --lo-bg: #E2F2EC     /* Low / good */
+/* extra semantic accents: blue #3B72B8/#E8EFF7, purple #9D2667/#F6E7EF, teal #0F8F6B */
+/* legacy aliases --navy/--gold still exist but now POINT AT ink/orange */
 ```
 
-**Font:** Inter (Google Fonts)
+**Fonts:** Inter (body, letter-spacing −0.005em) + Space Grotesk (`h1/h2/.mt` display headings, −0.02em). Stat numbers (`.sv`) use the mono stack with tabular numerals.
+**Chrome:** light sidebar (canvas bg + right border), text-only grouped nav (`.nav-icon` is display:none), active item = `--line-soft` pill + ink semibold; brand is `Tribute` + orange dot; footer tagline *"Remarkable, personified."*
 **Feel:** Clean, professional, warm. Not clinical or cold. Tribute is relationship-driven.
 
 **Key reusable classes:**
@@ -129,24 +133,23 @@ vivProxy.js / csm_hub    ← server-side: Viv auth, schedule scan, HubSpot slim-
 ## Application pages
 
 ### Startup flow
-1. **Connect Folder screen** (`#screen-folder`) — File System Access API prompt to select the shared OneDrive folder
-2. **Pick Profile screen** (`#screen-profile`) — Grid of CSM profile cards. Manager profile shown with gold border, password-gated.
-3. On profile launch: auto Viv sync if key present and last sync >30 min old. Sidebar ⟳ row = manual sync + status.
+1. **Microsoft sign-in** (entra-auth.js overlay, once per browser)
+2. **Connect Folder screen** (`#screen-folder`) — File System Access API prompt to select the shared OneDrive folder
+3. **routeAfterConnect()** — managers/admins → hub picker (`#screen-hub`: MA/CHI/MD cards) then profile grid; CSMs → their own profile auto-launches (dual-market CSMs pick their market first); unmatched accounts → `#screen-noaccess`.
+4. On profile launch: auto Viv sync if last sync >30 min old (Microsoft token, no key needed). Sidebar ⟳ row = manual sync + status.
 
 ### Navigation sections
 
 #### My Work
 | Nav label | Page ID | Purpose |
 |---|---|---|
-| Home | `page-home` | Daily summary: stat cards, morning priorities, needs-attention alerts |
-| My Clients | `page-clients` | Client card grid, auto-populated from Viv (status badges: pending discharge / on hold / hospitalized / discharged / removed; 🛡️ = Tribute Secure). Add/edit still available for manual extras. |
-| Client Check-Ins | `page-checkins` | Master cadence table (visits/touchpoints/care conversations) + activity history |
-| Success in 30 | `page-s60` | 30-day onboarding tracker: milestone checklist + touchpoint log |
-| Visit Log | `page-visits` | Real visits from the Viv schedule (read-only rows marked "⟳ from Viv") + manual quick-log; Upcoming card; cadence view; monthly stats |
-| Leads | `page-leads` | Pipeline auto-filled from HubSpot by deal owner; Viv-converted deals land in Converted and link to Success in 30. Manual leads coexist. |
-| To-Do List | `page-todos` | Personal task list + quick notes |
-| Coverage Notes | `page-coverage` | Shared vacation coverage notes |
-| Fill Priority | `page-priority` | Open (unfilled) visits on the CSM's caseload from Viv, ranked 🔴/🟡/🟢 by the CSM — plus the score-based client ranking for coverage events |
+| Home | `page-home` | Daily summary: stat cards, High Priority Tasks, to-dos + quick notes, Needs Attention, Upcoming Viv Visits card, 1:1 notes |
+| Clients | `page-clients` | Master tracker table auto-populated from Viv (viv status badges; 🛡️ = Tribute Secure); rows expand to a client detail (visits / touchpoints / care conversations / LTC) with a log panel. LTC insurance records panel lives here too. |
+| Success in 30 | `page-s60` | 30-day onboarding tracker: milestone checklist + touchpoint log + calendar + email templates |
+| Coverage Notes | `page-coverage` | Shared vacation coverage notes (my clients + team tabs) |
+| Fill Priority | `page-priority` | Event-based coverage ranking (manager-created events, drag-to-reorder, auto fill-scores) + the live "Open Visits — My Caseload" card from Viv, ranked 🔴/🟡/🟢 (`fillRanks`) |
+
+(There is also a `page-comms` Communications page — due-now cadence, touchpoint log, care conversations — reachable in code; older pages Visit Log / Check-Ins / To-Dos / Leads were consolidated into Clients + Home, with their old render targets kept as hidden compat sinks. Leads data still syncs into profiles for KPIs even though the Leads page is gone.)
 
 #### Resources
 | Nav label | Page ID | Purpose |
@@ -196,4 +199,4 @@ Caregiver-first · warm but clear · boundaries-aware (CSMs coordinate, don't ta
 7. **Validate before pushing:** extract the inline script and `node --check` it.
 8. **Endpoint changes** — happen in the private tribute-api project: syntax-check, deploy the function app, verify no-key→401 and a gated call.
 
-Always keep it a single self-contained HTML file. Google Fonts is the only external dependency.
+Always keep it a single self-contained HTML file. External dependencies: Google Fonts, the MSAL CDN script, and `entra-auth.js` (shared sign-in, in the repo).
