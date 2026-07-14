@@ -1447,7 +1447,7 @@ function disconnectFolder(){indexedDB.deleteDatabase('TributeCSM');showFolderScr
 // Matching is by display name / UPN local part against PROFILES (+ the Viv
 // spelling aliases in VIV_NAMES), with an optional explicit override map at
 // DATA.shared.settings.loginMap = { "upn@tributehomecare.com": "profileId" }.
-const ADMIN_UPNS=['andrew.dobson@tributehomecare.com'];
+const ADMIN_UPNS=['andrew.dobson@tributehomecare.com','tuadmin@tributehomecare.com'];
 let ACCT=null;           // {username,name} of the signed-in Microsoft account
 let MY_PROFILE_ID=null;  // the profile bound to that account (non-managers)
 function loginNorm(s){return (s||'').toLowerCase().replace(/[^a-z]/g,'');}
