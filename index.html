@@ -2139,7 +2139,7 @@ function buildClientDetail(id){
   const eid=escHtml(id),ename=escHtml(c.name);
 
   const vRows=visits.slice(0,4).map(v=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #EAE6DF;font-size:12px;"><span>${fmtD(v.date)} — ${escHtml(v.type||'Visit')}</span><span style="color:#8C857B;font-size:11px;">${escHtml((v.notes||'').substring(0,40))}</span></div>`).join('')||'<p style="font-size:12px;color:#8C857B;margin:4px 0;">No visits logged yet.</p>';
-  const tpRows=tps.slice(0,4).map(t=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #EAE6DF;font-size:12px;"><span>${fmtD(t.date)} — ${escHtml(t.type||'Touchpoint')}</span><span style="color:#8C857B;font-size:11px;">${escHtml((t.contact||t.notes||'').substring(0,40))}</span></div>`).join('')||'<p style="font-size:12px;color:#8C857B;margin:4px 0;">No touchpoints logged yet.</p>';
+  const tpRows=tps.slice(0,4).map(t=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #EAE6DF;font-size:12px;"><span>${fmtD(t.date)} — ${escHtml(t.type||'Touchpoint')}${tpAutoChip(t)}</span><span style="color:#8C857B;font-size:11px;">${escHtml((t.contact||t.notes||'').substring(0,40))}</span></div>`).join('')||'<p style="font-size:12px;color:#8C857B;margin:4px 0;">No touchpoints logged yet.</p>';
   const ciRows=cis.slice(0,3).map(ci=>`<div style="padding:5px 0;border-bottom:1px solid #EAE6DF;font-size:12px;"><div>${fmtD(ci.date)} — Rating: <strong>${ci.satisfaction||'—'}/5</strong></div>${ci.notes?`<div style="font-size:11px;color:#6B655C;">${escHtml(ci.notes.substring(0,80))}</div>`:''}</div>`).join('')||'<p style="font-size:12px;color:#8C857B;margin:4px 0;">No care conversations logged yet.</p>';
   const ltcHtml=ltcRecs.length?ltcRecs.map(l=>`<div style="background:#fff;border:1px solid #D7E4F5;border-radius:6px;padding:8px 10px;margin-bottom:6px;font-size:12px;"><div style="font-weight:600;color:var(--navy);">${escHtml(l.insurer||'Unknown insurer')}</div><div style="color:#3D3833;">Policy: ${escHtml(l.policyNum||'—')} | Claim: ${escHtml(l.claimNum||'—')}</div><div style="font-size:11px;color:#6B655C;margin-top:2px;">${escHtml(l.status||'')}${l.instructions?' — '+escHtml(l.instructions.substring(0,60)):''}</div></div>`).join(''):'<p style="font-size:12px;color:#8C857B;margin:4px 0;">No LTC records found.</p>';
 
@@ -2979,8 +2979,8 @@ function renderTPRecent(){
       <div style="font-size:13px;font-weight:500;">${cm[t.clientId]||'—'}</div>
       <span style="font-size:11px;color:#8C857B;">${new Date(t.date).toLocaleDateString()}</span>
     </div>
-    <div style="font-size:12px;color:#6B655C;margin-top:2px;">${TP_ICONS[t.type]||'💬'} ${t.type}${t.contact?' · '+t.contact:''}</div>
-    ${t.notes?`<div style="font-size:12px;color:#8C857B;margin-top:2px;">${t.notes}</div>`:''}
+    <div style="font-size:12px;color:#6B655C;margin-top:2px;">${TP_ICONS[t.type]||'💬'} ${t.type}${tpAutoChip(t)}${t.contact?' · '+escHtml(t.contact):''}</div>
+    ${t.notes?`<div style="font-size:12px;color:#8C857B;margin-top:2px;">${escHtml(t.notes)}</div>`:''}
   </div>`).join('');
 }
 
@@ -2996,14 +2996,19 @@ function renderTouchpointHistory(){
     ${list.map(t=>`<tr>
       <td style="white-space:nowrap;">${new Date(t.date).toLocaleDateString()}</td>
       <td>${cm[t.clientId]||'—'}</td>
-      <td style="white-space:nowrap;">${TP_ICONS[t.type]||'💬'} ${t.type}</td>
-      <td style="color:#6B655C;font-size:12px;">${t.contact||'—'}</td>
-      <td style="color:#8C857B;font-size:12px;max-width:200px;">${t.notes||'—'}</td>
-      <td><button class="btn btn-sm btn-o" onclick="delTP('${t.id}')">✕</button></td>
+      <td style="white-space:nowrap;">${TP_ICONS[t.type]||'💬'} ${t.type}${tpAutoChip(t)}</td>
+      <td style="color:#6B655C;font-size:12px;">${escHtml(t.contact||'—')}</td>
+      <td style="color:#8C857B;font-size:12px;max-width:200px;">${escHtml(t.notes||'—')}</td>
+      <td>${t.source==='auto'?'':`<button class="btn btn-sm btn-o" onclick="delTP('${t.id}')">✕</button>`}</td>
     </tr>`).join('')}
   </tbody></table>`;
 }
-function delTP(id){if(!confirm('Delete this touchpoint?'))return;set('touchpoints',get('touchpoints').filter(t=>t.id!==id));renderTPRecent();renderTouchpointHistory();renderDueNow();updateHome();}
+function delTP(id){
+  const t=get('touchpoints').find(x=>x.id===id);
+  if(t&&t.source==='auto'){showToast('Auto-captured touchpoints can\'t be deleted — they come from the call/email/text record.');return;}
+  if(!confirm('Delete this touchpoint?'))return;
+  set('touchpoints',get('touchpoints').filter(t=>t.id!==id));renderTPRecent();renderTouchpointHistory();renderDueNow();updateHome();
+}
 
 // ── FAMILY CHECK-INS ──
 function syncCIClients(){
@@ -4842,7 +4847,12 @@ async function vivSyncNow(interactive){
   _vivSyncing=true;setVivLabel('Viv: syncing…');
   try{
     const headers=token?{'Authorization':'Bearer '+token}:{'X-Retention-Key':key};
-    const r=await fetch(VIV_PROXY+'?endpoint=csm_hub',{headers});
+    // csm_hub = clients/visits/leads; csm_comms = auto-touchpoints (calls,
+    // texts, emails). Fetched together; comms failing never breaks the sync.
+    const [r,commsR]=await Promise.all([
+      fetch(VIV_PROXY+'?endpoint=csm_hub',{headers}),
+      fetch(VIV_PROXY+'?endpoint=csm_comms',{headers}).catch(()=>null)
+    ]);
     if(r.status===401){
       localStorage.removeItem(VIV_KEY_LS);setVivLabel('Viv: wrong key');
       if(interactive){openVivKeyModal();document.getElementById('vivkey-error').textContent='That key was not accepted — check with Courtney or Andrew.';}
@@ -4851,6 +4861,9 @@ async function vivSyncNow(interactive){
     if(!r.ok)throw new Error('HTTP '+r.status);
     const data=await r.json();
     applyVivData(data);
+    if(commsR&&commsR.ok){
+      try{applyCommsData(await commsR.json());}catch(e){console.warn('comms merge failed',e);}
+    }
     localStorage.setItem('viv_last_sync',new Date().toISOString());
     setVivLabel('Viv ✓ '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}));
     if(P){
@@ -4963,6 +4976,51 @@ function mergeVivProfile(pid,data){
     if(l.stage==='Converted'&&!l.clientId){const m=roster.find(c=>vivNorm(c.name)===vivNorm(vivPretty(hlead.name)));if(m)l.clientId=m.id;}
     l.updatedAt=data.generatedAt;
   }
+}
+
+// ── Auto-touchpoints from csm_comms: Nextiva calls, Twilio texts, Outlook
+// email metadata, matched server-side to clients by contact phone/email.
+// They land as read-only touchpoint rows (source:'auto') and count toward
+// cadence exactly like manual ones — inbound included. Auto rows older than
+// the server window are pruned each sync (they're re-derivable); manual
+// touchpoints are never touched.
+const COMMS_TP_TYPE={call:'Family Phone Call',email:'Family Email',text:'Text Follow-Up'};
+function applyCommsData(data){
+  if(!data||!Array.isArray(data.events))return;
+  DATA.shared=DATA.shared||{};
+  DATA.shared.comms={generatedAt:data.generatedAt,windowDays:data.windowDays,counts:data.counts,sources:data.sources};
+  const cutoff=new Date(Date.now()-(data.windowDays||30)*864e5).toISOString().split('T')[0];
+  Object.keys(VIV_NAMES).forEach(pid=>mergeCommsProfile(pid,data,cutoff));
+  queueSave();
+  if(P){renderTPRecent();renderTouchpointHistory();renderDueNow();updateHome();renderClientMaster();}
+}
+function mergeCommsProfile(pid,data,cutoff){
+  const pr=DATA.profiles[pid];if(!pr||!Array.isArray(pr.clients))return;
+  const vmap={};pr.clients.forEach(c=>{if(c.vivId)vmap[c.vivId]=c.id;});
+  const tps=pr.touchpoints=pr.touchpoints||[];
+  // prune stale auto rows (outside the server window they can't be re-verified)
+  pr.touchpoints=tps.filter(t=>!(t.source==='auto'&&t.date<cutoff));
+  const cur=pr.touchpoints;
+  const byId={};cur.forEach(t=>{if(t.source==='auto')byId[t.id]=t;});
+  for(const e of data.events){
+    const clientId=vmap[e.cid];if(!clientId)continue;
+    const id='auto_'+e.id;
+    let t=byId[id];
+    if(!t){t={id,source:'auto'};cur.push(t);byId[id]=t;}
+    t.clientId=clientId;
+    t.date=e.day;t.loggedAt=e.when;
+    t.type=COMMS_TP_TYPE[e.kind]||'Other';
+    t.kind=e.kind;t.dir=e.dir;
+    t.contact=e.who||'';
+    t.notes=e.summary||'';
+  }
+  cur.sort((a,b)=>(a.date||'')<(b.date||'')?-1:1);
+}
+// Small chip renderers use next to auto touchpoint rows.
+function tpAutoChip(t){
+  if(t.source!=='auto')return'';
+  const arrow=t.dir==='in'?'↓ in':'↑ out';
+  return ` <span style="font-size:9.5px;font-weight:700;color:#6B655C;background:#F1EEE8;padding:1px 6px;border-radius:8px;white-space:nowrap;" title="Captured automatically from ${t.kind==='call'?'Nextiva':t.kind==='text'?'Twilio':'Outlook'}">⟳ ${arrow}</span>`;
 }
 
 function renderUpcomingVisits(){
