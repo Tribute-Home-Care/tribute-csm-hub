@@ -174,26 +174,13 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
 </head>
 <body>
 
-<!-- STEP 1: CONNECT FOLDER -->
+<!-- STEP 1: LOADING (shared data comes from the gated Tribute API) -->
 <div id="screen-folder" class="setup-screen">
-  <div class="folder-box">
-    <!-- First-time: pick the shared folder -->
-    <div id="folder-pick">
-      <div class="fi">📁</div>
-      <h1>Connect Your OneDrive Folder</h1>
-      <p>Select the shared CSM Dashboard folder on your OneDrive. All team data saves there automatically so everyone stays in sync.</p>
-      <button class="btn btn-p" style="width:100%;padding:11px;" onclick="connectFolder()">Select Shared Folder</button>
-      <p style="margin-top:12px;font-size:11.5px;color:#8C857B;">Chrome will ask for permission — choose <strong>"Allow on every visit"</strong> so you're not asked again.</p>
-    </div>
-    <!-- Returning: folder already linked, Chrome just needs one click to re-grant -->
-    <div id="folder-resume" style="display:none;">
-      <div class="fi">👋</div>
-      <h1>Welcome back</h1>
-      <p>Your shared folder is already linked — Chrome just needs one click to reopen it.</p>
-      <button class="btn btn-p" style="width:100%;padding:11px;" onclick="resumeFolder()">Open CSM Hub</button>
-      <p style="margin-top:12px;font-size:11.5px;color:#8C857B;">Tip: if Chrome asks, choose <strong>"Allow on every visit"</strong> and this screen disappears for good.</p>
-      <p style="margin-top:8px;font-size:11.5px;color:#8C857B;cursor:pointer;text-decoration:underline;" onclick="connectFolder()">Use a different folder</p>
-    </div>
+  <div style="text-align:center;">
+    <div style="font-size:34px;margin-bottom:12px;">🏠</div>
+    <h1 style="font-size:22px;font-weight:800;color:var(--ink);margin-bottom:6px;">Tribute CSM Hub</h1>
+    <p id="loading-msg" style="color:#8C857B;font-size:13px;">Loading your workspace…</p>
+    <p id="loading-retry" style="display:none;margin-top:14px;"><button class="btn btn-p" onclick="loadDataFromFile().then(routeAfterConnect)">Retry</button></p>
   </div>
 </div>
 
@@ -221,7 +208,6 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
       <div class="hub-sub">Maryland</div>
     </div>
   </div>
-  <p style="margin-top:24px;font-size:11.5px;color:#8C857B;cursor:pointer;" onclick="disconnectFolder()">↩ Change folder</p>
 </div>
 
 <!-- STEP 2: PICK PROFILE -->
@@ -1210,7 +1196,7 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
       <p style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:4px;">📧 Viv Email Integration</p>
       <p style="font-size:12.5px;color:#6B655C;margin-bottom:12px;line-height:1.6;">Enter your Viv ingestion email address. When a CSM clicks "Send to Viv" on any note, it will open a pre-addressed email in their email app ready to send.</p>
       <div class="fg"><label class="fl">Viv Ingestion Email Address</label><input type="email" class="fc" id="settings-viv-email" placeholder="e.g., notes@viv.tributehomecare.com"></div>
-      <p style="font-size:11.5px;color:#8C857B;">This is shared across all CSMs and saved to the OneDrive data file.</p>
+      <p style="font-size:11.5px;color:#8C857B;">This is shared across all CSMs and saved centrally to Tribute's secure storage.</p>
     </div>
     <div style="margin-bottom:6px;">
       <p style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:4px;">⟳ Viv Live Sync</p>
@@ -1343,77 +1329,68 @@ const PROFILES=[
 ];
 let P=null;
 
-// ═══════════════════════ FILE SYSTEM (OneDrive) ═══════════════════════
-let dirHandle=null;
+// ═══════════════════════ SHARED DATA (server-side) ═══════════════════════
+// The team's shared document lives in Tribute's private storage behind the
+// same gated API as the Viv sync (endpoint csm_data) — no OneDrive folder,
+// no File System Access grants. Whole-document load/save with ETag
+// optimistic concurrency: a 409 means someone else saved since we loaded,
+// so we re-fetch and re-apply only OUR profile pocket (+ shared) on top.
 let DATA={profiles:{},version:1};
 let saveTimer=null;
-const FILE='tribute_csm_data.json';
+let _dataEtag=null;
+let _dataLoaded=false;
 
-async function idbSaveHandle(h){return new Promise((res,rej)=>{const r=indexedDB.open('TributeCSM',1);r.onupgradeneeded=e=>e.target.result.createObjectStore('h');r.onsuccess=e=>{const tx=e.target.result.transaction('h','readwrite');tx.objectStore('h').put(h,'dir');tx.oncomplete=res;tx.onerror=rej;};r.onerror=rej;});}
-async function idbGetHandle(){return new Promise(res=>{const r=indexedDB.open('TributeCSM',1);r.onupgradeneeded=e=>e.target.result.createObjectStore('h');r.onsuccess=e=>{const tx=e.target.result.transaction('h','readonly');const r2=tx.objectStore('h').get('dir');r2.onsuccess=()=>res(r2.result||null);r2.onerror=()=>res(null);};r.onerror=()=>res(null);});}
-
-async function connectFolder(){
-  try{
-    const h=await window.showDirectoryPicker({mode:'readwrite',startIn:'documents'});
-    dirHandle=h;
-    await idbSaveHandle(h);
-    await loadDataFromFile();
-    await routeAfterConnect();
-  }catch(e){
-    if(e.name!=='AbortError') showToast('Could not connect folder. Try again.');
-  }
-}
-
-let _savedHandle=null;
-async function tryReconnect(){
-  const h=await idbGetHandle();
-  if(!h){showFolderScreen();return;}
-  _savedHandle=h;
-  try{
-    // queryPermission never prompts: if Chrome kept the grant ("Allow on
-    // every visit"), we go straight in with zero clicks. Otherwise Chrome
-    // requires a user gesture to re-grant, so show the one-click resume
-    // instead of the full folder picker — the folder itself is remembered.
-    const perm=await h.queryPermission({mode:'readwrite'});
-    if(perm==='granted'){dirHandle=h;await loadDataFromFile();await routeAfterConnect();return;}
-    showFolderScreen(true);
-  }catch{showFolderScreen(true);}
-}
-async function resumeFolder(){
-  try{
-    const h=_savedHandle||await idbGetHandle();
-    if(!h){showFolderScreen();return;}
-    const perm=await h.requestPermission({mode:'readwrite'});
-    if(perm!=='granted'){showToast('Chrome needs "Allow" to reach the shared folder.');return;}
-    dirHandle=h;await loadDataFromFile();await routeAfterConnect();
-  }catch(e){
-    showToast('Could not reopen the saved folder — please pick it again.');
-    showFolderScreen();
-  }
+async function dataHeaders(json){
+  const token=window.tributeKsfGate&&window.tributeKsfGate.getToken?await window.tributeKsfGate.getToken():null;
+  const h=token?{'Authorization':'Bearer '+token}:{'X-Retention-Key':vivKey()};
+  if(json)h['Content-Type']='application/json';
+  return h;
 }
 
 async function loadDataFromFile(){
-  if(!dirHandle)return;
   try{
-    const fh=await dirHandle.getFileHandle(FILE,{create:true});
-    const file=await fh.getFile();
-    const txt=await file.text();
-    DATA=txt.trim()?JSON.parse(txt):{profiles:{},version:1};
+    const r=await fetch(VIV_PROXY+'?endpoint=csm_data',{headers:await dataHeaders()});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const j=await r.json();
+    _dataEtag=j.etag;
+    DATA=j.data||{profiles:{},version:1};
     if(!DATA.profiles)DATA.profiles={};
+    _dataLoaded=true;
     setSyncStatus('ok','Synced');
-  }catch(e){DATA={profiles:{},version:1};setSyncStatus('err','Read error');}
+  }catch(e){
+    // Keep whatever we already have in memory rather than blanking the app
+    if(!DATA||!DATA.profiles)DATA={profiles:{},version:1};
+    setSyncStatus('err','Read error');
+  }
 }
 
+async function _putData(){
+  return fetch(VIV_PROXY+'?endpoint=csm_data',{method:'POST',headers:await dataHeaders(true),body:JSON.stringify({etag:_dataEtag,data:DATA})});
+}
 async function saveToFile(){
-  if(!dirHandle){setSyncStatus('none','Not connected');return;}
   setSyncStatus('saving','Saving…');
   try{
     DATA.lastSaved=new Date().toISOString();
     DATA.lastSavedBy=P?P.name:'unknown';
-    const fh=await dirHandle.getFileHandle(FILE,{create:true});
-    const w=await fh.createWritable();
-    await w.write(JSON.stringify(DATA,null,2));
-    await w.close();
+    let r=await _putData();
+    if(r.status===409){
+      // Someone else saved since we loaded. Take their document, put our
+      // current profile pocket + shared settings back on top, retry once.
+      const fr=await fetch(VIV_PROXY+'?endpoint=csm_data',{headers:await dataHeaders()});
+      if(!fr.ok)throw new Error('HTTP '+fr.status);
+      const fj=await fr.json();
+      const merged=fj.data||{profiles:{},version:1};
+      merged.profiles=merged.profiles||{};
+      if(P&&DATA.profiles[P.id])merged.profiles[P.id]=DATA.profiles[P.id];
+      merged.shared={...(merged.shared||{}),...(DATA.shared||{})};
+      merged.lastSaved=new Date().toISOString();
+      merged.lastSavedBy=P?P.name:'unknown';
+      DATA=merged;_dataEtag=fj.etag;
+      r=await _putData();
+    }
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const j=await r.json();
+    _dataEtag=j.etag;
     setSyncStatus('ok','Saved · '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}));
   }catch(e){setSyncStatus('err','Save failed');}
 }
@@ -1443,11 +1420,11 @@ function _hideScreens(except){
   });
   document.getElementById('app').style.display='none';
 }
-function showFolderScreen(reconnect){
+function showLoadingScreen(failed){
   _hideScreens('screen-folder');
-  const rec=document.getElementById('folder-resume'),pick=document.getElementById('folder-pick');
-  if(rec)rec.style.display=reconnect?'block':'none';
-  if(pick)pick.style.display=reconnect?'none':'block';
+  const msg=document.getElementById('loading-msg'),retry=document.getElementById('loading-retry');
+  if(msg)msg.textContent=failed?'Could not reach the Tribute API — check your connection and try again.':'Loading your workspace…';
+  if(retry)retry.style.display=failed?'block':'none';
 }
 function showHubScreen(allowedHubs){
   _hideScreens('screen-hub');
@@ -1474,7 +1451,6 @@ function showProfileScreen(){
   const hubProfiles=selectedHub?PROFILES.filter(p=>Array.isArray(p.hub)?p.hub.includes(selectedHub):p.hub===selectedHub):PROFILES;
   grid.innerHTML=hubProfiles.map(p=>`<div class="pc ${p.isManager?'mgr':''} ${p.isCSC?'csc-card':''}" onclick="selectProfile('${p.id}')"><div class="pav" style="background:${p.color};">${p.initials}</div><div class="pname">${p.name}</div><div class="prole">${p.role}</div></div>`).join('');
 }
-function disconnectFolder(){indexedDB.deleteDatabase('TributeCSM');showFolderScreen();}
 
 // ═══════════════════════ MICROSOFT LOGIN → PROFILE ═══════════════════════
 // Each CSM's Microsoft sign-in (via entra-auth.js) decides what they can open:
@@ -5208,8 +5184,17 @@ window.addEventListener('DOMContentLoaded',async()=>{
   ['v-date','s60-date','lf-date'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=new Date().toISOString().split('T')[0];});
   document.querySelectorAll('.mo').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');}));
   // Re-read file when tab becomes visible again (catches changes made by other CSMs)
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&dirHandle&&P)loadDataFromFile().then(()=>{updateHome();});});
-  await tryReconnect();
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&_dataLoaded&&P)loadDataFromFile().then(()=>{updateHome();});});
+  // Load the shared document from the gated API, then route by identity.
+  // If sign-in hasn't completed yet the load 401s; the gate-unlocked event
+  // (fired by entra-auth.js after sign-in) retries it.
+  showLoadingScreen();
+  await loadDataFromFile();
+  if(_dataLoaded)await routeAfterConnect();
+  else showLoadingScreen(true);
+  document.addEventListener('tribute-gate-unlocked',async()=>{
+    if(!_dataLoaded){await loadDataFromFile();if(_dataLoaded)await routeAfterConnect();else showLoadingScreen(true);}
+  });
   // (Manager access is verified by the Microsoft sign-in in routeAfterConnect —
   // no separate password re-verification needed on refresh.)
 });
