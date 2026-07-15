@@ -938,6 +938,14 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
     </div>
     <div id="team-cards" class="g3" style="margin-bottom:14px;"></div>
     <div class="card" style="margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px;margin-bottom:4px;">
+        <div class="ct" style="margin:0;">⚖️ Workload Distribution</div>
+        <span style="font-size:11px;color:#8C857B;">last 30 days</span>
+      </div>
+      <p style="font-size:12px;color:#6B655C;line-height:1.6;margin-bottom:12px;">Workload counts every client once, <strong>plus extra weight for how much communication each client actually generates</strong> — calls, emails, texts and logged touchpoints from the last 30 days. A quiet client counts as 1; a very high-touch client counts up to 3.</p>
+      <div id="team-workload"></div>
+    </div>
+    <div class="card" style="margin-bottom:14px;">
       <div class="ct" style="margin-bottom:10px;">📊 KPI Summary — Current Quarter</div>
       <div id="team-kpi"></div>
     </div>
@@ -3856,6 +3864,26 @@ function teamTab(market,el){
   el.classList.add('active');
   if(_teamView==='visits')renderTeamVisits();else renderTeamOverview();
 }
+// ── Workload model (Courtney's definition): every client counts once, plus
+// extra weight for the communication each client actually generates. Client
+// weight = 1 + min(touches30,20)/10 — so 0 touches ⇒ 1.0, 10 touches ⇒ 2.0,
+// capped at 3.0. Touches = ALL touchpoints in the last 30 days: auto-captured
+// calls/emails/texts and manually logged ones alike.
+function workloadFor(pid){
+  const cutoff=new Date(Date.now()-30*864e5).toISOString().split('T')[0];
+  const tps=get('touchpoints',pid).filter(t=>t.date&&t.date>=cutoff);
+  const byClient={};tps.forEach(t=>{if(t.clientId)byClient[t.clientId]=(byClient[t.clientId]||0)+1;});
+  const clients=get('clients',pid);
+  let weighted=0,touches=0;
+  for(const c of clients){
+    const tc=byClient[c.id]||0;
+    touches+=tc;
+    weighted+=1+Math.min(tc,20)/10;
+  }
+  return {clients:clients.length,touches,weighted:Math.round(weighted*10)/10,
+    avgTouch:clients.length?Math.round(touches/clients.length*10)/10:0};
+}
+
 function renderTeamOverview(){
   // All CSMs visible to manager — exclude self and coverage-only profiles
   const pool=PROFILES.filter(p=>p.id!==(P&&P.id)&&!p.coverageMarketOnly);
@@ -3876,18 +3904,24 @@ function renderTeamOverview(){
     return c.freq!=='NA'&&(d===null||d>(parseInt(c.freq)||90));
   });
 
+  // Workload per CSM (clients + communication weight) — computed once per render
+  const W=Object.fromEntries(pool.map(p=>[p.id,workloadFor(p.id)]));
+
   // ── Top stats (always ALL-market totals, regardless of tab) ──
   const allCl=pool.flatMap(p=>get('clients',p.id));
   const allOv=pool.flatMap(p=>getOv(p.id));
   const allHi=allCl.filter(c=>c.tier==='High');
   const allS30=allCl.filter(c=>c.startDate&&(daysAgo(c.startDate)||999)<=30);
+  const allTouch=pool.reduce((s,p)=>s+W[p.id].touches,0);
   const statsEl=document.getElementById('team-top-stats');
   if(statsEl)statsEl.innerHTML=[
     {label:'Total Clients',val:allCl.length,sub:`${pool.length} CSMs · 3 markets`,color:'var(--navy)'},
+    {label:'Touchpoints · 30d',val:allTouch,sub:allCl.length?Math.round(allTouch/allCl.length*10)/10+' per client':'—',color:'#3B72B8'},
     {label:'High Need',val:allHi.length,sub:allCl.length?Math.round(allHi.length/allCl.length*100)+'% of all clients':'0%',color:'#C8362B'},
     {label:'Overdue Visits',val:allOv.length,sub:allOv.length?'Need attention':'All on track ✓',color:allOv.length?'#C2710C':'#0F8F6B'},
     {label:'In Onboarding',val:allS30.length,sub:'Active S30 clients',color:'#9D2667'},
   ].map(s=>`<div class="sc" style="cursor:default;"><div class="sl">${s.label}</div><div class="sv" style="color:${s.color};">${s.val}</div><div class="ss">${s.sub}</div></div>`).join('');
+  statsEl.style.gridTemplateColumns='repeat(auto-fit,minmax(150px,1fr))';
 
   // ── CSM cards ──
   const cardsEl=document.getElementById('team-cards');
@@ -3895,8 +3929,10 @@ function renderTeamOverview(){
     if(!filtered.length){
       cardsEl.innerHTML='<p style="font-size:13px;color:#8C857B;padding:8px;">No CSMs for this market.</p>';
     } else {
+      const maxW=Math.max(1,...filtered.map(p=>W[p.id].weighted));
       cardsEl.innerHTML=filtered.map(p=>{
         const cl=get('clients',p.id);
+        const wk=W[p.id];
         const hi=cl.filter(c=>c.tier==='High').length;
         const med=cl.filter(c=>c.tier==='Medium').length;
         const lo=cl.filter(c=>c.tier==='Low').length;
@@ -3915,18 +3951,22 @@ function renderTeamOverview(){
               <div style="font-size:11px;color:#8C857B;margin-top:1px;">${p.role} · ${mktLabel}</div>
             </div>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px;">
-            <div style="background:#F7F4EF;border-radius:7px;padding:7px;text-align:center;">
-              <div style="font-size:19px;font-weight:700;color:var(--navy);">${cl.length}</div>
-              <div style="font-size:10px;color:#8C857B;">Clients</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:5px;margin-bottom:10px;">
+            <div style="background:#F7F4EF;border-radius:7px;padding:7px 4px;text-align:center;">
+              <div style="font-size:17px;font-weight:700;color:var(--navy);">${cl.length}</div>
+              <div style="font-size:9.5px;color:#8C857B;">Clients</div>
             </div>
-            <div style="background:${ov.length?'#F8E5E2':'#E2F2EC'};border-radius:7px;padding:7px;text-align:center;">
-              <div style="font-size:19px;font-weight:700;color:${ov.length?'#C8362B':'#0F8F6B'};">${ov.length}</div>
-              <div style="font-size:10px;color:#8C857B;">Overdue</div>
+            <div style="background:#E8EFF7;border-radius:7px;padding:7px 4px;text-align:center;" title="Touchpoints across this caseload in the last 30 days — auto-captured calls/emails/texts plus logged touches">
+              <div style="font-size:17px;font-weight:700;color:#2C5689;">${wk.touches}</div>
+              <div style="font-size:9.5px;color:#8C857B;">Touches 30d</div>
             </div>
-            <div style="background:${s30.length?'#E8EFF7':'#F7F4EF'};border-radius:7px;padding:7px;text-align:center;">
-              <div style="font-size:19px;font-weight:700;color:${s30.length?'#2C5689':'#8C857B'};">${s30.length}</div>
-              <div style="font-size:10px;color:#8C857B;">In S30</div>
+            <div style="background:${ov.length?'#F8E5E2':'#E2F2EC'};border-radius:7px;padding:7px 4px;text-align:center;">
+              <div style="font-size:17px;font-weight:700;color:${ov.length?'#C8362B':'#0F8F6B'};">${ov.length}</div>
+              <div style="font-size:9.5px;color:#8C857B;">Overdue</div>
+            </div>
+            <div style="background:${s30.length?'#E8EFF7':'#F7F4EF'};border-radius:7px;padding:7px 4px;text-align:center;">
+              <div style="font-size:17px;font-weight:700;color:${s30.length?'#2C5689':'#8C857B'};">${s30.length}</div>
+              <div style="font-size:9.5px;color:#8C857B;">In S30</div>
             </div>
           </div>
           <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;">
@@ -3941,10 +3981,50 @@ function renderTeamOverview(){
           <div style="height:5px;background:#F1EEE8;border-radius:3px;overflow:hidden;">
             <div style="height:100%;width:${compliance}%;background:${cmpClr};"></div>
           </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:9px;margin-bottom:3px;">
+            <span style="font-size:10.5px;color:#8C857B;" title="Every client counts once, plus up to 2 extra points for communication volume (touchpoints in the last 30 days)">Workload (clients + touch)</span>
+            <span style="font-size:11px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;">${wk.weighted}</span>
+          </div>
+          <div style="height:5px;background:#F1EEE8;border-radius:3px;overflow:hidden;">
+            <div style="height:100%;width:${Math.round(wk.weighted/maxW*100)}%;background:#3B72B8;"></div>
+          </div>
           <div style="margin-top:11px;padding-top:9px;border-top:1px solid #F1EEE8;text-align:right;font-size:11.5px;color:var(--gold);font-weight:600;">View Details →</div>
         </div>`;
       }).join('');
     }
+  }
+
+  // ── Workload distribution: ranked stacked bars (clients base + touch weight) ──
+  const wlEl=document.getElementById('team-workload');
+  if(wlEl){
+    const rows=[...filtered].sort((a,b)=>W[b.id].weighted-W[a.id].weighted);
+    const maxWl=Math.max(1,...rows.map(p=>W[p.id].weighted));
+    const avgWl=rows.length?Math.round(rows.reduce((s,p)=>s+W[p.id].weighted,0)/rows.length*10)/10:0;
+    wlEl.innerHTML=`
+      <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:10px;font-size:11px;color:#6B655C;">
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#3B72B8;vertical-align:-1px;"></span> clients (1 each)</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#C2710C;vertical-align:-1px;"></span> communication weight</span>
+        <span style="margin-left:auto;">team average <strong style="font-variant-numeric:tabular-nums;">${avgWl}</strong></span>
+      </div>
+      ${rows.map(p=>{
+        const wk=W[p.id];
+        const basePct=Math.round(wk.clients/maxWl*100);
+        const extraPct=Math.round((wk.weighted-wk.clients)/maxWl*100);
+        const over=avgWl&&wk.weighted>=avgWl*1.2;
+        return `<div style="display:flex;align-items:center;gap:10px;padding:5px 0;">
+          <div class="pav" style="background:${p.color};width:26px;height:26px;font-size:10px;flex-shrink:0;">${p.initials}</div>
+          <div style="width:110px;flex-shrink:0;font-size:12px;font-weight:500;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name.split(' ')[0]} ${p.name.split(' ').slice(1).join(' ').charAt(0)||''}.</div>
+          <div style="flex:1;height:16px;background:#F1EEE8;border-radius:8px;overflow:hidden;display:flex;">
+            <div style="width:${basePct}%;background:#3B72B8;" title="${wk.clients} clients"></div>
+            <div style="width:${extraPct}%;background:#C2710C;" title="+${Math.round((wk.weighted-wk.clients)*10)/10} from ${wk.touches} touchpoints"></div>
+          </div>
+          <div style="width:150px;flex-shrink:0;text-align:right;font-size:11.5px;color:#6B655C;font-variant-numeric:tabular-nums;">
+            <strong style="color:${over?'#A4271E':'var(--ink)'};">${wk.weighted}</strong>
+            <span style="color:#8C857B;"> · ${wk.clients} cl · ${wk.touches} tp</span>
+          </div>
+        </div>`;
+      }).join('')}
+      <p style="font-size:11px;color:#8C857B;margin-top:8px;">tp = touchpoints across the caseload in the last 30 days · a red total is ≥20% above the team average</p>`;
   }
 
   // ── KPI summary ──
