@@ -3930,15 +3930,16 @@ function renderTeamOverview(){
   // Workload per CSM (clients + communication weight) — computed once per render
   const W=Object.fromEntries(pool.map(p=>[p.id,workloadFor(p.id)]));
 
-  // ── Top stats (always ALL-market totals, regardless of tab) ──
-  const allCl=pool.flatMap(p=>get('clients',p.id));
-  const allOv=pool.flatMap(p=>getOv(p.id));
+  // ── Top stats — follow the selected market tab ──
+  const allCl=filtered.flatMap(p=>get('clients',p.id));
+  const allOv=filtered.flatMap(p=>getOv(p.id));
   const allHi=allCl.filter(c=>c.tier==='High');
   const allS30=allCl.filter(c=>c.startDate&&(daysAgo(c.startDate)||999)<=30);
-  const allTouch=pool.reduce((s,p)=>s+W[p.id].touches,0);
+  const allTouch=filtered.reduce((s,p)=>s+W[p.id].touches,0);
+  const mktSub={all:'3 markets',MA:'Massachusetts',MD:'Maryland',CHI:'Chicago'}[_teamMarket]||'';
   const statsEl=document.getElementById('team-top-stats');
   if(statsEl)statsEl.innerHTML=[
-    {label:'Total Clients',val:allCl.length,sub:`${pool.length} CSMs · 3 markets`,color:'var(--navy)'},
+    {label:'Total Clients',val:allCl.length,sub:`${filtered.length} CSM${filtered.length!==1?'s':''} · ${mktSub}`,color:'var(--navy)'},
     {label:'Touchpoints · 30d',val:allTouch,sub:allCl.length?Math.round(allTouch/allCl.length*10)/10+' per client':'—',color:'#3B72B8'},
     {label:'High Need',val:allHi.length,sub:allCl.length?Math.round(allHi.length/allCl.length*100)+'% of all clients':'0%',color:'#C8362B'},
     {label:'Overdue Visits',val:allOv.length,sub:allOv.length?'Need attention':'All on track ✓',color:allOv.length?'#C2710C':'#0F8F6B'},
@@ -4122,34 +4123,16 @@ function renderTeamVisits(){
   const parts=_tvMonth.split('-');
   const yr=parseInt(parts[0]),mo=parseInt(parts[1]);
 
-  // Build row data
-  function visitStatusLabel(actual,freq){
-    const f=parseInt(freq)||90;
-    const exp=30/f; // expected per month
-    if(exp>=1){
-      const e=Math.round(exp);
-      if(actual===0)return'under';
-      if(actual>e*1.75)return'over';
-      return'ok';
-    } else {
-      // freq >= ~60 — less than 1 visit/month expected
-      if(actual>=3)return'over';
-      return'ok'; // 0 or 1 both acceptable
-    }
-  }
-
+  // Build row data — shares visitMonthStatus/visitInMonth with the CSM
+  // detail modal so both views agree on what "behind" means.
   const rows=toShow.flatMap(p=>{
     const clients=get('clients',p.id);
     const visits=get('visits',p.id);
     return clients.filter(c=>c.freq!=='NA').map(c=>{
-      const mv=visits.filter(v=>{
-        if(v.clientId!==c.id)return false;
-        const d=new Date(v.date);
-        return d.getFullYear()===yr&&(d.getMonth()+1)===mo;
-      });
+      const mv=visits.filter(v=>v.clientId===c.id&&visitInMonth(v,yr,mo));
       const f=parseInt(c.freq)||90;
       const expPerMo=30/f;
-      return{clientName:c.name,tier:c.tier,freq:c.freq,csmName:p.name,csmColor:p.color,csmInitials:p.initials,actual:mv.length,expPerMo,status:visitStatusLabel(mv.length,c.freq)};
+      return{clientName:c.name,tier:c.tier,freq:c.freq,csmName:p.name,csmColor:p.color,csmInitials:p.initials,actual:mv.length,expPerMo,status:visitMonthStatus(mv.length,c.freq,c,yr,mo)};
     });
   });
 
@@ -4339,16 +4322,33 @@ function buildCSMDClients(pid){
   }).join('')}</div>`;
 }
 
+// Month-bucket status that can actually say "behind" for slower-than-monthly
+// cadences: for freq < ~monthly, judge by days since the client's last visit
+// (as of the end of the viewed month, or today for the current month) —
+// otherwise a "every 90d" client reads Good forever regardless of reality.
+function visitMonthStatus(actual,freq,client,yr,mo){
+  const f=parseInt(freq)||90;const exp=30/f;
+  if(exp>=1){const e=Math.round(exp);if(actual===0)return'under';if(actual>e*1.75)return'over';return'ok';}
+  if(actual>=3)return'over';
+  if(actual>0)return'ok';
+  const monthEnd=new Date(yr,mo,0,23,59);const ref=monthEnd>new Date()?new Date():monthEnd;
+  if(!client.lastVisit)return'under';
+  const days=Math.floor((ref-new Date(String(client.lastVisit).slice(0,10)+'T12:00:00'))/864e5);
+  return days>f?'under':'ok';
+}
+// Parse a stored visit date ('YYYY-MM-DD') in LOCAL time — new Date(str)
+// alone parses UTC and shifts 1st-of-month visits into the prior month.
+function visitInMonth(v,yr,mo){const d=new Date(String(v.date).slice(0,10)+'T12:00:00');return d.getFullYear()===yr&&(d.getMonth()+1)===mo;}
+
 function buildCSMDVisits(pid){
   const parts=_csmDetailMonth.split('-');
   const yr=parseInt(parts[0]),mo=parseInt(parts[1]);
   const clients=get('clients',pid).filter(c=>c.freq!=='NA');
   const visits=get('visits',pid);
   const monthLabel=new Date(yr,mo-1,1).toLocaleDateString('en-US',{month:'long',year:'numeric'});
-  function vStatus(actual,freq){const f=parseInt(freq)||90;const exp=30/f;if(exp>=1){const e=Math.round(exp);if(actual===0)return'under';if(actual>e*1.75)return'over';return'ok';}else{if(actual>=3)return'over';return'ok';}}
   const rows=clients.map(c=>{
-    const mv=visits.filter(v=>{if(v.clientId!==c.id)return false;const d=new Date(v.date);return d.getFullYear()===yr&&(d.getMonth()+1)===mo;});
-    return{name:c.name,tier:c.tier,freq:c.freq,actual:mv.length,exp:30/(parseInt(c.freq)||90),status:vStatus(mv.length,c.freq)};
+    const mv=visits.filter(v=>v.clientId===c.id&&visitInMonth(v,yr,mo));
+    return{name:c.name,tier:c.tier,freq:c.freq,actual:mv.length,exp:30/(parseInt(c.freq)||90),status:visitMonthStatus(mv.length,c.freq,c,yr,mo)};
   });
   const sortO={under:0,over:1,ok:2};
   rows.sort((a,b)=>sortO[a.status]-sortO[b.status]||(b.actual-a.actual));
@@ -5064,9 +5064,12 @@ function mergeVivProfile(pid,data){
   const vmap={};roster.forEach(c=>{if(c.vivId)vmap[c.vivId]=c.id;});
 
   // ── Visits: past supervisory visits land in the visit history; future ones in vivUpcoming ──
+  // A Home Visit/Assessment counts for the CLIENT no matter who performed it —
+  // covering CSMs and market support keep the client's cadence alive. So keep:
+  // visits on my roster's clients (any performer) + visits I performed myself.
   pr.visits=(pr.visits||[]).filter(v=>!(v.source==='viv'&&v.clientId&&dropIds.has(v.clientId)));
   const vs=pr.visits;
-  const mineV=(data.visits||[]).filter(v=>names.includes(v.csm));
+  const mineV=(data.visits||[]).filter(v=>vmap[v.cid]||names.includes(v.csm));
   for(const vv of mineV){
     if(vv.day>todayStr)continue;
     const vid='viv'+vv.id;
@@ -5074,6 +5077,7 @@ function mergeVivProfile(pid,data){
     if(!v){v={id:vid,loggedAt:data.generatedAt};vs.push(v);}
     v.clientId=vmap[vv.cid]||v.clientId||'';
     v.vivClient=vv.client||'';
+    v.by=vv.csm||'';
     v.date=vv.day;v.type='In-Person';v.vivType=vv.type;v.source='viv';
   }
   vs.sort((a,b)=>(a.date||'')<(b.date||'')?-1:1);
