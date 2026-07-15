@@ -255,6 +255,7 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
     <div class="nav-sec">My Work</div>
     <div class="nav-item active" onclick="showPage('home',this)"><span class="nav-icon">🏠</span>Home</div>
     <div class="nav-item" onclick="showPage('clients',this)"><span class="nav-icon">👥</span>Clients</div>
+    <div class="nav-item" onclick="showPage('pulse',this)"><span class="nav-icon">💓</span>Client Pulse</div>
     <div class="nav-item" onclick="showPage('s60',this)"><span class="nav-icon">🎯</span>Success in 30</div>
     <div class="nav-item" onclick="showPage('coverage',this)"><span class="nav-icon">🏖️</span>Coverage Notes</div>
     <div class="nav-item" onclick="showPage('priority',this)"><span class="nav-icon">🚨</span>Fill Priority</div>
@@ -421,6 +422,22 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
     <select id="hist-search"></select><select id="hist-client"></select><select id="hist-type"></select>
     <select id="vf-search"></select><select id="vf-client"></select><select id="vf-type"></select>
   </div>
+</div>
+
+<!-- CLIENT PULSE -->
+<div id="page-pulse" class="page">
+  <div class="ph"><h2>💓 Client Pulse</h2><p>Where every client stands — scored from caregiver visit notes, change-of-condition reports, service exceptions, communications and clinical signals. Sorted by who needs attention first.</p></div>
+  <div class="g4" style="margin-bottom:14px;" id="pulse-stats"></div>
+  <div style="display:flex;gap:9px;margin-bottom:12px;align-items:center;flex-wrap:wrap;">
+    <input class="si" type="text" id="pulse-search" placeholder="Search client..." oninput="renderPulse()" style="flex:1;min-width:160px;">
+    <select class="fc" style="width:170px;" id="pulse-level" onchange="renderPulse()">
+      <option value="">All levels</option><option value="red">🔴 Needs attention</option><option value="amber">🟡 Watch</option><option value="green">🟢 Stable</option>
+    </select>
+    <select class="fc" style="width:180px;display:none;" id="pulse-csm" onchange="renderPulse()"></select>
+    <button class="btn btn-sm btn-o" onclick="loadPulse(true)">🔄 Refresh</button>
+  </div>
+  <p id="pulse-meta" style="font-size:11px;color:#8C857B;margin-bottom:10px;"></p>
+  <div id="pulse-list"></div>
 </div>
 
 <!-- COMMUNICATIONS -->
@@ -1673,7 +1690,7 @@ function showPage(p,el){
   document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
   document.getElementById('page-'+p).classList.add('active');
   if(el)el.classList.add('active');
-  ({home:updateHome,clients:renderClientMaster,priority:renderFillPriority,comms:()=>{syncTPClients();syncCIClients();renderDueNow();renderTPRecent();renderTouchpointHistory();},s60:()=>{syncS60();renderS60();renderS60Emails(null);},coverage:()=>{syncCov();renderCovSummary();renderTeamCoverage();},assistant:()=>{renderTemplates();renderScenarios();renderDecision();},expectations:renderExpectations,kpi:renderKPIHistory,team:()=>{if(_teamView==='visits')renderTeamVisits();else renderTeamOverview();}}[p]||(_=>{}))();
+  ({home:updateHome,clients:renderClientMaster,pulse:renderPulse,priority:renderFillPriority,comms:()=>{syncTPClients();syncCIClients();renderDueNow();renderTPRecent();renderTouchpointHistory();},s60:()=>{syncS60();renderS60();renderS60Emails(null);},coverage:()=>{syncCov();renderCovSummary();renderTeamCoverage();},assistant:()=>{renderTemplates();renderScenarios();renderDecision();},expectations:renderExpectations,kpi:renderKPIHistory,team:()=>{if(_teamView==='visits')renderTeamVisits();else renderTeamOverview();}}[p]||(_=>{}))();
 }
 function aTab(t,el){['kb','emails','scenarios','decision'].forEach(x=>{document.getElementById('asst-'+x).classList.remove('active');});document.querySelectorAll('#page-assistant .tab').forEach(x=>x.classList.remove('active'));document.getElementById('asst-'+t).classList.add('active');el.classList.add('active');if(t==='emails')renderTemplates();if(t==='scenarios')renderScenarios();if(t==='decision')renderDecision();_updateAsstAdminBars();}
 function _updateAsstAdminBars(){
@@ -2116,7 +2133,7 @@ function _renderClientMasterInner(){
     const eid=escHtml(c.id),ename=escHtml(c.name);
     html+=`<tr class="cm-row" onclick="toggleClientDetail('${eid}')" style="cursor:pointer;background:${bg};border-bottom:1px solid #F1EEE8;" onmouseover="this.style.background='#F1EEE8'" onmouseout="this.style.background='${bg}'">
       <td style="padding:10px 14px;">
-        <div style="font-weight:600;color:var(--navy);">${ename}${c.tributeSecure?' <span title="Tribute Secure">🛡️</span>':''} ${vivStatusBadge(c)}</div>
+        <div style="font-weight:600;color:var(--navy);">${ename}${pulseDot(c)}${c.tributeSecure?' <span title="Tribute Secure">🛡️</span>':''} ${vivStatusBadge(c)}</div>
         <div style="font-size:11px;color:#8C857B;">${escHtml(c.loc||'')}${c.city?', '+escHtml(c.city):''}</div>
       </td>
       <td style="padding:10px 14px;">${tierBadge(c.tier)}</td>
@@ -2182,6 +2199,12 @@ function buildClientDetail(id){
       ${(()=>{try{const s=calcScore(c).score;const col=s>=11?'#C8362B':s>=6?'#C2710C':'#0F8F6B';return s>0?`<div style="margin-top:4px;"><strong>Fill Score:</strong> <span style="color:${col};font-weight:700;">${s} pts</span></div>`:'';}catch(e){return '';}})()}
     </div>
     ${c.notes?`<div style="margin-top:8px;padding:7px 9px;background:#fff;border-radius:4px;border:1px solid #EAE6DF;font-size:11.5px;color:#3D3833;">${escHtml(c.notes)}</div>`:''}
+    ${c.vivNotes?`<div style="margin-top:8px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#8C857B;margin-bottom:3px;">⟳ Viv client notes</div><div style="padding:7px 9px;background:#F7F4EF;border-radius:6px;font-size:11.5px;color:#3D3833;line-height:1.5;max-height:130px;overflow-y:auto;">${escHtml(c.vivNotes)}</div></div>`:''}
+    ${(()=>{const pp=_PULSE&&c.vivId?_PULSE.byCid[c.vivId]:null;if(!pp)return'';
+      return `<div style="margin-top:8px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#8C857B;margin-bottom:3px;">💓 Pulse</div>
+      <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;">${pulseChip(pp.level)}<span style="font-size:11px;color:#57524A;">${escHtml((pp.reasons||[]).slice(0,3).join(' · ')||'No flags')}</span></div>
+      ${pp.aiPulse?`<div style="margin-top:5px;font-size:11.5px;color:#3D3833;line-height:1.5;background:#FBEADF;border-radius:6px;padding:6px 9px;"><strong style="color:#C2410C;">Claude:</strong> ${escHtml(pp.aiPulse)}</div>`:''}
+      ${(pp.visitNotes&&pp.visitNotes.length)?`<div style="margin-top:5px;font-size:11.5px;color:#57524A;line-height:1.5;"><span style="color:#8C857B;">${pp.visitNotes[0].date} visit:</span> ${escHtml(pp.visitNotes[0].note.slice(0,200))}</div>`:''}</div>`;})()}
     <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;">
       <button class="btn btn-sm btn-p" onclick="editClient('${eid}');event.stopPropagation()">✏️ Edit Client</button>
       <button class="btn btn-sm btn-o" onclick="openFillPriority('${eid}');event.stopPropagation()">📊 Fill Priority</button>
@@ -5013,6 +5036,7 @@ async function vivSyncNow(interactive){
       updateHome();syncDropdowns();
       renderClientMaster();renderFillPriority();renderOpenVisits();
       renderVisitLog();renderVisitStats();renderVCadence();
+      loadPulse(false); // fire-and-forget: pulse chips + page refresh
     }
     if(interactive)showToast('Viv sync complete — clients, visits, open shifts & leads updated! ⟳');
   }catch(e){
@@ -5168,6 +5192,94 @@ function tpAutoChip(t){
   if(t.source!=='auto')return'';
   const arrow=t.dir==='in'?'↓ in':'↑ out';
   return ` <span style="font-size:9.5px;font-weight:700;color:#6B655C;background:#F1EEE8;padding:1px 6px;border-radius:8px;white-space:nowrap;" title="Captured automatically from ${t.kind==='call'?'Nextiva':t.kind==='text'?'Twilio':'Outlook'}">⟳ ${arrow}</span>`;
+}
+
+// ═══════════════════════ CLIENT PULSE ═══════════════════════
+// Server-scored attention read for every active client (endpoint client_pulse,
+// warmed 3x/day): caregiver visit notes (14d), change-of-condition reports,
+// service exceptions (90d), communications (30d), hosp risk, client notes,
+// plus an optional Claude read per attention client. CSMs see their own
+// caseload; managers and CSCs see everyone with a CSM filter. Held in memory
+// only — never written into the shared document.
+let _PULSE=null;
+async function loadPulse(interactive){
+  try{
+    if(interactive)setVivLabel('Viv: pulse…');
+    const r=await fetch(VIV_PROXY+'?endpoint=client_pulse',{headers:await dataHeaders()});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const d=await r.json();
+    const byCid={};(d.clients||[]).forEach(c=>{byCid[c.cid]=c;});
+    _PULSE={byCid,counts:d.counts,generatedAt:d.generatedAt,clients:d.clients||[],aiStatus:d.aiStatus};
+    if(interactive)setVivLabel('Viv ✓ '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}));
+    renderPulse();
+    if(document.getElementById('page-clients').classList.contains('active'))renderClientMaster();
+  }catch(e){
+    if(interactive)showToast('Pulse refresh failed — '+e.message);
+    const el=document.getElementById('pulse-list');
+    if(el&&!_PULSE)el.innerHTML='<div class="es"><div class="ei">💓</div><p>Could not load the pulse feed — try Refresh.</p></div>';
+  }
+}
+function pulseChip(level){const m={red:['Needs attention','#A4271E','#F8E5E2'],amber:['Watch','#92580B','#F8EEDB'],green:['Stable','#0F6E56','#E2F2EC']}[level]||['—','#8C857B','#F1EEE8'];return `<span style="font-size:11px;font-weight:700;color:${m[1]};background:${m[2]};padding:2px 9px;border-radius:10px;white-space:nowrap;">${m[0]}</span>`;}
+function pulseDot(c){
+  if(!_PULSE||!c.vivId)return'';
+  const p=_PULSE.byCid[c.vivId];
+  if(!p||p.level==='green')return'';
+  const col=p.level==='red'?'#A4271E':'#C2710C';
+  return ` <span title="Pulse: ${p.level==='red'?'needs attention':'watch'} — ${escHtml((p.reasons||[]).join('; '))}" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${col};vertical-align:1px;"></span>`;
+}
+function _pulseIsMgrView(){return !!(P&&(P.isManager||P.isCSC))||accountIsManager(ACCT);}
+function _myPulseRows(){
+  if(!_PULSE)return[];
+  if(_pulseIsMgrView())return[..._PULSE.clients];
+  const mine=new Set(get('clients').map(c=>c.vivId).filter(Boolean));
+  return _PULSE.clients.filter(p=>mine.has(p.cid));
+}
+function renderPulse(){
+  const el=document.getElementById('pulse-list');if(!el)return;
+  if(!_PULSE){el.innerHTML='<div class="es"><div class="ei">💓</div><p>Loading the pulse feed…</p></div>';loadPulse(false);return;}
+  const mgr=_pulseIsMgrView();
+  const csmSel=document.getElementById('pulse-csm');
+  if(csmSel){
+    csmSel.style.display=mgr?'':'none';
+    if(mgr&&csmSel.options.length<=1){
+      const names=[...new Set(_PULSE.clients.map(p=>p.csm).filter(Boolean))].sort();
+      csmSel.innerHTML='<option value="">All CSMs</option>'+names.map(n=>`<option>${escHtml(n)}</option>`).join('');
+    }
+  }
+  const all=_myPulseRows();
+  const q=(document.getElementById('pulse-search')?.value||'').toLowerCase();
+  const lf=document.getElementById('pulse-level')?.value||'';
+  const cf=mgr?(csmSel?.value||''):'';
+  const rows=all.filter(p=>(!q||p.name.toLowerCase().includes(q))&&(!lf||p.level===lf)&&(!cf||p.csm===cf));
+  const st=document.getElementById('pulse-stats');
+  if(st)st.innerHTML=[['Needs attention',all.filter(p=>p.level==='red').length,'#A4271E'],['Watch',all.filter(p=>p.level==='amber').length,'#92580B'],['Stable',all.filter(p=>p.level==='green').length,'#0F6E56'],[mgr?'Clients scored':'My clients scored',all.length,'var(--ink)']]
+    .map(s=>`<div class="sc"><div class="sl">${s[0]}</div><div class="sv" style="color:${s[2]};">${s[1]}</div></div>`).join('');
+  const meta=document.getElementById('pulse-meta');
+  if(meta)meta.textContent=`Scored ${_PULSE.generatedAt?new Date(_PULSE.generatedAt).toLocaleString():'—'} · signals: caregiver visit notes (14d) · change of condition · service exceptions (90d) · communications (30d) · hospitalization risk · client notes · Claude reads: ${/disabled/.test(_PULSE.aiStatus||'')?'off':(_PULSE.aiStatus||'—')}`;
+  if(!rows.length){el.innerHTML='<div class="es"><div class="ei">💓</div><p>No clients match.</p></div>';return;}
+  el.innerHTML=rows.map(p=>{
+    const id='pl_'+p.cid;
+    const sec=(t,color)=>`<div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:${color||'#8C857B'};margin:9px 0 5px;">${t}</div>`;
+    return `<div class="card" style="margin-bottom:9px;padding:13px 16px;">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;cursor:pointer;" onclick="const d=document.getElementById('${id}');d.style.display=d.style.display==='none'?'block':'none';">
+        <div style="min-width:0;flex:1;">
+          <span style="font-weight:600;color:var(--ink);">${escHtml(p.name)}</span>
+          <span style="font-size:11px;color:#8C857B;"> · ${escHtml(p.market||'')}${mgr&&p.csm?' · '+escHtml(p.csm):''}</span>
+        </div>
+        ${pulseChip(p.level)}
+        <span style="font-family:var(--mono);font-size:12px;font-weight:700;color:#57524A;" title="attention score">${p.score}</span>
+      </div>
+      ${(p.reasons&&p.reasons.length)?`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:7px;">${p.reasons.map(r=>`<span style="font-size:10.5px;background:#F1EEE8;color:#57524A;padding:1px 8px;border-radius:9px;">${escHtml(r)}</span>`).join('')}</div>`:''}
+      ${p.aiPulse?`<div style="margin-top:8px;padding:9px 11px;background:#FBEADF;border-radius:9px;font-size:12.5px;color:#3D3833;line-height:1.5;"><strong style="color:#C2410C;">Claude read:</strong> ${escHtml(p.aiPulse)}${(p.aiWatch&&p.aiWatch.length)?`<div style="margin-top:4px;font-size:11.5px;color:#6B655C;">Watch: ${p.aiWatch.map(w=>escHtml(w)).join(' · ')}</div>`:''}</div>`:''}
+      <div id="${id}" style="display:none;margin-top:10px;border-top:1px solid var(--line-soft);padding-top:4px;">
+        ${(p.visitNotes&&p.visitNotes.length)?sec('Caregiver visit notes (14d)')+p.visitNotes.map(n=>`<div style="font-size:12px;color:#3D3833;margin-bottom:6px;line-height:1.5;"><span style="color:#8C857B;">${n.date} · ${escHtml(n.cg)}:</span> ${escHtml(n.note)}</div>`).join(''):'<p style="font-size:12px;color:#8C857B;margin-top:6px;">No caregiver visit notes in the last 14 days.</p>'}
+        ${(p.cocFlags&&p.cocFlags.length)?sec('Change of condition','#A4271E')+p.cocFlags.map(f=>`<div style="font-size:12px;color:#A4271E;margin-bottom:4px;">${f.date}: ${escHtml(f.note)}</div>`).join(''):''}
+        ${(p.incidents&&p.incidents.length)?sec('Service exceptions (90d)')+p.incidents.slice(0,5).map(s=>`<div style="font-size:12px;color:#57524A;margin-bottom:4px;">${s.date} · ${escHtml((s.types||[]).join(', '))}${s.incident?': '+escHtml(s.incident):''}</div>`).join(''):''}
+        ${(p.recentComms&&p.recentComms.length)?sec('Recent communications')+p.recentComms.map(e2=>`<div style="font-size:12px;color:#57524A;margin-bottom:3px;">${e2.date} · ${escHtml(e2.summary||'')}</div>`).join(''):''}
+        ${p.notes?sec('Viv client notes')+`<div style="font-size:12px;color:#57524A;line-height:1.5;">${escHtml(p.notes)}</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function renderUpcomingVisits(){
