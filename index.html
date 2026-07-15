@@ -177,11 +177,23 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
 <!-- STEP 1: CONNECT FOLDER -->
 <div id="screen-folder" class="setup-screen">
   <div class="folder-box">
-    <div class="fi">📁</div>
-    <h1>Connect Your OneDrive Folder</h1>
-    <p>Select the shared CSM Dashboard folder on your OneDrive. All team data saves there automatically so everyone stays in sync.</p>
-    <button class="btn btn-p" style="width:100%;padding:11px;" onclick="connectFolder()">Select Shared Folder</button>
-    <p style="margin-top:12px;font-size:11.5px;color:#8C857B;">Chrome will ask for permission — click "Allow" to continue.</p>
+    <!-- First-time: pick the shared folder -->
+    <div id="folder-pick">
+      <div class="fi">📁</div>
+      <h1>Connect Your OneDrive Folder</h1>
+      <p>Select the shared CSM Dashboard folder on your OneDrive. All team data saves there automatically so everyone stays in sync.</p>
+      <button class="btn btn-p" style="width:100%;padding:11px;" onclick="connectFolder()">Select Shared Folder</button>
+      <p style="margin-top:12px;font-size:11.5px;color:#8C857B;">Chrome will ask for permission — choose <strong>"Allow on every visit"</strong> so you're not asked again.</p>
+    </div>
+    <!-- Returning: folder already linked, Chrome just needs one click to re-grant -->
+    <div id="folder-resume" style="display:none;">
+      <div class="fi">👋</div>
+      <h1>Welcome back</h1>
+      <p>Your shared folder is already linked — Chrome just needs one click to reopen it.</p>
+      <button class="btn btn-p" style="width:100%;padding:11px;" onclick="resumeFolder()">Open CSM Hub</button>
+      <p style="margin-top:12px;font-size:11.5px;color:#8C857B;">Tip: if Chrome asks, choose <strong>"Allow on every visit"</strong> and this screen disappears for good.</p>
+      <p style="margin-top:8px;font-size:11.5px;color:#8C857B;cursor:pointer;text-decoration:underline;" onclick="connectFolder()">Use a different folder</p>
+    </div>
   </div>
 </div>
 
@@ -1352,14 +1364,32 @@ async function connectFolder(){
   }
 }
 
+let _savedHandle=null;
 async function tryReconnect(){
   const h=await idbGetHandle();
   if(!h){showFolderScreen();return;}
+  _savedHandle=h;
   try{
+    // queryPermission never prompts: if Chrome kept the grant ("Allow on
+    // every visit"), we go straight in with zero clicks. Otherwise Chrome
+    // requires a user gesture to re-grant, so show the one-click resume
+    // instead of the full folder picker — the folder itself is remembered.
+    const perm=await h.queryPermission({mode:'readwrite'});
+    if(perm==='granted'){dirHandle=h;await loadDataFromFile();await routeAfterConnect();return;}
+    showFolderScreen(true);
+  }catch{showFolderScreen(true);}
+}
+async function resumeFolder(){
+  try{
+    const h=_savedHandle||await idbGetHandle();
+    if(!h){showFolderScreen();return;}
     const perm=await h.requestPermission({mode:'readwrite'});
-    if(perm==='granted'){dirHandle=h;await loadDataFromFile();await routeAfterConnect();}
-    else showFolderScreen();
-  }catch{showFolderScreen();}
+    if(perm!=='granted'){showToast('Chrome needs "Allow" to reach the shared folder.');return;}
+    dirHandle=h;await loadDataFromFile();await routeAfterConnect();
+  }catch(e){
+    showToast('Could not reopen the saved folder — please pick it again.');
+    showFolderScreen();
+  }
 }
 
 async function loadDataFromFile(){
@@ -1413,7 +1443,12 @@ function _hideScreens(except){
   });
   document.getElementById('app').style.display='none';
 }
-function showFolderScreen(){_hideScreens('screen-folder');}
+function showFolderScreen(reconnect){
+  _hideScreens('screen-folder');
+  const rec=document.getElementById('folder-resume'),pick=document.getElementById('folder-pick');
+  if(rec)rec.style.display=reconnect?'block':'none';
+  if(pick)pick.style.display=reconnect?'none':'block';
+}
 function showHubScreen(allowedHubs){
   _hideScreens('screen-hub');
   // Non-managers with multi-market access only see their own hubs
