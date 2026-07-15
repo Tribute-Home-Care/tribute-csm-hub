@@ -19,7 +19,7 @@ You are building or updating the **Tribute CSM Hub**: a single-file HTML dashboa
 Repo (SOURCE OF TRUTH):  github.com/Tribute-Home-Care/tribute-csm-hub
 Local checkout:          <your clone>/index.html
 Live app (what CSMs open): https://tribute-home-care.github.io/tribute-csm-hub/
-Data file:               tribute_csm_data.json in the team's shared OneDrive folder (NEVER in the repo)
+Data store:              tribute_csm_data.json in a PRIVATE blob behind the gated API (endpoint csm_data; NEVER in the repo)
 Sync endpoint:           the team's tribute-api Azure Function proxy → endpoint 'csm_hub' (key-gated; source in the private tribute-api project)
 ```
 
@@ -32,7 +32,7 @@ If asked to edit an HTML copy outside the repo, point this out and edit the repo
 
 ## What the hub is
 
-A daily-use web app for home care CSMs (Client Solutions Managers) that replaces scattered spreadsheets and trackers. Users open the Pages URL in Chrome/Edge. Data is read/written to a shared JSON file on OneDrive via the File System Access API — no server or login required. Viv/HubSpot facts arrive via the sync layer; CSM judgment stays manual.
+A daily-use web app for home care CSMs (Client Solutions Managers) that replaces scattered spreadsheets and trackers. Users open the Pages URL in Chrome/Edge and sign in with their Tribute Microsoft account. The shared JSON document loads/saves through the gated API (endpoint `csm_data`, private blob, ETag optimistic concurrency — 409 → re-fetch, re-apply own profile pocket + shared, retry). The old OneDrive folder / File System Access flow is retired. Viv/HubSpot facts arrive via the sync layer; CSM judgment stays manual.
 
 **Markets served:** three market hubs — Massachusetts (🦞), Chicago (🌆), Maryland (🦀) — chosen on a hub-picker screen.
 **Users:** 12 profiles: CSMs, CSCs, and two Senior CSM / managers (one per coast). One CSM is dual-market (MA+CHI) with an in-app market filter.
@@ -69,7 +69,7 @@ tribute_csm_data.json    ← shared data store on OneDrive (manual + synced, mer
 vivProxy.js / csm_hub    ← server-side: Viv auth, schedule scan, HubSpot slim-down, per-CSM metrics
 ```
 
-### Data file structure (`tribute_csm_data.json`)
+### Shared document structure (`tribute_csm_data.json` blob)
 ```json
 {
   "version": 1,
@@ -134,7 +134,7 @@ The hub uses the **Tribute Intelligence design system** — the same light, warm
 
 ### Startup flow
 1. **Microsoft sign-in** (entra-auth.js overlay, once per browser)
-2. **Connect Folder screen** (`#screen-folder`) — File System Access API prompt to select the shared OneDrive folder
+2. Loading splash (`#screen-folder`) while the shared document loads from the gated API
 3. **routeAfterConnect()** — managers/admins → hub picker (`#screen-hub`: MA/CHI/MD cards) then profile grid; CSMs → their own profile auto-launches (dual-market CSMs pick their market first); unmatched accounts → `#screen-noaccess`.
 4. On profile launch: auto Viv sync if last sync >30 min old (Microsoft token, no key needed). Sidebar ⟳ row = manual sync + status.
 
