@@ -3884,6 +3884,29 @@ function workloadFor(pid){
     avgTouch:clients.length?Math.round(touches/clients.length*10)/10:0};
 }
 
+// ── CSC support activity: coordinators (Sam MA, Michelle MD) touch clients
+// across their whole market, so their work lands on OTHER CSMs' clients —
+// credited via the touchpoint's `contact` (who made the touch). Their measure
+// is therefore: every touchpoint in the last 30 days across all profiles in
+// their hub(s) that THEY generated, plus everything in their own pocket.
+function cscSupport30(p){
+  const cutoff=new Date(Date.now()-30*864e5).toISOString().split('T')[0];
+  const names=[p.name,...(VIV_NAMES[p.id]||[])].map(loginNorm);
+  const hubs=Array.isArray(p.hub)?p.hub:[p.hub];
+  const marketProfiles=PROFILES.filter(x=>!x.coverageMarketOnly&&(Array.isArray(x.hub)?x.hub:[x.hub]).some(h=>hubs.includes(h)));
+  let touches=0;const touched=new Set();
+  for(const mp of marketProfiles){
+    for(const t of get('touchpoints',mp.id)){
+      if(!t.date||t.date<cutoff)continue;
+      const mine=mp.id===p.id||names.includes(loginNorm(t.contact||''));
+      if(!mine)continue;
+      touches++;
+      if(t.clientId)touched.add(mp.id+'|'+t.clientId);
+    }
+  }
+  return {touches,clientsTouched:touched.size};
+}
+
 function renderTeamOverview(){
   // All CSMs visible to manager — exclude self and coverage-only profiles
   const pool=PROFILES.filter(p=>p.id!==(P&&P.id)&&!p.coverageMarketOnly);
@@ -3929,10 +3952,14 @@ function renderTeamOverview(){
     if(!filtered.length){
       cardsEl.innerHTML='<p style="font-size:13px;color:#8C857B;padding:8px;">No CSMs for this market.</p>';
     } else {
-      const maxW=Math.max(1,...filtered.map(p=>W[p.id].weighted));
+      const maxW=Math.max(1,...filtered.filter(p=>!p.isCSC).map(p=>W[p.id].weighted));
+      const cscAll=pool.filter(p=>p.isCSC).map(p=>({p,s:cscSupport30(p)}));
+      const cscMax=Math.max(1,...cscAll.map(x=>x.s.touches));
+      const cscById=Object.fromEntries(cscAll.map(x=>[x.p.id,x.s]));
       cardsEl.innerHTML=filtered.map(p=>{
         const cl=get('clients',p.id);
         const wk=W[p.id];
+        const csc=p.isCSC?cscById[p.id]:null;
         const hi=cl.filter(c=>c.tier==='High').length;
         const med=cl.filter(c=>c.tier==='Medium').length;
         const lo=cl.filter(c=>c.tier==='Low').length;
@@ -3952,12 +3979,12 @@ function renderTeamOverview(){
             </div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:5px;margin-bottom:10px;">
-            <div style="background:#F7F4EF;border-radius:7px;padding:7px 4px;text-align:center;">
-              <div style="font-size:17px;font-weight:700;color:var(--navy);">${cl.length}</div>
-              <div style="font-size:9.5px;color:#8C857B;">Clients</div>
+            <div style="background:#F7F4EF;border-radius:7px;padding:7px 4px;text-align:center;" ${csc?'title="Distinct clients this coordinator touched in the last 30 days — across the whole market, not just their own caseload"':''}>
+              <div style="font-size:17px;font-weight:700;color:var(--navy);">${csc?csc.clientsTouched:cl.length}</div>
+              <div style="font-size:9.5px;color:#8C857B;">${csc?'Touched 30d':'Clients'}</div>
             </div>
-            <div style="background:#E8EFF7;border-radius:7px;padding:7px 4px;text-align:center;" title="Touchpoints across this caseload in the last 30 days — auto-captured calls/emails/texts plus logged touches">
-              <div style="font-size:17px;font-weight:700;color:#2C5689;">${wk.touches}</div>
+            <div style="background:#E8EFF7;border-radius:7px;padding:7px 4px;text-align:center;" title="${csc?'Touchpoints this coordinator generated across all market clients in the last 30 days':'Touchpoints across this caseload in the last 30 days — auto-captured calls/emails/texts plus logged touches'}">
+              <div style="font-size:17px;font-weight:700;color:#2C5689;">${csc?csc.touches:wk.touches}</div>
               <div style="font-size:9.5px;color:#8C857B;">Touches 30d</div>
             </div>
             <div style="background:${ov.length?'#F8E5E2':'#E2F2EC'};border-radius:7px;padding:7px 4px;text-align:center;">
@@ -3982,11 +4009,11 @@ function renderTeamOverview(){
             <div style="height:100%;width:${compliance}%;background:${cmpClr};"></div>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:9px;margin-bottom:3px;">
-            <span style="font-size:10.5px;color:#8C857B;" title="Every client counts once, plus up to 2 extra points for communication volume (touchpoints in the last 30 days)">Workload (clients + touch)</span>
-            <span style="font-size:11px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;">${wk.weighted}</span>
+            <span style="font-size:10.5px;color:#8C857B;" title="${csc?'Coordinator support: touchpoints they generated across the whole market in the last 30 days':'Every client counts once, plus up to 2 extra points for communication volume (touchpoints in the last 30 days)'}">${csc?'Support activity (market-wide)':'Workload (clients + touch)'}</span>
+            <span style="font-size:11px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;">${csc?csc.touches:wk.weighted}</span>
           </div>
           <div style="height:5px;background:#F1EEE8;border-radius:3px;overflow:hidden;">
-            <div style="height:100%;width:${Math.round(wk.weighted/maxW*100)}%;background:#3B72B8;"></div>
+            <div style="height:100%;width:${csc?Math.round(csc.touches/cscMax*100):Math.round(wk.weighted/maxW*100)}%;background:${csc?'#0F8F6B':'#3B72B8'};"></div>
           </div>
           <div style="margin-top:11px;padding-top:9px;border-top:1px solid #F1EEE8;text-align:right;font-size:11.5px;color:var(--gold);font-weight:600;">View Details →</div>
         </div>`;
@@ -3997,7 +4024,11 @@ function renderTeamOverview(){
   // ── Workload distribution: ranked stacked bars (clients base + touch weight) ──
   const wlEl=document.getElementById('team-workload');
   if(wlEl){
-    const rows=[...filtered].sort((a,b)=>W[b.id].weighted-W[a.id].weighted);
+    // CSMs rank on the client+touch model; coordinators (CSCs) support the
+    // whole market so they get their own scale below — market-wide touches.
+    const rows=[...filtered].filter(p=>!p.isCSC).sort((a,b)=>W[b.id].weighted-W[a.id].weighted);
+    const cscRows=filtered.filter(p=>p.isCSC).map(p=>({p,s:cscSupport30(p)})).sort((a,b)=>b.s.touches-a.s.touches);
+    const cscMaxWl=Math.max(1,...cscRows.map(x=>x.s.touches));
     const maxWl=Math.max(1,...rows.map(p=>W[p.id].weighted));
     const avgWl=rows.length?Math.round(rows.reduce((s,p)=>s+W[p.id].weighted,0)/rows.length*10)/10:0;
     wlEl.innerHTML=`
@@ -4024,7 +4055,23 @@ function renderTeamOverview(){
           </div>
         </div>`;
       }).join('')}
-      <p style="font-size:11px;color:#8C857B;margin-top:8px;">tp = touchpoints across the caseload in the last 30 days · a red total is ≥20% above the team average</p>`;
+      <p style="font-size:11px;color:#8C857B;margin-top:8px;">tp = touchpoints across the caseload in the last 30 days · a red total is ≥20% above the team average</p>
+      ${cscRows.length?`
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line-soft);">
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:#8C857B;margin-bottom:8px;">Coordinators — market-wide support</div>
+        <p style="font-size:11.5px;color:#6B655C;margin-bottom:10px;">Coordinators touch clients across the whole market, so their measure is different: every touchpoint <strong>they generated</strong> in the last 30 days, on anyone's caseload.</p>
+        ${cscRows.map(({p,s})=>`<div style="display:flex;align-items:center;gap:10px;padding:5px 0;">
+          <div class="pav" style="background:${p.color};width:26px;height:26px;font-size:10px;flex-shrink:0;">${p.initials}</div>
+          <div style="width:110px;flex-shrink:0;font-size:12px;font-weight:500;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name.split(' ')[0]} ${p.name.split(' ').slice(1).join(' ').charAt(0)||''}.</div>
+          <div style="flex:1;height:16px;background:#F1EEE8;border-radius:8px;overflow:hidden;">
+            <div style="height:100%;width:${Math.round(s.touches/cscMaxWl*100)}%;background:#0F8F6B;" title="${s.touches} touchpoints generated market-wide"></div>
+          </div>
+          <div style="width:150px;flex-shrink:0;text-align:right;font-size:11.5px;color:#6B655C;font-variant-numeric:tabular-nums;">
+            <strong style="color:var(--ink);">${s.touches} tp</strong>
+            <span style="color:#8C857B;"> · ${s.clientsTouched} clients</span>
+          </div>
+        </div>`).join('')}
+      </div>`:''}`;
   }
 
   // ── KPI summary ──
