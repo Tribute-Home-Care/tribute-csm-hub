@@ -112,7 +112,12 @@ textarea.fc{resize:vertical;min-height:70px;}
 .si:focus{border-color:var(--navy);}
 .tabs{display:flex;border-bottom:2px solid #EAE6DF;margin-bottom:16px;}
 .tab{padding:7px 15px;cursor:pointer;font-size:12.5px;font-weight:500;color:#6B655C;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;}
-.tab:hover{color:var(--navy);}.tab.active{color:var(--navy);border-bottom-color:var(--navy);}
+.tab:hover{color:var(--navy);}.tab.active{color:var(--navy);border-bottom-color:var(--navy);font-weight:600;}
+/* <button class="tab"> (CSM detail modal) — strip native button chrome so it
+   matches the themed text tabs instead of rendering as a grey OS button */
+button.tab{appearance:none;-webkit-appearance:none;background:transparent;border:none;border-bottom:2px solid transparent;font-family:inherit;cursor:pointer;}
+button.tab.active{border-bottom-color:var(--navy);}
+button.tab:focus-visible{outline:2px solid var(--orange);outline-offset:-2px;border-radius:6px;}
 .tc{display:none;}.tc.active{display:block;}
 .es{text-align:center;padding:36px 20px;color:#8C857B;}.ei{font-size:38px;margin-bottom:8px;}.es p{font-size:13px;}
 .mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.42);z-index:1000;align-items:center;justify-content:center;}
