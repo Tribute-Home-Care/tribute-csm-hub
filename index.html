@@ -5227,7 +5227,11 @@ function pulseDot(c){
   const col=p.level==='red'?'#A4271E':'#C2710C';
   return ` <span title="Pulse: ${p.level==='red'?'needs attention':'watch'} — ${escHtml((p.reasons||[]).join('; '))}" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${col};vertical-align:1px;"></span>`;
 }
-function _pulseIsMgrView(){return !!(P&&(P.isManager||P.isCSC))||accountIsManager(ACCT);}
+// Scope follows the ACTIVE PROFILE, not the signed-in account: viewing Ramya's
+// profile shows Ramya's caseload even for an admin login. Only manager/CSC
+// profiles get the all-clients view + CSM filter. (Andrew hit this: his admin
+// account made every CSM's pulse page show all 253 clients.)
+function _pulseIsMgrView(){return !!(P&&(P.isManager||P.isCSC));}
 function _myPulseRows(){
   if(!_PULSE)return[];
   if(_pulseIsMgrView())return[..._PULSE.clients];
