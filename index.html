@@ -5231,10 +5231,19 @@ function pulseDot(c){
 // profile shows Ramya's caseload even for an admin login. Only manager/CSC
 // profiles get the all-clients view + CSM filter. (Andrew hit this: his admin
 // account made every CSM's pulse page show all 253 clients.)
-function _pulseIsMgrView(){return !!(P&&(P.isManager||P.isCSC));}
+function _pulseIsMgrView(){return !!(P&&(P.isManager||P.isCSC||P.id==='carrie'));}
+// Managers/CSCs see their MARKET'S clients, not the whole company: Courtney →
+// all MA (incl. her own + Julia's), Jada → all MD, Carrie → all Chicago,
+// Sam/Michelle → their market. Everyone else sees their own roster.
+const PULSE_MKT_STATE={'Boston':'MA','MetroWest Boston':'MA','Metro West Boston':'MA','North of Boston':'MA','North Boston':'MA','South of Boston':'MA','South Boston':'MA','Massachusetts':'MA','Baltimore':'MD','Bethesda':'MD','Annapolis':'MD','Maryland':'MD','Chicago':'IL','Illinois':'IL'};
+const PULSE_HUB_STATE={MA:'MA',MD:'MD',CHI:'IL'};
 function _myPulseRows(){
   if(!_PULSE)return[];
-  if(_pulseIsMgrView())return[..._PULSE.clients];
+  if(_pulseIsMgrView()){
+    const hubs=Array.isArray(P.hub)?P.hub:[P.hub];
+    const states=new Set(hubs.map(h=>PULSE_HUB_STATE[h]).filter(Boolean));
+    return _PULSE.clients.filter(p=>states.has(PULSE_MKT_STATE[(p.market||'').trim()]));
+  }
   const mine=new Set(get('clients').map(c=>c.vivId).filter(Boolean));
   return _PULSE.clients.filter(p=>mine.has(p.cid));
 }
@@ -5246,7 +5255,7 @@ function renderPulse(){
   if(csmSel){
     csmSel.style.display=mgr?'':'none';
     if(mgr&&csmSel.options.length<=1){
-      const names=[...new Set(_PULSE.clients.map(p=>p.csm).filter(Boolean))].sort();
+      const names=[...new Set(_myPulseRows().map(p=>p.csm).filter(Boolean))].sort();
       csmSel.innerHTML='<option value="">All CSMs</option>'+names.map(n=>`<option>${escHtml(n)}</option>`).join('');
     }
   }
