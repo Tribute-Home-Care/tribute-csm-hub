@@ -5208,6 +5208,14 @@ async function loadPulse(interactive){
     const r=await fetch(VIV_PROXY+'?endpoint=client_pulse',{headers:await dataHeaders()});
     if(!r.ok)throw new Error('HTTP '+r.status);
     const d=await r.json();
+    if(d.building){
+      // Server is rebuilding with no cache yet — say so and retry, never
+      // cache an empty pulse.
+      const el=document.getElementById('pulse-list');
+      if(el&&!_PULSE)el.innerHTML='<div class="es"><div class="ei">💓</div><p>The pulse is rebuilding right now — this page will retry automatically in a couple of minutes.</p></div>';
+      if(!window._pulseRetry){window._pulseRetry=setTimeout(()=>{window._pulseRetry=null;loadPulse(false);},150000);}
+      return;
+    }
     const byCid={};(d.clients||[]).forEach(c=>{byCid[c.cid]=c;});
     _PULSE={byCid,counts:d.counts,generatedAt:d.generatedAt,clients:d.clients||[],aiStatus:d.aiStatus};
     if(interactive)setVivLabel('Viv ✓ '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}));
