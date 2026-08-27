@@ -856,6 +856,15 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
     <div class="tab" onclick="aTab('decision',this)">⚖️ Decision Framework</div>
   </div>
   <div id="asst-kb" class="tc active">
+    <div class="card" style="margin-bottom:14px;border-left:4px solid var(--orange);">
+      <div class="ct" style="margin-bottom:4px;">✦ Ask the Tribute Assistant</div>
+      <p style="font-size:12px;color:#8C857B;margin-bottom:10px;">Answers come from the playbook below — SOPs, scenario guides, templates. It will tell you when something isn't covered.</p>
+      <div style="display:flex;gap:8px;">
+        <input class="si" type="text" id="asst-q" placeholder="e.g. A family wants to swap caregivers — what do I do first?" onkeydown="if(event.key==='Enter')askAssistant()" style="flex:1;">
+        <button class="btn btn-p" id="asst-go" onclick="askAssistant()">Ask</button>
+      </div>
+      <div id="asst-thread" style="margin-top:10px;"></div>
+    </div>
     <div id="kb-mgr-bar" style="display:none;margin-bottom:10px;text-align:right;"></div>
     <input type="text" class="si" style="width:100%;margin-bottom:14px;" id="kb-q" placeholder="Search... try 'fall', 'scope', 'vacation', 'caregiver conflict'..." oninput="searchKB()">
     <div id="kb-res"><p style="color:#8C857B;font-size:13px;text-align:center;padding:24px;">Type a keyword to search all SOPs and best practices.</p></div>
@@ -1138,12 +1147,30 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
   </div>
 </div>
 
+<div class="mo" id="m-draft">
+  <div class="md" style="width:460px;">
+    <div class="mh"><div class="mt">✉️ Draft an update</div><button class="mc" onclick="closeM('m-draft')">✕</button></div>
+    <p style="font-size:12.5px;color:#6B655C;margin-bottom:12px;line-height:1.6;">The Tribute Assistant drafts a Tributey email from this client's recent visit notes, touchpoints and pulse. Names are swapped in locally — you review and edit before anything is sent.</p>
+    <input type="hidden" id="draft-cid">
+    <div class="fg"><label class="fl">What kind of email?</label>
+      <select class="fc" id="draft-cat">
+        <option>Family update — how things are going</option>
+        <option>Condition change follow-up</option>
+        <option>Caregiver concern / change</option>
+        <option>Partner or community outreach</option>
+        <option>Internal escalation to Senior CSM</option>
+      </select></div>
+    <div class="fg"><label class="fl">Anything specific to include? (optional)</label><input type="text" class="fc" id="draft-notes" placeholder="e.g. mention the new morning routine, propose a call Thursday"></div>
+    <div class="mf"><button class="btn btn-o" onclick="closeM('m-draft')">Cancel</button><button class="btn btn-p" id="draft-go" onclick="generateDraft()">Generate draft</button></div>
+  </div>
+</div>
+
 <div class="mo" id="m-email">
   <div class="md" style="width:630px;">
     <div class="mh"><div class="mt" id="m-em-ttl">Email Template</div><button class="mc" onclick="closeM('m-email')">✕</button></div>
     <div class="fg"><label class="fl">Subject</label><input type="text" class="fc" id="em-subj"></div>
     <div class="fg"><label class="fl">Body — edit before copying</label><textarea class="fc" id="em-body" style="min-height:260px;"></textarea></div>
-    <div class="mf"><button class="btn btn-o" onclick="closeM('m-email')">Cancel</button><button class="btn btn-p" onclick="copyEmail()">📋 Copy to Clipboard</button></div>
+    <div class="mf"><button class="btn btn-o" onclick="closeM('m-email')">Cancel</button><button class="btn btn-o" id="em-mailto" style="display:none;" onclick="openEmailClient()">📧 Open in email</button><button class="btn btn-p" onclick="copyEmail()">📋 Copy to Clipboard</button></div>
   </div>
 </div>
 
@@ -2255,6 +2282,7 @@ function buildClientDetail(id){
     <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;">
       <button class="btn btn-sm btn-p" onclick="editClient('${eid}');event.stopPropagation()">✏️ Edit Client</button>
       <button class="btn btn-sm btn-o" onclick="openFillPriority('${eid}');event.stopPropagation()">📊 Fill Priority</button>
+      <button class="btn btn-sm btn-o" onclick="openDraft('${eid}');event.stopPropagation()">✉️ Draft update</button>
     </div>
   </div>
   <div>
@@ -5561,6 +5589,71 @@ function saveSettings(){
   if(k)localStorage.setItem(VIV_KEY_LS,k);
   queueSave();closeM('m-settings');showToast('Settings saved!');
   if(k)vivSyncNow(true);
+}
+
+// ═══════════════════════ TRIBUTE ASSISTANT (Claude over the playbook) ═══════════════════════
+let _asstHistory=[];
+function _playbookPayload(){
+  return {
+    kb:[...KB,...getCustomKB()].map(k=>({title:k.title,content:k.content})),
+    scenarios:[...SCENARIOS,...getCustomScenarios()].map(x=>({title:x.title,steps:x.steps||[]})),
+    templates:[...TPLS,...getCustomTpls()].map(t=>({name:t.name,cat:t.cat,desc:t.desc}))
+  };
+}
+async function askAssistant(){
+  const inp=document.getElementById('asst-q');const q=(inp.value||'').trim();if(!q)return;
+  const thread=document.getElementById('asst-thread');const btn=document.getElementById('asst-go');
+  thread.insertAdjacentHTML('beforeend',`<div style="font-size:13px;margin:8px 0 4px;"><b>You:</b> ${escHtml(q)}</div><div class="asst-a" style="font-size:13px;color:#8C857B;">Thinking…</div>`);
+  const aEl=thread.querySelectorAll('.asst-a');const el=aEl[aEl.length-1];
+  inp.value='';btn.disabled=true;
+  try{
+    const r=await fetch(VIV_PROXY+'?endpoint=csm_assist',{method:'POST',headers:await dataHeaders(true),body:JSON.stringify({mode:'chat',question:q,history:_asstHistory.slice(-6),..._playbookPayload()})});
+    const j=await r.json(); if(!r.ok||j.error)throw new Error(j.error||('HTTP '+r.status));
+    const md=escHtml(j.answer).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/^---$/gm,'<hr style="border:none;border-top:1px solid #EAE6DF;margin:6px 0;">');
+    el.style.color='#3D3833';el.innerHTML=`<div style="background:#FBEADF;border-radius:9px;padding:10px 13px;line-height:1.6;white-space:pre-wrap;"><b style="color:#C2410C;">Tribute Assistant:</b> ${md}</div>`;
+    _asstHistory.push({role:'user',content:q},{role:'assistant',content:j.answer});
+  }catch(e){ el.style.color='#A4271E';el.textContent='Could not reach the assistant — '+e.message; }
+  finally{ btn.disabled=false; thread.scrollIntoView({block:'end'}); }
+}
+
+// ═══════════════════════ EMAIL DRAFTING (de-identified) ═══════════════════════
+function openDraft(cid){document.getElementById('draft-cid').value=cid;document.getElementById('draft-notes').value='';openM('m-draft');}
+async function generateDraft(){
+  const cid=document.getElementById('draft-cid').value;const c=get('clients').find(x=>x.id===cid);if(!c)return;
+  const btn=document.getElementById('draft-go');btn.disabled=true;btn.textContent='Drafting…';
+  try{
+    const pp=_PULSE&&c.vivId?_PULSE.byCid[c.vivId]:null;
+    const cutoff=new Date(Date.now()-30*864e5).toISOString().split('T')[0];
+    const tps=get('touchpoints').filter(t=>t.clientId===c.id&&t.date>=cutoff).slice(-5).map(t=>({date:t.date,type:t.type,summary:(t.notes||'').slice(0,140)}));
+    // de-identify: strip the client's and contact's names from free text before sending
+    const names=[c.name,(c.name||'').split(' ')[0],(c.contact||'').split(/[,(]/)[0].trim()].filter(x=>x&&x.length>2);
+    const scrub=s=>{let t=String(s||'');names.forEach(n=>{t=t.replace(new RegExp(n.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),'{{client}}');});return t;};
+    const ctx={tier:c.tier,community:c.loc,startDate:c.startDate,lastVisit:c.lastVisit,freq:c.freq,caregivers:scrub(c.caregivers),
+      visitNotes:(pp&&pp.visitNotes||[]).slice(0,3).map(n=>({date:n.date,note:scrub(n.note)})),
+      cocFlags:(pp&&pp.cocFlags||[]).slice(0,2).map(f=>({date:f.date,note:scrub(f.note)})),
+      touchpoints:tps.map(t=>({...t,summary:scrub(t.summary)})),
+      pulse:scrub(pp&&pp.aiPulse||''),watch:(pp&&pp.aiWatch||[]).map(scrub),
+      incidents:(pp&&pp.incidents||[]).slice(0,3).map(i=>({date:i.date,types:i.types,note:scrub(i.incident)}))};
+    const cat=document.getElementById('draft-cat').value;
+    const tpl=TPLS.find(t=>/condition/i.test(cat)?/Condition/i.test(t.name):/caregiver/i.test(cat)?/Caregiver Change/i.test(t.name):false)||null;
+    const r=await fetch(VIV_PROXY+'?endpoint=csm_assist',{method:'POST',headers:await dataHeaders(true),body:JSON.stringify({mode:'draft',category:cat,instructions:document.getElementById('draft-notes').value,client:ctx,template:tpl?{subj:tpl.subj,body:tpl.body}:null})});
+    const j=await r.json(); if(!r.ok||j.error)throw new Error(j.error||('HTTP '+r.status));
+    const first=(c.name||'').split(' ')[0];const contactName=(c.contact||'').split(/[,(]/)[0].trim()||'there';
+    const fill=s=>String(s||'').replace(/\{\{client\}\}/g,first||c.name).replace(/\{\{contact\}\}/g,contactName).replace(/\{\{csm\}\}/g,P?P.name:'');
+    closeM('m-draft');
+    document.getElementById('m-em-ttl').textContent='Draft — '+cat.split(' — ')[0];
+    document.getElementById('em-subj').value=fill(j.subject);
+    document.getElementById('em-body').value=fill(j.body);
+    const mb=document.getElementById('em-mailto');mb.style.display=c.contactEmail?'':'none';mb.dataset.to=c.contactEmail||'';
+    openM('m-email');
+  }catch(e){ showToast('Draft failed — '+e.message); }
+  finally{ btn.disabled=false;btn.textContent='Generate draft'; }
+}
+function openEmailClient(){
+  const to=document.getElementById('em-mailto').dataset.to||'';
+  const subject=encodeURIComponent(document.getElementById('em-subj').value);
+  const body=encodeURIComponent(document.getElementById('em-body').value);
+  window.open(`mailto:${to}?subject=${subject}&body=${body}`,'_blank');
 }
 
 // ═══════════════════════ SEND TO VIV ═══════════════════════
