@@ -1,0 +1,35 @@
+name: 🐛 Bug / Error
+description: Log a CSM Hub error (mirrors Courtney's Bug & Error Tracker columns)
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: input
+    id: reported_by
+    attributes: { label: Reported by, placeholder: "e.g. Julia Hanna" }
+    validations: { required: true }
+  - type: dropdown
+    id: page
+    attributes:
+      label: Page / Section
+      options: [Home, Clients, Client Pulse, Success in 30, Coverage Notes, Fill Priority, Tribute Assistant, Role Expectations, KPI Tracker, Team Overview (Manager Hub), Sign-in / Access, Viv sync, Other]
+    validations: { required: true }
+  - type: textarea
+    id: description
+    attributes: { label: Error description, description: What went wrong? }
+    validations: { required: true }
+  - type: textarea
+    id: steps
+    attributes: { label: Steps to reproduce, placeholder: "1. …\n2. …" }
+  - type: textarea
+    id: expected
+    attributes: { label: Expected behavior }
+  - type: textarea
+    id: actual
+    attributes: { label: Actual behavior }
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: Critical = blocks all use · High = major feature broken · Medium = workaround exists · Low = cosmetic
+      options: [Critical, High, Medium, Low]
+    validations: { required: true }

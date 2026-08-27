@@ -1,0 +1,15 @@
+name: 💡 Feature request
+description: Something the hub should do (like Jada's community directory ask)
+title: "[Idea] "
+labels: ["enhancement"]
+body:
+  - type: input
+    id: requested_by
+    attributes: { label: Requested by }
+  - type: textarea
+    id: what
+    attributes: { label: What would help, description: Describe the situation and what the hub should do }
+    validations: { required: true }
+  - type: dropdown
+    id: market
+    attributes: { label: Market, options: [All, Massachusetts, Maryland, Chicago] }
