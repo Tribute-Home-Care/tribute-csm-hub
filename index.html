@@ -5592,6 +5592,23 @@ function saveSettings(){
 }
 
 // ═══════════════════════ TRIBUTE ASSISTANT (Claude over the playbook) ═══════════════════════
+// One retry on a dropped/empty response — the function app returns an empty
+// body for a few seconds while it restarts after a deploy.
+async function assistFetch(payload,onRetry){
+  for(let attempt=0;attempt<2;attempt++){
+    try{
+      const r=await fetch(VIV_PROXY+'?endpoint=csm_assist',{method:'POST',headers:await dataHeaders(true),body:JSON.stringify(payload)});
+      const txt=await r.text();
+      if(!txt.trim())throw new Error('empty response');
+      const j=JSON.parse(txt);
+      if(!r.ok||j.error)throw new Error(j.error||('HTTP '+r.status));
+      return j;
+    }catch(e){
+      if(attempt===0){ if(onRetry)onRetry(); await new Promise(res=>setTimeout(res,2500)); continue; }
+      throw e;
+    }
+  }
+}
 let _asstHistory=[];
 function _playbookPayload(){
   return {
@@ -5607,12 +5624,11 @@ async function askAssistant(){
   const aEl=thread.querySelectorAll('.asst-a');const el=aEl[aEl.length-1];
   inp.value='';btn.disabled=true;
   try{
-    const r=await fetch(VIV_PROXY+'?endpoint=csm_assist',{method:'POST',headers:await dataHeaders(true),body:JSON.stringify({mode:'chat',question:q,history:_asstHistory.slice(-6),..._playbookPayload()})});
-    const j=await r.json(); if(!r.ok||j.error)throw new Error(j.error||('HTTP '+r.status));
+    const j=await assistFetch({mode:'chat',question:q,history:_asstHistory.slice(-6),..._playbookPayload()},()=>{el.textContent='The assistant is warming up — trying again…';});
     const md=escHtml(j.answer).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/^---$/gm,'<hr style="border:none;border-top:1px solid #EAE6DF;margin:6px 0;">');
     el.style.color='#3D3833';el.innerHTML=`<div style="background:#FBEADF;border-radius:9px;padding:10px 13px;line-height:1.6;white-space:pre-wrap;"><b style="color:#C2410C;">Tribute Assistant:</b> ${md}</div>`;
     _asstHistory.push({role:'user',content:q},{role:'assistant',content:j.answer});
-  }catch(e){ el.style.color='#A4271E';el.textContent='Could not reach the assistant — '+e.message; }
+  }catch(e){ el.style.color='#A4271E';el.textContent='Could not reach the assistant right now ('+e.message+'). Please try again in a moment.'; }
   finally{ btn.disabled=false; thread.scrollIntoView({block:'end'}); }
 }
 
@@ -5636,8 +5652,7 @@ async function generateDraft(){
       incidents:(pp&&pp.incidents||[]).slice(0,3).map(i=>({date:i.date,types:i.types,note:scrub(i.incident)}))};
     const cat=document.getElementById('draft-cat').value;
     const tpl=TPLS.find(t=>/condition/i.test(cat)?/Condition/i.test(t.name):/caregiver/i.test(cat)?/Caregiver Change/i.test(t.name):false)||null;
-    const r=await fetch(VIV_PROXY+'?endpoint=csm_assist',{method:'POST',headers:await dataHeaders(true),body:JSON.stringify({mode:'draft',category:cat,instructions:document.getElementById('draft-notes').value,client:ctx,template:tpl?{subj:tpl.subj,body:tpl.body}:null})});
-    const j=await r.json(); if(!r.ok||j.error)throw new Error(j.error||('HTTP '+r.status));
+    const j=await assistFetch({mode:'draft',category:cat,instructions:document.getElementById('draft-notes').value,client:ctx,template:tpl?{subj:tpl.subj,body:tpl.body}:null},()=>{btn.textContent='Warming up, retrying…';});
     const first=(c.name||'').split(' ')[0];const contactName=(c.contact||'').split(/[,(]/)[0].trim()||'there';
     const fill=s=>String(s||'').replace(/\{\{client\}\}/g,first||c.name).replace(/\{\{contact\}\}/g,contactName).replace(/\{\{csm\}\}/g,P?P.name:'');
     closeM('m-draft');
