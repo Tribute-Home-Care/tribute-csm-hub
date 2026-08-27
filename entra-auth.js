@@ -171,8 +171,31 @@
     }
   }
 
+  // Delegated Graph token (e.g. ['Mail.Send']) so a page can act AS the
+  // signed-in person — send from their own mailbox, into their own Sent
+  // Items — without any app-only mailbox policy. Silent first; a popup is
+  // used for the one-time consent (never a redirect: that would lose the
+  // page state the user is about to send).
+  async function getGraphToken(scopes) {
+    await readyPromise;
+    if (!state.account) return null;
+    const req = { scopes: scopes && scopes.length ? scopes : ['User.Read'], account: state.account };
+    try {
+      const r = await state.msal.acquireTokenSilent(req);
+      return r.accessToken;
+    } catch (e) {
+      try {
+        const r = await state.msal.acquireTokenPopup(req);
+        return r.accessToken;
+      } catch (e2) {
+        return null;
+      }
+    }
+  }
+
   window.tributeKsfGate = {
     getToken,
+    getGraphToken,
     // Who is signed in — lets pages scope what they show to the account
     // (e.g. the CSM Hub auto-opening the right profile). Waits for init()
     // like getToken() does, so it's safe to call at any point.

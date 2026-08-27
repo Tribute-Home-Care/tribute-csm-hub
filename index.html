@@ -747,7 +747,7 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
   <div class="ph"><h2>✉️ Email Community</h2><p>The Friday email to community leaders — next week's schedule (Sunday–Saturday) for every Tribute client there, plus a short partner-safe note on how things are going. Set it up once; it sends itself every Friday at 2:00 PM ET.</p></div>
   <div class="card" style="margin-bottom:14px;border-left:4px solid var(--orange);">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-      <div style="font-size:12.5px;color:#3D3833;line-height:1.55;"><b>How it works.</b> Turn a community on, add the leader's email, and it's in the Friday run. The email comes from <b>tuadmin@tributehomecare.com</b> with <b>Reply-To set to you</b> and you cc'd, so replies land in your inbox. Status lines are written for an outside partner — operational only, never clinical or incident detail.</div>
+      <div style="font-size:12.5px;color:#3D3833;line-height:1.55;"><b>How it works.</b> Turn a community on, add the leader's email, and it's in the Friday run. <b>Send now</b> goes out from <b>your own Outlook mailbox</b> (it shows in your Sent Items). The automatic Friday run sends from tuadmin@tributehomecare.com with <b>Reply-To set to you</b> and you cc'd, so replies still land with you. Status lines are written for an outside partner — operational only, never clinical or incident detail.</div>
       <div id="ec-status" style="font-size:11.5px;color:#8C857B;white-space:nowrap;"></div>
     </div>
   </div>
@@ -4178,12 +4178,45 @@ async function ecPreview(){
       <iframe sandbox="" style="width:100%;height:620px;border:1px solid var(--line);border-radius:10px;background:#FAF8F4;" srcdoc="${escHtml(res.html)}"></iframe>`;
   }catch(e){box.innerHTML='<span style="color:#B42318;">Preview failed — '+escHtml(e.message)+'</span>';}
 }
+// Send from the signed-in person's own mailbox (delegated Mail.Send via
+// Graph /me/sendMail). Server builds the HTML (preview=1); the browser sends.
+// Falls back to the server path (tuadmin, Reply-To CSM) if no Graph token.
+async function _ecBuild(){
+  const r=await fetch(VIV_PROXY+'?endpoint=community_email&preview=1&community='+encodeURIComponent(_ecSel),{headers:await dataHeaders()});
+  const j=await r.json();if(!r.ok||j.error)throw new Error(j.error||('HTTP '+r.status));
+  const res=(j.results||[])[0];if(!res||!res.html)throw new Error((res&&res.skipped)||j.note||'Nothing to send.');
+  return res;
+}
+async function _ecSendAsMe(res,to,cc){
+  const gate=window.tributeKsfGate;const tok=gate&&gate.getGraphToken?await gate.getGraphToken(['Mail.Send']):null;
+  if(!tok)return null;
+  const msg={subject:res.subject.replace(/^\[TEST\]\s*/,''),body:{contentType:'HTML',content:res.html},toRecipients:to.map(a=>({emailAddress:{address:a}}))};
+  if(cc&&cc.length)msg.ccRecipients=cc.map(a=>({emailAddress:{address:a}}));
+  const r=await fetch('https://graph.microsoft.com/v1.0/me/sendMail',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+tok},body:JSON.stringify({saveToSentItems:true,message:msg})});
+  if(r.status===202)return {status:'sent',to,cc,from:'me'};
+  const t=await r.text();throw new Error('Outlook send failed ('+r.status+'): '+t.slice(0,200));
+}
 async function ecSend(test){
   if(!_ecSel)return;
   const e=((DATA.shared.communities||{})[_ecSel]||{}).email||{};
   if(!test&&!(e.to||[]).length){showToast('Add and save a recipient first.');return;}
-  if(!test&&!confirm('Send next week\'s schedule email for '+_ecSel+' to '+(e.to||[]).join(', ')+' now?'))return;
-  const box=document.getElementById('ec-preview');box.innerHTML='<span style="color:#8C857B;">Sending…</span>';
+  if(!test&&!confirm('Send next week\'s schedule email for '+_ecSel+' to '+(e.to||[]).join(', ')+' now, from your mailbox?'))return;
+  const box=document.getElementById('ec-preview');box.innerHTML='<span style="color:#8C857B;">Building the email…</span>';
+  try{
+    const acct=window.tributeKsfGate&&window.tributeKsfGate.getAccount?await window.tributeKsfGate.getAccount():null;
+    if(acct&&acct.username){
+      const res=await _ecBuild();
+      box.innerHTML='<span style="color:#8C857B;">Sending from '+escHtml(acct.username)+'…</span>';
+      const to=test?[acct.username]:e.to;const cc=test?[]:(e.cc||[]);
+      const out=await _ecSendAsMe(res,to,cc);
+      if(out){box.innerHTML='<span style="color:#0F6E56;">✓ Sent from your mailbox to '+escHtml(to.join(', '))+(cc.length?' (cc '+escHtml(cc.join(', '))+')':'')+' — it\'s in your Sent Items.</span>';showToast(test?'Test sent to you.':'Sent to '+_ecSel+'.');return;}
+      box.innerHTML='<span style="color:#8C857B;">Outlook permission not available — sending via Tribute (Reply-To you)…</span>';
+    }
+    return ecSendViaServer(test,box);
+  }catch(err){box.innerHTML='<span style="color:#B42318;">Send failed — '+escHtml(err.message)+'</span>';}
+}
+async function ecSendViaServer(test,box){
+  box=box||document.getElementById('ec-preview');
   try{
     const r=await fetch(VIV_PROXY+'?endpoint=community_email&'+(test?'test=1':'send=1')+'&community='+encodeURIComponent(_ecSel),{headers:await dataHeaders()});
     const j=await r.json();if(!r.ok||j.error)throw new Error(j.error||('HTTP '+r.status));
