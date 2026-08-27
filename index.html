@@ -4208,6 +4208,7 @@ async function ecLoadDraft(refresh){
     const r=await fetch(VIV_PROXY+'?endpoint=community_email&draft=1&community='+encodeURIComponent(name)+(refresh?'&refresh=1':''),{headers:await dataHeaders()});
     const txt=await r.text();let j;try{j=JSON.parse(txt);}catch(e){throw new Error('The server is still starting — try again in a few seconds.');}
     if(!r.ok||j.error)throw new Error(j.error||('HTTP '+r.status));
+    if(!('parts' in j))throw new Error('the Tribute server does not have the Email Community update yet (deploy pending).');
     if(_ecSel!==name)return;
     _ecDraft=j.parts||null;if(!_ecDraft)window._ecErr=j.skipped==='no active clients'?'No active clients live here right now, so there is nothing to send.':(j.skipped||'No draft.');
   }catch(e){if(_ecSel!==name)return;_ecDraft=null;window._ecErr='Could not build the draft — '+e.message;}
