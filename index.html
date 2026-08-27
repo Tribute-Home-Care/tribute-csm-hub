@@ -655,6 +655,8 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
   <div class="tabs">
     <div class="tab active" onclick="setCovTab('mine',this)">📝 My Clients</div>
     <div class="tab" onclick="setCovTab('team',this)">👥 Team Coverage</div>
+    <div class="tab" onclick="setCovTab('handoff',this)">🔁 Handoffs</div>
+    <div class="tab" onclick="setCovTab('communities',this)">🏘️ Communities</div>
   </div>
 
   <!-- My clients tab -->
@@ -693,6 +695,48 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
         </select>
       </div>
       <div id="team-cov-list"></div>
+    </div>
+  </div>
+
+  <!-- Handoffs tab -->
+  <div id="cov-tab-handoff" class="tc">
+    <div class="g2">
+      <div class="card">
+        <div class="ct">Hand off my clients</div>
+        <p style="font-size:12px;color:#8C857B;margin-bottom:10px;">Going out? Pick who's covering and when. They'll see a coverage profile for each client — contacts, community numbers, pulse, your notes.</p>
+        <div class="g2">
+          <div class="fg"><label class="fl">Covering CSM</label><select class="fc" id="ho-csm"></select></div>
+          <div class="fg"><label class="fl">Through (optional)</label><input type="date" class="fc" id="ho-to"></div>
+        </div>
+        <div class="fg"><label class="fl">Note for the covering CSM</label><input type="text" class="fc" id="ho-note" placeholder="e.g. Out Mon–Wed; call me only for emergencies"></div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+          <label style="font-size:12px;color:#57524A;display:flex;gap:6px;align-items:center;cursor:pointer;"><input type="checkbox" id="ho-all" checked onchange="renderHandoffPicker()"> All my clients</label>
+        </div>
+        <div id="ho-picker" style="max-height:220px;overflow-y:auto;margin-bottom:10px;"></div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-p" style="flex:1;" onclick="startHandoff()">Hand off</button>
+          <button class="btn btn-o" onclick="endHandoff()">End my active handoffs</button>
+        </div>
+        <div id="ho-status" style="font-size:12px;color:#8C857B;margin-top:10px;"></div>
+      </div>
+      <div class="card">
+        <div class="ct">Clients I'm covering</div>
+        <p style="font-size:12px;color:#8C857B;margin-bottom:10px;">Everything you need while you're the point person.</p>
+        <div id="ho-covering"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Communities tab -->
+  <div id="cov-tab-communities" class="tc">
+    <div class="g2" style="grid-template-columns:320px 1fr;">
+      <div class="card">
+        <div class="ct">Communities</div>
+        <p style="font-size:12px;color:#8C857B;margin-bottom:8px;">Every community your clients live in — pick one to see who to call per level of care. Shared across all CSMs.</p>
+        <input class="si" type="text" id="cm-dir-search" placeholder="Search community..." oninput="renderCommunityList()" style="width:100%;margin-bottom:8px;">
+        <div id="cm-dir-list" style="max-height:520px;overflow-y:auto;"></div>
+      </div>
+      <div class="card" id="cm-dir-detail"><div class="es"><div class="ei">🏘️</div><p>Select a community.</p></div></div>
     </div>
   </div>
 </div>
@@ -1735,6 +1779,7 @@ function updateHome(){
   if(obCard)obCard.style.borderTop=onboarding.length?'3px solid #9D2667':'';
   renderHighPriorityTasks();
   renderUpcomingVisits();
+  renderCoveringBanner();
   syncTC();renderTodos();loadQN();
   // 1:1 Notes card (non-manager CSMs only)
   const onOneCard=document.getElementById('home-1on1-card');
@@ -2195,6 +2240,8 @@ function buildClientDetail(id){
       <div><strong>Contact:</strong> ${escHtml(c.contact||'—')}</div>
       ${c.contactEmail?`<div><strong>Email:</strong> ${escHtml(c.contactEmail)}</div>`:''}
       <div><strong>CSM:</strong> ${escHtml(c.csm||P?.name||'—')}</div>
+      ${(()=>{const d=c.loc&&DATA.shared&&DATA.shared.communities&&DATA.shared.communities[c.loc];if(!d||(!d.mainContact&&!(d.levels&&d.levels.length)))return '';return `<div style="margin-top:4px;padding:6px 9px;background:#F7F4EF;border-radius:6px;font-size:11.5px;line-height:1.6;"><strong>🏘️ ${escHtml(c.loc)}</strong>${d.mainContact?` — ${escHtml(d.mainContact)}${d.mainPhone?' · '+escHtml(d.mainPhone):''}`:''}${(d.levels||[]).map(l=>`<br>${escHtml(l.name)}: ${escHtml(l.who||'—')}${l.phone?' · '+escHtml(l.phone):''}`).join('')}</div>`;})()}
+      ${_hoActive(c)?`<div style="margin-top:4px;font-size:11.5px;color:#92580B;">🔁 Handed off to ${escHtml((PROFILES.find(p=>p.id===c.coverage.coveredBy)||{}).name||'—')}${c.coverage.to?' through '+c.coverage.to:''}</div>`:''}
       ${c.birthday?`<div><strong>Birthday:</strong> ${fmtD(c.birthday)}</div>`:''}
       ${(()=>{try{const s=calcScore(c).score;const col=s>=11?'#C8362B':s>=6?'#C2710C':'#0F8F6B';return s>0?`<div style="margin-top:4px;"><strong>Fill Score:</strong> <span style="color:${col};font-weight:700;">${s} pts</span></div>`:'';}catch(e){return '';}})()}
     </div>
@@ -3841,11 +3888,155 @@ function renderTeamCoverage(){
 function syncDropdowns(){syncVC();syncCov();syncTC();syncS60();}
 
 function setCovTab(tab,el){
-  ['mine','team'].forEach(t=>document.getElementById('cov-tab-'+t).classList.remove('active'));
+  ['mine','team','handoff','communities'].forEach(t=>document.getElementById('cov-tab-'+t).classList.remove('active'));
   document.querySelectorAll('#page-coverage .tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('cov-tab-'+tab).classList.add('active');
   el.classList.add('active');
   if(tab==='team') renderTeamCoverage();
+  if(tab==='handoff') renderHandoffs();
+  if(tab==='communities') renderCommunityList();
+}
+
+function renderCoveringBanner(){
+  let el=document.getElementById('home-covering');
+  const rows=[];PROFILES.forEach(p=>{if(p.id===P.id)return;get('clients',p.id).forEach(c=>{if(_hoActive(c)&&c.coverage.coveredBy===P.id)rows.push({c,owner:p});});});
+  if(!el){const ph=document.querySelector('#page-home .ph');if(!ph)return;el=document.createElement('div');el.id='home-covering';ph.insertAdjacentElement('afterend',el);}
+  if(!rows.length){el.innerHTML='';return;}
+  const owners=[...new Set(rows.map(r=>r.owner.name.split(' ')[0]))];
+  el.innerHTML=`<div class="card" style="margin-bottom:14px;border-left:4px solid #92580B;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+    <div style="font-size:13px;"><b>🔁 You're covering ${rows.length} client${rows.length>1?'s':''}</b> for ${escHtml(owners.join(', '))}.</div>
+    <button class="btn btn-sm btn-p" onclick="showPage('coverage',document.querySelector('.nav-item[onclick*=coverage]'));setCovTab('handoff',document.querySelector('#page-coverage .tab:nth-child(3)'))">Open coverage profiles →</button></div>`;
+}
+
+// ═══════════════════════ HANDOFFS (coverage) ═══════════════════════
+// Owner marks clients as handed off (stored on the CLIENT in the owner's own
+// pocket: coverage={coveredBy,to,note,since}); the covering CSM reads every
+// pocket for clients pointing at them and gets a coverage profile per client.
+function _hoActive(c){
+  const h=c&&c.coverage; if(!h||!h.coveredBy)return false;
+  if(h.to&&h.to<new Date().toISOString().split('T')[0])return false;
+  return true;
+}
+function renderHandoffPicker(){
+  const sel=document.getElementById('ho-csm');
+  if(sel&&sel.options.length===0){
+    sel.innerHTML=PROFILES.filter(p=>p.id!==P.id&&!p.coverageMarketOnly).map(p=>`<option value="${p.id}">${escHtml(p.name)}${p.isCSC?' (CSC)':''}</option>`).join('');
+  }
+  const all=document.getElementById('ho-all').checked;
+  const el=document.getElementById('ho-picker');
+  const cl=get('clients');
+  el.innerHTML=all?'':cl.map(c=>`<label style="display:flex;gap:8px;align-items:center;padding:4px 0;font-size:12.5px;cursor:pointer;"><input type="checkbox" class="ho-pick" value="${escHtml(c.id)}"> ${escHtml(c.name)}${_hoActive(c)?' <span style="font-size:10px;color:#92580B;">(handed off)</span>':''}</label>`).join('');
+  const active=cl.filter(_hoActive);
+  const st=document.getElementById('ho-status');
+  if(st)st.innerHTML=active.length?`<b>${active.length}</b> of your clients are currently handed off to ${[...new Set(active.map(c=>(PROFILES.find(p=>p.id===c.coverage.coveredBy)||{}).name||'?'))].map(escHtml).join(', ')}.`:'No active handoffs.';
+}
+function startHandoff(){
+  const csm=document.getElementById('ho-csm').value;if(!csm){showToast('Pick a covering CSM.');return;}
+  const to=document.getElementById('ho-to').value||'';
+  const note=document.getElementById('ho-note').value.trim();
+  const all=document.getElementById('ho-all').checked;
+  const picked=new Set([...document.querySelectorAll('.ho-pick:checked')].map(x=>x.value));
+  const cl=get('clients');let n=0;
+  cl.forEach(c=>{ if(all||picked.has(c.id)){ c.coverage={coveredBy:csm,to,note,since:new Date().toISOString().split('T')[0]}; n++; } });
+  if(!n){showToast('Select at least one client.');return;}
+  set('clients',cl);renderHandoffPicker();renderHandoffs();
+  showToast(`Handed off ${n} client${n>1?'s':''} to ${(PROFILES.find(p=>p.id===csm)||{}).name||'the covering CSM'}.`);
+}
+function endHandoff(){
+  const cl=get('clients');let n=0;
+  cl.forEach(c=>{ if(c.coverage){delete c.coverage;n++;} });
+  set('clients',cl);renderHandoffPicker();renderHandoffs();
+  showToast(n?'Handoffs ended — welcome back!':'Nothing to end.');
+}
+function renderHandoffs(){
+  renderHandoffPicker();
+  const el=document.getElementById('ho-covering');if(!el)return;
+  const rows=[];
+  PROFILES.forEach(p=>{ if(p.id===P.id)return; get('clients',p.id).forEach(c=>{ if(_hoActive(c)&&c.coverage.coveredBy===P.id)rows.push({c,owner:p}); }); });
+  if(!rows.length){el.innerHTML='<div class="es"><div class="ei">🔁</div><p>Nobody has handed clients to you right now.</p></div>';return;}
+  const covNotes=getCov();
+  const dirs=(DATA.shared&&DATA.shared.communities)||{};
+  el.innerHTML=rows.map(({c,owner})=>{
+    const note=covNotes.find(n=>n.clientId===c.id&&n.csmId===owner.id);
+    const pp=_PULSE&&c.vivId?_PULSE.byCid[c.vivId]:null;
+    const dir=c.loc&&dirs[c.loc];
+    const tierCls={High:'hi',Medium:'med',Low:'lo'}[c.tier]||'';
+    return `<div style="padding:10px 0;border-bottom:1px solid var(--line-soft);">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+        <div><span style="font-weight:600;">${escHtml(c.name)}</span> <span class="tb ${tierCls}" style="margin-left:4px;">${escHtml(c.tier||'—')}</span>${pp?' '+pulseChip(pp.level):''}</div>
+        <span style="font-size:11px;color:#8C857B;">for ${escHtml(owner.name)}${c.coverage.to?' · through '+c.coverage.to:''}</span>
+      </div>
+      <div style="font-size:12px;color:#57524A;line-height:1.7;margin-top:4px;">
+        ${c.loc?`<div>🏘️ ${escHtml(c.loc)}${c.city?', '+escHtml(c.city):''}${dir&&dir.mainContact?` — <b>${escHtml(dir.mainContact)}</b>${dir.mainPhone?' · '+escHtml(dir.mainPhone):''}`:''}</div>`:''}
+        ${dir&&dir.levels&&dir.levels.length?`<div style="font-size:11.5px;color:#6B655C;">${dir.levels.map(l=>`${escHtml(l.name)}: ${escHtml(l.who||'—')}${l.phone?' '+escHtml(l.phone):''}`).join(' · ')}</div>`:''}
+        <div>👤 ${escHtml(c.contact||'No family contact on file')}${c.contactEmail?' · '+escHtml(c.contactEmail):''}${c.comm?' · prefers '+escHtml(c.comm):''}</div>
+        <div>📅 Last visit ${c.lastVisit?fmtD(c.lastVisit):'—'} · every ${escHtml(String(c.freq||90))}d${c.caregivers?' · 👩‍⚕️ '+escHtml(c.caregivers):''}</div>
+        ${c.coverage.note?`<div style="color:#92580B;">📝 ${escHtml(c.coverage.note)}</div>`:''}
+        ${note?`<div style="margin-top:4px;padding:7px 9px;background:#F7F4EF;border-radius:6px;font-size:11.5px;">${note.concerns?'<b>Watch:</b> '+escHtml(note.concerns)+'<br>':''}${note.upcoming?'<b>Upcoming:</b> '+escHtml(note.upcoming)+'<br>':''}${note.notes?escHtml(note.notes):''}</div>`:''}
+        ${pp&&pp.aiPulse?`<div style="margin-top:4px;font-size:11.5px;color:#3D3833;background:#FBEADF;border-radius:6px;padding:6px 9px;"><b style="color:#C2410C;">Pulse Read:</b> ${escHtml(pp.aiPulse)}</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════ COMMUNITY DIRECTORY ═══════════════════════
+// Jada's ask: covering a colleague's client at a community with 4 levels of
+// care, she couldn't tell who to call. Shared directory keyed by community
+// name (auto-seeded from every client's `loc`), editable by anyone.
+let _cmDirSel=null;
+function _communityIndex(){
+  const idx={};
+  PROFILES.forEach(p=>get('clients',p.id).forEach(c=>{
+    const k=(c.loc||'').trim(); if(!k||/private home|^home$/i.test(k))return;
+    (idx[k]=idx[k]||{clients:0,csms:new Set(),city:c.city||''}); idx[k].clients++; idx[k].csms.add(p.name.split(' ')[0]);
+  }));
+  return idx;
+}
+function renderCommunityList(){
+  const el=document.getElementById('cm-dir-list');if(!el)return;
+  const idx=_communityIndex();const dirs=(DATA.shared&&DATA.shared.communities)||{};
+  Object.keys(dirs).forEach(k=>{if(!idx[k])idx[k]={clients:0,csms:new Set(),city:''};});
+  const q=(document.getElementById('cm-dir-search')?.value||'').toLowerCase();
+  const names=Object.keys(idx).filter(n=>!q||n.toLowerCase().includes(q)).sort((a,b)=>idx[b].clients-idx[a].clients||a.localeCompare(b));
+  if(!names.length){el.innerHTML='<p style="font-size:12px;color:#8C857B;">No communities found.</p>';return;}
+  el.innerHTML=names.map(n=>{const d=dirs[n];const has=d&&((d.levels&&d.levels.length)||d.mainContact);return `<div onclick="selectCommunity('${escHtml(n).replace(/'/g,"\\'")}')" style="padding:8px 6px;border-bottom:1px solid var(--line-soft);cursor:pointer;${_cmDirSel===n?'background:#F1EEE8;border-radius:6px;':''}">
+    <div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:13px;font-weight:500;">${escHtml(n)}</span><span style="font-size:10px;font-weight:700;color:${has?'#0F6E56':'#92580B'};">${has?'✓ contacts':'needs info'}</span></div>
+    <div style="font-size:11px;color:#8C857B;">${idx[n].clients} client${idx[n].clients!==1?'s':''}${idx[n].csms.size?' · '+[...idx[n].csms].join(', '):''}${idx[n].city?' · '+escHtml(idx[n].city):''}</div></div>`;}).join('');
+}
+function selectCommunity(name){_cmDirSel=name;renderCommunityList();renderCommunityDetail();}
+function renderCommunityDetail(){
+  const el=document.getElementById('cm-dir-detail');if(!el||!_cmDirSel)return;
+  const d=((DATA.shared&&DATA.shared.communities)||{})[_cmDirSel]||{levels:[]};
+  const levels=(d.levels&&d.levels.length)?d.levels:[{name:'',who:'',phone:'',notes:''}];
+  const clientsHere=[];PROFILES.forEach(p=>get('clients',p.id).forEach(c=>{if((c.loc||'').trim()===_cmDirSel)clientsHere.push(c.name+' ('+p.name.split(' ')[0]+')');}));
+  el.innerHTML=`<div class="ct" style="margin-bottom:4px;">${escHtml(_cmDirSel)}</div>
+    <p style="font-size:11.5px;color:#8C857B;margin-bottom:12px;">${clientsHere.length?'Clients here: '+clientsHere.map(escHtml).join(', '):'No active clients here right now.'}</p>
+    <div class="g2">
+      <div class="fg"><label class="fl">Main contact (front desk / director)</label><input type="text" class="fc" id="cmd-main" value="${escHtml(d.mainContact||'')}"></div>
+      <div class="fg"><label class="fl">Main phone</label><input type="text" class="fc" id="cmd-phone" value="${escHtml(d.mainPhone||'')}"></div>
+    </div>
+    <div class="fl" style="margin-bottom:6px;">Levels of care — who to call</div>
+    <div id="cmd-levels">${levels.map((l,i)=>_levelRow(l,i)).join('')}</div>
+    <button class="btn btn-sm btn-o" style="margin:6px 0 12px;" onclick="addLevelRow()">+ Add level</button>
+    <div class="fg"><label class="fl">Notes (parking, entry codes, best times, quirks)</label><textarea class="fc" id="cmd-notes" style="min-height:70px;">${escHtml(d.notes||'')}</textarea></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:11px;color:#8C857B;">${d.updatedAt?'Updated '+new Date(d.updatedAt).toLocaleDateString()+(d.updatedBy?' by '+escHtml(d.updatedBy):''):'Not yet filled in'}</span>
+      <button class="btn btn-p" onclick="saveCommunity()">Save directory entry</button>
+    </div>`;
+}
+function _levelRow(l,i){return `<div class="cmd-level" style="display:grid;grid-template-columns:1.1fr 1.2fr .9fr 1.4fr auto;gap:6px;margin-bottom:6px;align-items:center;">
+  <input class="fc" placeholder="Level (e.g. Memory Care)" value="${escHtml(l.name||'')}" data-f="name">
+  <input class="fc" placeholder="Who to call" value="${escHtml(l.who||'')}" data-f="who">
+  <input class="fc" placeholder="Phone / ext" value="${escHtml(l.phone||'')}" data-f="phone">
+  <input class="fc" placeholder="Notes" value="${escHtml(l.notes||'')}" data-f="notes">
+  <button class="btn btn-sm btn-o" onclick="this.parentElement.remove()" title="Remove">✕</button></div>`;}
+function addLevelRow(){document.getElementById('cmd-levels').insertAdjacentHTML('beforeend',_levelRow({},0));}
+function saveCommunity(){
+  if(!_cmDirSel)return;
+  const levels=[...document.querySelectorAll('#cmd-levels .cmd-level')].map(r=>{const o={};r.querySelectorAll('input').forEach(i=>o[i.dataset.f]=i.value.trim());return o;}).filter(l=>l.name||l.who||l.phone);
+  DATA.shared=DATA.shared||{};DATA.shared.communities=DATA.shared.communities||{};
+  DATA.shared.communities[_cmDirSel]={mainContact:document.getElementById('cmd-main').value.trim(),mainPhone:document.getElementById('cmd-phone').value.trim(),levels,notes:document.getElementById('cmd-notes').value.trim(),updatedAt:new Date().toISOString(),updatedBy:P?P.name:''};
+  queueSave();renderCommunityList();renderCommunityDetail();showToast('Community directory saved — shared with the whole team.');
 }
 
 // ═══════════════════════ KPI ═══════════════════════
