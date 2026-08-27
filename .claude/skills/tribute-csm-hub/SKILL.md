@@ -146,7 +146,8 @@ The hub uses the **Tribute Intelligence design system** — the same light, warm
 | Home | `page-home` | Daily summary: stat cards, High Priority Tasks, to-dos + quick notes, Needs Attention, Upcoming Viv Visits card, 1:1 notes |
 | Clients | `page-clients` | Master tracker table auto-populated from Viv (viv status badges; 🛡️ = Tribute Secure); rows expand to a client detail (visits / touchpoints / care conversations / LTC) with a log panel. LTC insurance records panel lives here too. |
 | Success in 30 | `page-s60` | 30-day onboarding tracker: milestone checklist + touchpoint log + calendar + email templates |
-| Coverage Notes | `page-coverage` | Shared vacation coverage notes (my clients + team tabs) |
+| Client Pulse | `page-pulse` | Server-scored attention read per client (endpoint `client_pulse`): red/amber/green tiers decided by Claude from caregiver visit notes, change-of-condition, incidents, comms; CSM sees own caseload, managers/CSCs see their market; rows expand to evidence + Tribute Intelligence Pulse Read |
+| Coverage Notes | `page-coverage` | Tabs: My Clients (coverage notes) · Team Coverage · **Handoffs** (hand caseload to a covering CSM; covering CSM gets coverage profiles + Home banner) · **Communities** (shared directory: main contact + levels of care/who-to-call per community, auto-seeded from client `loc`) |
 | Fill Priority | `page-priority` | Event-based coverage ranking (manager-created events, drag-to-reorder, auto fill-scores) + the live "Open Visits — My Caseload" card from Viv, ranked 🔴/🟡/🟢 (`fillRanks`) |
 
 (There is also a `page-comms` Communications page — due-now cadence, touchpoint log, care conversations — reachable in code; older pages Visit Log / Check-Ins / To-Dos / Leads were consolidated into Clients + Home, with their old render targets kept as hidden compat sinks. Leads data still syncs into profiles for KPIs even though the Leads page is gone.)
@@ -154,7 +155,7 @@ The hub uses the **Tribute Intelligence design system** — the same light, warm
 #### Resources
 | Nav label | Page ID | Purpose |
 |---|---|---|
-| Tribute Assistant | `page-assistant` | Knowledge base, email templates ("Tributey" voice), scenario guides, decision framework |
+| Tribute Assistant | `page-assistant` | **Ask the Tribute Assistant** (Claude chat via endpoint `csm_assist`, answers only from KB/scenarios/templates incl. manager-added entries), knowledge base, email templates ("Tributey" voice), scenario guides, decision framework. Client detail's **Draft update** uses the same endpoint (de-identified context, names swapped back locally) |
 | Role Expectations | `page-expectations` | CSM role expectations incl. KPI targets (dissatisfaction terms <1%, NPS ≥70, lead closure ≥55%, leads from existing accounts, doc & visit compliance) |
 | KPI Tracker | `page-kpi` | Quarterly KPI entry + history. (Phase 2: auto-fill from `DATA.shared.viv.metrics` + NPS/discharge-reason feeds.) |
 
