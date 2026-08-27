@@ -744,20 +744,15 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
 
 <!-- FILL PRIORITY -->
 <div id="page-emailcomm" class="page">
-  <div class="ph"><h2>✉️ Email Community</h2><p>The Friday email to community leaders — next week's schedule (Sunday–Saturday) for every Tribute client there, plus a short partner-safe note on how things are going. Set it up once; it sends itself every Friday at 2:00 PM ET.</p></div>
-  <div class="card" style="margin-bottom:14px;border-left:4px solid var(--orange);">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-      <div style="font-size:12.5px;color:#3D3833;line-height:1.55;"><b>How it works.</b> Turn a community on, add the leader's email, and it's in the Friday run. <b>Send now</b> goes out from <b>your own Outlook mailbox</b> (it shows in your Sent Items). The automatic Friday run sends from tuadmin@tributehomecare.com with <b>Reply-To set to you</b> and you cc'd, so replies still land with you. Status lines are written for an outside partner — operational only, never clinical or incident detail.</div>
-      <div id="ec-status" style="font-size:11.5px;color:#8C857B;white-space:nowrap;"></div>
-    </div>
-  </div>
-  <div class="g2" style="grid-template-columns:320px 1fr;gap:14px;align-items:start;">
+  <div class="ph"><h2>✉️ Email Community</h2><p>Click a community and the Friday email is already written — next week's schedule (Sunday–Saturday) for every Tribute client there and a short note on how each is doing. Edit anything, then send it from your own Outlook.</p></div>
+  <div class="g2" style="grid-template-columns:300px 1fr;gap:14px;align-items:start;">
     <div class="card">
       <div class="ct" style="margin-bottom:8px;">Communities</div>
       <input type="text" class="si" id="ec-search" placeholder="Search…" oninput="renderEmailCommList()" style="width:100%;margin-bottom:8px;">
-      <div id="ec-list" style="max-height:640px;overflow:auto;"></div>
+      <div id="ec-list" style="max-height:720px;overflow:auto;"></div>
+      <div id="ec-status" style="font-size:11px;color:#8C857B;margin-top:8px;"></div>
     </div>
-    <div class="card" id="ec-detail"><p style="font-size:12.5px;color:#8C857B;">Pick a community on the left.</p></div>
+    <div id="ec-detail"><div class="card"><p style="font-size:12.5px;color:#8C857B;">Pick a community on the left — the draft loads automatically.</p></div></div>
   </div>
 </div>
 
@@ -4088,21 +4083,30 @@ function saveCommunity(){
 }
 
 // ═══════════════════════ EMAIL COMMUNITY ═══════════════════════
-// Config lives in DATA.shared.communities[name].email (shared doc → server reads
-// it on Friday): {enabled,tier,to[],cc[],csmId,note,skipUntil}. The server
-// builds/sends (endpoint=community_email); this page is config + preview + send.
-let _ecSel=null;
+// Settings live in DATA.shared.communities[name].email = {enabled,tier,to[],cc[],
+// csmId,note,skipUntil}. The DRAFT (subject/intro/per-client line + schedule)
+// is built and cached server-side per week (endpoint=community_email&draft=1),
+// edited here, saved back (save=1) and sent from the signed-in CSM's own
+// mailbox (Graph /me/sendMail). The Friday run sends the saved draft.
+let _ecSel=null,_ecDraft=null,_ecLoading=false;
+const CSM_UPN={courtney:'courtney.chaulk',julia:'julia.hanna',ramya:'ramya.ramakrishna',emily:'emily.willson',tracy:'tracy.dubois',sam:'sam.noren',jada:'jada.tiglao',bronwyn:'bronwyn.carmel',tina:'tina.merklinger',brenda:'brenda.kruger',michelle:'michelle.hejduk',carrie:'carrie.faerber'};
+const _csmEmail=id=>CSM_UPN[id]?CSM_UPN[id]+'@tributehomecare.com':'';
 function _ecScopeNames(){
   const idx=_communityIndex();const dirs=(DATA.shared&&DATA.shared.communities)||{};
   Object.keys(dirs).forEach(k=>{if(!idx[k])idx[k]={clients:0,csms:new Set(),city:''};});
-  const isMgr=!!(P?.isManager||P?.isCSC)||ADMIN_UPNS.includes(((window.tributeKsfGate&&window.tributeKsfGate.getAccount&&window.tributeKsfGate.getAccount())||{}).username||'');
+  const isMgr=!!(P?.isManager||P?.isCSC)||ADMIN_UPNS.includes(_ecMe().username||'');
   const mine=new Set();
   if(!isMgr&&P){get('clients',P.id).forEach(c=>{const k=(c.loc||'').trim();if(k)mine.add(k);});}
   return Object.keys(idx).filter(n=>isMgr||mine.has(n)||(dirs[n]&&dirs[n].email&&dirs[n].email.csmId===P?.id)).map(n=>({name:n,...idx[n]}));
 }
-function renderEmailComm(){renderEmailCommList();renderEmailCommDetail();
+let _ecAcct=null;
+function _ecMe(){return _ecAcct||{};}
+async function renderEmailComm(){
+  if(!_ecAcct&&window.tributeKsfGate&&window.tributeKsfGate.getAccount){try{_ecAcct=await window.tributeKsfGate.getAccount();}catch(e){}}
+  renderEmailCommList();if(_ecSel)renderEmailCommDetail();
   const dirs=(DATA.shared&&DATA.shared.communities)||{};const on=Object.values(dirs).filter(d=>d.email&&d.email.enabled&&(d.email.to||[]).length).length;
-  const st=document.getElementById('ec-status');if(st)st.textContent=on?on+' communit'+(on===1?'y':'ies')+' in the Friday run':'No communities in the Friday run yet';}
+  const st=document.getElementById('ec-status');if(st)st.textContent=on?on+' communit'+(on===1?'y':'ies')+' in the automatic Friday run':'No communities in the automatic Friday run yet';
+}
 function renderEmailCommList(){
   const el=document.getElementById('ec-list');if(!el)return;
   const dirs=(DATA.shared&&DATA.shared.communities)||{};
@@ -4110,120 +4114,157 @@ function renderEmailCommList(){
   const rows=_ecScopeNames().filter(r=>!q||r.name.toLowerCase().includes(q)).sort((a,b)=>{const ea=!!(dirs[a.name]?.email?.enabled),eb=!!(dirs[b.name]?.email?.enabled);return (eb-ea)||b.clients-a.clients||a.name.localeCompare(b.name);});
   if(!rows.length){el.innerHTML='<p style="font-size:12px;color:#8C857B;">No communities with your clients yet.</p>';return;}
   el.innerHTML=rows.map(r=>{const e=(dirs[r.name]||{}).email||{};const on=e.enabled&&(e.to||[]).length;return `<div onclick="selectEmailComm('${escHtml(r.name).replace(/'/g,"\\'")}')" style="padding:8px 6px;border-bottom:1px solid var(--line-soft);cursor:pointer;${_ecSel===r.name?'background:#FFF3EC;border-radius:8px;':''}">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;"><span style="font-size:13px;font-weight:500;">${escHtml(r.name)}</span><span style="font-size:10px;font-weight:700;color:${on?'#0F6E56':(e.enabled?'#92580B':'#8C857B')};white-space:nowrap;">${on?'● Friday':(e.enabled?'needs email':'off')}</span></div>
-    <div style="font-size:11px;color:#8C857B;">${r.clients} client${r.clients!==1?'s':''}${r.csms.size?' · '+[...r.csms].join(', '):''}${e.tier?' · '+escHtml(e.tier):''}</div></div>`;}).join('');
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;"><span style="font-size:13px;font-weight:500;">${escHtml(r.name)}</span><span style="font-size:10px;font-weight:700;color:${on?'#0F6E56':'#8C857B'};white-space:nowrap;">${on?'● auto Friday':(e.tier?escHtml(e.tier):'')}</span></div>
+    <div style="font-size:11px;color:#8C857B;">${r.clients} client${r.clients!==1?'s':''}${r.csms.size?' · '+[...r.csms].join(', '):''}</div></div>`;}).join('');
 }
-function selectEmailComm(n){_ecSel=n;renderEmailCommList();renderEmailCommDetail();}
-function renderEmailCommDetail(){
-  const el=document.getElementById('ec-detail');if(!el||!_ecSel)return;
+function selectEmailComm(n){_ecSel=n;_ecDraft=null;renderEmailCommList();renderEmailCommDetail();ecLoadDraft(false);}
+function _ecSettingsHtml(){
   const d=((DATA.shared&&DATA.shared.communities)||{})[_ecSel]||{};const e=d.email||{};
   const clientsHere=[];PROFILES.forEach(p=>get('clients',p.id).forEach(c=>{if((c.loc||'').trim()===_ecSel)clientsHere.push({name:c.name,csm:p});}));
   const cnt={};clientsHere.forEach(c=>cnt[c.csm.id]=(cnt[c.csm.id]||0)+1);const defCsm=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0]||P?.id||'';
   const csmOpts=PROFILES.filter(p=>!p.isManager||cnt[p.id]).map(p=>`<option value="${p.id}" ${(e.csmId||defCsm)===p.id?'selected':''}>${escHtml(p.name)}</option>`).join('');
   const today=new Date().toISOString().slice(0,10);const skipping=e.skipUntil&&e.skipUntil>=today;
-  el.innerHTML=`<div class="ct" style="margin-bottom:4px;">${escHtml(_ecSel)}</div>
-    <p style="font-size:11.5px;color:#8C857B;margin-bottom:12px;">${clientsHere.length?'Will include: '+clientsHere.map(c=>escHtml(c.name)).join(', '):'No active clients here right now — nothing would send.'}</p>
-    <div class="g2">
-      <div class="fg"><label class="fl">Friday email</label><select class="fc" id="ec-enabled"><option value="1" ${e.enabled?'selected':''}>On — send every Friday</option><option value="0" ${!e.enabled?'selected':''}>Off</option></select></div>
-      <div class="fg"><label class="fl">Community tier</label><select class="fc" id="ec-tier"><option value="" ${!e.tier?'selected':''}>—</option><option ${e.tier==='Tier 1'?'selected':''}>Tier 1</option><option ${e.tier==='Tier 2'?'selected':''}>Tier 2</option><option ${e.tier==='Other'?'selected':''}>Other</option></select></div>
+  return `<div class="card" style="margin-bottom:12px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+      <div><div class="ct" style="margin-bottom:2px;">${escHtml(_ecSel)}</div><div style="font-size:11.5px;color:#8C857B;">${clientsHere.length?clientsHere.length+' client'+(clientsHere.length!==1?'s':'')+': '+clientsHere.map(c=>escHtml(c.name)).join(', '):'No active clients here right now.'}</div></div>
+      <span style="font-size:11px;color:#8C857B;">${e.updatedAt?'Settings updated '+new Date(e.updatedAt).toLocaleDateString()+(e.updatedBy?' by '+escHtml(e.updatedBy):''):''}${skipping?' · <b style="color:#92580B;">skipping this Friday</b>':''}</span>
     </div>
-    <div class="fg"><label class="fl">To — community leader email(s), comma-separated</label><input type="text" class="fc" id="ec-to" value="${escHtml((e.to||[]).join(', '))}" placeholder="director@community.com, nurse@community.com"></div>
-    <div class="g2">
-      <div class="fg"><label class="fl">CC (optional; the signing CSM is always cc'd)</label><input type="text" class="fc" id="ec-cc" value="${escHtml((e.cc||[]).join(', '))}"></div>
-      <div class="fg"><label class="fl">Signed by / Reply-To</label><select class="fc" id="ec-csm">${csmOpts}</select></div>
+    <div style="display:grid;grid-template-columns:2fr 1.4fr 1.3fr;gap:8px;">
+      <div class="fg" style="margin:0;"><label class="fl">To — community leader email(s)</label><input type="text" class="fc" id="ec-to" value="${escHtml((e.to||[]).join(', '))}" placeholder="director@community.com, nurse@community.com"></div>
+      <div class="fg" style="margin:0;"><label class="fl">CC (optional)</label><input type="text" class="fc" id="ec-cc" value="${escHtml((e.cc||[]).join(', '))}"></div>
+      <div class="fg" style="margin:0;"><label class="fl">Signed by</label><select class="fc" id="ec-csm" onchange="ecSignerChanged()">${csmOpts}</select></div>
     </div>
-    <div class="fg"><label class="fl">Standing note (appears under the greeting every week — optional)</label><textarea class="fc" id="ec-note" style="min-height:60px;" placeholder="e.g. Our weekend team lead is Maria — text her directly with any same-day changes.">${escHtml(e.note||'')}</textarea></div>
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
-      <span style="font-size:11px;color:#8C857B;">${e.updatedAt?'Updated '+new Date(e.updatedAt).toLocaleDateString()+(e.updatedBy?' by '+escHtml(e.updatedBy):''):'Not set up yet'}${skipping?' · <b style="color:#92580B;">skipping this Friday</b>':''}</span>
+    <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-top:8px;">
+      <div class="fg" style="margin:0;"><label class="fl">Automatic Friday send</label><select class="fc" id="ec-enabled"><option value="0" ${!e.enabled?'selected':''}>Off — I send it myself</option><option value="1" ${e.enabled?'selected':''}>On — send at 2 PM Friday</option></select></div>
+      <div class="fg" style="margin:0;"><label class="fl">Tier</label><select class="fc" id="ec-tier"><option value="" ${!e.tier?'selected':''}>—</option><option ${e.tier==='Tier 1'?'selected':''}>Tier 1</option><option ${e.tier==='Tier 2'?'selected':''}>Tier 2</option><option ${e.tier==='Other'?'selected':''}>Other</option></select></div>
+      <div class="fg" style="margin:0;flex:1;min-width:200px;"><label class="fl">Standing note (added to every week's intro)</label><input type="text" class="fc" id="ec-note" value="${escHtml(e.note||'')}" placeholder="e.g. Text Maria for same-day weekend changes."></div>
+      <button class="btn btn-sm btn-o" onclick="ecSkipWeek(${skipping?'false':'true'})">${skipping?'Un-skip this week':'Skip this week'}</button>
+      <button class="btn btn-sm btn-p" onclick="saveEmailComm()">Save settings</button>
+    </div>
+  </div>`;
+}
+function renderEmailCommDetail(){
+  const el=document.getElementById('ec-detail');if(!el||!_ecSel)return;
+  el.innerHTML=_ecSettingsHtml()+'<div id="ec-draft"></div>';
+  renderEmailDraft();
+}
+function _ecTA(id,val,rows,ph){return `<textarea id="${id}" class="ec-ta" rows="${rows||2}" placeholder="${escHtml(ph||'')}" oninput="_ecMarkDirty();this.style.height='auto';this.style.height=this.scrollHeight+'px'" style="width:100%;border:1px dashed transparent;border-radius:6px;background:transparent;font:inherit;font-size:13.5px;color:#3D3833;line-height:1.6;padding:2px 4px;resize:none;overflow:hidden;">${escHtml(val||'')}</textarea>`;}
+function renderEmailDraft(){
+  const box=document.getElementById('ec-draft');if(!box)return;
+  if(_ecLoading){box.innerHTML='<div class="card" style="text-align:center;padding:30px;color:#8C857B;font-size:13px;">✦ Writing the draft — pulling next week\'s schedule from Viv and reading how each client is doing… about 15 seconds.</div>';return;}
+  const p=_ecDraft;
+  if(!p){box.innerHTML='<div class="card" style="color:#92580B;font-size:13px;">'+escHtml(window._ecErr||'No draft yet.')+' <button class="btn btn-sm btn-o" onclick="ecLoadDraft(true)">Try again</button></div>';return;}
+  const me=_ecMe();const canMail=!!me.username;
+  const meta=(p.sentAt?'<b style="color:#0F6E56;">Sent '+new Date(p.sentAt).toLocaleString()+'</b> · ':'')+(p.edited?'Edited '+(p.editedBy?'by '+escHtml(p.editedBy)+' ':'')+new Date(p.editedAt).toLocaleString():'Written by Tribute Intelligence '+new Date(p.generatedAt).toLocaleString());
+  const F="font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;";
+  box.innerHTML=`<div class="card" style="padding:0;overflow:hidden;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 16px;border-bottom:1px solid var(--line);background:#fff;">
+      <div style="font-size:11.5px;color:#8C857B;">Draft for <b style="color:#1C1A17;">${escHtml(p.weekLabel)}</b> · ${meta} <span id="ec-dirty" style="color:#92580B;"></span></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        <button class="btn btn-sm btn-o" onclick="ecSkipWeek(${skipping?'false':'true'})">${skipping?'Un-skip this week':'Skip this week'}</button>
-        <button class="btn btn-p" onclick="saveEmailComm()">Save</button>
+        <button class="btn btn-sm btn-o" onclick="ecLoadDraft(true)" title="Rewrite the summaries and refresh the schedule">↻ Regenerate</button>
+        <button class="btn btn-sm btn-o" onclick="ecSaveDraft()">Save draft</button>
+        <button class="btn btn-sm btn-o" onclick="ecSend(true)" ${canMail?'':'disabled title="Sign in with Microsoft to send"'}>Send test to me</button>
+        <button class="btn btn-sm btn-p" onclick="ecSend(false)" ${canMail?'':'disabled title="Sign in with Microsoft to send"'}>Send from my Outlook →</button>
       </div>
     </div>
-    <div class="ct" style="margin-bottom:6px;">Preview & send</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
-      <button class="btn btn-sm btn-o" onclick="ecPreview()">👁 Preview next week's email</button>
-      <button class="btn btn-sm btn-o" onclick="ecSend(true)">📨 Send a test to me</button>
-      <button class="btn btn-sm btn-p" onclick="ecSend(false)">Send to the community now</button>
+    <div id="ec-sendmsg" style="display:none;padding:8px 16px;font-size:12.5px;border-bottom:1px solid var(--line);"></div>
+    <div style="padding:12px 16px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:center;font-size:12.5px;color:#8C857B;">
+      <span>Subject</span><input type="text" id="ec-subject" class="fc" value="${escHtml(p.subject)}" oninput="_ecMarkDirty()">
     </div>
-    <div id="ec-preview" style="font-size:12px;color:#8C857B;">Preview pulls next week's schedule from Viv and writes the status lines — takes 10–20 seconds.</div>`;
+    <div style="background:#FAF8F4;padding:22px 18px;">
+      <div style="max-width:600px;margin:0 auto;${F}">
+        <div style="font-size:20px;font-weight:800;color:#1C1A17;">Tribute<span style="color:#FF5A1F;">.</span></div>
+        <input type="text" id="ec-title" value="${escHtml(p.title||'')}" oninput="_ecMarkDirty()" style="width:100%;border:1px dashed transparent;border-radius:6px;background:transparent;font-size:22px;font-weight:800;color:#1C1A17;margin-top:10px;padding:2px 4px;${F}">
+        <div style="font-size:13px;color:#8C857B;margin-top:3px;padding:0 4px;">${escHtml(p.weekLabel)} · ${p.clients.length} Tribute client${p.clients.length!==1?'s':''}</div>
+        <div style="margin-top:8px;">${_ecTA('ec-intro',p.intro,3,'Opening…')}</div>
+        <div style="margin-top:14px;">${p.clients.map((c,i)=>`<div style="background:#fff;border:1px solid #EAE6DF;border-radius:12px;padding:14px 18px;margin-bottom:12px;">
+          <div style="font-size:16px;font-weight:700;color:#1C1A17;">${escHtml(c.name)}</div>
+          ${_ecTA('ec-line-'+i,c.line,2,'How things are going with '+(c.name||'').split(' ')[0]+'…')}
+          <table style="margin-top:8px;border-top:1px solid #F1EEE8;font-size:12.5px;color:#3D3833;">${c.sched.length?c.sched.map(x=>`<tr><td style="padding:5px 8px 5px 0;white-space:nowrap;">${escHtml(x.dayLabel)}</td><td style="padding:5px 8px;white-space:nowrap;">${escHtml(x.time)}</td><td style="padding:5px 0 5px 8px;color:${x.open?'#92580B':'#3D3833'};">${escHtml(x.who)}</td></tr>`).join(''):'<tr><td style="padding:5px 0;color:#8C857B;">No Tribute visits scheduled next week.</td></tr>'}</table>
+        </div>`).join('')}</div>
+        <div style="margin-top:6px;">${_ecTA('ec-closing',p.closing||'Warmly,',1,'Closing')}<div style="padding:0 4px;font-size:13.5px;color:#3D3833;line-height:1.6;"><b>${escHtml(p.csmName)}</b><br><span style="color:#8C857B;">Client Solutions Manager · Tribute Home Care · ${escHtml(p.csmEmail)}</span></div></div>
+        <div style="border-top:1px solid #EAE6DF;margin-top:16px;padding-top:10px;font-size:10.5px;color:#B7B0A6;"><i>Remarkable, personified.</i> · Times shown in Eastern. Schedules can change; we will let you know.</div>
+      </div>
+    </div>
+  </div>
+  <style>.ec-ta:hover,.ec-ta:focus,#ec-title:hover,#ec-title:focus{border-color:#EAE6DF!important;background:#fff!important;outline:none;}</style>`;
+  box.querySelectorAll('.ec-ta').forEach(t=>{t.style.height='auto';t.style.height=t.scrollHeight+'px';});
+}
+function _ecMarkDirty(){const d=document.getElementById('ec-dirty');if(d)d.textContent='· unsaved edits';}
+function _ecCollect(){
+  const p=JSON.parse(JSON.stringify(_ecDraft));
+  p.subject=(document.getElementById('ec-subject')?.value||p.subject).trim();
+  p.title=(document.getElementById('ec-title')?.value||p.title).trim();
+  p.intro=(document.getElementById('ec-intro')?.value||'').trim();
+  p.closing=(document.getElementById('ec-closing')?.value||'Warmly,').trim();
+  p.clients.forEach((c,i)=>{const t=document.getElementById('ec-line-'+i);if(t)c.line=t.value.trim();});
+  const sel=document.getElementById('ec-csm');if(sel&&sel.value){const pr=PROFILES.find(x=>x.id===sel.value);if(pr){p.csmId=pr.id;p.csmName=pr.name;p.csmEmail=_csmEmail(pr.id)||p.csmEmail;}}
+  return p;
+}
+function ecSignerChanged(){if(!_ecDraft)return;const sel=document.getElementById('ec-csm');const pr=PROFILES.find(x=>x.id===sel.value);if(pr){_ecDraft.csmId=pr.id;_ecDraft.csmName=pr.name;_ecDraft.csmEmail=_csmEmail(pr.id)||_ecDraft.csmEmail;renderEmailDraft();_ecMarkDirty();}}
+async function ecLoadDraft(refresh){
+  if(!_ecSel)return;const name=_ecSel;_ecLoading=true;window._ecErr='';renderEmailDraft();
+  try{
+    const r=await fetch(VIV_PROXY+'?endpoint=community_email&draft=1&community='+encodeURIComponent(name)+(refresh?'&refresh=1':''),{headers:await dataHeaders()});
+    const txt=await r.text();let j;try{j=JSON.parse(txt);}catch(e){throw new Error('The server is still starting — try again in a few seconds.');}
+    if(!r.ok||j.error)throw new Error(j.error||('HTTP '+r.status));
+    if(_ecSel!==name)return;
+    _ecDraft=j.parts||null;if(!_ecDraft)window._ecErr=j.skipped==='no active clients'?'No active clients live here right now, so there is nothing to send.':(j.skipped||'No draft.');
+  }catch(e){if(_ecSel!==name)return;_ecDraft=null;window._ecErr='Could not build the draft — '+e.message;}
+  _ecLoading=false;renderEmailDraft();
+}
+async function _ecPost(q,parts){
+  const r=await fetch(VIV_PROXY+'?endpoint=community_email&'+q,{method:'POST',headers:await dataHeaders(true),body:JSON.stringify({parts,by:P?P.name:''})});
+  const j=await r.json();if(!r.ok||j.error)throw new Error(j.error||('HTTP '+r.status));return j;
+}
+function _ecMsg(html,color){const m=document.getElementById('ec-sendmsg');if(!m)return;m.style.display='block';m.style.color=color||'#3D3833';m.innerHTML=html;}
+async function ecSaveDraft(){
+  if(!_ecDraft)return;try{const p=_ecCollect();await _ecPost('save=1',p);p.edited=true;p.editedAt=new Date().toISOString();p.editedBy=P?P.name:'';_ecDraft=p;renderEmailDraft();showToast('Draft saved — the Friday run will send this version.');}
+  catch(e){_ecMsg('Save failed — '+escHtml(e.message),'#B42318');}
 }
 function _ecRead(){
   const split=v=>(v||'').split(/[,;\s]+/).map(x=>x.trim()).filter(x=>/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x));
   return {enabled:document.getElementById('ec-enabled').value==='1',tier:document.getElementById('ec-tier').value,to:split(document.getElementById('ec-to').value),cc:split(document.getElementById('ec-cc').value),csmId:document.getElementById('ec-csm').value,note:document.getElementById('ec-note').value.trim()};
 }
-function saveEmailComm(quiet){
+function saveEmailComm(){
   if(!_ecSel)return;
   DATA.shared=DATA.shared||{};DATA.shared.communities=DATA.shared.communities||{};
-  const d=DATA.shared.communities[_ecSel]||{levels:[]};const prev=d.email||{};
-  const e=_ecRead();
-  if(e.enabled&&!e.to.length){showToast('Add at least one valid recipient email before turning the Friday email on.');return;}
+  const d=DATA.shared.communities[_ecSel]||{levels:[]};const prev=d.email||{};const e=_ecRead();
+  if(e.enabled&&!e.to.length){showToast('Add at least one valid recipient email before turning the Friday send on.');return;}
   d.email={...prev,...e,skipUntil:prev.skipUntil||'',updatedAt:new Date().toISOString(),updatedBy:P?P.name:''};
-  DATA.shared.communities[_ecSel]=d;queueSave();renderEmailComm();
-  if(!quiet)showToast(e.enabled?'Saved — '+_ecSel+' is in the Friday run.':'Saved.');
+  DATA.shared.communities[_ecSel]=d;queueSave();
+  const keep=_ecDraft;renderEmailCommList();const el=document.getElementById('ec-detail');el.innerHTML=_ecSettingsHtml()+'<div id="ec-draft"></div>';_ecDraft=keep;renderEmailDraft();
+  showToast(e.enabled?'Saved — '+_ecSel+' will also go out automatically on Fridays.':'Settings saved.');
 }
 function ecSkipWeek(skip){
   if(!_ecSel)return;const d=(DATA.shared.communities||{})[_ecSel]||{levels:[]};d.email=d.email||{};
   if(skip){const n=new Date();const add=(5-n.getDay()+7)%7;n.setDate(n.getDate()+add);d.email.skipUntil=n.toISOString().slice(0,10);}else d.email.skipUntil='';
-  DATA.shared.communities[_ecSel]=d;queueSave();renderEmailComm();showToast(skip?'This Friday\'s email is skipped for '+_ecSel+'.':'Back in the Friday run.');
+  DATA.shared.communities[_ecSel]=d;queueSave();const keep=_ecDraft;renderEmailCommDetail();_ecDraft=keep;renderEmailDraft();showToast(skip?'This Friday\'s automatic email is skipped for '+_ecSel+'.':'Back in the Friday run.');
 }
-async function ecPreview(){
-  const box=document.getElementById('ec-preview');box.innerHTML='<span style="color:#8C857B;">Building preview…</span>';
-  try{
-    const r=await fetch(VIV_PROXY+'?endpoint=community_email&preview=1&community='+encodeURIComponent(_ecSel),{headers:await dataHeaders()});
-    const j=await r.json();if(!r.ok||j.error)throw new Error(j.error||('HTTP '+r.status));
-    const res=(j.results||[])[0];
-    if(!res||!res.html){box.innerHTML='<span style="color:#92580B;">'+escHtml((res&&res.skipped)||j.note||'Nothing to preview.')+'</span>';return;}
-    box.innerHTML=`<div style="font-size:11.5px;color:#8C857B;margin-bottom:6px;">Subject: <b style="color:#1C1A17;">${escHtml(res.subject)}</b> · signed by ${escHtml(res.csm)} · ${res.clients} client${res.clients!==1?'s':''} · week ${escHtml(j.week)}</div>
-      <iframe sandbox="" style="width:100%;height:620px;border:1px solid var(--line);border-radius:10px;background:#FAF8F4;" srcdoc="${escHtml(res.html)}"></iframe>`;
-  }catch(e){box.innerHTML='<span style="color:#B42318;">Preview failed — '+escHtml(e.message)+'</span>';}
-}
-// Send from the signed-in person's own mailbox (delegated Mail.Send via
-// Graph /me/sendMail). Server builds the HTML (preview=1); the browser sends.
-// Falls back to the server path (tuadmin, Reply-To CSM) if no Graph token.
-async function _ecBuild(){
-  const r=await fetch(VIV_PROXY+'?endpoint=community_email&preview=1&community='+encodeURIComponent(_ecSel),{headers:await dataHeaders()});
-  const j=await r.json();if(!r.ok||j.error)throw new Error(j.error||('HTTP '+r.status));
-  const res=(j.results||[])[0];if(!res||!res.html)throw new Error((res&&res.skipped)||j.note||'Nothing to send.');
-  return res;
-}
-async function _ecSendAsMe(res,to,cc){
-  const gate=window.tributeKsfGate;const tok=gate&&gate.getGraphToken?await gate.getGraphToken(['Mail.Send']):null;
-  if(!tok)return null;
-  const msg={subject:res.subject.replace(/^\[TEST\]\s*/,''),body:{contentType:'HTML',content:res.html},toRecipients:to.map(a=>({emailAddress:{address:a}}))};
-  if(cc&&cc.length)msg.ccRecipients=cc.map(a=>({emailAddress:{address:a}}));
-  const r=await fetch('https://graph.microsoft.com/v1.0/me/sendMail',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+tok},body:JSON.stringify({saveToSentItems:true,message:msg})});
-  if(r.status===202)return {status:'sent',to,cc,from:'me'};
-  const t=await r.text();throw new Error('Outlook send failed ('+r.status+'): '+t.slice(0,200));
-}
+// Send from the signed-in person's own mailbox (delegated Mail.Send).
 async function ecSend(test){
-  if(!_ecSel)return;
+  if(!_ecSel||!_ecDraft)return;
   const e=((DATA.shared.communities||{})[_ecSel]||{}).email||{};
-  if(!test&&!(e.to||[]).length){showToast('Add and save a recipient first.');return;}
-  if(!test&&!confirm('Send next week\'s schedule email for '+_ecSel+' to '+(e.to||[]).join(', ')+' now, from your mailbox?'))return;
-  const box=document.getElementById('ec-preview');box.innerHTML='<span style="color:#8C857B;">Building the email…</span>';
+  const me=_ecMe();if(!me.username){_ecMsg('Sign in with Microsoft to send from your mailbox.','#92580B');return;}
+  const split=v=>(v||'').split(/[,;\s]+/).map(x=>x.trim()).filter(x=>/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x));
+  const to=test?[me.username]:(split(document.getElementById('ec-to')?.value)||e.to||[]);
+  const cc=test?[]:split(document.getElementById('ec-cc')?.value);
+  if(!to.length){_ecMsg('Add the community leader\'s email above first.','#92580B');return;}
+  if(!test&&!confirm('Send this email for '+_ecSel+' to '+to.join(', ')+' now, from your mailbox ('+me.username+')?'))return;
+  _ecMsg('Preparing…','#8C857B');
   try{
-    const acct=window.tributeKsfGate&&window.tributeKsfGate.getAccount?await window.tributeKsfGate.getAccount():null;
-    if(acct&&acct.username){
-      const res=await _ecBuild();
-      box.innerHTML='<span style="color:#8C857B;">Sending from '+escHtml(acct.username)+'…</span>';
-      const to=test?[acct.username]:e.to;const cc=test?[]:(e.cc||[]);
-      const out=await _ecSendAsMe(res,to,cc);
-      if(out){box.innerHTML='<span style="color:#0F6E56;">✓ Sent from your mailbox to '+escHtml(to.join(', '))+(cc.length?' (cc '+escHtml(cc.join(', '))+')':'')+' — it\'s in your Sent Items.</span>';showToast(test?'Test sent to you.':'Sent to '+_ecSel+'.');return;}
-      box.innerHTML='<span style="color:#8C857B;">Outlook permission not available — sending via Tribute (Reply-To you)…</span>';
-    }
-    return ecSendViaServer(test,box);
-  }catch(err){box.innerHTML='<span style="color:#B42318;">Send failed — '+escHtml(err.message)+'</span>';}
-}
-async function ecSendViaServer(test,box){
-  box=box||document.getElementById('ec-preview');
-  try{
-    const r=await fetch(VIV_PROXY+'?endpoint=community_email&'+(test?'test=1':'send=1')+'&community='+encodeURIComponent(_ecSel),{headers:await dataHeaders()});
-    const j=await r.json();if(!r.ok||j.error)throw new Error(j.error||('HTTP '+r.status));
-    const res=(j.results||[])[0]||{};
-    if(res.status==='sent'){box.innerHTML='<span style="color:#0F6E56;">✓ Sent to '+escHtml((res.to||[]).join(', '))+(res.cc&&res.cc.length?' (cc '+escHtml(res.cc.join(', '))+')':'')+'</span>';showToast(test?'Test sent to you.':'Sent to '+_ecSel+'.');}
-    else box.innerHTML='<span style="color:#92580B;">'+escHtml(res.skipped||res.error||j.note||'Nothing sent.')+'</span>';
-  }catch(err){box.innerHTML='<span style="color:#B42318;">Send failed — '+escHtml(err.message)+'</span>';}
+    const p=_ecCollect();
+    const j=await _ecPost('save=1',p);  // persist edits + get the rendered HTML
+    const gate=window.tributeKsfGate;const tok=gate&&gate.getGraphToken?await gate.getGraphToken(['Mail.Send']):null;
+    if(!tok)throw new Error('Outlook permission was not granted. Ask Andrew to enable Mail.Send for the hub app.');
+    const msg={subject:(test?'[TEST] ':'')+p.subject,body:{contentType:'HTML',content:j.html},toRecipients:to.map(a=>({emailAddress:{address:a}}))};
+    if(cc.length)msg.ccRecipients=cc.map(a=>({emailAddress:{address:a}}));
+    const r=await fetch('https://graph.microsoft.com/v1.0/me/sendMail',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+tok},body:JSON.stringify({saveToSentItems:true,message:msg})});
+    if(r.status!==202){const t=await r.text();throw new Error('Outlook said '+r.status+': '+t.slice(0,180));}
+    if(!test){p.sentAt=new Date().toISOString();p.sentTo=to;p.edited=true;p.editedAt=p.editedAt||p.sentAt;_ecDraft=p;await _ecPost('save=1',p).catch(()=>{});renderEmailDraft();}
+    _ecMsg('✓ Sent from '+escHtml(me.username)+' to '+escHtml(to.join(', '))+(cc.length?' (cc '+escHtml(cc.join(', '))+')':'')+' — it\'s in your Sent Items.','#0F6E56');
+    showToast(test?'Test sent to you.':'Sent to '+_ecSel+'.');
+  }catch(err){_ecMsg('Send failed — '+escHtml(err.message),'#B42318');}
 }
 
 // ═══════════════════════ KPI ═══════════════════════
