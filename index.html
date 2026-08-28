@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-08-28T10:46"></script>
+<script src="./entra-auth.js?v=2026-08-28T11:52"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1581,7 +1581,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-08-28T10:46';
+const HUB_BUILD='2026-08-28T11:52';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -2611,7 +2611,7 @@ function viewClient(id){
       <div><div style="font-size:10px;color:#8C857B;font-weight:600;text-transform:uppercase;margin-bottom:2px;">Birthday</div><div style="font-size:13px;">${c.birthday?new Date(c.birthday).toLocaleDateString('en-US',{month:'long',day:'numeric'}):'—'}</div></div>
       <div><div style="font-size:10px;color:#8C857B;font-weight:600;text-transform:uppercase;margin-bottom:2px;">Last Visit</div><div style="font-size:13px;${ov?'color:var(--hi);font-weight:600;':''}">${fmtD(c.lastVisit)}${days!==null?' ('+days+'d ago)':''}</div></div>
       <div><div style="font-size:10px;color:#8C857B;font-weight:600;text-transform:uppercase;margin-bottom:2px;">Next Visit Due</div><div style="font-size:13px;${ov?'color:var(--hi);font-weight:600;':''}">${freq==='NA'?'N/A':nd?nd.toLocaleDateString():'—'}</div></div>
-      <div><div style="font-size:10px;color:#8C857B;font-weight:600;text-transform:uppercase;margin-bottom:2px;">Care Plan Updated</div><div style="font-size:13px;">${fmtD(c.carePlanDate)}</div></div>
+      <div><div style="font-size:10px;color:#8C857B;font-weight:600;text-transform:uppercase;margin-bottom:2px;">Care Plan</div><div style="font-size:13px;" id="cp-viv-tile">${c.vivId?'<span style="color:#8C857B;">Loading…</span>':(c.carePlanDate?fmtD(c.carePlanDate)+' <span style="color:#B7B0A6;font-size:11px;">(manual)</span>':'—')}</div></div>
       <div><div style="font-size:10px;color:#8C857B;font-weight:600;text-transform:uppercase;margin-bottom:2px;">Rate History</div><div style="font-size:13px;">${c.rateHistory||'—'}</div></div>
     </div>
     ${c.notes?`<div style="background:#F7F4EF;border-radius:8px;padding:10px;margin-bottom:11px;"><div style="font-size:10px;color:#8C857B;font-weight:600;text-transform:uppercase;margin-bottom:4px;">Important Notes</div><div style="font-size:13px;line-height:1.6;">${c.notes}</div></div>`:''}
@@ -2621,6 +2621,26 @@ function viewClient(id){
   document.getElementById('m-edit-btn').onclick=()=>{closeM('m-view');editClient(id);};
   document.getElementById('m-del-btn').onclick=()=>{if(confirm('Remove '+c.name+'?')){const cl=get('clients').filter(x=>x.id!==id);set('clients',cl);renderClients();syncDropdowns();updateHome();closeM('m-view');showToast('Client removed.');}};
   openM('m-view');
+  if(c.vivId) loadCarePlan(c.vivId, c.carePlanDate);
+}
+// Care Plan tile — pulls the most-recent "Care Plan"/"Tribute Care Plan" FORM
+// from Viv (endpoint csm_careplan) rather than the old manually-typed date
+// (Courtney, 2026-08-28). Lazy: only when a client detail is open.
+async function loadCarePlan(vivId, manualDate){
+  const el=document.getElementById('cp-viv-tile'); if(!el) return;
+  const fallback=()=>manualDate?fmtD(manualDate)+' <span style="color:#B7B0A6;font-size:11px;">(manual)</span>':'<span style="color:#8C857B;">No care plan on file</span>';
+  try{
+    const r=await fetch(VIV_PROXY+'?endpoint=csm_careplan&cid='+encodeURIComponent(vivId),{headers:await dataHeaders()});
+    if(!r.ok) throw new Error('http '+r.status);
+    const d=await r.json(); const cp=d&&d.careplan;
+    if(!document.getElementById('cp-viv-tile')) return; // modal closed/changed
+    if(cp){
+      el.innerHTML='<a href="'+cp.viewUrl+'" target="_blank" rel="noopener" style="color:var(--orange);font-weight:600;text-decoration:none;">'+escHtml(cp.title)+'</a>'
+        +(cp.version?' <span style="color:#8C857B;">v'+cp.version+'</span>':'')
+        +'<div style="font-size:11px;color:#8C857B;margin-top:1px;">'+(cp.date?fmtD(cp.date):'—')
+        +(cp.approvedBy?' · approved by '+escHtml(cp.approvedBy):(cp.submitted?'':' · draft'))+'</div>';
+    } else { el.innerHTML=fallback(); }
+  }catch(e){ if(document.getElementById('cp-viv-tile')) el.innerHTML=fallback(); }
 }
 function editClient(id){
   const c=get('clients').find(x=>x.id===id);if(!c)return;
