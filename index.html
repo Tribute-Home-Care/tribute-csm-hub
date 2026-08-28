@@ -4136,6 +4136,7 @@ function _ecSettingsHtml(){
     </div>
     <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-top:8px;">
       <div class="fg" style="margin:0;"><label class="fl">Automatic Friday send</label><select class="fc" id="ec-enabled"><option value="0" ${!e.enabled?'selected':''}>Off — I send it myself</option><option value="1" ${e.enabled?'selected':''}>On — send at 2 PM Friday</option></select></div>
+      <div class="fg" style="margin:0;"><label class="fl">Client names</label><select class="fc" id="ec-names"><option value="full" ${(e.nameStyle||'full')==='full'?'selected':''}>Full names</option><option value="initials" ${e.nameStyle==='initials'?'selected':''}>Initials only</option></select></div>
       <div class="fg" style="margin:0;"><label class="fl">Tier</label><select class="fc" id="ec-tier"><option value="" ${!e.tier?'selected':''}>—</option><option ${e.tier==='Tier 1'?'selected':''}>Tier 1</option><option ${e.tier==='Tier 2'?'selected':''}>Tier 2</option><option ${e.tier==='Other'?'selected':''}>Other</option></select></div>
       <div class="fg" style="margin:0;flex:1;min-width:200px;"><label class="fl">Standing note (added to every week's intro)</label><input type="text" class="fc" id="ec-note" value="${escHtml(e.note||'')}" placeholder="e.g. Text Maria for same-day weekend changes."></div>
       <button class="btn btn-sm btn-o" onclick="ecSkipWeek(${skipping?'false':'true'})">${skipping?'Un-skip this week':'Skip this week'}</button>
@@ -4179,7 +4180,7 @@ function renderEmailDraft(){
         <div style="font-size:13px;color:#8C857B;margin-top:3px;padding:0 4px;">${escHtml(p.weekLabel)} · ${p.clients.length} Tribute client${p.clients.length!==1?'s':''}</div>
         <div style="margin-top:8px;">${_ecTA('ec-intro',p.intro,3,'Opening…')}</div>
         <div style="margin-top:14px;">${p.clients.map((c,i)=>`<div style="background:#fff;border:1px solid #EAE6DF;border-radius:12px;padding:14px 18px;margin-bottom:12px;">
-          <div style="font-size:16px;font-weight:700;color:#1C1A17;">${escHtml(c.name)}</div>
+          <div style="font-size:16px;font-weight:700;color:#1C1A17;">${escHtml(c.name)}${c.fullName&&c.fullName!==c.name?` <span style="font-size:11px;font-weight:500;color:#B7B0A6;" title="Shown to you only — the community sees the initials">(${escHtml(c.fullName)})</span>`:''}</div>
           ${_ecTA('ec-line-'+i,c.line,2,'How things are going with '+(c.name||'').split(' ')[0]+'…')}
           <table style="margin-top:8px;border-top:1px solid #F1EEE8;font-size:12.5px;color:#3D3833;">${c.sched.length?c.sched.map(x=>`<tr><td style="padding:5px 8px 5px 0;white-space:nowrap;">${escHtml(x.dayLabel)}</td><td style="padding:5px 8px;white-space:nowrap;">${escHtml(x.time)}</td><td style="padding:5px 0 5px 8px;color:${x.open?'#92580B':'#3D3833'};">${escHtml(x.who)}</td></tr>`).join(''):'<tr><td style="padding:5px 0;color:#8C857B;">No Tribute visits scheduled next week.</td></tr>'}</table>
         </div>`).join('')}</div>
@@ -4226,15 +4227,17 @@ async function ecSaveDraft(){
 }
 function _ecRead(){
   const split=v=>(v||'').split(/[,;\s]+/).map(x=>x.trim()).filter(x=>/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x));
-  return {enabled:document.getElementById('ec-enabled').value==='1',tier:document.getElementById('ec-tier').value,to:split(document.getElementById('ec-to').value),cc:split(document.getElementById('ec-cc').value),csmId:document.getElementById('ec-csm').value,note:document.getElementById('ec-note').value.trim()};
+  return {enabled:document.getElementById('ec-enabled').value==='1',tier:document.getElementById('ec-tier').value,nameStyle:document.getElementById('ec-names').value,to:split(document.getElementById('ec-to').value),cc:split(document.getElementById('ec-cc').value),csmId:document.getElementById('ec-csm').value,note:document.getElementById('ec-note').value.trim()};
 }
 function saveEmailComm(){
   if(!_ecSel)return;
   DATA.shared=DATA.shared||{};DATA.shared.communities=DATA.shared.communities||{};
   const d=DATA.shared.communities[_ecSel]||{levels:[]};const prev=d.email||{};const e=_ecRead();
   if(e.enabled&&!e.to.length){showToast('Add at least one valid recipient email before turning the Friday send on.');return;}
+  const styleChanged=(prev.nameStyle||'full')!==(e.nameStyle||'full');
   d.email={...prev,...e,skipUntil:prev.skipUntil||'',updatedAt:new Date().toISOString(),updatedBy:P?P.name:''};
   DATA.shared.communities[_ecSel]=d;queueSave();
+  if(styleChanged){renderEmailCommList();document.getElementById('ec-detail').innerHTML=_ecSettingsHtml()+'<div id="ec-draft"></div>';showToast('Saved — rewriting the draft with '+(e.nameStyle==='initials'?'initials':'full names')+'…');clearTimeout(saveTimer);Promise.resolve(saveToFile()).then(()=>ecLoadDraft(true));return;}
   const keep=_ecDraft;renderEmailCommList();const el=document.getElementById('ec-detail');el.innerHTML=_ecSettingsHtml()+'<div id="ec-draft"></div>';_ecDraft=keep;renderEmailDraft();
   showToast(e.enabled?'Saved — '+_ecSel+' will also go out automatically on Fridays.':'Settings saved.');
 }
