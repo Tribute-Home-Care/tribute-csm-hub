@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-08-28T10:08"></script>
+<script src="./entra-auth.js?v=2026-08-28T10:14"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -280,7 +280,7 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
       <span>⚙️</span><span>Settings</span>
     </div>
   </div>
-  <div class="sb-foot">Remarkable, personified.</div>
+  <div class="sb-foot">Remarkable, personified.<br><span id="sb-build" style="font-size:9px;letter-spacing:.04em;color:#C9C2B6;"></span></div>
 </nav>
 
 <main class="main">
@@ -1581,7 +1581,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-08-28T10:08';
+const HUB_BUILD='2026-08-28T10:14';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -1592,6 +1592,25 @@ const HUB_BUILD='2026-08-28T10:08';
       location.replace(location.pathname+'?b='+encodeURIComponent(j.build)+location.hash);
     }
   }catch(e){}
+})();
+// Show which build this is, and shout if the page is NOT the live hub — a
+// saved copy or an old bookmark looks identical but never gains new features
+// (2026-08-28: a CSM was opening a downloaded Tribute_CSM_Hub.html).
+const HUB_HOST='tribute-home-care.github.io';
+(function(){
+  function paint(){
+    const el=document.getElementById('sb-build'); if(!el)return;
+    const live=location.hostname===HUB_HOST;
+    el.textContent='Build '+HUB_BUILD+(live?'':' · not the live hub');
+    if(!live){
+      el.style.color='#B42318';
+      const bar=document.createElement('div');
+      bar.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;background:#B42318;color:#fff;font:600 12.5px -apple-system,Segoe UI,Helvetica,Arial,sans-serif;padding:8px 14px;text-align:center;';
+      bar.innerHTML='You are viewing a saved copy of the CSM Hub, so new features and live data are missing. Open <a href="https://'+HUB_HOST+'/tribute-csm-hub/" style="color:#fff;text-decoration:underline;">the live hub</a> and bookmark it.';
+      document.body.appendChild(bar);
+    }
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',paint); else paint();
 })();
 const ADMIN_UPNS=['andrew.dobson@tributehomecare.com','tuadmin@tributehomecare.com'];
 let ACCT=null;           // {username,name} of the signed-in Microsoft account
