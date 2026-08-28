@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
 <script src="./entra-auth.js?v=2026-07-14a"></script>
@@ -1573,6 +1576,23 @@ function showProfileScreen(){
 // Matching is by display name / UPN local part against PROFILES (+ the Viv
 // spelling aliases in VIV_NAMES), with an optional explicit override map at
 // DATA.shared.settings.loginMap = { "upn@tributehomecare.com": "profileId" }.
+// ── Auto-update ───────────────────────────────────────────────────────────
+// Browsers hold on to index.html, so a CSM can sit on a build from days ago
+// and be missing whole pages (2026-08-28: Julia's sidebar had no Email
+// Community). version.json is fetched with no-store on every load; if it
+// names a newer build we reload once (sessionStorage guard stops any loop).
+const HUB_BUILD='2026-08-28T10:08';
+(async()=>{
+  try{
+    const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
+    if(!r.ok)return; const j=await r.json();
+    if(j.build&&j.build!==HUB_BUILD){
+      if(sessionStorage.getItem('hubReloadedFor')===j.build)return;
+      sessionStorage.setItem('hubReloadedFor',j.build);
+      location.replace(location.pathname+'?b='+encodeURIComponent(j.build)+location.hash);
+    }
+  }catch(e){}
+})();
 const ADMIN_UPNS=['andrew.dobson@tributehomecare.com','tuadmin@tributehomecare.com'];
 let ACCT=null;           // {username,name} of the signed-in Microsoft account
 let MY_PROFILE_ID=null;  // the profile bound to that account (non-managers)
