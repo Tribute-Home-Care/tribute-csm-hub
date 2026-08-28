@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-08-28T11:52"></script>
+<script src="./entra-auth.js?v=2026-08-28T17:58"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1581,7 +1581,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-08-28T11:52';
+const HUB_BUILD='2026-08-28T17:58';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -2902,12 +2902,31 @@ function openLogPanel(type,clientId,clientName){
 
   if(type==='visit'){
     title.textContent='📅 Log Visit — '+clientName;
+    const _c=get('clients').find(x=>x.id===clientId)||{};
+    const _hasViv=!!_c.vivId;
     body.innerHTML=`
       <div class="g2">
         <div class="fg"><label class="fl">Date</label><input type="date" class="fc" id="lp-date" value="${today}"></div>
-        <div class="fg"><label class="fl">Type</label><select class="fc" id="lp-vtype"><option>In-Person</option><option>Virtual</option><option>Phone Call</option></select></div>
+        <div class="fg"><label class="fl">Type</label><select class="fc" id="lp-vtype" onchange="lpVisitDest()"><option>In-Person</option><option>Home Assessment</option><option>Virtual</option><option>Phone Call</option></select></div>
       </div>
-      <button class="btn btn-p" onclick="lpSaveVisit('${clientId}')">Log Visit</button>`;
+      <div class="g2" id="lp-time-row">
+        <div class="fg"><label class="fl">Start time</label><input type="time" class="fc" id="lp-time" value="10:00"></div>
+        <div class="fg"><label class="fl">Length</label><select class="fc" id="lp-dur"><option value="30">30 minutes</option><option value="45">45 minutes</option><option value="60" selected>1 hour</option><option value="90">1.5 hours</option><option value="120">2 hours</option></select></div>
+      </div>
+      <div class="fg"><label class="fl">Note (optional — goes on the Viv visit and the calendar invite)</label><input type="text" class="fc" id="lp-vnote" placeholder="e.g. Quarterly care review with daughter"></div>
+      <div id="lp-dest" style="background:#F7F4EF;border-radius:10px;padding:11px 13px;margin-bottom:12px;">
+        <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#3D3833;cursor:pointer;">
+          <input type="checkbox" id="lp-toviv" ${_hasViv?'checked':'disabled'} style="accent-color:#FF5A1F;">
+          Add to <b>${escHtml(clientName)}</b>'s Viv schedule${_hasViv?'':' <span style="color:#8C857B;">— not linked to Viv</span>'}
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#3D3833;cursor:pointer;margin-top:7px;">
+          <input type="checkbox" id="lp-tooutlook" checked style="accent-color:#FF5A1F;">
+          Add to <b>my Outlook calendar</b>
+        </label>
+      </div>
+      <div id="lp-vmsg" style="display:none;font-size:12px;margin-bottom:9px;"></div>
+      <button class="btn btn-p" id="lp-vbtn" onclick="lpSaveVisit('${clientId}')">Log Visit</button>`;
+    lpVisitDest();
   } else if(type==='touchpoint'){
     title.textContent='📞 Log Touchpoint — '+clientName;
     body.innerHTML=`
@@ -2949,11 +2968,78 @@ function openLogPanel(type,clientId,clientName){
   }
 }
 
-function lpSaveVisit(cid){
+// Only an in-person visit or a home assessment belongs on a schedule — a
+// phone call doesn't. Hide the destinations for those.
+function lpVisitDest(){
+  const t=(document.getElementById('lp-vtype')||{}).value||'';
+  const onSched=/in-person|assessment/i.test(t);
+  const d=document.getElementById('lp-dest'), tr=document.getElementById('lp-time-row');
+  if(d)d.style.display=onSched?'block':'none';
+  if(tr)tr.style.display=onSched?'grid':'none';
+}
+function _lpMsg(html,color){const m=document.getElementById('lp-vmsg');if(!m)return;m.style.display='block';m.style.color=color||'#8C857B';m.innerHTML=html;}
+// Build the two ISO instants from the date + local time + duration.
+function _lpWindow(){
+  const date=document.getElementById('lp-date').value;
+  const time=(document.getElementById('lp-time')||{}).value||'10:00';
+  const mins=parseInt((document.getElementById('lp-dur')||{}).value||'60',10);
+  const start=new Date(date+'T'+time+':00');
+  const end=new Date(start.getTime()+mins*60000);
+  return {start,end,mins};
+}
+async function _lpAddToOutlook(clientName,note,w,loc){
+  const gate=window.tributeKsfGate;
+  const tok=gate&&gate.getGraphToken?await gate.getGraphToken(['Calendars.ReadWrite']):null;
+  if(!tok)throw new Error('Outlook permission not granted for the hub yet');
+  const ev={subject:'Home visit — '+clientName,
+    body:{contentType:'HTML',content:(note?escHtml(note)+'<br><br>':'')+'Logged from the Tribute CSM Hub.'},
+    start:{dateTime:w.start.toISOString().slice(0,19),timeZone:'UTC'},
+    end:{dateTime:w.end.toISOString().slice(0,19),timeZone:'UTC'},
+    location:loc?{displayName:loc}:undefined, reminderMinutesBeforeStart:60};
+  const r=await fetch('https://graph.microsoft.com/v1.0/me/events',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+tok},body:JSON.stringify(ev)});
+  if(!r.ok){const t=await r.text();throw new Error('Outlook said '+r.status+': '+t.slice(0,160));}
+  return (await r.json()).id;
+}
+async function lpSaveVisit(cid){
   const date=document.getElementById('lp-date').value;if(!date){alert('Select a date.');return;}
-  const vs=get('visits');vs.push({id:Date.now().toString(),clientId:cid,date,type:document.getElementById('lp-vtype').value,loggedAt:new Date().toISOString()});set('visits',vs);
-  const cl=get('clients'),i=cl.findIndex(c=>c.id===cid);if(i>-1&&(!cl[i].lastVisit||date>cl[i].lastVisit)){cl[i].lastVisit=date;set('clients',cl);}
-  closeLogPanel();renderClientMaster();updateHome();showToast('Visit logged!');
+  const type=document.getElementById('lp-vtype').value;
+  const note=(document.getElementById('lp-vnote')||{}).value||'';
+  const c=get('clients').find(x=>x.id===cid)||{};
+  const onSched=/in-person|assessment/i.test(type);
+  const toViv=onSched&&document.getElementById('lp-toviv')&&document.getElementById('lp-toviv').checked&&!!c.vivId;
+  const toOutlook=onSched&&document.getElementById('lp-tooutlook')&&document.getElementById('lp-tooutlook').checked;
+  const btn=document.getElementById('lp-vbtn'); if(btn){btn.disabled=true;btn.textContent='Saving…';}
+  const w=_lpWindow();
+  let vivId='',outlookId='',problems=[];
+  if(toViv){
+    _lpMsg('Adding to '+escHtml(c.name||'the client')+'\'s Viv schedule…');
+    try{
+      const r=await fetch(VIV_PROXY+'?endpoint=csm_visit',{method:'POST',headers:await dataHeaders(true),
+        body:JSON.stringify({clientVivId:c.vivId,csmId:P&&P.id,start:w.start.toISOString(),end:w.end.toISOString(),
+          type:/assessment/i.test(type)?'Home Assessment':'Home Visit',notes:note,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||'America/New_York'})});
+      const j=await r.json(); if(!r.ok||j.error)throw new Error(j.error||('HTTP '+r.status));
+      vivId=j.id||'';
+    }catch(e){ problems.push('Viv: '+e.message); }
+  }
+  if(toOutlook){
+    _lpMsg('Adding to your Outlook calendar…');
+    try{ outlookId=await _lpAddToOutlook(c.name||'client',note,w,c.loc&&c.loc!=='Private Home'?c.loc:(c.city||'')); }
+    catch(e){ problems.push('Outlook: '+e.message); }
+  }
+  const vs=get('visits');
+  vs.push({id:Date.now().toString(),clientId:cid,date,type,note,loggedAt:new Date().toISOString(),
+    start:onSched?w.start.toISOString():'',end:onSched?w.end.toISOString():'',vivVisitId:vivId,outlookEventId:outlookId});
+  set('visits',vs);
+  const cl=get('clients'),i=cl.findIndex(x=>x.id===cid);if(i>-1&&(!cl[i].lastVisit||date>cl[i].lastVisit)){cl[i].lastVisit=date;set('clients',cl);}
+  if(btn){btn.disabled=false;btn.textContent='Log Visit';}
+  if(problems.length){
+    _lpMsg('Logged in the hub, but: '+problems.map(escHtml).join(' · '),'#B42318');
+    renderClientMaster();updateHome();
+    return;
+  }
+  closeLogPanel();renderClientMaster();updateHome();
+  const bits=[vivId?'on '+(c.name||'the client')+'\'s Viv schedule':'',outlookId?'in your Outlook':''].filter(Boolean);
+  showToast(bits.length?'Visit logged — '+bits.join(' and ')+'.':'Visit logged!');
 }
 
 function lpSaveTP(cid){
