@@ -1,4 +1,5 @@
 tribute_csm_data.json
 *.json
 !package.json
+!version.json
 .DS_Store
