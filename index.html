@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-08-28T10:14"></script>
+<script src="./entra-auth.js?v=2026-08-28T10:33"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1581,7 +1581,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-08-28T10:14';
+const HUB_BUILD='2026-08-28T10:33';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -1597,6 +1597,38 @@ const HUB_BUILD='2026-08-28T10:14';
 // saved copy or an old bookmark looks identical but never gains new features
 // (2026-08-28: a CSM was opening a downloaded Tribute_CSM_Hub.html).
 const HUB_HOST='tribute-home-care.github.io';
+// ?diag=1 → paint a plain panel in the MAIN column reporting what the browser
+// actually did with the sidebar. Added 2026-08-28: a CSM's sidebar rendered as
+// an empty column in Chrome AND Edge (incl. private windows) and no amount of
+// cache-busting changed it, so we need facts from her machine, not ours.
+(function(){
+  if(!/[?&]diag=1/.test(location.search))return;
+  function diag(){
+    const sb=document.querySelector('.sidebar');
+    const nav=document.querySelector('.nav-item');
+    const cs=sb?getComputedStyle(sb):null, ncs=nav?getComputedStyle(nav):null;
+    const r=sb?sb.getBoundingClientRect():{}, nr=nav?nav.getBoundingClientRect():{};
+    const rows=[
+      ['Build', typeof HUB_BUILD!=='undefined'?HUB_BUILD:'OLD BUILD (no stamp in this file)'],
+      ['URL', location.href],
+      ['Browser', navigator.userAgent],
+      ['Window', innerWidth+' x '+innerHeight+'  ·  devicePixelRatio '+devicePixelRatio],
+      ['Forced colors / dark', (matchMedia('(forced-colors: active)').matches?'forced-colors ACTIVE':'forced-colors off')+' · '+(matchMedia('(prefers-color-scheme: dark)').matches?'prefers dark':'prefers light')],
+      ['Sidebar box', sb?Math.round(r.width)+' x '+Math.round(r.height)+' at ('+Math.round(r.left)+','+Math.round(r.top)+')':'ELEMENT MISSING'],
+      ['Sidebar style', cs?('display '+cs.display+' · visibility '+cs.visibility+' · opacity '+cs.opacity+' · position '+cs.position+' · bg '+cs.backgroundColor):'—'],
+      ['First nav item', nav?('"'+nav.textContent.trim()+'" · '+Math.round(nr.width)+' x '+Math.round(nr.height)+' at ('+Math.round(nr.left)+','+Math.round(nr.top)+') · color '+ncs.color+' · font-size '+ncs.fontSize+' · display '+ncs.display):'NO .nav-item IN THE PAGE'],
+      ['Nav items found', document.querySelectorAll('.nav-item').length],
+      ['Sidebar scroll', sb?(sb.scrollTop+' of '+sb.scrollHeight+' (visible '+sb.clientHeight+')'):'—'],
+      ['Page scroll', scrollX+' , '+scrollY]
+    ];
+    const box=document.createElement('div');
+    box.style.cssText='position:relative;z-index:9999;margin:0 0 18px;padding:14px 16px;background:#1C1A17;color:#F7F4EF;border-radius:12px;font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;word-break:break-word;';
+    box.textContent='TRIBUTE HUB DIAGNOSTIC — screenshot this whole box\n\n'+rows.map(r=>r[0]+': '+r[1]).join('\n');
+    const main=document.querySelector('.main')||document.body;
+    main.insertBefore(box, main.firstChild);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(diag,600)); else setTimeout(diag,600);
+})();
 (function(){
   function paint(){
     const el=document.getElementById('sb-build'); if(!el)return;
