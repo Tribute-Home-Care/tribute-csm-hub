@@ -8,6 +8,7 @@ python3 - "$B" <<'PY'
 import sys,re,json
 b=sys.argv[1]; p='index.html'; s=open(p).read()
 s=re.sub(r"const HUB_BUILD='[^']*'", "const HUB_BUILD='"+b+"'", s, count=1)
+s=re.sub(r"entra-auth\.js\?v=[^\"']*", 'entra-auth.js?v='+b, s, count=1)
 open(p,'w').write(s); json.dump({'build':b},open('version.json','w'))
 print('stamped',b)
 PY
