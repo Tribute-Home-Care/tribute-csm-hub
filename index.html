@@ -4168,6 +4168,7 @@ function renderEmailDraft(){
       </div>
     </div>
     <div id="ec-sendmsg" style="display:none;padding:8px 16px;font-size:12.5px;border-bottom:1px solid var(--line);"></div>
+    <div style="padding:6px 16px;font-size:11.5px;color:#8C857B;background:#FFF9F5;border-bottom:1px solid var(--line);">✏️ Click any text in the email to edit it — the opening, each client's note, the sign-off. Schedules come straight from Viv. <b>Save draft</b> keeps your edits; sending saves them too.</div>
     <div style="padding:12px 16px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:center;font-size:12.5px;color:#8C857B;">
       <span>Subject</span><input type="text" id="ec-subject" class="fc" value="${escHtml(p.subject)}" oninput="_ecMarkDirty()">
     </div>
@@ -4187,7 +4188,7 @@ function renderEmailDraft(){
       </div>
     </div>
   </div>
-  <style>.ec-ta:hover,.ec-ta:focus,#ec-title:hover,#ec-title:focus{border-color:#EAE6DF!important;background:#fff!important;outline:none;}</style>`;
+  <style>.ec-ta,#ec-title{border-color:#E3DED5!important;}.ec-ta:hover,#ec-title:hover{border-color:#C9C2B6!important;background:#fff!important;}.ec-ta:focus,#ec-title:focus{border-color:#FF5A1F!important;border-style:solid!important;background:#fff!important;outline:none;}</style>`;
   box.querySelectorAll('.ec-ta').forEach(t=>{t.style.height='auto';t.style.height=t.scrollHeight+'px';});
 }
 function _ecMarkDirty(){const d=document.getElementById('ec-dirty');if(d)d.textContent='· unsaved edits';}
