@@ -176,7 +176,10 @@
   // Items — without any app-only mailbox policy. Silent first; a popup is
   // used for the one-time consent (never a redirect: that would lose the
   // page state the user is about to send).
-  async function getGraphToken(scopes) {
+  // silentOnly: check whether we ALREADY have consent without throwing a popup
+  // at someone who was only opening a panel (added 2026-08-31 for the hub's
+  // "Outlook connected?" indicator).
+  async function getGraphToken(scopes, silentOnly) {
     await readyPromise;
     if (!state.account) return null;
     const req = { scopes: scopes && scopes.length ? scopes : ['User.Read'], account: state.account };
@@ -184,6 +187,7 @@
       const r = await state.msal.acquireTokenSilent(req);
       return r.accessToken;
     } catch (e) {
+      if (silentOnly) return null;
       try {
         const r = await state.msal.acquireTokenPopup(req);
         return r.accessToken;

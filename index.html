@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-08-28T21:43"></script>
+<script src="./entra-auth.js?v=2026-08-31T16:35"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1581,7 +1581,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-08-28T21:43';
+const HUB_BUILD='2026-08-31T16:35';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -1927,7 +1927,7 @@ function updateHome(){
 
   // Overdue touchpoints
   cl.forEach(c=>{
-    const cadence=TP_CADENCE[c.tier]||30;
+    if(c.isOffice)return; const cadence=TP_CADENCE[c.tier]||30;
     const lastTP=tps.filter(t=>t.clientId===c.id).sort((a,b)=>new Date(b.date)-new Date(a.date))[0];
     const days=lastTP?daysAgo(lastTP.date):null;
     if(days===null||days>cadence) attnItems.push({label:c.name,sub:'Touchpoint overdue — '+(days===null?'never contacted':days+'d since last contact'),tier:c.tier,type:'touchpoint',urgency:days===null?2:1});
@@ -1980,6 +1980,7 @@ function renderHighPriorityTasks(){
     }
 
     // Touchpoints
+    if(c.isOffice)return;
     const tpCad=TP_CADENCE[c.tier]||30;
     const lastTP=tps.filter(t=>t.clientId===c.id).sort((a,b)=>new Date(b.date)-new Date(a.date))[0];
     const daysTP=lastTP?daysAgo(lastTP.date):null;
@@ -2926,13 +2927,18 @@ function openLogPanel(type,clientId,clientName){
           Add to <b>${escHtml(clientName)}</b>'s Viv schedule${_hasViv?'':' <span style="color:#8C857B;">— not linked to Viv</span>'}
         </label>
         <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#3D3833;cursor:pointer;margin-top:7px;">
-          <input type="checkbox" id="lp-tooutlook" checked style="accent-color:#FF5A1F;">
+          <input type="checkbox" id="lp-tooutlook" checked onchange="this.dataset.userSet=1" style="accent-color:#FF5A1F;">
           Add to <b>my Outlook calendar</b>
         </label>
+        <div id="lp-ol-state" style="font-size:11.5px;margin:5px 0 0 24px;"></div>
+        <div id="lp-past" style="display:none;font-size:11.5px;color:#92580B;margin:6px 0 0 24px;"></div>
       </div>
       <div id="lp-vmsg" style="display:none;font-size:12px;margin-bottom:9px;"></div>
       <button class="btn btn-p" id="lp-vbtn" onclick="lpSaveVisit('${clientId}')">Log Visit</button>`;
     lpVisitDest();
+    outlookStatus(false).then(_lpRenderOutlookState);
+    ['lp-date','lp-time'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',_lpPastCheck);});
+    _lpPastCheck();
   } else if(type==='touchpoint'){
     title.textContent='📞 Log Touchpoint — '+clientName;
     body.innerHTML=`
@@ -2983,6 +2989,15 @@ function lpVisitDest(){
   if(d)d.style.display=onSched?'block':'none';
   if(tr)tr.style.display=onSched?'grid':'none';
 }
+// A visit being logged after the fact shouldn't quietly appear as a future
+// calendar entry — say so, and leave the calendar box off by default.
+function _lpPastCheck(){
+  const el=document.getElementById('lp-past'); const cb=document.getElementById('lp-tooutlook');
+  if(!el||!cb)return;
+  const w=_lpWindow(); const past=w.start.getTime()<Date.now()-5*60000;
+  if(past){ el.style.display='block'; el.innerHTML='This visit is in the past — the calendar entry would be a record of it, not a reminder.'; if(!cb.dataset.userSet)cb.checked=false; }
+  else { el.style.display='none'; if(!cb.dataset.userSet)cb.checked=true; }
+}
 function _lpMsg(html,color){const m=document.getElementById('lp-vmsg');if(!m)return;m.style.display='block';m.style.color=color||'#8C857B';m.innerHTML=html;}
 // Build the two ISO instants from the date + local time + duration.
 function _lpWindow(){
@@ -2993,10 +3008,39 @@ function _lpWindow(){
   const end=new Date(start.getTime()+mins*60000);
   return {start,end,mins};
 }
+// Outlook connection. The hub uses the Microsoft account you signed in with —
+// there is no separate login — but Courtney rightly pointed out (2026-08-31)
+// that nothing SAYS so, and the first calendar write needs a one-time consent
+// click. So: show the state, and give people a button to do it deliberately.
+let _outlookState=null; // null=unknown, {ok:true,who} or {ok:false,why}
+async function outlookStatus(interactive){
+  const gate=window.tributeKsfGate;
+  if(!gate||!gate.getGraphToken){_outlookState={ok:false,why:'Sign in with Microsoft first'};return _outlookState;}
+  const acct=gate.getAccount?await gate.getAccount():null;
+  try{
+    const tok=await gate.getGraphToken(['Calendars.ReadWrite'],!interactive);
+    _outlookState=tok?{ok:true,who:(acct&&acct.username)||''}:{ok:false,why:'Not connected yet'};
+  }catch(e){ _outlookState={ok:false,why:e.message||'Not connected yet'}; }
+  return _outlookState;
+}
+async function lpConnectOutlook(){
+  const el=document.getElementById('lp-ol-state'); if(el)el.innerHTML='<span style="color:#8C857B;">Connecting…</span>';
+  const st=await outlookStatus(true);
+  _lpRenderOutlookState();
+  if(st.ok)showToast('Outlook connected — visits can go on your calendar.');
+}
+function _lpRenderOutlookState(){
+  const el=document.getElementById('lp-ol-state'); if(!el)return;
+  const st=_outlookState;
+  if(!st){el.innerHTML='<span style="color:#8C857B;">Checking Outlook…</span>';return;}
+  if(st.ok){el.innerHTML='<span style="color:#0F6E56;">✓ Connected'+(st.who?' as '+escHtml(st.who):'')+'</span>';
+    const cb=document.getElementById('lp-tooutlook'); if(cb)cb.disabled=false;}
+  else{el.innerHTML='<span style="color:#92580B;">Not connected</span> <button class="btn btn-sm btn-o" style="margin-left:6px;padding:2px 9px;font-size:11px;" onclick="lpConnectOutlook()">Connect Outlook</button>';}
+}
 async function _lpAddToOutlook(clientName,note,w,loc){
   const gate=window.tributeKsfGate;
   const tok=gate&&gate.getGraphToken?await gate.getGraphToken(['Calendars.ReadWrite']):null;
-  if(!tok)throw new Error('Outlook permission not granted for the hub yet');
+  if(!tok)throw new Error('Outlook is not connected — use the Connect Outlook button and try again');
   const ev={subject:'Home visit — '+clientName,
     body:{contentType:'HTML',content:(note?escHtml(note)+'<br><br>':'')+'Logged from the Tribute CSM Hub.'},
     start:{dateTime:w.start.toISOString().slice(0,19),timeZone:'UTC'},
@@ -3004,7 +3048,8 @@ async function _lpAddToOutlook(clientName,note,w,loc){
     location:loc?{displayName:loc}:undefined, reminderMinutesBeforeStart:60};
   const r=await fetch('https://graph.microsoft.com/v1.0/me/events',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+tok},body:JSON.stringify(ev)});
   if(!r.ok){const t=await r.text();throw new Error('Outlook said '+r.status+': '+t.slice(0,160));}
-  return (await r.json()).id;
+  const j=await r.json();
+  return {id:j.id,link:j.webLink||'',when:j.start&&j.start.dateTime?new Date(j.start.dateTime+'Z'):w.start};
 }
 async function lpSaveVisit(cid){
   const date=document.getElementById('lp-date').value;if(!date){alert('Select a date.');return;}
@@ -3027,9 +3072,11 @@ async function lpSaveVisit(cid){
       vivId=j.id||'';
     }catch(e){ problems.push('Viv: '+e.message); }
   }
+  let outlookLink='';
   if(toOutlook){
     _lpMsg('Adding to your Outlook calendar…');
-    try{ outlookId=await _lpAddToOutlook(c.name||'client',note,w,c.loc&&c.loc!=='Private Home'?c.loc:(c.city||'')); }
+    try{ const ev=await _lpAddToOutlook(c.name||'client',note,w,c.loc&&c.loc!=='Private Home'?c.loc:(c.city||''));
+      outlookId=ev.id; outlookLink=ev.link; }
     catch(e){ problems.push('Outlook: '+e.message); }
   }
   const vs=get('visits');
@@ -3041,6 +3088,14 @@ async function lpSaveVisit(cid){
   if(problems.length){
     _lpMsg('Logged in the hub, but: '+problems.map(escHtml).join(' · '),'#B42318');
     renderClientMaster();updateHome();
+    return;
+  }
+  // Don't just claim it worked — show the calendar entry so it can be checked.
+  if(outlookId){
+    const when=w.start.toLocaleString([], {weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+    _lpMsg('✓ Added to '+(vivId?(escHtml(c.name||'the client')+'\'s Viv schedule and '):'')+'your Outlook calendar for <b>'+escHtml(when)+'</b>'+(outlookLink?' — <a href="'+escHtml(outlookLink)+'" target="_blank" rel="noopener" style="color:#C2410C;">open the event</a>':''),'#0F6E56');
+    renderClientMaster();updateHome();
+    setTimeout(()=>{try{closeLogPanel();}catch(e){}},9000);
     return;
   }
   closeLogPanel();renderClientMaster();updateHome();
@@ -5680,7 +5735,10 @@ function mergeVivProfile(pid,data){
   for(const vc of mine){
     let c=cl.find(x=>x.vivId===vc.vivId)||cl.find(x=>!x.vivId&&vivNorm(x.name)===vivNorm(vc.name));
     if(!c){
-      c={id:'viv'+vc.vivId,tier:'Medium',freq:90,type:'Hourly',ess:'Essential',notes:'',contact:'',contactEmail:'',comm:'',caregivers:'',carePlanDate:'',vacation:'',rateHistory:'',birthday:'',lastVisit:'',weeklyHours:'',medComplexity:'',supportSystem:'',communityTier:'none',recentInstability:0,endOfLife:false,recentFall:false,activeConcern:false,csm:csmName};
+      // Office/Tribute-Together rows are real caseload (Courtney owns three)
+      // but they are not people to visit or call — land them off-cadence so
+      // they never raise "visit overdue" / "touchpoint overdue" (2026-08-31).
+      c={id:'viv'+vc.vivId,tier:vc.isOffice?'Internal':'Medium',freq:vc.isOffice?'NA':90,type:'Hourly',ess:'Essential',notes:'',contact:'',contactEmail:'',comm:'',caregivers:'',carePlanDate:'',vacation:'',rateHistory:'',birthday:'',lastVisit:'',weeklyHours:'',medComplexity:'',supportSystem:'',communityTier:'none',recentInstability:0,endOfLife:false,recentFall:false,activeConcern:false,csm:csmName};
       cl.push(c);
     }
     c.vivId=vc.vivId;c.vivNum=vc.num||null;
@@ -5690,6 +5748,7 @@ function mergeVivProfile(pid,data){
     if(vc.careStarted)c.startDate=vc.careStarted;
     if(vc.market)c.market=vc.market;
     c.vivStatus=vc.status||'';c.vivDischarged=vc.discharged||'';
+    c.isOffice=!!vc.isOffice; if(c.isOffice&&c.freq!=='NA')c.freq='NA';
     c.tributeSecure=!!vc.tributeSecure;
     c.vivSyncedAt=data.generatedAt;
   }
