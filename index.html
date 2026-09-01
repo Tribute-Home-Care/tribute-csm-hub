@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-09-01T10:44"></script>
+<script src="./entra-auth.js?v=2026-09-01T10:54"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -250,7 +250,7 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
     <div class="sync-dot sync-none" id="sync-dot"></div>
     <span id="sync-label">Not connected</span>
   </div>
-  <div class="sb-sync" id="sb-viv" style="cursor:pointer;" onclick="vivSyncNow(true)" title="Pull your clients, scheduled visits, open shifts and leads from Viv + HubSpot">
+  <div class="sb-sync" id="sb-viv" style="cursor:pointer;" onclick="vivSyncNow(true)" title="Pull your clients, scheduled visits, open visits and leads from Viv + HubSpot">
     <span style="font-size:12px;">⟳</span>
     <span id="viv-sync-label">Viv: tap to connect</span>
   </div>
@@ -833,7 +833,7 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
         <select class="fc" id="fp-new-type">
           <option value="snow_day">❄️ Snow Day / Weather Emergency</option>
           <option value="callout">📞 Caregiver Callout</option>
-          <option value="open_shift">📅 Open Shift / Scheduled Gap</option>
+          <option value="open_shift">📅 Open Visit / Scheduled Gap</option>
           <option value="holiday">🎄 Holiday Coverage</option>
           <option value="other">📋 Other</option>
         </select>
@@ -1334,7 +1334,7 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
   <div class="md" style="width:380px;text-align:center;">
     <div style="font-size:36px;margin-bottom:10px;">🔄</div>
     <div class="mt" style="margin-bottom:6px;">Connect to Viv</div>
-    <p style="font-size:13px;color:#6B655C;margin-bottom:18px;line-height:1.6;">Live sync normally works automatically with your Microsoft sign-in. If you're seeing this, enter the team sync key to pull your clients, scheduled visits, open shifts and leads. Ask Courtney or Andrew for the key — you only do this once per computer.</p>
+    <p style="font-size:13px;color:#6B655C;margin-bottom:18px;line-height:1.6;">Live sync normally works automatically with your Microsoft sign-in. If you're seeing this, enter the team sync key to pull your clients, scheduled visits, open visits and leads. Ask Courtney or Andrew for the key — you only do this once per computer.</p>
     <div class="fg" style="text-align:left;"><label class="fl">Sync Access Key</label><input type="password" class="fc" id="vivkey-input" onkeydown="if(event.key==='Enter')submitVivKey()"></div>
     <p id="vivkey-error" style="font-size:12px;color:var(--hi);min-height:16px;margin-bottom:6px;"></p>
     <div class="mf">
@@ -1581,7 +1581,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-09-01T10:44';
+const HUB_BUILD='2026-09-01T10:54';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -2024,7 +2024,7 @@ function renderHighPriorityTasks(){
 
   // Fill priorities
   fps.filter(fp=>fp.status!=='Resolved').forEach(fp=>{
-    actNow.push({icon:'🚨',client:fp.clientName,tier:fp.tier||'',action:'Fill Priority'+(fp.urgency?' — '+fp.urgency:''),detail:fp.reason||'Open shift needs coverage',page:'priority'});
+    actNow.push({icon:'🚨',client:fp.clientName,tier:fp.tier||'',action:'Fill Priority'+(fp.urgency?' — '+fp.urgency:''),detail:fp.reason||'Open visit needs coverage',page:'priority'});
   });
 
   // Global dedup across groups by client+action
@@ -3154,7 +3154,7 @@ async function _lpAddToOutlook(clientName,note,w,loc,shift){
   const ev={subject:'Home visit — '+clientName,
     body:{contentType:'HTML',content:(note?escHtml(note)+'<br><br>':'')
       +(loc?('<b>Address:</b> '+escHtml(loc)+'<br>'):'')
-      +(shiftLine?('<b>Caregiver on shift:</b> '+escHtml(shiftLine)+'<br>'):'')
+      +(shiftLine?('<b>Caregiver on this visit:</b> '+escHtml(shiftLine)+'<br>'):'')
       +'<br>Logged from the Tribute CSM Hub.'},
     start:{dateTime:w.start.toISOString().slice(0,19),timeZone:'UTC'},
     end:{dateTime:w.end.toISOString().slice(0,19),timeZone:'UTC'},
@@ -5482,7 +5482,7 @@ function setFpOrder(evtId,order){
   DATA.profiles[P.id].fillOrder=obj;
   queueSave();
 }
-function fpEventTypeLabel(type){return{snow_day:'❄️ Snow Day',callout:'📞 Caregiver Callout',open_shift:'📅 Open Shift',holiday:'🎄 Holiday',other:'📋 Coverage Event'}[type]||'Coverage Event';}
+function fpEventTypeLabel(type){return{snow_day:'❄️ Snow Day',callout:'📞 Caregiver Callout',open_shift:'📅 Open Visit',holiday:'🎄 Holiday',other:'📋 Coverage Event'}[type]||'Coverage Event';}
 
 function openFpNewEvent(){
   document.getElementById('fp-new-date').value=new Date().toISOString().split('T')[0];
@@ -5752,7 +5752,7 @@ function fpDragEnd(e){
 // ═══════════════════════ SETTINGS ═══════════════════════
 // ═══════════════════════ VIV LIVE SYNC ═══════════════════════
 // Pulls each CSM's book of business from Viv (clients + scheduled visits + open
-// shifts) and HubSpot (leads) through the gated tribute-api proxy. Viv wins on
+// visits) and HubSpot (leads) through the gated tribute-api proxy. Viv wins on
 // facts (name, community, city, start date, status); every manual judgment
 // field (tier, notes, cadence, contacts, priority factors) is never touched.
 const VIV_PROXY='https://tribute-api-prod-bkc4hfcwf3f2f6bf.centralus-01.azurewebsites.net/api/vivProxy';
@@ -5824,7 +5824,7 @@ async function vivSyncNow(interactive){
       loadPulse(false); // fire-and-forget: pulse chips + page refresh
       reconcileVisitLog(); // drop tracker rows whose Viv visit was deleted
     }
-    if(interactive)showToast('Viv sync complete — clients, visits, open shifts & leads updated! ⟳');
+    if(interactive)showToast('Viv sync complete — clients, visits, open visits & leads updated! ⟳');
   }catch(e){
     setVivLabel('Viv: sync failed');
     if(interactive)showToast('Viv sync failed — '+(e.message||e));
