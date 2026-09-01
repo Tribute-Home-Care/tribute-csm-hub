@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-09-01T10:32"></script>
+<script src="./entra-auth.js?v=2026-09-01T10:44"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1581,7 +1581,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-09-01T10:32';
+const HUB_BUILD='2026-09-01T10:44';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -2791,7 +2791,72 @@ function renderVisitLog(){
   if(!list.length){el.innerHTML='<div class="es"><div class="ei">📅</div><p>No visits logged yet.</p></div>';return;}
   el.innerHTML=`<table><thead><tr><th>Date</th><th>Client</th><th>Type</th><th></th></tr></thead><tbody>${list.map(v=>`<tr><td style="white-space:nowrap;">${new Date(v.date).toLocaleDateString()}</td><td>${cm[v.clientId]||'—'}</td><td><span style="background:#E8EFF7;color:#2C5689;padding:1px 6px;border-radius:10px;font-size:10.5px;">${v.type}</span></td><td><div style="display:flex;gap:5px;"><button class="btn btn-sm btn-o" style="font-size:10.5px;color:#2C5689;border-color:#D7E4F5;" onclick="sendToViv('visit','${v.id}')">📧 Viv</button><button class="btn btn-sm btn-o" onclick="delVisit('${v.id}')">Delete</button></div></td></tr>`).join('')}</tbody></table>`;
 }
-function delVisit(id){if(!confirm('Delete visit?'))return;set('visits',get('visits').filter(v=>v.id!==id));renderVisitLog();renderVisitStats();renderVCadence();showToast('Deleted.');}
+function delVisit(id){
+  const v=(get('visits')||[]).find(x=>x.id===id);
+  if(v&&(v.vivVisitId||v.outlookEventId)){ return removeLinkedVisit(id); }
+  if(!confirm('Delete visit?'))return;
+  set('visits',get('visits').filter(x=>x.id!==id));renderVisitLog();renderVisitStats();renderVCadence();showToast('Deleted.');
+}
+// ── Two-way delete ─────────────────────────────────────────────────────────
+// A visit logged here may exist in three places. Removing it should clear all
+// three, and a visit deleted in VIV should disappear from the tracker on its
+// own (Courtney, 2026-09-01: "I deleted the visit with Bill and it still shows
+// as a visit on my tracker"). Viv deletion removes the booking outright, so a
+// 404 on the stored id is a reliable signal.
+function _recomputeLastVisit(clientId){
+  const vs=(get('visits')||[]).filter(v=>v.clientId===clientId&&v.date).map(v=>v.date).sort();
+  const cl=get('clients'),i=cl.findIndex(c=>c.id===clientId);
+  if(i>-1){ cl[i].lastVisit=vs.length?vs[vs.length-1]:''; set('clients',cl); }
+}
+async function _deleteOutlookEvent(eventId){
+  if(!eventId)return false;
+  try{
+    const gate=window.tributeKsfGate;
+    const tok=gate&&gate.getGraphToken?await gate.getGraphToken(['Calendars.ReadWrite'],true):null;
+    if(!tok)return false;
+    const r=await fetch('https://graph.microsoft.com/v1.0/me/events/'+encodeURIComponent(eventId),{method:'DELETE',headers:{Authorization:'Bearer '+tok}});
+    return r.status===204||r.status===404;
+  }catch(e){ return false; }
+}
+async function removeLinkedVisit(id){
+  const vs=get('visits')||[]; const v=vs.find(x=>x.id===id); if(!v)return;
+  const cl=get('clients'); const c=cl.find(x=>x.id===v.clientId)||{};
+  const where=[v.vivVisitId?(c.name||'the client')+"'s Viv schedule":'',v.outlookEventId?'your Outlook calendar':''].filter(Boolean);
+  if(!confirm('Remove this visit'+(where.length?' from '+where.join(' and ')+' as well?':'?')))return;
+  const problems=[];
+  if(v.vivVisitId){
+    try{
+      const r=await fetch(VIV_PROXY+'?endpoint=csm_visit&action=delete&vivVisitId='+encodeURIComponent(v.vivVisitId),{method:'POST',headers:await dataHeaders(true),body:'{}'});
+      const j=await r.json(); if(!r.ok||j.error)throw new Error(j.error||('HTTP '+r.status));
+    }catch(e){ problems.push('Viv: '+e.message); }
+  }
+  if(v.outlookEventId){ const ok=await _deleteOutlookEvent(v.outlookEventId); if(!ok)problems.push('Outlook: could not remove the calendar entry'); }
+  set('visits',(get('visits')||[]).filter(x=>x.id!==id));
+  _recomputeLastVisit(v.clientId);
+  renderVisitLog();renderVisitStats();renderVCadence();renderClientMaster();updateHome();
+  showToast(problems.length?('Removed here, but '+problems.join(' · ')):'Removed from the hub'+(where.length?', '+where.join(' and '):'')+'.');
+}
+// Drop tracker rows whose Viv visit no longer exists. Runs after each sync.
+async function reconcileVisitLog(){
+  const vs=get('visits')||[];
+  const linked=vs.filter(v=>v.vivVisitId);
+  if(!linked.length)return;
+  let states={};
+  try{
+    const ids=[...new Set(linked.map(v=>v.vivVisitId))].slice(0,60).join(',');
+    const r=await fetch(VIV_PROXY+'?endpoint=csm_visit&check='+encodeURIComponent(ids),{headers:await dataHeaders()});
+    const j=await r.json(); states=(j&&j.states)||{};
+  }catch(e){ return; }
+  const dead=linked.filter(v=>states[v.vivVisitId]==='gone'||states[v.vivVisitId]==='canceled');
+  if(!dead.length)return;
+  for(const v of dead){ if(v.outlookEventId) await _deleteOutlookEvent(v.outlookEventId); }
+  const deadIds=new Set(dead.map(v=>v.id));
+  set('visits',(get('visits')||[]).filter(v=>!deadIds.has(v.id)));
+  [...new Set(dead.map(v=>v.clientId))].forEach(_recomputeLastVisit);
+  renderVisitLog&&renderVisitLog(); renderVisitStats&&renderVisitStats(); renderVCadence&&renderVCadence();
+  renderClientMaster();updateHome();
+  showToast(dead.length+' visit'+(dead.length>1?'s':'')+' deleted in Viv — removed from your tracker'+(dead.some(v=>v.outlookEventId)?' and calendar':'')+'.');
+}
 function renderVisitStats(){
   const vs=get('visits'),now=new Date(),cl=get('clients');
   const m=vs.filter(v=>{const d=new Date(v.date);return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();});
@@ -2934,12 +2999,14 @@ function openLogPanel(type,clientId,clientName){
         <div id="lp-ol-warn" style="display:none;font-size:11.5px;color:#B42318;margin:5px 0 0 24px;"></div>
         <div id="lp-past" style="display:none;font-size:11.5px;color:#92580B;margin:6px 0 0 24px;"></div>
       </div>
+      <div id="lp-shift" style="display:none;font-size:12px;color:#3D3833;background:#F7F4EF;border-radius:9px;padding:9px 11px;margin-bottom:11px;"></div>
       <div id="lp-vmsg" style="display:none;font-size:12px;margin-bottom:9px;"></div>
       <button class="btn btn-p" id="lp-vbtn" onclick="lpSaveVisit('${clientId}')">Log Visit</button>`;
+    window._lpClient=_c; window._lpShift=null;
     lpVisitDest();
     outlookStatus(false).then(_lpRenderOutlookState);
-    ['lp-date','lp-time'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',_lpPastCheck);});
-    _lpPastCheck();
+    ['lp-date','lp-time','lp-dur'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('change',()=>{_lpPastCheck();_lpRenderShift();});});
+    _lpPastCheck(); _lpRenderShift();
   } else if(type==='touchpoint'){
     title.textContent='📞 Log Touchpoint — '+clientName;
     body.innerHTML=`
@@ -3051,12 +3118,44 @@ function _lpRenderOutlookState(){
     const cb=document.getElementById('lp-tooutlook'); if(cb)cb.disabled=false;}
   else{el.innerHTML='<span style="color:#92580B;">Not connected</span> <button class="btn btn-sm btn-o" style="margin-left:6px;padding:2px 9px;font-size:11px;" onclick="lpConnectOutlook()">Connect Outlook</button>';}
 }
-async function _lpAddToOutlook(clientName,note,w,loc){
+// Full street address beats a town name on a calendar entry you're navigating
+// to (Courtney: "it just says Weston") — fall back only if Viv has no address.
+function _lpLocation(c){
+  return (c&&c.address)||[(c&&c.loc&&c.loc!=='Private Home')?c.loc:'',(c&&c.city)||''].filter(Boolean).join(', ')||'';
+}
+// Who's scheduled at the client while the CSM is there.
+async function _lpOnShift(c,w){
+  if(!c||!c.vivId)return [];
+  try{
+    const r=await fetch(VIV_PROXY+'?endpoint=csm_visit&onshift=1&clientVivId='+encodeURIComponent(c.vivId)+'&start='+encodeURIComponent(w.start.toISOString())+'&end='+encodeURIComponent(w.end.toISOString()),{headers:await dataHeaders()});
+    const j=await r.json(); return (j&&j.caregivers)||[];
+  }catch(e){ return []; }
+}
+function _lpShiftLine(list){
+  if(!list||!list.length)return '';
+  const t=iso=>new Date(iso).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+  return list.map(c=>c.name+' ('+t(c.start)+' – '+t(c.end)+')').join(', ');
+}
+async function _lpRenderShift(){
+  const el=document.getElementById('lp-shift'); if(!el)return;
+  const c=window._lpClient; if(!c||!c.vivId){el.style.display='none';return;}
+  const w=_lpWindow(); if(!w.start||isNaN(w.start)){el.style.display='none';return;}
+  el.style.display='block'; el.innerHTML='<span style="color:#8C857B;">Checking who is scheduled then…</span>';
+  const list=await _lpOnShift(c,w);
+  window._lpShift=list;
+  el.innerHTML=list.length?('👥 <b>'+escHtml(_lpShiftLine(list))+'</b> scheduled at this time — included on the calendar entry.')
+    :'<span style="color:#8C857B;">No caregiver scheduled at that time.</span>';
+}
+async function _lpAddToOutlook(clientName,note,w,loc,shift){
   const gate=window.tributeKsfGate;
   const tok=gate&&gate.getGraphToken?await gate.getGraphToken(['Calendars.ReadWrite']):null;
   if(!tok)throw new Error('Outlook is not connected — use the Connect Outlook button and try again');
+  const shiftLine=_lpShiftLine(shift);
   const ev={subject:'Home visit — '+clientName,
-    body:{contentType:'HTML',content:(note?escHtml(note)+'<br><br>':'')+'Logged from the Tribute CSM Hub.'},
+    body:{contentType:'HTML',content:(note?escHtml(note)+'<br><br>':'')
+      +(loc?('<b>Address:</b> '+escHtml(loc)+'<br>'):'')
+      +(shiftLine?('<b>Caregiver on shift:</b> '+escHtml(shiftLine)+'<br>'):'')
+      +'<br>Logged from the Tribute CSM Hub.'},
     start:{dateTime:w.start.toISOString().slice(0,19),timeZone:'UTC'},
     end:{dateTime:w.end.toISOString().slice(0,19),timeZone:'UTC'},
     location:loc?{displayName:loc}:undefined, reminderMinutesBeforeStart:60};
@@ -3089,7 +3188,8 @@ async function lpSaveVisit(cid){
   let outlookLink='';
   if(toOutlook){
     _lpMsg('Adding to your Outlook calendar…');
-    try{ const ev=await _lpAddToOutlook(c.name||'client',note,w,c.loc&&c.loc!=='Private Home'?c.loc:(c.city||''));
+    try{ const shift=(window._lpShift&&window._lpShift.length)?window._lpShift:await _lpOnShift(c,w);
+      const ev=await _lpAddToOutlook(c.name||'client',note,w,_lpLocation(c),shift);
       outlookId=ev.id; outlookLink=ev.link; }
     catch(e){ problems.push('Outlook: '+e.message); }
   }
@@ -5722,6 +5822,7 @@ async function vivSyncNow(interactive){
       renderClientMaster();renderFillPriority();renderOpenVisits();
       renderVisitLog();renderVisitStats();renderVCadence();
       loadPulse(false); // fire-and-forget: pulse chips + page refresh
+      reconcileVisitLog(); // drop tracker rows whose Viv visit was deleted
     }
     if(interactive)showToast('Viv sync complete — clients, visits, open shifts & leads updated! ⟳');
   }catch(e){
@@ -5760,6 +5861,7 @@ function mergeVivProfile(pid,data){
     c.name=vc.name;
     if(vc.community)c.loc=vc.community;
     if(vc.city)c.city=vc.city;
+    if(vc.address)c.address=vc.address;
     if(vc.careStarted)c.startDate=vc.careStarted;
     if(vc.market)c.market=vc.market;
     c.vivStatus=vc.status||'';c.vivDischarged=vc.discharged||'';
