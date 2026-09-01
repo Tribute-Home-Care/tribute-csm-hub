@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-08-31T16:35"></script>
+<script src="./entra-auth.js?v=2026-09-01T10:32"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1581,7 +1581,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-08-31T16:35';
+const HUB_BUILD='2026-09-01T10:32';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -2928,9 +2928,10 @@ function openLogPanel(type,clientId,clientName){
         </label>
         <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#3D3833;cursor:pointer;margin-top:7px;">
           <input type="checkbox" id="lp-tooutlook" checked onchange="this.dataset.userSet=1" style="accent-color:#FF5A1F;">
-          Add to <b>my Outlook calendar</b>
+          Add to <b>my Outlook calendar</b><span id="lp-ol-who" style="color:#8C857B;"></span>
         </label>
         <div id="lp-ol-state" style="font-size:11.5px;margin:5px 0 0 24px;"></div>
+        <div id="lp-ol-warn" style="display:none;font-size:11.5px;color:#B42318;margin:5px 0 0 24px;"></div>
         <div id="lp-past" style="display:none;font-size:11.5px;color:#92580B;margin:6px 0 0 24px;"></div>
       </div>
       <div id="lp-vmsg" style="display:none;font-size:12px;margin-bottom:9px;"></div>
@@ -3029,9 +3030,22 @@ async function lpConnectOutlook(){
   _lpRenderOutlookState();
   if(st.ok)showToast('Outlook connected — visits can go on your calendar.');
 }
+// The event lands on the mailbox the hub is SIGNED IN as. If that's a shared
+// or admin account (tuadmin), it is not the person's own calendar and they
+// will swear nothing happened — 2026-08-31, this is exactly what bit Andrew.
+// So name the mailbox on the checkbox, and say so plainly when it's shared.
+const SHARED_ACCOUNT_RE=/^(tuadmin|admin|info|office|scheduling|intake)@/i;
 function _lpRenderOutlookState(){
   const el=document.getElementById('lp-ol-state'); if(!el)return;
   const st=_outlookState;
+  const who=document.getElementById('lp-ol-who'), warn=document.getElementById('lp-ol-warn');
+  if(who)who.textContent=(st&&st.ok&&st.who)?' ('+st.who+')':'';
+  if(warn){
+    if(st&&st.ok&&SHARED_ACCOUNT_RE.test(st.who||'')){
+      warn.style.display='block';
+      warn.innerHTML='You are signed in as <b>'+escHtml(st.who)+'</b>, so the entry goes on <b>that</b> mailbox\'s calendar — not your own. Sign in with your own Microsoft account to put it on yours.';
+    } else warn.style.display='none';
+  }
   if(!st){el.innerHTML='<span style="color:#8C857B;">Checking Outlook…</span>';return;}
   if(st.ok){el.innerHTML='<span style="color:#0F6E56;">✓ Connected'+(st.who?' as '+escHtml(st.who):'')+'</span>';
     const cb=document.getElementById('lp-tooutlook'); if(cb)cb.disabled=false;}
@@ -3093,7 +3107,8 @@ async function lpSaveVisit(cid){
   // Don't just claim it worked — show the calendar entry so it can be checked.
   if(outlookId){
     const when=w.start.toLocaleString([], {weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
-    _lpMsg('✓ Added to '+(vivId?(escHtml(c.name||'the client')+'\'s Viv schedule and '):'')+'your Outlook calendar for <b>'+escHtml(when)+'</b>'+(outlookLink?' — <a href="'+escHtml(outlookLink)+'" target="_blank" rel="noopener" style="color:#C2410C;">open the event</a>':''),'#0F6E56');
+    const mbox=(_outlookState&&_outlookState.who)?' ('+_outlookState.who+')':'';
+    _lpMsg('✓ Added to '+(vivId?(escHtml(c.name||'the client')+'\'s Viv schedule and '):'')+'the Outlook calendar'+escHtml(mbox)+' for <b>'+escHtml(when)+'</b>'+(outlookLink?' — <a href="'+escHtml(outlookLink)+'" target="_blank" rel="noopener" style="color:#C2410C;">open the event</a>':''),'#0F6E56');
     renderClientMaster();updateHome();
     setTimeout(()=>{try{closeLogPanel();}catch(e){}},9000);
     return;
