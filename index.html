@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-09-03T17:42"></script>
+<script src="./entra-auth.js?v=2026-09-03T17:53"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1595,7 +1595,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-09-03T17:42';
+const HUB_BUILD='2026-09-03T17:53';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -4537,7 +4537,33 @@ function _communityIndex(){
 // lived anywhere; it was in people's heads. Assembled from what we already
 // hold: clients by community, CSM home visits from Viv, the Friday email
 // history, and the cadence each community is committed to.
-let _cmHistory=null;
+let _cmHistory=null, _cmHubspot=null;
+// HubSpot holds the SALES side of community contact — meetings, calls and
+// emails logged against the community as a company, by anyone (Colin, the
+// RDMs, CSMs). Viv only knows about CSM home visits, so the tracker needs
+// both or it understates presence badly (Andrew, 9/3).
+const _cmNorm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+async function loadCommunityHubspot(){
+  try{
+    const r=await fetch(VIV_PROXY+'?endpoint=community_activity',{headers:await dataHeaders()});
+    const j=await r.json(); _cmHubspot={};
+    (j.communities||[]).forEach(c=>{ _cmHubspot[_cmNorm(c.company)]=c; });
+  }catch(e){ _cmHubspot=_cmHubspot||{}; }
+}
+// Most recent in-person contact from either system.
+function _cmLastTouch(name){
+  const viv=_cmLastOnSite(name);
+  const hs=(_cmHubspot||{})[_cmNorm(name)];
+  const cands=[];
+  if(viv)cands.push({when:viv.day,who:viv.who,what:'CSM visit',src:'Viv'});
+  if(hs&&hs.types){
+    const m=hs.types['Meeting'];   if(m)cands.push({when:m.when.slice(0,10),who:m.rep,what:'meeting',src:'HubSpot'});
+    const c=hs.types['Call'];      if(c)cands.push({when:c.when.slice(0,10),who:c.rep,what:'call',src:'HubSpot'});
+  }
+  cands.sort((a,b)=>String(b.when).localeCompare(String(a.when)));
+  const onsite=cands.filter(x=>x.what!=='call');
+  return {onsite:onsite[0]||null,any:cands[0]||null,hs};
+}
 async function loadCommunityHistory(){
   try{
     const r=await fetch(VIV_PROXY+'?endpoint=community_email&history=1',{headers:await dataHeaders()});
@@ -4566,7 +4592,7 @@ function _cmCadence(name){
 }
 async function renderCommunityTracker(refresh){
   const el=document.getElementById('cm-tracker'); if(!el)return;
-  if(!_cmHistory||refresh){ el.innerHTML='<p style="font-size:12px;color:#8C857B;">Loading…</p>'; await loadCommunityHistory(); }
+  if(!_cmHistory||!_cmHubspot||refresh){ el.innerHTML='<p style="font-size:12px;color:#8C857B;">Loading…</p>'; await Promise.all([loadCommunityHistory(),loadCommunityHubspot()]); }
   const idx=_communityIndex(); const dirs=(DATA.shared&&DATA.shared.communities)||{};
   Object.keys(dirs).forEach(k=>{if(!idx[k])idx[k]={clients:0,csms:new Set(),city:''};});
   const onlyMine=document.getElementById('cm-tr-mine')?.checked;
@@ -4577,17 +4603,21 @@ async function renderCommunityTracker(refresh){
   if(!names.length){el.innerHTML='<p style="font-size:12px;color:#8C857B;">No communities yet.</p>';return;}
   const days=d=>d?Math.floor((Date.now()-new Date(d+(String(d).length<11?'T12:00:00':'')).getTime())/864e5):null;
   const rows=names.map(n=>{
-    const site=_cmLastOnSite(n), cad=_cmCadence(n);
+    const touch=_cmLastTouch(n); const site=touch.onsite; const cad=_cmCadence(n);
     const h=(_cmHistory||{})[n]; const lastMail=h&&h.lastSentAt?h.lastSentAt.slice(0,10):'';
-    const dSite=site?days(site.day):null, dMail=lastMail?days(lastMail):null;
+    const dSite=site?days(site.when):null, dMail=lastMail?days(lastMail):null;
     const visitLate=cad.monthlyVisit&&(dSite===null||dSite>31);
     const mailLate=cad.weeklyEmail&&(dMail===null||dMail>8);
     const chips=[cad.weeklyEmail?'weekly email':'',cad.monthlyVisit?'monthly visit':'',cad.weeklyMeeting?'weekly meeting':''].filter(Boolean).join(' · ')||'—';
     return `<tr style="border-bottom:1px solid #F1EEE8;${(visitLate||mailLate)?'background:#FFF7F2;':''}">
       <td style="padding:8px 10px 8px 0;"><span style="font-weight:600;font-size:12.5px;cursor:pointer;color:#1C1A17;" onclick="selectCommunity('${escHtml(n).replace(/'/g,"\\'")}')">${escHtml(n)}</span>
         <div style="font-size:11px;color:#8C857B;">${idx[n].clients} client${idx[n].clients!==1?'s':''}${idx[n].csms.size?' · '+[...idx[n].csms].join(', '):''}</div></td>
-      <td style="padding:8px;font-size:12px;white-space:nowrap;color:${visitLate?'#A4271E':'#3D3833'};">${site?(new Date(site.day+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})+' · '+escHtml(String(site.who||'').split(' ')[0])+(dSite!==null?' ('+dSite+'d)':'')):'<span style="color:#8C857B;">never recorded</span>'}</td>
+      <td style="padding:8px;font-size:12px;white-space:nowrap;color:${visitLate?'#A4271E':'#3D3833'};">${site?(new Date(site.when+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})+' · '+escHtml(String(site.who||'').split(' ')[0])+(dSite!==null?' ('+dSite+'d)':'')+'<div style="font-size:10.5px;color:#8C857B;">'+escHtml(site.what)+' · '+escHtml(site.src)+'</div>'):'<span style="color:#8C857B;">never recorded</span>'}</td>
       <td style="padding:8px;font-size:12px;white-space:nowrap;color:${mailLate?'#A4271E':'#3D3833'};">${lastMail?(new Date(lastMail+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})+(dMail!==null?' ('+dMail+'d)':'')):'<span style="color:#8C857B;">not sent yet</span>'}</td>
+      <td style="padding:8px;font-size:11.5px;color:#57524A;white-space:nowrap;">${(()=>{const h=touch.hs&&touch.hs.types;if(!h)return '<span style="color:#8C857B;">—</span>';
+        const parts=Object.entries(h).sort((a,b)=>String(b[1].when).localeCompare(String(a[1].when))).slice(0,2)
+          .map(([k,v])=>escHtml(k.replace('Email sent to contact','email'))+' '+new Date(v.when).toLocaleDateString('en-US',{month:'short',day:'numeric'})+' · '+escHtml(String(v.rep||'').split(' ')[0]));
+        return parts.join('<br>');})()}</td>
       <td style="padding:8px;font-size:11.5px;color:#57524A;">${escHtml(chips)}</td>
       <td style="padding:8px 0 8px 8px;text-align:right;"><button class="btn btn-sm btn-o" style="font-size:10.5px;" onclick="selectCommunity('${escHtml(n).replace(/'/g,"\\'")}')">Open</button></td></tr>`;
   }).join('');
@@ -4596,9 +4626,10 @@ async function renderCommunityTracker(refresh){
       <th style="text-align:left;padding:0 10px 7px 0;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:#8C857B;">Community</th>
       <th style="text-align:left;padding:0 8px 7px;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:#8C857B;">Last CSM on site</th>
       <th style="text-align:left;padding:0 8px 7px;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:#8C857B;">Last email</th>
+      <th style="text-align:left;padding:0 8px 7px;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:#8C857B;">HubSpot (sales)</th>
       <th style="text-align:left;padding:0 8px 7px;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:#8C857B;">Committed cadence</th>
       <th></th></tr></thead><tbody>${rows}</tbody></table>
-    <p style="font-size:11px;color:#8C857B;margin-top:8px;">Rows shaded when a committed cadence has slipped. "Last CSM on site" comes from Viv home visits and anything logged in the hub.</p>`;
+    <p style="font-size:11px;color:#8C857B;margin-top:8px;">Rows shade when a committed cadence has slipped. <b>On site</b> = the most recent CSM home visit (Viv or logged here) or meeting logged in HubSpot, whichever is later. <b>HubSpot (sales)</b> shows the latest logged activity by anyone — Sales included. Calls and emails do not count as being on site.</p>`;
 }
 function renderCommunityList(){
   const el=document.getElementById('cm-dir-list');if(!el)return;
