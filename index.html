@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-09-03T15:10"></script>
+<script src="./entra-auth.js?v=2026-09-03T15:11"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -745,6 +745,10 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
   <div class="g2" style="grid-template-columns:300px 1fr;gap:14px;align-items:start;">
     <div class="card">
       <div class="ct" style="margin-bottom:8px;">Communities</div>
+      <div style="display:flex;gap:5px;margin-bottom:8px;">
+        <button class="btn btn-sm" id="ec-f-mine" onclick="ecSetOwnerFilter('mine')" style="flex:1;font-size:11px;">Mine</button>
+        <button class="btn btn-sm" id="ec-f-all" onclick="ecSetOwnerFilter('all')" style="flex:1;font-size:11px;">All in my market</button>
+      </div>
       <input type="text" class="si" id="ec-search" placeholder="Search…" oninput="renderEmailCommList()" style="width:100%;margin-bottom:8px;">
       <div id="ec-list" style="max-height:720px;overflow:auto;"></div>
       <div id="ec-status" style="font-size:11px;color:#8C857B;margin-top:8px;"></div>
@@ -1575,7 +1579,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-09-03T15:10';
+const HUB_BUILD='2026-09-03T15:11';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -4554,14 +4558,32 @@ function saveCommunity(){
 let _ecSel=null,_ecDraft=null,_ecLoading=false;
 const CSM_UPN={courtney:'courtney.chaulk',julia:'julia.hanna',ramya:'ramya.ramakrishna',emily:'emily.willson',tracy:'tracy.dubois',sam:'sam.noren',jada:'jada.tiglao',bronwyn:'bronwyn.carmel',tina:'tina.merklinger',brenda:'brenda.kruger',michelle:'michelle.hejduk',carrie:'carrie.faerber'};
 const _csmEmail=id=>CSM_UPN[id]?CSM_UPN[id]+'@tributehomecare.com':'';
+// Everyone sees every community in their MARKET (so a covering CSM can send
+// while someone is out) with a Mine / All toggle — Courtney, 9/3. Ownership is
+// still visible per row; it just no longer hides the rest of the market.
+let _ecOwnerFilter='mine';
+function _ecMyCommunityNames(){
+  const mine=new Set();
+  if(P)get('clients',P.id).forEach(c=>{const k=(c.loc||'').trim();if(k)mine.add(k);});
+  const dirs=(DATA.shared&&DATA.shared.communities)||{};
+  Object.keys(dirs).forEach(n=>{ if(dirs[n].email&&dirs[n].email.csmId===P?.id)mine.add(n); });
+  return mine;
+}
 function _ecScopeNames(){
   const idx=_communityIndex();const dirs=(DATA.shared&&DATA.shared.communities)||{};
   Object.keys(dirs).forEach(k=>{if(!idx[k])idx[k]={clients:0,csms:new Set(),city:''};});
-  const isMgr=!!(P?.isManager||P?.isCSC)||ADMIN_UPNS.includes(_ecMe().username||'');
-  const mine=new Set();
-  if(!isMgr&&P){get('clients',P.id).forEach(c=>{const k=(c.loc||'').trim();if(k)mine.add(k);});}
-  return Object.keys(idx).filter(n=>isMgr||mine.has(n)||(dirs[n]&&dirs[n].email&&dirs[n].email.csmId===P?.id)).map(n=>({name:n,...idx[n]}));
+  const mine=_ecMyCommunityNames();
+  const market=(activeMarket||P?.market||'').toLowerCase();
+  const rows=Object.keys(idx).map(n=>({name:n,...idx[n],mine:mine.has(n)}));
+  const inMarket=r=>{
+    if(!market)return true;
+    // a community belongs to the market if any of its clients sit in it
+    const hit=PROFILES.some(p=>get('clients',p.id).some(c=>(c.loc||'').trim()===r.name&&String(c.market||'').toLowerCase().includes(market.split(' ')[0])));
+    return hit||r.mine;
+  };
+  return rows.filter(r=>(_ecOwnerFilter==='mine'?r.mine:inMarket(r)));
 }
+function ecSetOwnerFilter(v){_ecOwnerFilter=v;renderEmailComm();}
 let _ecAcct=null;
 function _ecMe(){return _ecAcct||{};}
 async function renderEmailComm(){
@@ -4572,13 +4594,17 @@ async function renderEmailComm(){
 }
 function renderEmailCommList(){
   const el=document.getElementById('ec-list');if(!el)return;
+  const fm=document.getElementById('ec-f-mine'),fa=document.getElementById('ec-f-all');
+  if(fm&&fa){ const on='background:#FF5A1F;color:#fff;border:none;',off='background:#F1EEE8;color:#57524A;border:none;';
+    fm.style.cssText='flex:1;font-size:11px;'+(_ecOwnerFilter==='mine'?on:off);
+    fa.style.cssText='flex:1;font-size:11px;'+(_ecOwnerFilter==='all'?on:off); }
   const dirs=(DATA.shared&&DATA.shared.communities)||{};
   const q=(document.getElementById('ec-search')?.value||'').toLowerCase();
   const rows=_ecScopeNames().filter(r=>!q||r.name.toLowerCase().includes(q)).sort((a,b)=>{const ea=!!(dirs[a.name]?.email?.enabled),eb=!!(dirs[b.name]?.email?.enabled);return (eb-ea)||b.clients-a.clients||a.name.localeCompare(b.name);});
   if(!rows.length){el.innerHTML='<p style="font-size:12px;color:#8C857B;">No communities with your clients yet.</p>';return;}
   el.innerHTML=rows.map(r=>{const e=(dirs[r.name]||{}).email||{};const on=e.enabled&&(e.to||[]).length;return `<div onclick="selectEmailComm('${escHtml(r.name).replace(/'/g,"\\'")}')" style="padding:8px 6px;border-bottom:1px solid var(--line-soft);cursor:pointer;${_ecSel===r.name?'background:#FFF3EC;border-radius:8px;':''}">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;"><span style="font-size:13px;font-weight:500;">${escHtml(r.name)}</span><span style="font-size:10px;font-weight:700;color:${on?'#0F6E56':'#8C857B'};white-space:nowrap;">${on?'● auto Friday':(e.tier?escHtml(e.tier):'')}</span></div>
-    <div style="font-size:11px;color:#8C857B;">${r.clients} client${r.clients!==1?'s':''}${r.csms.size?' · '+[...r.csms].join(', '):''}</div></div>`;}).join('');
+    <div style="font-size:11px;color:#8C857B;">${r.clients} client${r.clients!==1?'s':''}${r.csms.size?' · '+[...r.csms].join(', '):''}${r.mine?'':' · covering'}</div></div>`;}).join('');
 }
 function selectEmailComm(n){_ecSel=n;_ecDraft=null;renderEmailCommList();renderEmailCommDetail();ecLoadDraft(false);}
 function _ecSettingsHtml(){
