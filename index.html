@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-09-03T17:53"></script>
+<script src="./entra-auth.js?v=2026-09-03T17:55"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1595,7 +1595,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-09-03T17:53';
+const HUB_BUILD='2026-09-03T17:55';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -4554,15 +4554,28 @@ async function loadCommunityHubspot(){
 function _cmLastTouch(name){
   const viv=_cmLastOnSite(name);
   const hs=(_cmHubspot||{})[_cmNorm(name)];
-  const cands=[];
-  if(viv)cands.push({when:viv.day,who:viv.who,what:'CSM visit',src:'Viv'});
+  // A HubSpot meeting can be SCHEDULED ahead — Newbury showed "Sep 9" as the
+  // last visit six days before it happens. Anything dated in the future is
+  // upcoming, not history (9/3).
+  const todayISO=new Date().toISOString().slice(0,10);
+  const cands=[],future=[];
+  const add=(o)=>{ (String(o.when)>todayISO?future:cands).push(o); };
+  if(viv)add({when:viv.day,who:viv.who,what:'CSM visit',src:'Viv'});
   if(hs&&hs.types){
-    const m=hs.types['Meeting'];   if(m)cands.push({when:m.when.slice(0,10),who:m.rep,what:'meeting',src:'HubSpot'});
-    const c=hs.types['Call'];      if(c)cands.push({when:c.when.slice(0,10),who:c.rep,what:'call',src:'HubSpot'});
+    const m=hs.types['Meeting'];   if(m)add({when:m.when.slice(0,10),who:m.rep,what:'meeting',src:'HubSpot'});
+    const c=hs.types['Call'];      if(c)add({when:c.when.slice(0,10),who:c.rep,what:'call',src:'HubSpot'});
   }
   cands.sort((a,b)=>String(b.when).localeCompare(String(a.when)));
+  future.sort((a,b)=>String(a.when).localeCompare(String(b.when)));
   const onsite=cands.filter(x=>x.what!=='call');
-  return {onsite:onsite[0]||null,any:cands[0]||null,hs};
+  return {onsite:onsite[0]||null,any:cands[0]||null,next:future.find(x=>x.what!=='call')||null,hs};
+}
+// Dates outside this year need the year, or "Sep 6" reads as a week ago when
+// it is 2025.
+function _cmDate(iso){
+  const d=new Date(String(iso).slice(0,10)+'T12:00:00'); if(isNaN(d))return '';
+  const sameYear=d.getFullYear()===new Date().getFullYear();
+  return d.toLocaleDateString('en-US',sameYear?{month:'short',day:'numeric'}:{month:'short',day:'numeric',year:'numeric'});
 }
 async function loadCommunityHistory(){
   try{
@@ -4612,11 +4625,11 @@ async function renderCommunityTracker(refresh){
     return `<tr style="border-bottom:1px solid #F1EEE8;${(visitLate||mailLate)?'background:#FFF7F2;':''}">
       <td style="padding:8px 10px 8px 0;"><span style="font-weight:600;font-size:12.5px;cursor:pointer;color:#1C1A17;" onclick="selectCommunity('${escHtml(n).replace(/'/g,"\\'")}')">${escHtml(n)}</span>
         <div style="font-size:11px;color:#8C857B;">${idx[n].clients} client${idx[n].clients!==1?'s':''}${idx[n].csms.size?' · '+[...idx[n].csms].join(', '):''}</div></td>
-      <td style="padding:8px;font-size:12px;white-space:nowrap;color:${visitLate?'#A4271E':'#3D3833'};">${site?(new Date(site.when+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})+' · '+escHtml(String(site.who||'').split(' ')[0])+(dSite!==null?' ('+dSite+'d)':'')+'<div style="font-size:10.5px;color:#8C857B;">'+escHtml(site.what)+' · '+escHtml(site.src)+'</div>'):'<span style="color:#8C857B;">never recorded</span>'}</td>
-      <td style="padding:8px;font-size:12px;white-space:nowrap;color:${mailLate?'#A4271E':'#3D3833'};">${lastMail?(new Date(lastMail+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})+(dMail!==null?' ('+dMail+'d)':'')):'<span style="color:#8C857B;">not sent yet</span>'}</td>
+      <td style="padding:8px;font-size:12px;white-space:nowrap;color:${visitLate?'#A4271E':'#3D3833'};">${site?(_cmDate(site.when)+' · '+escHtml(String(site.who||'').split(' ')[0])+(dSite!==null?' ('+dSite+'d)':'')+'<div style="font-size:10.5px;color:#8C857B;">'+escHtml(site.what)+' · '+escHtml(site.src)+(touch.next?' · next '+_cmDate(touch.next.when)+' ('+escHtml(String(touch.next.who||'').split(' ')[0])+')':'')+'</div>'):('<span style="color:#8C857B;">never recorded</span>'+(touch.next?'<div style="font-size:10.5px;color:#0F6E56;">next '+_cmDate(touch.next.when)+'</div>':''))}</td>
+      <td style="padding:8px;font-size:12px;white-space:nowrap;color:${mailLate?'#A4271E':'#3D3833'};">${lastMail?(_cmDate(lastMail)+(dMail!==null?' ('+dMail+'d)':'')):'<span style="color:#8C857B;">not sent yet</span>'}</td>
       <td style="padding:8px;font-size:11.5px;color:#57524A;white-space:nowrap;">${(()=>{const h=touch.hs&&touch.hs.types;if(!h)return '<span style="color:#8C857B;">—</span>';
         const parts=Object.entries(h).sort((a,b)=>String(b[1].when).localeCompare(String(a[1].when))).slice(0,2)
-          .map(([k,v])=>escHtml(k.replace('Email sent to contact','email'))+' '+new Date(v.when).toLocaleDateString('en-US',{month:'short',day:'numeric'})+' · '+escHtml(String(v.rep||'').split(' ')[0]));
+          .map(([k,v])=>escHtml(k.replace('Email sent to contact','email'))+' '+_cmDate(v.when)+' · '+escHtml(String(v.rep||'').split(' ')[0]));
         return parts.join('<br>');})()}</td>
       <td style="padding:8px;font-size:11.5px;color:#57524A;">${escHtml(chips)}</td>
       <td style="padding:8px 0 8px 8px;text-align:right;"><button class="btn btn-sm btn-o" style="font-size:10.5px;" onclick="selectCommunity('${escHtml(n).replace(/'/g,"\\'")}')">Open</button></td></tr>`;
