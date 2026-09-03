@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-09-01T10:54"></script>
+<script src="./entra-auth.js?v=2026-09-03T15:10"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -257,7 +257,7 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
   <div class="sb-nav">
     <div class="nav-sec">My Work</div>
     <div class="nav-item active" onclick="showPage('home',this)"><span class="nav-icon">🏠</span>Home</div>
-    <div class="nav-item" onclick="showPage('clients',this)"><span class="nav-icon">👥</span>Clients</div>
+    <div class="nav-item" onclick="showPage('clients',this)"><span class="nav-icon">👥</span>Client Tracker</div>
     <div class="nav-item" onclick="showPage('pulse',this)"><span class="nav-icon">💓</span>Client Pulse</div>
     <div class="nav-item" onclick="showPage('s60',this)"><span class="nav-icon">🎯</span>Success in 30</div>
     <div class="nav-item" onclick="showPage('coverage',this)"><span class="nav-icon">🏖️</span>Coverage Notes</div>
@@ -290,23 +290,16 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
   <div class="ph"><h2 id="home-g">Welcome!</h2><p id="home-d"></p></div>
   <div class="g4" style="margin-bottom:14px;">
     <div class="sc"><div class="sl">My Clients</div><div class="sv" id="s-total">0</div><div class="ss">Active caseload</div></div>
-    <div class="sc"><div class="sl">High Need</div><div class="sv" id="s-high" style="color:var(--hi);">0</div><div class="ss">Close attention needed</div></div>
-    <div class="sc"><div class="sl">Visits This Month</div><div class="sv" id="s-visits">0</div><div class="ss">Logged</div></div>
+    <div class="sc" style="cursor:pointer;" onclick="toggleHomeDrill('high')"><div class="sl">High Need</div><div class="sv" id="s-high" style="color:var(--hi);">0</div><div class="ss" id="s-high-sub">Close attention needed</div></div>
+    <div class="sc" style="cursor:pointer;" onclick="toggleHomeDrill('visits')"><div class="sl">Visits This Month</div><div class="sv" id="s-visits">0</div><div class="ss" id="s-visits-sub">Logged</div></div>
     <div class="sc" id="s-onboarding-card" style="cursor:pointer;" onclick="document.querySelector('.nav-item[onclick*=\'s60\']').click()">
       <div class="sl">In Onboarding</div>
       <div class="sv" id="s-onboarding" style="color:#9D2667;">0</div>
       <div class="ss" id="s-onboarding-sub">First 30 days</div>
     </div>
   </div>
+  <div class="card" id="home-drill" style="display:none;margin-bottom:14px;"></div>
   <div class="g2">
-    <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-        <div class="ct" style="margin:0;">🎯 High Priority Tasks</div>
-        <span style="font-size:11px;color:#8C857B;" id="priority-count"></span>
-      </div>
-      <p style="font-size:11px;color:#8C857B;margin-bottom:12px;">Auto-updated from your client, S30, and fill priority data.</p>
-      <div id="high-priority-tasks"></div>
-    </div>
     <div style="display:flex;flex-direction:column;gap:12px;">
       <div class="card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
@@ -328,12 +321,13 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
           <textarea class="fc" id="quick-notes" style="min-height:60px;font-size:12px;" placeholder="Scratch pad — auto-saves to your profile."></textarea>
         </div>
       </div>
-      <div class="card"><div class="ct">🔔 Needs Attention</div><div id="attn-list"></div></div>
       <!-- Upcoming supervisory visits from the Viv schedule (shown after a sync) -->
       <div class="card" id="v-upcoming-card" style="display:none;">
         <div class="ct">📅 Upcoming Viv Visits</div>
         <div id="v-upcoming"></div>
       </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
       <!-- 1:1 Notes card — shown for non-managers only -->
       <div class="card" id="home-1on1-card" style="display:none;">
         <div class="ct" style="margin-bottom:4px;">💬 My 1:1 Notes</div>
@@ -350,7 +344,7 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
 
 <!-- CLIENTS HUB — TRACKER STYLE -->
 <div id="page-clients" class="page">
-  <div class="ph"><h2>Clients</h2><p>Your full caseload — click any row to expand visits, touchpoints, care conversations, and LTC details.</p></div>
+  <div class="ph"><h2>Client Tracker</h2><p>Your full caseload — click any row to expand visits, touchpoints, care conversations, and LTC details.</p></div>
 
   <!-- Filter + action bar -->
   <div style="display:flex;gap:9px;margin-bottom:10px;align-items:center;flex-wrap:wrap;">
@@ -1581,7 +1575,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-09-01T10:54';
+const HUB_BUILD='2026-09-03T15:10';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -1897,7 +1891,12 @@ function updateHome(){
   if(obSub)obSub.textContent=onboarding.length===1?'Client in first 30 days':onboarding.length?`${onboarding.length} clients in first 30 days`:'No new clients';
   const obCard=document.getElementById('s-onboarding-card');
   if(obCard)obCard.style.borderTop=onboarding.length?'3px solid #9D2667':'';
-  renderHighPriorityTasks();
+  // Closed-state answers for the two clickable cards
+  const hSub=document.getElementById('s-high-sub');
+  if(hSub)hSub.textContent='Tap to see what is driving it';
+  const vSub=document.getElementById('s-visits-sub'), vc=visitCompliance();
+  if(vSub)vSub.textContent=vc.due.length?(vc.pct+'% on track this month'):'Nothing due this month';
+  if(_homeDrill)toggleHomeDrill(_homeDrill),toggleHomeDrill(_homeDrill);
   renderUpcomingVisits();
   renderCoveringBanner();
   syncTC();renderTodos();loadQN();
@@ -1958,6 +1957,108 @@ function updateHome(){
 }
 function tglChk(i,key,el){let c=get(key);c.includes(i)?c=c.filter(x=>x!==i):c.push(i);set(key,c);el.classList.toggle('done',c.includes(i));el.querySelector('input').checked=c.includes(i);}
 
+// ── Home drill-downs (Courtney, 9/3) ───────────────────────────────────────
+// The High Need and Visits numbers were dead ends. Both are now clickable and
+// open a breakdown; the Visits card also carries this month's compliance so the
+// closed state answers "am I on track?" without a click.
+let _homeDrill=null;
+function _visitMonthWindow(){ const n=new Date(); return {y:n.getFullYear(),m:n.getMonth()}; }
+// Visits DUE this month = cadence clients whose next-due date lands in the month
+// (deferred ones are excluded — see deferVisit). Complete = a visit logged on
+// or after that due date.
+function visitCompliance(){
+  const cl=get('clients')||[], vs=get('visits')||[], {y,m}=_visitMonthWindow();
+  const due=[],done=[],deferred=[];
+  cl.forEach(c=>{
+    if(c.isOffice||!c.freq||c.freq==='NA')return;
+    const nd=nextDue(c.lastVisit,c.freq);
+    const neverVisited=!c.lastVisit;
+    const dueThisMonth=neverVisited||(nd&&nd.getFullYear()===y&&nd.getMonth()===m)||(nd&&nd<new Date());
+    if(!dueThisMonth)return;
+    if(c.visitDeferred&&c.visitDeferred.until&&new Date(c.visitDeferred.until)>=new Date()){deferred.push(c);return;}
+    due.push(c);
+    const hit=vs.some(v=>v.clientId===c.id&&v.date&&(()=>{const d=new Date(v.date+'T12:00:00');return d.getFullYear()===y&&d.getMonth()===m;})());
+    if(hit)done.push(c);
+  });
+  const pct=due.length?Math.round(done.length/due.length*100):100;
+  return {due,done,deferred,pct};
+}
+function _dueNext14(){
+  const cl=get('clients')||[], now=new Date(), horizon=new Date(Date.now()+14*86400000);
+  return cl.filter(c=>!c.isOffice&&c.freq&&c.freq!=='NA').map(c=>{
+    const nd=c.lastVisit?nextDue(c.lastVisit,c.freq):null;
+    const deferred=c.visitDeferred&&c.visitDeferred.until&&new Date(c.visitDeferred.until)>=now;
+    return {c,nd,never:!c.lastVisit,deferred};
+  }).filter(r=>!r.deferred&&(r.never||(r.nd&&r.nd<=horizon)))
+    .sort((a,b)=>(a.never?0:a.nd)-(b.never?0:b.nd));
+}
+// High Need, split the way a CSM actually triages it.
+function _highNeedSections(){
+  const cl=get('clients')||[];
+  const byCid=(_PULSE&&_PULSE.byCid)||{};
+  const coc=[],concern=[],urgentOpen=[],afterHours=[];
+  cl.forEach(c=>{
+    const p=c.vivId?byCid[c.vivId]:null; if(!p)return;
+    const flags=(p.cocFlags||[]);
+    if(flags.length) coc.push({c,why:flags.slice(0,2).join('; ')});
+    else if(p.level==='red'||p.level==='amber'){
+      const why=(p.reasons||[]).filter(r=>!/change of condition/i.test(r)).slice(0,2).join('; ');
+      if(why) concern.push({c,why});
+    }
+  });
+  const ov=(DATA.profiles?.[P?.id]?.vivOpenVisits)||[];
+  const cutoff=Date.now()+48*3600*1000;
+  ov.forEach(v=>{
+    const d=v.day?new Date(v.day+'T12:00:00'):null;
+    if(d&&d.getTime()<=cutoff) urgentOpen.push(v);
+  });
+  const tps=(get('touchpoints')||[]).filter(t=>t.auto&&t.afterHours);
+  tps.forEach(t=>afterHours.push(t));
+  return {coc,concern,urgentOpen,afterHours};
+}
+function toggleHomeDrill(kind){
+  const el=document.getElementById('home-drill'); if(!el)return;
+  if(_homeDrill===kind){_homeDrill=null;el.style.display='none';return;}
+  _homeDrill=kind; el.style.display='block';
+  const row=(name,why,onclick)=>`<div ${onclick?`onclick="${onclick}" style="cursor:pointer;"`:''} style="display:flex;justify-content:space-between;gap:10px;padding:7px 9px;border-radius:8px;background:#F7F4EF;margin-bottom:5px;">
+    <span style="font-size:12.5px;font-weight:600;color:#1C1A17;">${escHtml(name)}</span>
+    <span style="font-size:11.5px;color:#57524A;text-align:right;">${escHtml(why||'')}</span></div>`;
+  const sect=(title,items)=>`<div style="margin-bottom:12px;"><div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8C857B;margin-bottom:6px;">${escHtml(title)} · ${items.length}</div>${items.length?items.join(''):'<div style="font-size:12px;color:#8C857B;padding:2px 0 6px;">Nothing here right now.</div>'}</div>`;
+
+  if(kind==='high'){
+    const s2=_highNeedSections();
+    el.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div class="ct" style="margin:0;">🔺 High need — what is driving it</div>
+        <button class="btn btn-sm btn-o" onclick="toggleHomeDrill('high')">Close</button></div>`
+      +sect('Change of condition reported by a caregiver',s2.coc.map(x=>row(x.c.name,x.why,`showPage('clients',document.querySelector('.nav-item[onclick*=clients]'))`)))
+      +sect('Concerns and trends the caregiver did not label',s2.concern.map(x=>row(x.c.name,x.why,`showPage('clients',document.querySelector('.nav-item[onclick*=clients]'))`)))
+      +sect('Urgent open visits (next 48 hours)',s2.urgentOpen.map(v=>row(v.client||v.clientName||'Open visit',(v.day?new Date(v.day+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}):'')+ovTime(v),`showPage('priority',document.querySelector('.nav-item[onclick*=priority]'))`)))
+      +(s2.afterHours.length?sect('After-hours contact',s2.afterHours.map(t=>row(t.clientName||'Client',t.type||''))):'');
+  } else if(kind==='visits'){
+    const vc=visitCompliance(), up=_dueNext14();
+    el.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div class="ct" style="margin:0;">📅 Visits — next two weeks</div>
+        <button class="btn btn-sm btn-o" onclick="toggleHomeDrill('visits')">Close</button></div>
+      <div style="font-size:12.5px;color:#3D3833;margin-bottom:10px;">This month: <b>${vc.done.length} of ${vc.due.length}</b> due visits complete (<b>${vc.pct}%</b>)${vc.deferred.length?` · ${vc.deferred.length} deferred`:''}</div>`
+      +sect('Due in the next two weeks',up.map(r=>row(r.c.name,r.never?'Never visited':('Due '+r.nd.toLocaleDateString('en-US',{month:'short',day:'numeric'})),`openLogPanel('visit','${r.c.id}','${escHtml(r.c.name).replace(/'/g,"\\'")}')`)))
+      +(vc.deferred.length?sect('Deferred this month',vc.deferred.map(c=>row(c.name,(c.visitDeferred.reason||'')+' · until '+new Date(c.visitDeferred.until).toLocaleDateString()))):'');
+  }
+}
+// Defer a visit with a reason so the month's compliance stays honest.
+function deferVisit(cid){
+  const cl=get('clients'),i=cl.findIndex(c=>c.id===cid); if(i<0)return;
+  const cur=cl[i].visitDeferred;
+  if(cur&&cur.until&&new Date(cur.until)>=new Date()){
+    if(!confirm('Remove the deferral on '+cl[i].name+'?'))return;
+    delete cl[i].visitDeferred; set('clients',cl); renderClientMaster(); updateHome(); showToast('Deferral removed.'); return;
+  }
+  const reason=prompt('Why is this visit being deferred? (shows in the monthly number)');
+  if(reason===null)return;
+  if(!reason.trim()){alert('A reason is needed.');return;}
+  const until=new Date(); until.setMonth(until.getMonth()+1);
+  cl[i].visitDeferred={until:until.toISOString().slice(0,10),reason:reason.trim(),by:P?P.name:'',at:new Date().toISOString()};
+  set('clients',cl); renderClientMaster(); updateHome(); showToast('Visit deferred — excluded from this month.');
+}
 function renderHighPriorityTasks(){
   if(!P)return;
   const cl=get('clients'),tps=get('touchpoints'),cis=get('checkins'),fps=get('fillPriorities');
@@ -2956,6 +3057,7 @@ function renderCheckinMaster(){
         <td>
           <div style="display:flex;gap:5px;flex-wrap:wrap;">
             ${vFreq?`<button class="btn btn-sm btn-o" style="font-size:10.5px;" onclick="openLogPanel('visit','${c.id}','${c.name}')">📅 Visit</button>`:''}
+            ${vFreq?`<button class="btn btn-sm btn-o" style="font-size:10.5px;" title="${c.visitDeferred&&new Date(c.visitDeferred.until)>=new Date()?'Deferred: '+escHtml(c.visitDeferred.reason||''):'Push this visit out of this month with a reason'}" onclick="deferVisit('${c.id}')">${c.visitDeferred&&new Date(c.visitDeferred.until)>=new Date()?'⏸ Deferred':'⏸ Defer'}</button>`:''}
             <button class="btn btn-sm btn-o" style="font-size:10.5px;" onclick="openLogPanel('touchpoint','${c.id}','${c.name}')">📞 Touchpoint</button>
             <button class="btn btn-sm btn-o" style="font-size:10.5px;" onclick="openLogPanel('checkin','${c.id}','${c.name}')">🤝 Care Convo</button>
           </div>
