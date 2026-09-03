@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-09-03T17:57"></script>
+<script src="./entra-auth.js?v=2026-09-03T19:22"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1595,7 +1595,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-09-03T17:57';
+const HUB_BUILD='2026-09-03T19:22';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -2518,7 +2518,7 @@ function buildClientDetail(id){
     ${(()=>{const pp=_PULSE&&c.vivId?_PULSE.byCid[c.vivId]:null;if(!pp)return'';
       return `<div style="margin-top:8px;"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#8C857B;margin-bottom:3px;">💓 Pulse</div>
       <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;">${pulseChip(pp.level)}<span style="font-size:11px;color:#57524A;">${escHtml((pp.reasons||[]).slice(0,3).join(' · ')||'No flags')}</span></div>
-      ${pp.aiPulse?`<div style="margin-top:5px;font-size:11.5px;color:#3D3833;line-height:1.5;background:#FBEADF;border-radius:6px;padding:6px 9px;"><strong style="color:#C2410C;">Pulse Read:</strong> ${escHtml(pp.aiPulse)}</div>`:''}
+      ${pulseCard(pp)}
       ${(pp.visitNotes&&pp.visitNotes.length)?`<div style="margin-top:5px;font-size:11.5px;color:#57524A;line-height:1.5;"><span style="color:#8C857B;">${pp.visitNotes[0].date} visit:</span> ${escHtml(pp.visitNotes[0].note.slice(0,200))}</div>`:''}</div>`;})()}
     <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;">
       <button class="btn btn-sm btn-p" onclick="editClient('${eid}');event.stopPropagation()">✏️ Edit Client</button>
@@ -4524,7 +4524,7 @@ function renderHandoffs(){
         <div>📅 Last visit ${c.lastVisit?fmtD(c.lastVisit):'—'} · every ${escHtml(String(c.freq||90))}d${c.caregivers?' · 👩‍⚕️ '+escHtml(c.caregivers):''}</div>
         ${c.coverage.note?`<div style="color:#92580B;">📝 ${escHtml(c.coverage.note)}</div>`:''}
         ${note?`<div style="margin-top:4px;padding:7px 9px;background:#F7F4EF;border-radius:6px;font-size:11.5px;">${note.concerns?'<b>Watch:</b> '+escHtml(note.concerns)+'<br>':''}${note.upcoming?'<b>Upcoming:</b> '+escHtml(note.upcoming)+'<br>':''}${note.notes?escHtml(note.notes):''}</div>`:''}
-        ${pp&&pp.aiPulse?`<div style="margin-top:4px;font-size:11.5px;color:#3D3833;background:#FBEADF;border-radius:6px;padding:6px 9px;"><b style="color:#C2410C;">Pulse Read:</b> ${escHtml(pp.aiPulse)}</div>`:''}
+        ${pulseCard(pp)}
       </div>
     </div>`;
   }).join('');
@@ -6343,6 +6343,44 @@ async function loadPulse(interactive){
     if(el&&!_PULSE)el.innerHTML='<div class="es"><div class="ei">💓</div><p>Could not load the pulse feed — try Refresh.</p></div>';
   }
 }
+// Courtney's spec (v3.8) replaced the free-text read with a structured card:
+// the flag REASON is the headline (never a score), five named fields carry the
+// detail, watch items are earned, and the Emerging band is information rather
+// than an ask. Rendered the same way everywhere the pulse appears.
+const PULSE_REASONS={
+  L1:'Safety or disclosure', L2:'Escalation chain broke', L3:'Health trend worth raising',
+  L4:'Designated contact not informed', L5:'Coverage at risk', L6:'Relationship at risk',
+  L7:'Care plan or scope drift', L8:'Visibility gap'
+};
+const PULSE_TIER_LABEL={needs_attention:'Needs attention',monitor:'Monitor',status_quo:'Status quo'};
+function pulseCard(pp,opts){
+  if(!pp)return '';
+  const compact=opts&&opts.compact;
+  const tier=pp.tier||'', reason=pp.flagReason||'';
+  if(!tier&&!pp.aiPulse)return '';
+  const col=tier==='needs_attention'?'#A4271E':(tier==='monitor'?'#92580B':'#0F6E56');
+  const bg =tier==='needs_attention'?'#FDECEA':(tier==='monitor'?'#FBF3E3':'#EAF5F0');
+  const head=[PULSE_TIER_LABEL[tier]||'',reason?(reason+' · '+(PULSE_REASONS[reason]||'')):''].filter(Boolean).join(' — ');
+  const c=pp.card||{};
+  const field=(label,val)=>val?`<div style="margin-top:4px;"><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8C857B;">${label}</span> <span style="font-size:11.5px;color:#3D3833;">${escHtml(val)}</span></div>`:'';
+  let body='';
+  if(tier==='needs_attention'&&!compact){
+    body=field('What was documented',c.documented)+field('Who needs to know',c.whoNeedsToKnow)
+        +field('Already done',c.alreadyDone)+field('Whose call',c.whoseCall)
+        +field('Recommended',c.recommendedAction)
+        +(pp.confidence?`<div style="margin-top:4px;font-size:10.5px;color:#8C857B;">Confidence: ${escHtml(pp.confidence)}</div>`:'');
+  } else if(c.documented){
+    body=`<div style="margin-top:4px;font-size:11.5px;color:#3D3833;line-height:1.5;">${escHtml(c.documented)}</div>`;
+  } else if(pp.aiPulse){
+    body=`<div style="margin-top:4px;font-size:11.5px;color:#3D3833;line-height:1.5;">${escHtml(pp.aiPulse)}</div>`;
+  }
+  const watch=(pp.aiWatch||[]).length?`<div style="margin-top:6px;"><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8C857B;">To do</span><ul style="margin:2px 0 0 16px;padding:0;font-size:11.5px;color:#3D3833;">${pp.aiWatch.map(w=>`<li>${escHtml(w)}</li>`).join('')}</ul></div>`:'';
+  const emerging=(pp.emerging||[]).length?`<div style="margin-top:6px;padding-top:5px;border-top:1px dashed #E3DED5;"><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8C857B;">Emerging — noticed, no action needed</span><ul style="margin:2px 0 0 16px;padding:0;font-size:11.5px;color:#57524A;">${pp.emerging.map(e=>`<li>${escHtml(e)}</li>`).join('')}</ul></div>`:'';
+  return `<div style="margin-top:5px;background:${bg};border-radius:8px;padding:8px 10px;">
+    <div style="font-size:11.5px;font-weight:700;color:${col};">${escHtml(head||'Pulse')}${pp.trulyHighNeed?' <span style="font-weight:600;">· truly high need</span>':''}</div>
+    ${pp.headline?`<div style="margin-top:3px;font-size:12px;color:#1C1A17;">${escHtml(pp.headline)}</div>`:''}
+    ${body}${watch}${emerging}</div>`;
+}
 function pulseChip(level){const m={red:['Needs attention','#A4271E','#F8E5E2'],amber:['Watch','#92580B','#F8EEDB'],green:['Stable','#0F6E56','#E2F2EC']}[level]||['—','#8C857B','#F1EEE8'];return `<span style="font-size:11px;font-weight:700;color:${m[1]};background:${m[2]};padding:2px 9px;border-radius:10px;white-space:nowrap;">${m[0]}</span>`;}
 function pulseDot(c){
   if(!_PULSE||!c.vivId)return'';
@@ -6407,7 +6445,7 @@ function renderPulse(){
         <span style="font-family:var(--mono);font-size:12px;font-weight:700;color:#57524A;" title="attention score">${p.score}</span>
       </div>
       ${(p.reasons&&p.reasons.length)?`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:7px;">${p.reasons.map(r=>`<span style="font-size:10.5px;background:#F1EEE8;color:#57524A;padding:1px 8px;border-radius:9px;">${escHtml(r)}</span>`).join('')}</div>`:''}
-      ${p.aiPulse?`<div style="margin-top:8px;padding:9px 11px;background:#FBEADF;border-radius:9px;font-size:12.5px;color:#3D3833;line-height:1.5;"><strong style="color:#C2410C;">Tribute Intelligence Pulse Read:</strong> ${escHtml(p.aiPulse)}${(p.aiWatch&&p.aiWatch.length)?`<div style="margin-top:4px;font-size:11.5px;color:#6B655C;">Watch: ${p.aiWatch.map(w=>escHtml(w)).join(' · ')}</div>`:''}</div>`:''}
+      ${pulseCard(p)}
       <div id="${id}" style="display:none;margin-top:10px;border-top:1px solid var(--line-soft);padding-top:4px;">
         ${(p.visitNotes&&p.visitNotes.length)?sec('Caregiver visit notes (14d)')+p.visitNotes.map(n=>`<div style="font-size:12px;color:#3D3833;margin-bottom:6px;line-height:1.5;"><span style="color:#8C857B;">${n.date} · ${escHtml(n.cg)}:</span> ${escHtml(n.note)}</div>`).join(''):'<p style="font-size:12px;color:#8C857B;margin-top:6px;">No caregiver visit notes in the last 14 days.</p>'}
         ${(p.cocFlags&&p.cocFlags.length)?sec('Change of condition','#A4271E')+p.cocFlags.map(f=>`<div style="font-size:12px;color:#A4271E;margin-bottom:4px;">${f.date}: ${escHtml(f.note)}</div>`).join(''):''}
