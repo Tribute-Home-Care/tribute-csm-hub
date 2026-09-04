@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-09-03T20:49"></script>
+<script src="./entra-auth.js?v=2026-09-03T21:38"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1599,7 +1599,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-09-03T20:49';
+const HUB_BUILD='2026-09-03T21:38';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -1940,7 +1940,9 @@ function updateHome(){
   const openCoC=_myCocTasks().filter(t=>t.open).length;
   if(hSub)hSub.textContent=openCoC?(openCoC+' open change of condition'+(openCoC>1?'s':'')+' · tap for detail'):'Tap to see what is driving it';
   const vSub=document.getElementById('s-visits-sub'), vc=visitCompliance();
-  if(vSub)vSub.textContent=vc.due.length?(vc.pct+'% on track this month'):'Nothing due this month';
+  // A bare "0% on track" on the 3rd of the month reads like a failure when it
+  // just means the month is young — say the fraction instead.
+  if(vSub)vSub.textContent=vc.due.length?(vc.done.length+' of '+vc.due.length+' due visits done'+(vc.pct>=100?' · on track':'')):'Nothing due this month';
   if(_homeDrill)toggleHomeDrill(_homeDrill),toggleHomeDrill(_homeDrill);
   renderUpcomingVisits();
   renderCoveringBanner();
