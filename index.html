@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-09-04T16:19"></script>
+<script src="./entra-auth.js?v=2026-09-04T16:33"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1647,7 +1647,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-09-04T16:19';
+const HUB_BUILD='2026-09-04T16:33';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -2229,6 +2229,8 @@ function renderLtcPreview(){
         </div>
         ${a.kind==='vivSheet'&&a.ready
           ? `<button class="btn btn-sm btn-p" onclick="ltcOpenSheet(this)">Open</button>`
+          : a.kind==='qbDoc'&&a.ready
+          ? `<button class="btn btn-sm btn-p" onclick="ltcOpenQb(this,'${a.qbKind}','${a.qbId}')">Open</button>`
           : `<span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:10px;${a.ready?'background:#E7F2EC;color:#3D7A5B;':'background:#F4F2EE;color:#8C857B;'}">${a.ready?'Ready':'Not yet'}</span>`}
       </div>`).join('')}
       ${j.instructions?`<div style="font-size:11.5px;color:#57524A;background:#FBF9F5;border-radius:8px;padding:9px;margin-top:8px;"><strong>Carrier instructions:</strong> ${escHtml(j.instructions)}</div>`:''}
@@ -2239,6 +2241,31 @@ function renderLtcPreview(){
         `<span style="font-size:12px;color:#8C857B;">Already ${escHtml(state)}.</span>`}
       <button class="btn btn-sm btn-o" onclick="closeM('m-ltc-pk')" style="margin-left:auto;">Close</button>
     </div>`;
+}
+
+// QuickBooks documents come back as base64 rather than a URL: an <a href>
+// cannot carry the caller's Entra token, and handing a browser a URL with the
+// gate key in it would be worse. A blob URL renders inline in the tab, unlike
+// the S3 links for Viv sheets which arrive as downloads.
+async function ltcOpenQb(btn,kind,id){
+  const label=btn.textContent;
+  btn.disabled=true; btn.textContent='Fetching\u2026';
+  try{
+    const r=await fetch(VIV_PROXY+'?endpoint=qb_doc&kind='+encodeURIComponent(kind)
+      +'&id='+encodeURIComponent(id),{headers:await dataHeaders()});
+    const j=await r.json();
+    if(!r.ok||j.error)throw new Error(j.error||('HTTP '+r.status));
+    const bin=atob(j.base64);
+    const buf=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++)buf[i]=bin.charCodeAt(i);
+    const href=URL.createObjectURL(new Blob([buf],{type:'application/pdf'}));
+    btn.outerHTML='<a class="btn btn-sm btn-p" href="'+href+'" target="_blank" rel="noopener" '
+      +'style="text-decoration:none;white-space:nowrap;">Open PDF \u2197</a>';
+    showToast(j.name+' ready \u2014 click "Open PDF"');
+  }catch(e){
+    btn.textContent=label; btn.disabled=false;
+    showToast('Could not fetch the document: '+e.message);
+  }
 }
 
 async function ltcOpenSheet(btn){
