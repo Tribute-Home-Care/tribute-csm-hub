@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-09-03T21:43"></script>
+<script src="./entra-auth.js?v=2026-09-04T10:20"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1599,7 +1599,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-09-03T21:43';
+const HUB_BUILD='2026-09-04T10:20';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -4738,7 +4738,7 @@ const _csmEmail=id=>CSM_UPN[id]?CSM_UPN[id]+'@tributehomecare.com':'';
 // Everyone sees every community in their MARKET (so a covering CSM can send
 // while someone is out) with a Mine / All toggle — Courtney, 9/3. Ownership is
 // still visible per row; it just no longer hides the rest of the market.
-let _ecOwnerFilter='mine';
+let _ecOwnerFilter='all';   // Courtney's ask: everyone sees the market, filter to narrow
 function _ecMyCommunityNames(){
   const mine=new Set();
   if(P)get('clients',P.id).forEach(c=>{const k=(c.loc||'').trim();if(k)mine.add(k);});
@@ -4752,10 +4752,13 @@ function _ecScopeNames(){
   const mine=_ecMyCommunityNames();
   const market=(activeMarket||P?.market||'').toLowerCase();
   const rows=Object.keys(idx).map(n=>({name:n,...idx[n],mine:mine.has(n)}));
+  // Match on STATE, not on the market string: Chicago clients carry either
+  // "Chicago" or "Illinois", and MA carries five different market names, so a
+  // substring test hid communities from the very people covering them (9/4).
+  const myState=PULSE_MKT_STATE[(activeMarket||P?.market||'').trim()]||PULSE_HUB_STATE[selectedHub]||'';
   const inMarket=r=>{
-    if(!market)return true;
-    // a community belongs to the market if any of its clients sit in it
-    const hit=PROFILES.some(p=>get('clients',p.id).some(c=>(c.loc||'').trim()===r.name&&String(c.market||'').toLowerCase().includes(market.split(' ')[0])));
+    if(!myState)return true;
+    const hit=PROFILES.some(p=>get('clients',p.id).some(c=>(c.loc||'').trim()===r.name&&PULSE_MKT_STATE[String(c.market||'').trim()]===myState));
     return hit||r.mine;
   };
   return rows.filter(r=>(_ecOwnerFilter==='mine'?r.mine:inMarket(r)));
