@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-09-04T15:22"></script>
+<script src="./entra-auth.js?v=2026-09-04T15:40"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -873,6 +873,16 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
 </div>
 
 <!-- NEW FILL EVENT MODAL -->
+<div class="mo" id="m-ltc-pk">
+  <div class="md" style="width:820px;max-width:94vw;">
+    <div class="mh">
+      <div class="mt" id="ltc-pk-title">Packet preview</div>
+      <button class="mc" onclick="closeM('m-ltc-pk')">&#10005;</button>
+    </div>
+    <div id="ltc-pk-body" style="padding:16px 20px 20px;max-height:74vh;overflow:auto;"></div>
+  </div>
+</div>
+
 <div class="mo" id="m-fp-event">
   <div class="md" style="width:420px;">
     <div class="mh">
@@ -1637,7 +1647,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-09-04T15:22';
+const HUB_BUILD='2026-09-04T15:40';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -2069,7 +2079,7 @@ function renderLtcDetail(){
     ? line('Invoice','#'+escHtml(r.invoice.docNumber)+' · $'+r.invoice.total+(r.invoice.balance>0?' <span style="color:#B4453C;">(unpaid)</span>':' <span style="color:#3D7A5B;">(paid)</span>'))
     : (r.needsProofOfPayment?line('Invoice','<span style="color:#B4453C;">not found</span>'):'');
 
-  const acts=[];
+  const acts=[`<button class="btn btn-sm btn-o" onclick="ltcPreview()">👁 Preview what will be sent</button>`];
   if(s.state==='not_started'||!s.state){
     acts.push(`<button class="btn btn-sm ${r.ready?'btn-p':'btn-o'}" onclick="ltcAct('approve')">${r.ready?'Approve':'Approve anyway'}</button>`);
   }
@@ -2136,6 +2146,114 @@ async function ltcAct(action){
     showToast(action==='unapprove'?'Reopened':'Saved');
   }catch(e){ showToast('Could not save: '+e.message); }
   finally{ _ltcBusy=false; }
+}
+
+
+// Preview what will actually be sent, before anything is approved. Three
+// panes: the covering email as it will leave, the service record we generate,
+// and the documents that attach. Approving from inside the preview is the
+// intended path — the whole point is that sending without looking isn't a thing.
+let _ltcPk=null;
+
+async function ltcPreview(){
+  const r=(_ltcData?.rows||[]).find(x=>x.id===_ltcSel);
+  if(!r)return;
+  const m=document.getElementById('ltc-pk-body');
+  document.getElementById('ltc-pk-title').textContent='Loading the packet for '+r.clientName+'…';
+  m.innerHTML='<p style="font-size:12.5px;color:#8C857B;">Building it now…</p>';
+  openM('m-ltc-pk');
+  try{
+    const q='?endpoint=ltc_packet&id='+encodeURIComponent(r.id)+'&week='+_ltcData.week.start
+      +'&sender='+encodeURIComponent((P&&P.name)||'');
+    const res=await fetch(VIV_PROXY+q,{headers:await dataHeaders()});
+    const j=await res.json();
+    if(!res.ok||j.error)throw new Error(j.error||('HTTP '+res.status));
+    _ltcPk=j;
+    renderLtcPreview();
+  }catch(e){
+    m.innerHTML='<p style="font-size:12.5px;color:#B4453C;">Could not build the packet: '+escHtml(e.message)+'</p>';
+  }
+}
+
+function ltcPkTab(t){
+  ['email','record','files'].forEach(x=>{
+    const p=document.getElementById('ltc-pk-'+x);if(p)p.style.display=(x===t?'block':'none');
+    const b=document.getElementById('ltc-pkt-'+x);if(b)b.className='btn btn-sm'+(x===t?' btn-p':' btn-o');
+  });
+}
+
+function renderLtcPreview(){
+  const j=_ltcPk;if(!j)return;
+  document.getElementById('ltc-pk-title').textContent=j.clientName+' · '+j.week.label;
+  const dest=j.route==='fax'
+    ? (j.faxEmail?j.faxEmail+' (fax to '+j.destination+')':'no usable fax number')
+    : (j.route==='portal'?'uploaded to '+j.destination:(j.email.to||'no address on file'));
+
+  const warn=j.warnings.length?`<div style="background:#FDF6E9;border:1px solid #F0E2C4;border-radius:10px;padding:10px;margin-bottom:12px;">
+    <div style="font-size:11px;font-weight:700;color:#8C6D3F;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Read before sending</div>
+    ${j.warnings.map(w=>'<div style="font-size:12px;color:#6E5730;padding:1px 0;">• '+escHtml(w)+'</div>').join('')}</div>`:'';
+
+  const acts=(_ltcData?.rows||[]).find(x=>x.id===j.id);
+  const state=acts?.submission?.state||'not_started';
+
+  document.getElementById('ltc-pk-body').innerHTML=`
+    ${warn}
+    <div style="display:flex;gap:5px;margin-bottom:12px;">
+      <button class="btn btn-sm btn-p" id="ltc-pkt-email" onclick="ltcPkTab('email')">Covering ${j.route==='portal'?'note':'email'}</button>
+      <button class="btn btn-sm btn-o" id="ltc-pkt-record" onclick="ltcPkTab('record')">Service record</button>
+      <button class="btn btn-sm btn-o" id="ltc-pkt-files" onclick="ltcPkTab('files')">Attachments (${j.attachments.length})</button>
+    </div>
+
+    <div id="ltc-pk-email">
+      <div style="border:1px solid var(--line-soft);border-radius:10px;overflow:hidden;">
+        <div style="background:#FBF9F5;padding:9px 12px;border-bottom:1px solid var(--line-soft);font-size:12px;">
+          <div><span style="color:#8C857B;">To</span> <strong>${escHtml(dest)}</strong></div>
+          <div style="margin-top:3px;"><span style="color:#8C857B;">Subject</span> <strong>${escHtml(j.email.subject)}</strong></div>
+        </div>
+        <div style="padding:12px;background:#fff;">${j.email.bodyHtml}</div>
+      </div>
+      ${j.route==='portal'?`<p style="font-size:11.5px;color:#8C857B;margin-top:8px;">John Hancock takes uploads only, so this text is for your reference rather than something we send. The documents are what goes up.</p>`:''}
+    </div>
+
+    <div id="ltc-pk-record" style="display:none;">
+      <div style="border:1px solid var(--line-soft);border-radius:10px;padding:16px;background:#fff;overflow-x:auto;">${j.careNotesHtml}</div>
+      <div style="margin-top:8px;"><button class="btn btn-sm btn-o" onclick="ltcPrintRecord()">Open printable version</button></div>
+    </div>
+
+    <div id="ltc-pk-files" style="display:none;">
+      ${j.attachments.map(a=>`<div style="display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--line-soft);border-radius:10px;margin-bottom:7px;background:#fff;">
+        <span style="font-size:18px;">${a.ready?'📄':'⏳'}</span>
+        <div style="flex:1;">
+          <div style="font-size:12.5px;font-weight:600;">${escHtml(a.label)}</div>
+          <div style="font-size:11px;color:#8C857B;">${escHtml(a.name)} · ${escHtml(a.source)}</div>
+        </div>
+        <span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:10px;${a.ready?'background:#E7F2EC;color:#3D7A5B;':'background:#F4F2EE;color:#8C857B;'}">${a.ready?'Ready':'Not yet'}</span>
+      </div>`).join('')}
+      ${j.instructions?`<div style="font-size:11.5px;color:#57524A;background:#FBF9F5;border-radius:8px;padding:9px;margin-top:8px;"><strong>Carrier instructions:</strong> ${escHtml(j.instructions)}</div>`:''}
+    </div>
+
+    <div style="display:flex;gap:6px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line-soft);flex-wrap:wrap;align-items:center;">
+      ${state==='not_started'?`<button class="btn btn-sm btn-p" onclick="ltcApproveFromPreview()">I have reviewed this — approve</button>`:
+        `<span style="font-size:12px;color:#8C857B;">Already ${escHtml(state)}.</span>`}
+      <button class="btn btn-sm btn-o" onclick="closeM('m-ltc-pk')" style="margin-left:auto;">Close</button>
+    </div>`;
+}
+
+async function ltcApproveFromPreview(){
+  await ltcAct('approve');
+  renderLtcPreview();
+}
+
+// A print window rather than a download: the sandbox blocks script-driven saves
+// and the browser's own print dialog gives them a PDF anyway.
+function ltcPrintRecord(){
+  if(!_ltcPk)return;
+  const w=window.open('','_blank');
+  if(!w){showToast('Allow pop-ups to open the printable version');return;}
+  w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'
+    +escHtml(_ltcPk.clientName)+' — services '+escHtml(_ltcPk.week.start)
+    +'</title></head><body style="margin:32px;">'+_ltcPk.careNotesHtml+'</body></html>');
+  w.document.close();
 }
 
 // Records that can't be worked at all: no Viv client to read visits from. These
