@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-09-03T21:38"></script>
+<script src="./entra-auth.js?v=2026-09-03T21:43"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1599,7 +1599,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-09-03T21:38';
+const HUB_BUILD='2026-09-03T21:43';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -4624,7 +4624,10 @@ function _cmCadence(name){
 }
 async function renderCommunityTracker(refresh){
   const el=document.getElementById('cm-tracker'); if(!el)return;
-  if(!_cmHistory||!_cmHubspot||refresh){ el.innerHTML='<p style="font-size:12px;color:#8C857B;">Loading…</p>'; await Promise.all([loadCommunityHistory(),loadCommunityHubspot()]); }
+  // Draw from Viv and the email history straight away; HubSpot's 400-day pull
+  // can take half a minute and must not hold the table hostage (9/3).
+  if(!_cmHistory||refresh){ el.innerHTML='<p style="font-size:12px;color:#8C857B;">Loading…</p>'; await loadCommunityHistory(); }
+  if(!_cmHubspot||refresh){ _cmHubspot=_cmHubspot||{}; loadCommunityHubspot().then(()=>{ if(document.getElementById('cm-tracker'))renderCommunityTracker(); }); }
   const idx=_communityIndex(); const dirs=(DATA.shared&&DATA.shared.communities)||{};
   Object.keys(dirs).forEach(k=>{if(!idx[k])idx[k]={clients:0,csms:new Set(),city:''};});
   const onlyMine=document.getElementById('cm-tr-mine')?.checked;
