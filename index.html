@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-09-04T15:40"></script>
+<script src="./entra-auth.js?v=2026-09-04T16:10"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1647,7 +1647,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-09-04T15:40';
+const HUB_BUILD='2026-09-04T16:10';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -2227,7 +2227,9 @@ function renderLtcPreview(){
           <div style="font-size:12.5px;font-weight:600;">${escHtml(a.label)}</div>
           <div style="font-size:11px;color:#8C857B;">${escHtml(a.name)} · ${escHtml(a.source)}</div>
         </div>
-        <span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:10px;${a.ready?'background:#E7F2EC;color:#3D7A5B;':'background:#F4F2EE;color:#8C857B;'}">${a.ready?'Ready':'Not yet'}</span>
+        ${a.kind==='vivSheet'&&a.ready
+          ? `<button class="btn btn-sm btn-p" onclick="ltcOpenSheet(this)">Open</button>`
+          : `<span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:10px;${a.ready?'background:#E7F2EC;color:#3D7A5B;':'background:#F4F2EE;color:#8C857B;'}">${a.ready?'Ready':'Not yet'}</span>`}
       </div>`).join('')}
       ${j.instructions?`<div style="font-size:11.5px;color:#57524A;background:#FBF9F5;border-radius:8px;padding:9px;margin-top:8px;"><strong>Carrier instructions:</strong> ${escHtml(j.instructions)}</div>`:''}
     </div>
@@ -2237,6 +2239,34 @@ function renderLtcPreview(){
         `<span style="font-size:12px;color:#8C857B;">Already ${escHtml(state)}.</span>`}
       <button class="btn btn-sm btn-o" onclick="closeM('m-ltc-pk')" style="margin-left:auto;">Close</button>
     </div>`;
+}
+
+async function ltcOpenSheet(btn){
+  if(!_ltcPk)return;
+  const label=btn.textContent;
+  btn.disabled=true; btn.textContent='Generating…';
+  try{
+    const st=await fetch(VIV_PROXY+'?endpoint=ltc_sheet&id='+encodeURIComponent(_ltcPk.id)
+      +'&week='+_ltcPk.week.start,{headers:await dataHeaders()}).then(r=>r.json());
+    if(st.error)throw new Error(st.error);
+    for(let i=0;i<90;i++){
+      await new Promise(r=>setTimeout(r,2000));
+      const pr=await fetch(VIV_PROXY+'?endpoint=ltc_sheet&job='+encodeURIComponent(st.job),
+        {headers:await dataHeaders()}).then(r=>r.json());
+      if(pr.error)throw new Error(pr.error);
+      if(pr.ready){
+        window.open(pr.link,'_blank','noopener');
+        btn.textContent='Opened'; btn.disabled=false;
+        showToast('Activity sheet opened in a new tab');
+        return;
+      }
+      if(i===8)btn.textContent='Still rendering…';
+    }
+    throw new Error('Viv did not finish rendering in three minutes');
+  }catch(e){
+    btn.textContent=label; btn.disabled=false;
+    showToast('Could not open the activity sheet: '+e.message);
+  }
 }
 
 async function ltcApproveFromPreview(){
