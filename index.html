@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-09-04T16:14"></script>
+<script src="./entra-auth.js?v=2026-09-04T16:19"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1647,7 +1647,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-09-04T16:14';
+const HUB_BUILD='2026-09-04T16:19';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -2243,39 +2243,14 @@ function renderLtcPreview(){
 
 async function ltcOpenSheet(btn){
   if(!_ltcPk)return;
+  // No pre-opened tab and no window.open. Two attempts at being clever both
+  // failed: opening after the await lost user activation and was blocked
+  // silently, and pre-opening a placeholder then assigning win.location left
+  // the tab on about:blank. Viv's render is async no matter what, so generate
+  // first and then hand over a real anchor the user clicks. Their click carries
+  // its own activation, and there is nothing left to be blocked.
   const label=btn.textContent;
-  // The tab MUST be opened synchronously, inside the click. Viv's render takes
-  // seconds, and a window.open() after an await has lost user activation: the
-  // browser refuses it silently, returns null, and the only symptom is a button
-  // that says it worked. So claim the tab now, park a placeholder in it, and
-  // point it at the PDF once Viv is done.
-  let win=null;
-  try{ win=window.open('','_blank'); }catch(e){ win=null; }
-  if(win){
-    try{
-      win.document.write('<!doctype html><meta charset="utf-8"><title>Activity sheet\u2026</title>'
-        +'<body style="margin:0;display:grid;place-items:center;height:100vh;'
-        +'font:15px -apple-system,\'Segoe UI\',Helvetica,Arial,sans-serif;color:#57524A;background:#FBF9F5;">'
-        +'<div style="text-align:center;"><div style="font-size:17px;font-weight:700;color:#1C1A17;">'
-        +'Generating the activity sheet</div><div style="margin-top:6px;">Viv is rendering '
-        +(_ltcPk.clientName||'this client').replace(/[<>&]/g,'')+'\u2019s week. This can take a minute.</div></div>');
-      win.document.close();
-    }catch(e){}
-  }
   btn.disabled=true; btn.textContent='Generating\u2026';
-  const finish=(link)=>{
-    if(win&&!win.closed){ win.location=link; btn.textContent='Opened'; btn.disabled=false; return; }
-    // Pop-ups blocked, or the tab was closed: give them a link to click, which
-    // carries its own activation. Never pretend it opened.
-    btn.outerHTML='<a class="btn btn-sm btn-p" href="'+link.replace(/"/g,'&quot;')
-      +'" target="_blank" rel="noopener" style="text-decoration:none;">Open PDF \u2197</a>';
-    showToast('Ready — click "Open PDF" (your browser blocked the automatic tab)');
-  };
-  const fail=(msg)=>{
-    if(win&&!win.closed){ try{ win.close(); }catch(e){} }
-    btn.textContent=label; btn.disabled=false;
-    showToast('Could not open the activity sheet: '+msg);
-  };
   try{
     const st=await fetch(VIV_PROXY+'?endpoint=ltc_sheet&id='+encodeURIComponent(_ltcPk.id)
       +'&week='+_ltcPk.week.start,{headers:await dataHeaders()}).then(r=>r.json());
@@ -2285,11 +2260,20 @@ async function ltcOpenSheet(btn){
       const pr=await fetch(VIV_PROXY+'?endpoint=ltc_sheet&job='+encodeURIComponent(st.job),
         {headers:await dataHeaders()}).then(r=>r.json());
       if(pr.error)throw new Error(pr.error);
-      if(pr.ready){ finish(pr.link); return; }
+      if(pr.ready){
+        btn.outerHTML='<a class="btn btn-sm btn-p" href="'+String(pr.link).replace(/"/g,'&quot;')
+          +'" target="_blank" rel="noopener" style="text-decoration:none;white-space:nowrap;">'
+          +'Open PDF \u2197</a>';
+        showToast('Activity sheet ready \u2014 click "Open PDF"');
+        return;
+      }
       if(i===8)btn.textContent='Still rendering\u2026';
     }
     throw new Error('Viv did not finish rendering in three minutes');
-  }catch(e){ fail(e.message); }
+  }catch(e){
+    btn.textContent=label; btn.disabled=false;
+    showToast('Could not generate the activity sheet: '+e.message);
+  }
 }
 
 async function ltcApproveFromPreview(){
