@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-09-04T10:20"></script>
+<script src="./entra-auth.js?v=2026-09-04T15:20"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -262,6 +262,7 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
     <div class="nav-item" onclick="showPage('s60',this)"><span class="nav-icon">🎯</span>Success in 30</div>
     <div class="nav-item" onclick="showPage('coverage',this)"><span class="nav-icon">🏖️</span>Coverage Notes</div>
     <div class="nav-item" onclick="showPage('emailcomm',this)"><span class="nav-icon">✉️</span>Email Community</div>
+    <div class="nav-item" onclick="showPage('ltc',this)"><span class="nav-icon">🧾</span>LTC Submissions</div>
     <div class="nav-item" onclick="showPage('priority',this)"><span class="nav-icon">🚨</span>Fill Priority</div>
     <div class="nav-sec">Resources</div>
     <div class="nav-item" onclick="showPage('assistant',this)"><span class="nav-icon">🤖</span>Tribute Assistant</div>
@@ -753,6 +754,39 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
       <div class="card" id="cm-dir-detail"><div class="es"><div class="ei">🏘️</div><p>Select a community.</p></div></div>
     </div>
   </div>
+</div>
+
+<!-- LTC SUBMISSIONS -->
+<div id="page-ltc" class="page">
+  <div class="ph"><h2>🧾 LTC Submissions</h2><p>Every long-term care insurance client that needs a weekly submission, in one place. The week's visits, whether the care notes are complete, the invoice, and where it goes — so a claim never gets denied for a missing note we could have seen first.</p></div>
+
+  <div class="card" style="margin-bottom:12px;">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <button class="btn btn-sm btn-o" onclick="ltcWeekStep(-1)">← Previous week</button>
+      <div style="font-size:14px;font-weight:700;color:var(--ink);" id="ltc-week">—</div>
+      <button class="btn btn-sm btn-o" onclick="ltcWeekStep(1)" id="ltc-next">Next week →</button>
+      <button class="btn btn-sm btn-o" onclick="renderLtc(true)" style="margin-left:auto;">↻ Refresh</button>
+    </div>
+    <div id="ltc-kpi" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:12px;"></div>
+    <div id="ltc-stale" style="font-size:11px;color:#8C857B;margin-top:8px;"></div>
+  </div>
+
+  <div class="g2" style="grid-template-columns:1fr 380px;gap:14px;align-items:start;">
+    <div class="card">
+      <div style="display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap;">
+        <button class="btn btn-sm" id="ltc-f-mine" onclick="ltcFilter('mine')">Mine</button>
+        <button class="btn btn-sm" id="ltc-f-all" onclick="ltcFilter('all')">All</button>
+        <button class="btn btn-sm" id="ltc-f-ready" onclick="ltcFilter('ready')">Ready to send</button>
+        <button class="btn btn-sm" id="ltc-f-blocked" onclick="ltcFilter('blocked')">Blocked</button>
+        <button class="btn btn-sm" id="ltc-f-open" onclick="ltcFilter('open')">Not sent yet</button>
+        <input type="text" class="si" id="ltc-search" placeholder="Search client or carrier…" oninput="renderLtcRows()" style="flex:1;min-width:150px;">
+      </div>
+      <div id="ltc-rows" style="max-height:640px;overflow:auto;"></div>
+    </div>
+    <div id="ltc-detail"><div class="card"><p style="font-size:12.5px;color:#8C857B;">Pick a client on the left to see the week's visits, the missing notes if any, and the submission actions.</p></div></div>
+  </div>
+
+  <div class="card" id="ltc-gaps" style="margin-top:12px;display:none;"></div>
 </div>
 
 <!-- FILL PRIORITY -->
@@ -1599,7 +1633,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-09-04T10:20';
+const HUB_BUILD='2026-09-04T15:20';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -1873,7 +1907,7 @@ function showPage(p,el){
   document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
   document.getElementById('page-'+p).classList.add('active');
   if(el)el.classList.add('active');
-  ({home:updateHome,clients:renderClientMaster,pulse:renderPulse,emailcomm:renderEmailComm,priority:renderFillPriority,comms:()=>{syncTPClients();syncCIClients();renderDueNow();renderTPRecent();renderTouchpointHistory();},s60:()=>{syncS60();renderS60();renderS60Emails(null);},coverage:()=>{syncCov();renderCovSummary();renderTeamCoverage();},assistant:()=>{renderTemplates();renderScenarios();renderDecision();},expectations:renderExpectations,kpi:renderKPIHistory,team:()=>{if(_teamView==='visits')renderTeamVisits();else renderTeamOverview();}}[p]||(_=>{}))();
+  ({home:updateHome,clients:renderClientMaster,pulse:renderPulse,emailcomm:renderEmailComm,priority:renderFillPriority,ltc:renderLtc,comms:()=>{syncTPClients();syncCIClients();renderDueNow();renderTPRecent();renderTouchpointHistory();},s60:()=>{syncS60();renderS60();renderS60Emails(null);},coverage:()=>{syncCov();renderCovSummary();renderTeamCoverage();},assistant:()=>{renderTemplates();renderScenarios();renderDecision();},expectations:renderExpectations,kpi:renderKPIHistory,team:()=>{if(_teamView==='visits')renderTeamVisits();else renderTeamOverview();}}[p]||(_=>{}))();
 }
 function aTab(t,el){['kb','emails','scenarios','decision'].forEach(x=>{document.getElementById('asst-'+x).classList.remove('active');});document.querySelectorAll('#page-assistant .tab').forEach(x=>x.classList.remove('active'));document.getElementById('asst-'+t).classList.add('active');el.classList.add('active');if(t==='emails')renderTemplates();if(t==='scenarios')renderScenarios();if(t==='decision')renderDecision();_updateAsstAdminBars();}
 function _updateAsstAdminBars(){
@@ -1895,6 +1929,223 @@ const daysAgo=d=>d?Math.floor((new Date()-new Date(d))/86400000):null;
 const fmtD=d=>d?new Date(d).toLocaleDateString():'—';
 const escHtml=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 function nextDue(lv,f){if(!lv||f==='NA')return null;const d=new Date(lv);d.setDate(d.getDate()+(parseInt(f)||90));return d;}
+
+// ═══════════════════════ LTC SUBMISSIONS ═══════════════════════
+// The weekly board that replaces Michelle's True/False grid and Sam's
+// spreadsheet. Server side is endpoint=ltc_board (GET reads the week, POST
+// records approve / sent / confirm). Courtney's requirement drives the design:
+// anybody must be able to cover Sam or Michelle without inheriting their
+// spreadsheet, so nothing here is scoped to one person by default.
+let _ltcWeek=null, _ltcData=null, _ltcFilter='all', _ltcSel=null, _ltcBusy=false;
+
+function _ltcSunday(d){const x=new Date(d);x.setUTCDate(x.getUTCDate()-x.getUTCDay());return x.toISOString().slice(0,10);}
+function _ltcLastComplete(){const d=new Date();d.setUTCDate(d.getUTCDate()-7);return _ltcSunday(d);}
+
+function ltcWeekStep(n){
+  const d=new Date((_ltcWeek||_ltcLastComplete())+'T12:00:00Z');
+  d.setUTCDate(d.getUTCDate()+7*n);
+  const wk=_ltcSunday(d);
+  if(wk>_ltcLastComplete()){showToast("That week isn't finished yet");return;}
+  _ltcWeek=wk;_ltcSel=null;renderLtc();
+}
+
+function ltcFilter(f){_ltcFilter=f;renderLtcRows();}
+
+async function renderLtc(force){
+  if(!_ltcWeek)_ltcWeek=_ltcLastComplete();
+  const rowsEl=document.getElementById('ltc-rows');
+  if(!rowsEl)return;
+  document.getElementById('ltc-next').disabled=(_ltcWeek>=_ltcLastComplete());
+  rowsEl.innerHTML='<p style="font-size:12.5px;color:#8C857B;padding:12px;">Loading the week…</p>';
+  try{
+    const r=await fetch(VIV_PROXY+'?endpoint=ltc_board&week='+_ltcWeek+(force?'&refresh=1':''),{headers:await dataHeaders()});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    _ltcData=await r.json();
+    if(_ltcData.error)throw new Error(_ltcData.error);
+  }catch(e){
+    rowsEl.innerHTML='<p style="font-size:12.5px;color:#B4453C;padding:12px;">Could not load the board: '+escHtml(e.message)+'</p>';
+    return;
+  }
+  document.getElementById('ltc-week').textContent=_ltcData.week.label;
+  const c=_ltcData.counts;
+  const kpi=(n,l,col)=>`<div style="background:#fff;border:1px solid var(--line-soft);border-radius:12px;padding:12px;text-align:center;">
+    <div style="font-size:24px;font-weight:800;color:${col};line-height:1;">${n}</div>
+    <div style="font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#8C857B;margin-top:5px;">${l}</div></div>`;
+  const sent=(c.byState.sent||0)+(c.byState.confirmed||0);
+  document.getElementById('ltc-kpi').innerHTML=
+    kpi(c.ready,'Ready to send','#3D7A5B')+kpi(c.blocked,'Blocked','#B4453C')+
+    kpi(sent,'Sent','#2C5689')+kpi(c.byState.confirmed||0,'Confirmed','#6B5B8C')+
+    kpi(c.rows,'Clients this week','#57524A');
+
+  // Say where the numbers came from. The payment gate is only as fresh as the
+  // last QuickBooks push, and a stale snapshot silently mis-gates John Hancock.
+  const q=_ltcData.qbSnapshot;
+  document.getElementById('ltc-stale').innerHTML=
+    (q?('QuickBooks payment data from '+fmtD(q.generatedAt)+' · '+q.matched+' clients matched'+(q.unmatched?', '+q.unmatched+' unmatched':''))
+      :'<span style="color:#B4453C;">No QuickBooks payment data loaded — proof-of-payment carriers cannot be cleared.</span>')
+    +(_ltcData.counts.unlinked?' · <span style="color:#8C6D3F;">'+_ltcData.counts.unlinked+' records have no Viv link and are not shown</span>':'');
+  renderLtcRows();
+  renderLtcGaps();
+}
+
+function _ltcMineName(){return (P&&P.name?P.name.split(' ')[0]:'').toLowerCase();}
+
+function _ltcVisible(){
+  if(!_ltcData)return [];
+  const q=(document.getElementById('ltc-search')?.value||'').toLowerCase().trim();
+  const me=_ltcMineName();
+  return _ltcData.rows.filter(r=>{
+    if(_ltcFilter==='mine'&&String(r.csm||'').toLowerCase()!==me)return false;
+    if(_ltcFilter==='ready'&&!r.ready)return false;
+    if(_ltcFilter==='blocked'&&r.ready)return false;
+    if(_ltcFilter==='open'&&['sent','confirmed','skipped'].includes(r.submission.state))return false;
+    if(q&&!((r.clientName+' '+r.insurer).toLowerCase().includes(q)))return false;
+    return true;
+  });
+}
+
+const _LTC_STATE={not_started:['Not sent','#8C857B','#F4F2EE'],approved:['Approved','#8C6D3F','#FBF3E2'],
+  sent:['Sent','#2C5689','#E8EFF7'],confirmed:['Confirmed','#3D7A5B','#E7F2EC'],skipped:['Skipped','#8C857B','#F4F2EE']};
+const _LTC_ROUTE={email:'✉️ Email',fax:'📠 Fax',portal:'🌐 Portal',unclear:'❓ No route'};
+
+function renderLtcRows(){
+  ['mine','all','ready','blocked','open'].forEach(f=>{
+    const b=document.getElementById('ltc-f-'+f);
+    if(b){b.className='btn btn-sm'+(_ltcFilter===f?' btn-p':' btn-o');}
+  });
+  const el=document.getElementById('ltc-rows');
+  const list=_ltcVisible();
+  if(!list.length){el.innerHTML='<p style="font-size:12.5px;color:#8C857B;padding:12px;">Nothing matches that filter.</p>';return;}
+  el.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+    <thead><tr style="background:var(--line-soft);color:var(--ink);text-align:left;">
+      <th style="padding:8px 10px;">Client</th><th style="padding:8px 10px;">Carrier</th>
+      <th style="padding:8px 10px;">Route</th><th style="padding:8px 10px;text-align:center;">Visits</th>
+      <th style="padding:8px 10px;text-align:center;">Notes</th><th style="padding:8px 10px;">Status</th>
+    </tr></thead><tbody>${list.map(r=>{
+      const st=_LTC_STATE[r.submission.state||'not_started']||_LTC_STATE.not_started;
+      const noteCol=r.notesMissing?'#B4453C':(r.visits?'#3D7A5B':'#8C857B');
+      const sel=_ltcSel===r.id;
+      return `<tr onclick="ltcSelect('${r.id}')" style="cursor:pointer;border-bottom:1px solid var(--line-soft);${sel?'background:#FBF9F5;':''}">
+        <td style="padding:8px 10px;font-weight:600;">${escHtml(r.clientName)}
+          ${r.ready?'<span title="Ready to send" style="color:#3D7A5B;"> ●</span>':'<span title="Blocked" style="color:#B4453C;"> ●</span>'}
+          <div style="font-size:10.5px;color:#B7B0A6;font-weight:400;">${escHtml(r.csm||'—')} · ${escHtml(r.market||'')}</div></td>
+        <td style="padding:8px 10px;">${escHtml(r.insurer)}</td>
+        <td style="padding:8px 10px;white-space:nowrap;">${_LTC_ROUTE[r.route]||r.route}${r.destinationOk?'':'<span style="color:#B4453C;" title="No usable destination"> ⚠</span>'}</td>
+        <td style="padding:8px 10px;text-align:center;">${r.visits}</td>
+        <td style="padding:8px 10px;text-align:center;color:${noteCol};font-weight:600;">${r.visits?r.pctComplete+'%':'—'}</td>
+        <td style="padding:8px 10px;"><span style="background:${st[2]};color:${st[1]};padding:2px 8px;border-radius:10px;font-size:10.5px;font-weight:600;">${st[0]}</span></td>
+      </tr>`;}).join('')}</tbody></table>`;
+}
+
+function ltcSelect(id){_ltcSel=id;renderLtcRows();renderLtcDetail();}
+
+function renderLtcDetail(){
+  const r=(_ltcData?.rows||[]).find(x=>x.id===_ltcSel);
+  const el=document.getElementById('ltc-detail');
+  if(!r){el.innerHTML='<div class="card"><p style="font-size:12.5px;color:#8C857B;">Pick a client on the left.</p></div>';return;}
+  const s=r.submission||{};
+  const st=_LTC_STATE[s.state||'not_started']||_LTC_STATE.not_started;
+  const line=(l,v)=>`<div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--line-soft);font-size:12px;">
+    <span style="color:#8C857B;">${l}</span><span style="text-align:right;font-weight:600;color:var(--ink);">${v}</span></div>`;
+
+  const blockers=r.blockers.length
+    ? `<div style="background:#FDF1F0;border:1px solid #F3D9D6;border-radius:10px;padding:10px;margin:10px 0;">
+        <div style="font-size:11px;font-weight:700;color:#B4453C;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Blocked</div>
+        ${r.blockers.map(b=>'<div style="font-size:12px;color:#8A3630;">• '+escHtml(b)+'</div>').join('')}</div>`
+    : `<div style="background:#E7F2EC;border:1px solid #CFE4D8;border-radius:10px;padding:10px;margin:10px 0;font-size:12px;color:#2F5F47;font-weight:600;">Ready to send</div>`;
+
+  const missing=r.missingDetail.length
+    ? `<div style="margin:10px 0;"><div class="ct" style="margin-bottom:5px;">Visits missing notes</div>
+        ${r.missingDetail.map(m=>`<div style="font-size:11.5px;padding:3px 0;border-bottom:1px solid var(--line-soft);">
+          ${escHtml(m.day)} · ${escHtml(m.caregiver)} <span style="color:#B4453C;">(${m.tasksCompleted}/${m.tasksTotal} tasks)</span></div>`).join('')}
+        <div style="font-size:11px;color:#8C857B;margin-top:6px;">Carriers deny reimbursement when hands-on care isn't documented, so these need chasing before the packet goes.</div></div>`
+    : '';
+
+  const inv=r.invoice
+    ? line('Invoice','#'+escHtml(r.invoice.docNumber)+' · $'+r.invoice.total+(r.invoice.balance>0?' <span style="color:#B4453C;">(unpaid)</span>':' <span style="color:#3D7A5B;">(paid)</span>'))
+    : (r.needsProofOfPayment?line('Invoice','<span style="color:#B4453C;">not found</span>'):'');
+
+  const acts=[];
+  if(s.state==='not_started'||!s.state){
+    acts.push(`<button class="btn btn-sm ${r.ready?'btn-p':'btn-o'}" onclick="ltcAct('approve')">${r.ready?'Approve':'Approve anyway'}</button>`);
+  }
+  if(s.state==='approved'){
+    acts.push(`<button class="btn btn-sm btn-p" onclick="ltcAct('sent')">Mark sent</button>`);
+    acts.push(`<button class="btn btn-sm btn-o" onclick="ltcAct('unapprove')">Undo approval</button>`);
+  }
+  if(s.state==='sent'){
+    acts.push(`<button class="btn btn-sm btn-p" onclick="ltcAct('confirm')">Add confirmation…</button>`);
+    acts.push(`<button class="btn btn-sm btn-o" onclick="ltcAct('unapprove')">Reopen</button>`);
+  }
+  if(s.state==='confirmed'){acts.push(`<button class="btn btn-sm btn-o" onclick="ltcAct('unapprove')">Reopen</button>`);}
+
+  const hist=(s.history||[]).slice().reverse().slice(0,6);
+
+  el.innerHTML=`<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:start;gap:10px;">
+      <div><div style="font-size:15px;font-weight:800;color:var(--ink);">${escHtml(r.clientName)}</div>
+        <div style="font-size:11.5px;color:#8C857B;">${escHtml(r.insurer)} · ${escHtml(r.market)} · ${escHtml(r.csm||'unassigned')}</div></div>
+      <span style="background:${st[2]};color:${st[1]};padding:3px 9px;border-radius:10px;font-size:11px;font-weight:700;white-space:nowrap;">${st[0]}</span>
+    </div>
+    ${blockers}
+    ${line('Week',escHtml(_ltcData.week.label))}
+    ${line('Visits',r.visits+' · '+r.hours+' hrs')}
+    ${line('Care notes',r.visits?(r.notesComplete+' of '+r.visits+' complete'):'no visits')}
+    ${r.needsProofOfPayment?line('Proof of payment','required'):''}
+    ${inv}
+    ${line('Send to',escHtml(r.destination||'—'))}
+    ${r.policyNum?line('Policy',escHtml(r.policyNum)):''}
+    ${r.claimNum?line('Claim',escHtml(r.claimNum)):''}
+    ${r.instructions?`<div style="margin-top:10px;font-size:11.5px;color:#57524A;background:#FBF9F5;border-radius:8px;padding:8px;"><strong>Instructions:</strong> ${escHtml(r.instructions)}</div>`:''}
+    ${missing}
+    ${r.route==='portal'?`<div style="margin-top:10px;font-size:11.5px;color:#57524A;background:#FBF9F5;border-radius:8px;padding:8px;">
+      John Hancock has no provider API, so the upload stays manual.
+      <a href="${escHtml(r.destination)}" target="_blank" rel="noopener" style="color:#2C5689;font-weight:600;">Open the portal →</a></div>`:''}
+    <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap;">${acts.join('')}</div>
+    ${s.approvedBy?`<div style="font-size:11px;color:#8C857B;margin-top:10px;">Approved by ${escHtml(s.approvedBy)} on ${fmtD(s.approvedAt)}${s.sentBy?' · sent by '+escHtml(s.sentBy)+' on '+fmtD(s.sentAt):''}${s.confirmation?' · confirmation '+escHtml(s.confirmation):''}</div>`:''}
+    ${hist.length?`<div style="margin-top:10px;"><div class="ct" style="margin-bottom:4px;">History</div>
+      ${hist.map(h=>`<div style="font-size:11px;color:#8C857B;padding:2px 0;">${fmtD(h.at)} · ${escHtml(h.by)} · ${escHtml(h.action)}${h.detail?' ('+escHtml(h.detail)+')':''}</div>`).join('')}</div>`:''}
+  </div>`;
+}
+
+async function ltcAct(action){
+  const r=(_ltcData?.rows||[]).find(x=>x.id===_ltcSel);
+  if(!r||_ltcBusy)return;
+  const body={id:r.id,week:_ltcData.week.start,action,by:(P&&P.name)||'unknown'};
+  if(action==='confirm'){
+    const c=prompt('Confirmation or reference number from '+r.insurer+':','');
+    if(c===null)return;
+    body.confirmation=c.trim();
+  }
+  if(action==='sent')body.via=r.route;
+  if(action==='approve'&&!r.ready){
+    if(!confirm('This one is blocked:\n\n'+r.blockers.join('\n')+'\n\nApprove anyway?'))return;
+    body.override=r.blockers.join('; ');
+  }
+  _ltcBusy=true;
+  try{
+    const res=await fetch(VIV_PROXY+'?endpoint=ltc_board',{method:'POST',headers:await dataHeaders(true),body:JSON.stringify(body)});
+    const j=await res.json();
+    if(!res.ok||j.error)throw new Error(j.error||('HTTP '+res.status));
+    r.submission=j.submission;
+    renderLtcRows();renderLtcDetail();
+    showToast(action==='unapprove'?'Reopened':'Saved');
+  }catch(e){ showToast('Could not save: '+e.message); }
+  finally{ _ltcBusy=false; }
+}
+
+// Records that can't be worked at all: no Viv client to read visits from. These
+// were 14 of 110 on import and each needs a person to reconcile the name.
+function renderLtcGaps(){
+  const el=document.getElementById('ltc-gaps');
+  const u=_ltcData?.unlinked||[];
+  if(!u.length){el.style.display='none';return;}
+  el.style.display='block';
+  el.innerHTML=`<div class="ct" style="margin-bottom:6px;">Not on the board (${u.length})</div>
+    <p style="font-size:11.5px;color:#8C857B;margin-bottom:8px;">These LTC records aren't linked to a Viv client, so there are no visits or notes to check. Each needs its Viv client matched once, then it appears above.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;">${u.map(x=>`<span style="background:#F4F2EE;border-radius:8px;padding:4px 9px;font-size:11.5px;">
+      ${escHtml(x.clientName)} <span style="color:#B7B0A6;">· ${escHtml(x.insurer||'—')}</span></span>`).join('')}</div>`;
+}
 
 // ═══════════════════════ HOME ═══════════════════════
 function updateHome(){
