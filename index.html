@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-09-04T16:33"></script>
+<script src="./entra-auth.js?v=2026-09-05T15:02"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1647,7 +1647,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-09-04T16:33';
+const HUB_BUILD='2026-09-05T15:02';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -2239,7 +2239,16 @@ function renderLtcPreview(){
     <div style="display:flex;gap:6px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line-soft);flex-wrap:wrap;align-items:center;">
       ${state==='not_started'?`<button class="btn btn-sm btn-p" onclick="ltcApproveFromPreview()">I have reviewed this — approve</button>`:
         `<span style="font-size:12px;color:#8C857B;">Already ${escHtml(state)}.</span>`}
+      ${j.route==='portal'
+        ? `<button class="btn btn-sm btn-o" onclick="ltcDownloadAll(this)">⬇ Download all documents</button>`
+        : `<button class="btn btn-sm btn-o" onclick="ltcSend(this,'test')">✉️ Send test to me</button>
+           <button class="btn btn-sm btn-o" onclick="ltcSend(this,'live')" style="border-color:#E4C9C5;color:#B4453C;">Send to ${escHtml(j.insurer||'carrier')}</button>`}
       <button class="btn btn-sm btn-o" onclick="closeM('m-ltc-pk')" style="margin-left:auto;">Close</button>
+    </div>
+    <div style="font-size:11px;color:#8C857B;margin-top:8px;">
+      ${j.route==='portal'
+        ? 'John Hancock has no provider API. Download these, upload them to the portal, then record the confirmation number on the row.'
+        : 'A test sends the real documents to your own inbox. Sending to the carrier is off until that carrier is switched on.'}
     </div>`;
 }
 
@@ -2247,6 +2256,77 @@ function renderLtcPreview(){
 // cannot carry the caller's Entra token, and handing a browser a URL with the
 // gate key in it would be worse. A blob URL renders inline in the tab, unlike
 // the S3 links for Viv sheets which arrive as downloads.
+// A test goes to the signed-in user's own inbox with the real documents
+// attached; a live send needs the carrier switched on server-side. Assembly
+// takes a while because Viv renders the activity sheet on demand.
+async function ltcSend(btn,mode){
+  if(!_ltcPk)return;
+  const j=_ltcPk;
+  let acct=null;
+  try{ acct=window.tributeKsfGate&&window.tributeKsfGate.getAccount?await window.tributeKsfGate.getAccount():null; }catch(e){}
+  const me=(acct&&acct.username)||'';
+  if(mode==='test'&&!me){ showToast('Sign in again so the hub knows your address'); return; }
+  if(mode==='live'&&!confirm('Send this packet to '+(j.insurer||'the carrier')+' at '+j.destination+'?\n\n'
+      +'This is a real submission for '+j.clientName+', '+j.week.label+'.')) return;
+  const label=btn.textContent;
+  btn.disabled=true; btn.textContent=mode==='test'?'Sending test\u2026':'Sending\u2026';
+  try{
+    const r=await fetch(VIV_PROXY+'?endpoint=ltc_send',{method:'POST',headers:await dataHeaders(true),
+      body:JSON.stringify({ id:j.id, week:j.week.start, by:(P&&P.name)||'unknown',
+        byEmail:me, mode, testTo:me })});
+    const out=await r.json();
+    if(!r.ok||out.error)throw new Error(out.error||('HTTP '+r.status));
+    btn.textContent=mode==='test'?'Test sent \u2713':'Sent \u2713';
+    showToast((mode==='test'?'Test sent to '+out.to[0]:'Sent to '+out.destination)
+      +' \u00b7 '+out.attachments.length+' documents');
+    if(mode==='live'){ await renderLtc(); renderLtcPreview(); }
+  }catch(e){
+    btn.textContent=label; btn.disabled=false;
+    showToast(e.message);
+  }
+}
+
+// John Hancock: fetch every document so they can be uploaded in one pass.
+async function ltcDownloadAll(btn){
+  if(!_ltcPk)return;
+  const label=btn.textContent;
+  btn.disabled=true; btn.textContent='Gathering\u2026';
+  const links=[];
+  try{
+    for(const a of _ltcPk.attachments.filter(x=>x.ready&&x.kind)){
+      if(a.kind==='vivSheet'){
+        const st=await fetch(VIV_PROXY+'?endpoint=ltc_sheet&id='+encodeURIComponent(_ltcPk.id)
+          +'&week='+_ltcPk.week.start,{headers:await dataHeaders()}).then(r=>r.json());
+        if(st.error)throw new Error(st.error);
+        for(let i=0;i<90;i++){
+          await new Promise(r=>setTimeout(r,2000));
+          const pr=await fetch(VIV_PROXY+'?endpoint=ltc_sheet&job='+encodeURIComponent(st.job),
+            {headers:await dataHeaders()}).then(r=>r.json());
+          if(pr.error)throw new Error(pr.error);
+          if(pr.ready){ links.push({name:a.label,href:pr.link}); break; }
+        }
+      }else if(a.kind==='qbDoc'){
+        const d=await fetch(VIV_PROXY+'?endpoint=qb_doc&kind='+encodeURIComponent(a.qbKind)
+          +'&id='+encodeURIComponent(a.qbId),{headers:await dataHeaders()}).then(r=>r.json());
+        if(d.error)throw new Error(d.error);
+        const bin=atob(d.base64); const buf=new Uint8Array(bin.length);
+        for(let i=0;i<bin.length;i++)buf[i]=bin.charCodeAt(i);
+        links.push({name:a.label,href:URL.createObjectURL(new Blob([buf],{type:'application/pdf'}))});
+      }
+    }
+    if(!links.length)throw new Error('nothing to download for this week');
+    btn.outerHTML=links.map(l=>'<a class="btn btn-sm btn-p" href="'+l.href.replace(/"/g,'&quot;')
+      +'" target="_blank" rel="noopener" style="text-decoration:none;white-space:nowrap;margin-right:5px;">'
+      +escHtml(l.name.split('(')[0].trim())+' \u2197</a>').join('')
+      +'<a class="btn btn-sm btn-o" href="'+escHtml(_ltcPk.destination)+'" target="_blank" rel="noopener" '
+      +'style="text-decoration:none;">Open the portal \u2197</a>';
+    showToast(links.length+' documents ready');
+  }catch(e){
+    btn.textContent=label; btn.disabled=false;
+    showToast('Could not gather the documents: '+e.message);
+  }
+}
+
 async function ltcOpenQb(btn,kind,id){
   const label=btn.textContent;
   btn.disabled=true; btn.textContent='Fetching\u2026';
