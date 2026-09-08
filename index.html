@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-09-05T16:59"></script>
+<script src="./entra-auth.js?v=2026-09-08T15:23"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1657,7 +1657,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-09-05T16:59';
+const HUB_BUILD='2026-09-08T15:23';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -5404,13 +5404,15 @@ function _ecSettingsHtml(){
       <span style="font-size:11px;color:#8C857B;">${e.updatedAt?'Settings updated '+new Date(e.updatedAt).toLocaleDateString()+(e.updatedBy?' by '+escHtml(e.updatedBy):''):''}${skipping?' · <b style="color:#92580B;">skipping this Friday</b>':''}</span>
     </div>
     <div style="display:grid;grid-template-columns:2fr 1.4fr 1.3fr;gap:8px;">
-      <div class="fg" style="margin:0;"><label class="fl">To — community leader email(s)</label><input type="text" class="fc" id="ec-to" value="${escHtml((e.to||[]).join(', '))}" placeholder="director@community.com, nurse@community.com"></div>
-      <div class="fg" style="margin:0;"><label class="fl">CC (optional)</label><input type="text" class="fc" id="ec-cc" value="${escHtml((e.cc||[]).join(', '))}"></div>
+      <div class="fg" style="margin:0;"><label class="fl">To — community leader email(s) · one per line</label><textarea class="fc" id="ec-to" rows="${Math.max(2,(e.to||[]).length)}" style="min-height:56px;resize:vertical;font-family:inherit;line-height:1.5;" placeholder="director@community.com&#10;nurse@community.com">${escHtml((e.to||[]).join('\n'))}</textarea></div>
+      <div class="fg" style="margin:0;"><label class="fl">CC (optional) · one per line</label><textarea class="fc" id="ec-cc" rows="${Math.max(2,(e.cc||[]).length)}" style="min-height:56px;resize:vertical;font-family:inherit;line-height:1.5;" placeholder="">${escHtml((e.cc||[]).join('\n'))}</textarea></div>
       <div class="fg" style="margin:0;"><label class="fl">Signed by</label><select class="fc" id="ec-csm" onchange="ecSignerChanged()">${csmOpts}</select></div>
     </div>
     <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-top:8px;">
       <div class="fg" style="margin:0;"><label class="fl">Automatic Friday send</label><select class="fc" id="ec-enabled"><option value="0" ${!e.enabled?'selected':''}>Off — I send it myself</option><option value="1" ${e.enabled?'selected':''}>On — send at 2 PM Friday</option></select></div>
       <div class="fg" style="margin:0;"><label class="fl">Client names</label><select class="fc" id="ec-names"><option value="full" ${(e.nameStyle||'full')==='full'?'selected':''}>Full names</option><option value="initials" ${e.nameStyle==='initials'?'selected':''}>Initials only</option></select></div>
+      <div class="fg" style="margin:0;"><label class="fl">Caregiver names</label><select class="fc" id="ec-cgnames"><option value="first" ${(e.cgNameStyle||'first')==='first'?'selected':''}>First name only</option><option value="initials" ${e.cgNameStyle==='initials'?'selected':''}>First name + initial</option><option value="full" ${e.cgNameStyle==='full'?'selected':''}>Full names</option></select></div>
+      <div class="fg" style="margin:0;"><label class="fl">Header line</label><select class="fc" id="ec-header"><option value="1" ${e.hideHeader?'':'selected'}>Show it</option><option value="0" ${e.hideHeader?'selected':''}>Leave it off</option></select></div>
       <div class="fg" style="margin:0;"><label class="fl">Tier</label><select class="fc" id="ec-tier"><option value="" ${!e.tier?'selected':''}>—</option><option ${e.tier==='Tier 1'?'selected':''}>Tier 1</option><option ${e.tier==='Tier 2'?'selected':''}>Tier 2</option><option ${e.tier==='Other'?'selected':''}>Other</option></select></div>
       <div class="fg" style="margin:0;flex:1;min-width:200px;"><label class="fl">Standing note (added to every week's intro)</label><input type="text" class="fc" id="ec-note" value="${escHtml(e.note||'')}" placeholder="e.g. Text Maria for same-day weekend changes."></div>
       <button class="btn btn-sm btn-o" onclick="ecSkipWeek(${skipping?'false':'true'})">${skipping?'Un-skip this week':'Skip this week'}</button>
@@ -5477,7 +5479,15 @@ function _ecCollect(){
   const sel=document.getElementById('ec-csm');if(sel&&sel.value){const pr=PROFILES.find(x=>x.id===sel.value);if(pr){p.csmId=pr.id;p.csmName=pr.name;p.csmEmail=_csmEmail(pr.id)||p.csmEmail;}}
   return p;
 }
-function ecSignerChanged(){if(!_ecDraft)return;const sel=document.getElementById('ec-csm');const pr=PROFILES.find(x=>x.id===sel.value);if(pr){_ecDraft.csmId=pr.id;_ecDraft.csmName=pr.name;_ecDraft.csmEmail=_csmEmail(pr.id)||_ecDraft.csmEmail;renderEmailDraft();_ecMarkDirty();}}
+function ecSignerChanged(){
+  if(!_ecDraft)return;
+  // Read the textareas BEFORE re-rendering. _ecCollect already picks up the
+  // signer from the select, so capturing first both keeps the edits and applies
+  // the new signer.
+  _ecDraft=_ecCollect();
+  renderEmailDraft();
+  _ecMarkDirty();
+}
 async function ecLoadDraft(refresh){
   if(!_ecSel)return;const name=_ecSel;_ecLoading=true;window._ecErr='';renderEmailDraft();
   try{
@@ -5501,24 +5511,30 @@ async function ecSaveDraft(){
 }
 function _ecRead(){
   const split=v=>(v||'').split(/[,;\s]+/).map(x=>x.trim()).filter(x=>/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x));
-  return {enabled:document.getElementById('ec-enabled').value==='1',tier:document.getElementById('ec-tier').value,nameStyle:document.getElementById('ec-names').value,to:split(document.getElementById('ec-to').value),cc:split(document.getElementById('ec-cc').value),csmId:document.getElementById('ec-csm').value,note:document.getElementById('ec-note').value.trim()};
+  return {enabled:document.getElementById('ec-enabled').value==='1',tier:document.getElementById('ec-tier').value,
+    nameStyle:document.getElementById('ec-names').value,
+    cgNameStyle:(document.getElementById('ec-cgnames')||{}).value||'first',
+    hideHeader:((document.getElementById('ec-header')||{}).value||'1')==='0',
+    to:split(document.getElementById('ec-to').value),cc:split(document.getElementById('ec-cc').value),
+    csmId:document.getElementById('ec-csm').value,note:document.getElementById('ec-note').value.trim()};
 }
 function saveEmailComm(){
   if(!_ecSel)return;
   DATA.shared=DATA.shared||{};DATA.shared.communities=DATA.shared.communities||{};
   const d=DATA.shared.communities[_ecSel]||{levels:[]};const prev=d.email||{};const e=_ecRead();
   if(e.enabled&&!e.to.length){showToast('Add at least one valid recipient email before turning the Friday send on.');return;}
-  const styleChanged=(prev.nameStyle||'full')!==(e.nameStyle||'full');
+  const styleChanged=(prev.nameStyle||'full')!==(e.nameStyle||'full')
+    || (prev.cgNameStyle||'first')!==(e.cgNameStyle||'first');
   d.email={...prev,...e,skipUntil:prev.skipUntil||'',updatedAt:new Date().toISOString(),updatedBy:P?P.name:''};
   DATA.shared.communities[_ecSel]=d;queueSave();
   if(styleChanged){renderEmailCommList();document.getElementById('ec-detail').innerHTML=_ecSettingsHtml()+'<div id="ec-draft"></div>';showToast('Saved — rewriting the draft with '+(e.nameStyle==='initials'?'initials':'full names')+'…');clearTimeout(saveTimer);Promise.resolve(saveToFile()).then(()=>ecLoadDraft(true));return;}
-  const keep=_ecDraft;renderEmailCommList();const el=document.getElementById('ec-detail');el.innerHTML=_ecSettingsHtml()+'<div id="ec-draft"></div>';_ecDraft=keep;renderEmailDraft();
+  const keep=_ecDraft?_ecCollect():null;renderEmailCommList();const el=document.getElementById('ec-detail');el.innerHTML=_ecSettingsHtml()+'<div id="ec-draft"></div>';_ecDraft=keep;renderEmailDraft();
   showToast(e.enabled?'Saved — '+_ecSel+' will also go out automatically on Fridays.':'Settings saved.');
 }
 function ecSkipWeek(skip){
   if(!_ecSel)return;const d=(DATA.shared.communities||{})[_ecSel]||{levels:[]};d.email=d.email||{};
   if(skip){const n=new Date();const add=(5-n.getDay()+7)%7;n.setDate(n.getDate()+add);d.email.skipUntil=n.toISOString().slice(0,10);}else d.email.skipUntil='';
-  DATA.shared.communities[_ecSel]=d;queueSave();const keep=_ecDraft;renderEmailCommDetail();_ecDraft=keep;renderEmailDraft();showToast(skip?'This Friday\'s automatic email is skipped for '+_ecSel+'.':'Back in the Friday run.');
+  DATA.shared.communities[_ecSel]=d;queueSave();const keep=_ecDraft?_ecCollect():null;renderEmailCommDetail();_ecDraft=keep;renderEmailDraft();showToast(skip?'This Friday\'s automatic email is skipped for '+_ecSel+'.':'Back in the Friday run.');
 }
 // Send from the signed-in person's own mailbox (delegated Mail.Send).
 async function ecSend(test){
