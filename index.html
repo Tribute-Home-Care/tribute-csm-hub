@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-09-08T15:23"></script>
+<script src="./entra-auth.js?v=2026-09-11T11:50"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1657,7 +1657,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-09-08T15:23';
+const HUB_BUILD='2026-09-11T11:50';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -5477,6 +5477,8 @@ function _ecCollect(){
   p.closing=(document.getElementById('ec-closing')?.value||'Warmly,').trim();
   p.clients.forEach((c,i)=>{const t=document.getElementById('ec-line-'+i);if(t)c.line=t.value.trim();});
   const sel=document.getElementById('ec-csm');if(sel&&sel.value){const pr=PROFILES.find(x=>x.id===sel.value);if(pr){p.csmId=pr.id;p.csmName=pr.name;p.csmEmail=_csmEmail(pr.id)||p.csmEmail;}}
+  const hdr=document.getElementById('ec-header');
+  if(hdr)p.hideHeader=(hdr.value==='0');
   return p;
 }
 function ecSignerChanged(){
@@ -5509,8 +5511,26 @@ async function ecSaveDraft(){
   if(!_ecDraft)return;try{const p=_ecCollect();await _ecPost('save=1',p);p.edited=true;p.editedAt=new Date().toISOString();p.editedBy=P?P.name:'';_ecDraft=p;renderEmailDraft();showToast('Draft saved — the Friday run will send this version.');}
   catch(e){_ecMsg('Save failed — '+escHtml(e.message),'#B42318');}
 }
+// Pull real addresses out of whatever was pasted. Splitting on whitespace and
+// then loosely validating accepted "<emily.willson@tributehomecare.com>" with
+// the angle brackets still attached, which is what Outlook puts on the
+// clipboard as "Name <addr>", and the send bounced as undeliverable while a
+// plainly typed address alongside it went through (Sam, 2026-09-11).
+// Scanning for addresses instead of splitting ignores display names, brackets
+// and punctuation entirely.
+function _ecAddrs(v){
+  const found=String(v||'').match(/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/g)||[];
+  const seen=new Set(); const out=[];
+  for(const a of found){
+    const k=a.toLowerCase();
+    if(seen.has(k))continue;
+    seen.add(k); out.push(a);
+  }
+  return out;
+}
+
 function _ecRead(){
-  const split=v=>(v||'').split(/[,;\s]+/).map(x=>x.trim()).filter(x=>/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x));
+  const split=_ecAddrs;
   return {enabled:document.getElementById('ec-enabled').value==='1',tier:document.getElementById('ec-tier').value,
     nameStyle:document.getElementById('ec-names').value,
     cgNameStyle:(document.getElementById('ec-cgnames')||{}).value||'first',
@@ -5541,7 +5561,7 @@ async function ecSend(test){
   if(!_ecSel||!_ecDraft)return;
   const e=((DATA.shared.communities||{})[_ecSel]||{}).email||{};
   const me=_ecMe();if(!me.username){_ecMsg('Sign in with Microsoft to send from your mailbox.','#92580B');return;}
-  const split=v=>(v||'').split(/[,;\s]+/).map(x=>x.trim()).filter(x=>/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x));
+  const split=_ecAddrs;
   const to=test?[me.username]:(split(document.getElementById('ec-to')?.value)||e.to||[]);
   const cc=test?[]:split(document.getElementById('ec-cc')?.value);
   if(!to.length){_ecMsg('Add the community leader\'s email above first.','#92580B');return;}
