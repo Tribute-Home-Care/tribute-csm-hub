@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-09-14T09:19"></script>
+<script src="./entra-auth.js?v=2026-09-14T09:34"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1517,7 +1517,7 @@ const PROFILES=[
   {id:'jada',name:'Jada Tiglao',role:'Senior CSM · Manager',initials:'JT',color:'#92580B',hub:'MD',market:'Maryland',isManager:true},
   {id:'bronwyn',name:'Bronwyn Carmel',role:'CSM',initials:'BC',color:'#0F6E56',hub:'MD',market:'Maryland'},
   {id:'tina',name:'Tina Merklinger',role:'CSM',initials:'TM',color:'#8A1A57',hub:'MD',market:'Maryland'},
-  {id:'brenda',name:'Brenda Kruger',role:'CSM',initials:'BK',color:'#2C5689',hub:'MD',market:'Maryland'},
+  {id:'kristen',name:'Kristen Mayhew',role:'CSM',initials:'KM',color:'#2C5689',hub:'MD',market:'Maryland'},
   {id:'rachel',name:'Rachel Kruger',role:'CSM',initials:'RK',color:'#0E7490',hub:'MD',market:'Maryland'},
   {id:'michelle',name:'Michelle Hejduk',role:'CSC',initials:'MH',color:'#C8362B',hub:'MD',market:'Maryland',isCSC:true},
   // ─── CHICAGO ───────────────────────────────────────────────────────
@@ -1661,7 +1661,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-09-14T09:19';
+const HUB_BUILD='2026-09-14T09:34';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -1672,6 +1672,38 @@ const HUB_BUILD='2026-09-14T09:19';
       location.replace(location.pathname+'?b='+encodeURIComponent(j.build)+location.hash);
     }
   }catch(e){}
+  // Keep checking. The load-time check alone means a tab opened in the morning
+  // runs the morning's build all day: Julia lost the Email Community page that
+  // way (2026-08-28) and Rachel Kruger's caseload looked empty to Courtney
+  // (2026-09-14) because her session had never seen the profile. Reloading
+  // under someone mid-edit would be worse than a stale build, so this offers
+  // the reload instead of taking it.
+  setInterval(async()=>{
+    try{
+      if(document.getElementById('hub-newbuild'))return;
+      const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
+      if(!r.ok)return; const j=await r.json();
+      if(!j.build||j.build===HUB_BUILD)return;
+      const bar=document.createElement('div');
+      bar.id='hub-newbuild';
+      bar.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:9999;'
+        +'background:#1C1A17;color:#fff;padding:10px 14px;border-radius:12px;font:13px -apple-system,'
+        +"'Segoe UI',Helvetica,Arial,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.22);display:flex;"
+        +'gap:10px;align-items:center;';
+      bar.innerHTML='<span>A newer version of the Hub is available.</span>';
+      const b=document.createElement('button');
+      b.textContent='Reload';
+      b.style.cssText='background:#FF5A1F;color:#fff;border:none;border-radius:8px;padding:6px 12px;'
+        +'font-weight:700;cursor:pointer;font-size:12.5px;';
+      b.onclick=()=>location.replace(location.pathname+'?b='+encodeURIComponent(j.build)+location.hash);
+      const x=document.createElement('span');
+      x.textContent='\u2715'; x.title='Dismiss';
+      x.style.cssText='cursor:pointer;opacity:.6;padding:0 2px;';
+      x.onclick=()=>bar.remove();
+      bar.appendChild(b); bar.appendChild(x);
+      document.body.appendChild(bar);
+    }catch(e){}
+  },10*60*1000);
 })();
 // Show which build this is, and shout if the page is NOT the live hub — a
 // saved copy or an old bookmark looks identical but never gains new features
@@ -5342,7 +5374,7 @@ function saveCommunity(){
 // edited here, saved back (save=1) and sent from the signed-in CSM's own
 // mailbox (Graph /me/sendMail). The Friday run sends the saved draft.
 let _ecSel=null,_ecDraft=null,_ecLoading=false;
-const CSM_UPN={courtney:'courtney.chaulk',julia:'julia.hanna',ramya:'ramya.ramakrishna',emily:'emily.willson',tracy:'tracy.dubois',sam:'sam.noren',jada:'jada.tiglao',bronwyn:'bronwyn.carmel',tina:'tina.merklinger',brenda:'brenda.kruger',michelle:'michelle.hejduk',carrie:'carrie.faerber',chelsea:'chelsea.hancock',rachel:'rachel.kruger',jen:'jen.kulig'};
+const CSM_UPN={courtney:'courtney.chaulk',julia:'julia.hanna',ramya:'ramya.ramakrishna',emily:'emily.willson',tracy:'tracy.dubois',sam:'sam.noren',jada:'jada.tiglao',bronwyn:'bronwyn.carmel',tina:'tina.merklinger',kristen:'kristen.mayhew',michelle:'michelle.hejduk',carrie:'carrie.faerber',chelsea:'chelsea.hancock',rachel:'rachel.kruger',jen:'jen.kulig'};
 const _csmEmail=id=>CSM_UPN[id]?CSM_UPN[id]+'@tributehomecare.com':'';
 // Everyone sees every community in their MARKET (so a covering CSM can send
 // while someone is out) with a Mine / All toggle — Courtney, 9/3. Ownership is
@@ -6731,7 +6763,7 @@ const VIV_NAMES={
   courtney:['Courtney Chaulk'],julia:['Julia Hanna'],ramya:['Ramya Ramakrishna'],
   emily:['Emily Willson','Emily Wilson'],tracy:['Tracy DuBois'],sam:['Sam Noren'],
   jada:['Jada Tiglao'],bronwyn:['Bronwyn Carmel'],tina:['Tina Merklinger'],
-  brenda:['Brenda Kruger'],michelle:['Michelle Hejduk'],carrie:['Carrie Faerber','Carrie Faeber'],
+  kristen:['Kristen Mayhew'],michelle:['Michelle Hejduk'],carrie:['Carrie Faerber','Carrie Faeber'],
   chelsea:['Chelsea Hancock'],rachel:['Rachel Kruger'],jen:['Jen Kulig','Jennifer Kulig'],
 };
 
