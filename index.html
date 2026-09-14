@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-09-11T12:46"></script>
+<script src="./entra-auth.js?v=2026-09-14T09:19"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1509,17 +1509,21 @@ const PROFILES=[
   {id:'courtney',name:'Courtney Chaulk',role:'Senior CSM · Manager',initials:'CC',color:'#1C1A17',hub:'MA',market:'Massachusetts',isManager:true},
   {id:'julia',name:'Julia Hanna',role:'CSM',initials:'JH',color:'#3B72B8',hub:['MA','CHI'],market:'Massachusetts',dualMarket:true},
   {id:'ramya',name:'Ramya Ramakrishna',role:'CSM',initials:'RR',color:'#9D2667',hub:'MA',market:'Massachusetts'},
-  {id:'emily',name:'Emily Wilson',role:'CSM',initials:'EW',color:'#0F8F6B',hub:'MA',market:'Massachusetts'},
+  {id:'emily',name:'Emily Willson',role:'CSM',initials:'EW',color:'#0F8F6B',hub:'MA',market:'Massachusetts'},
   {id:'tracy',name:'Tracy DuBois',role:'CSM',initials:'TD',color:'#C2710C',hub:'MA',market:'Massachusetts'},
   {id:'sam',name:'Sam Noren',role:'CSC',initials:'SN',color:'#E25309',hub:'MA',market:'Massachusetts',isCSC:true,ltcPrimary:true},
+  {id:'chelsea',name:'Chelsea Hancock',role:'CSM',initials:'CH',color:'#6B4E9E',hub:'MA',market:'Massachusetts'},
   // ─── MARYLAND ──────────────────────────────────────────────────────
   {id:'jada',name:'Jada Tiglao',role:'Senior CSM · Manager',initials:'JT',color:'#92580B',hub:'MD',market:'Maryland',isManager:true},
   {id:'bronwyn',name:'Bronwyn Carmel',role:'CSM',initials:'BC',color:'#0F6E56',hub:'MD',market:'Maryland'},
   {id:'tina',name:'Tina Merklinger',role:'CSM',initials:'TM',color:'#8A1A57',hub:'MD',market:'Maryland'},
   {id:'brenda',name:'Brenda Kruger',role:'CSM',initials:'BK',color:'#2C5689',hub:'MD',market:'Maryland'},
+  {id:'rachel',name:'Rachel Kruger',role:'CSM',initials:'RK',color:'#0E7490',hub:'MD',market:'Maryland'},
   {id:'michelle',name:'Michelle Hejduk',role:'CSC',initials:'MH',color:'#C8362B',hub:'MD',market:'Maryland',isCSC:true},
   // ─── CHICAGO ───────────────────────────────────────────────────────
   {id:'carrie',name:'Carrie Faerber',role:'CSM',initials:'CF',color:'#C2710C',hub:'CHI',market:'Chicago',coverageMarketOnly:true},
+  // ─── ALL MARKETS ───────────────────────────────────────────────────
+  {id:'jen',name:'Jen Kulig',role:'Manager',initials:'JK',color:'#7A5C1E',hub:['MA','MD','CHI'],market:'Massachusetts',isManager:true},
 ];
 let P=null;
 
@@ -1657,7 +1661,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-09-11T12:46';
+const HUB_BUILD='2026-09-14T09:19';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -1722,7 +1726,7 @@ const HUB_HOST='tribute-home-care.github.io';
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',paint); else paint();
 })();
-const ADMIN_UPNS=['andrew.dobson@tributehomecare.com','tuadmin@tributehomecare.com'];
+const ADMIN_UPNS=['andrew.dobson@tributehomecare.com','tuadmin@tributehomecare.com','jen.kulig@tributehomecare.com'];
 let ACCT=null;           // {username,name} of the signed-in Microsoft account
 let MY_PROFILE_ID=null;  // the profile bound to that account (non-managers)
 function loginNorm(s){return (s||'').toLowerCase().replace(/[^a-z]/g,'');}
@@ -5338,7 +5342,7 @@ function saveCommunity(){
 // edited here, saved back (save=1) and sent from the signed-in CSM's own
 // mailbox (Graph /me/sendMail). The Friday run sends the saved draft.
 let _ecSel=null,_ecDraft=null,_ecLoading=false;
-const CSM_UPN={courtney:'courtney.chaulk',julia:'julia.hanna',ramya:'ramya.ramakrishna',emily:'emily.willson',tracy:'tracy.dubois',sam:'sam.noren',jada:'jada.tiglao',bronwyn:'bronwyn.carmel',tina:'tina.merklinger',brenda:'brenda.kruger',michelle:'michelle.hejduk',carrie:'carrie.faerber'};
+const CSM_UPN={courtney:'courtney.chaulk',julia:'julia.hanna',ramya:'ramya.ramakrishna',emily:'emily.willson',tracy:'tracy.dubois',sam:'sam.noren',jada:'jada.tiglao',bronwyn:'bronwyn.carmel',tina:'tina.merklinger',brenda:'brenda.kruger',michelle:'michelle.hejduk',carrie:'carrie.faerber',chelsea:'chelsea.hancock',rachel:'rachel.kruger',jen:'jen.kulig'};
 const _csmEmail=id=>CSM_UPN[id]?CSM_UPN[id]+'@tributehomecare.com':'';
 // Everyone sees every community in their MARKET (so a covering CSM can send
 // while someone is out) with a Mine / All toggle — Courtney, 9/3. Ownership is
@@ -6728,6 +6732,7 @@ const VIV_NAMES={
   emily:['Emily Willson','Emily Wilson'],tracy:['Tracy DuBois'],sam:['Sam Noren'],
   jada:['Jada Tiglao'],bronwyn:['Bronwyn Carmel'],tina:['Tina Merklinger'],
   brenda:['Brenda Kruger'],michelle:['Michelle Hejduk'],carrie:['Carrie Faerber','Carrie Faeber'],
+  chelsea:['Chelsea Hancock'],rachel:['Rachel Kruger'],jen:['Jen Kulig','Jennifer Kulig'],
 };
 
 function vivKey(){return localStorage.getItem(VIV_KEY_LS)||'';}
