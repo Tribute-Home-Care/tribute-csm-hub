@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-09-14T09:34"></script>
+<script src="./entra-auth.js?v=2026-09-17T16:26"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1661,7 +1661,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-09-14T09:34';
+const HUB_BUILD='2026-09-17T16:26';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -3473,6 +3473,7 @@ function openFillPriority(clientId){
   document.getElementById('cf-end-of-life').checked=!!c.endOfLife;
   document.getElementById('cf-recent-fall').checked=!!c.recentFall;
   document.getElementById('cf-active-concern').checked=!!c.activeConcern;
+  _renderFillEvidence(c);
   updateFPScore();
   openM('mo-fp');
 }
@@ -7025,6 +7026,82 @@ function _myCocTasks(){
     .sort((a,b)=>(b.open-a.open)||String(b.when).localeCompare(String(a.when)));
 }
 let _PULSE=null;
+// Section 14: fill the derivable Fill Priority fields from the Pulse.
+// Audited 2026-09-17: of 211 active clients, the CSM-held fields were set on
+// one and the rest on none, so every client scored zero and the touch tier
+// defaulted to Medium for 213 of 229. The Pulse can derive four of them.
+//
+// A person's value always wins. A field is only written when it is still
+// exactly what we last wrote, or empty and never written before, so a CSM edit
+// is permanent even if the next build disagrees. What was set, and when, is
+// recorded on the client so the card can show which values are machine-kept.
+// Show the reasoning behind the machine-set values. A number a CSM cannot
+// interrogate is a number they will not trust, and these four are the ones the
+// Pulse maintains rather than the CSM.
+function _renderFillEvidence(c){
+  let box=document.getElementById('fp-evidence');
+  if(!box){
+    const anchor=document.getElementById('fp-instability');
+    if(!anchor)return;
+    box=document.createElement('div');
+    box.id='fp-evidence';
+    const host=anchor.closest('.fg')||anchor.parentElement;
+    if(host&&host.parentElement)host.parentElement.appendChild(box); else return;
+  }
+  const e=c.fillEvidence;
+  if(!e){ box.innerHTML=''; return; }
+  const mf=c.machineFilled||{};
+  const row=(label,text,field)=>`<div style="padding:3px 0;">
+      <span style="color:#1C1A17;font-weight:600;">${escHtml(label)}</span>
+      ${mf[field]?'<span style="font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#8C857B;"> · kept up to date for you</span>':''}
+      <div style="color:#57524A;">${escHtml(text||'')}</div></div>`;
+  box.style.cssText='grid-column:1/-1;margin-top:10px;padding:10px 12px;background:#FBF9F5;'
+    +'border:1px solid var(--line-soft);border-radius:10px;font-size:11.5px;line-height:1.5;';
+  box.innerHTML='<div style="font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;'
+    +'color:#8C857B;margin-bottom:6px;">Where these came from · '+escHtml(fmtD(e.at))+'</div>'
+    +row('Weekly hours',e.weeklyHours,'weeklyHours')
+    +row('Caregiver changes / service events',e.serviceEvents,'recentInstability')
+    +row('Recent fall or hospitalization',e.recentFall,'recentFall')
+    +row('Active concern',e.activeConcern,'activeConcern')
+    +'<div style="color:#8C857B;margin-top:6px;">Medical complexity, support system and partner tier stay yours: '
+    +'the care plan is too thin to propose them. Change any value and it stays changed.</div>';
+}
+
+function _applyFillProposals(){
+  if(!_PULSE||!_PULSE.byCid||!P)return 0;
+  const cl=get('clients',P.id);
+  let touched=0, changed=false;
+  for(const c of cl){
+    const pc=c.vivId&&_PULSE.byCid[c.vivId];
+    const fp=pc&&pc.fillProposal;
+    if(!fp)continue;
+    const mf=c.machineFilled=c.machineFilled||{};
+    const put=(field,proposed,isBool)=>{
+      const cur=isBool?!!c[field]:(c[field]==null?'':String(c[field]));
+      const want=isBool?!!proposed:String(proposed);
+      const prev=mf[field];
+      const untouched = prev ? (isBool ? !!prev.value===cur : String(prev.value)===cur)
+                             : (isBool ? cur===false : (cur===''||cur==='0'));
+      if(!untouched)return;                    // a person changed it: leave it alone
+      if((isBool?cur:cur)===(isBool?want:want))return;  // already right
+      c[field]=isBool?want:want;
+      mf[field]={value:want,at:fp.computedAt,why:''};
+      changed=true; touched++;
+    };
+    put('weeklyHours',fp.weeklyHours.value,false);
+    put('recentInstability',fp.serviceEvents30.value,false);
+    put('recentFall',fp.recentFall.value===1,true);
+    put('activeConcern',fp.activeConcern.value===1,true);
+    // Evidence is kept whether or not the value moved, so the card can show
+    // the reasoning behind a number a CSM is being asked to trust.
+    c.fillEvidence={at:fp.computedAt,
+      weeklyHours:fp.weeklyHours.evidence, serviceEvents:fp.serviceEvents30.evidence,
+      recentFall:fp.recentFall.evidence, activeConcern:fp.activeConcern.evidence};
+  }
+  if(changed)queueSave();
+  return touched;
+}
+
 async function loadPulse(interactive){
   try{
     if(interactive)setVivLabel('Viv: pulse…');
@@ -7042,6 +7119,8 @@ async function loadPulse(interactive){
     const byCid={};(d.clients||[]).forEach(c=>{byCid[c.cid]=c;});
     _PULSE={byCid,counts:d.counts,generatedAt:d.generatedAt,clients:d.clients||[],aiStatus:d.aiStatus};
     if(interactive)setVivLabel('Viv ✓ '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}));
+    const filled=_applyFillProposals();
+    if(interactive&&filled)showToast('Fill Priority: '+filled+' field'+(filled===1?'':'s')+' updated from the record');
     renderPulse();
     if(document.getElementById('page-clients').classList.contains('active'))renderClientMaster();
   }catch(e){
