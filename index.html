@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-09-17T16:27"></script>
+<script src="./entra-auth.js?v=2026-09-18T10:46"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -266,7 +266,6 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
     <div class="nav-item" onclick="showPage('priority',this)"><span class="nav-icon">🚨</span>Fill Priority</div>
     <div class="nav-sec">Resources</div>
     <div class="nav-item" onclick="showPage('assistant',this)"><span class="nav-icon">🤖</span>Tribute Assistant</div>
-    <div class="nav-item" onclick="showPage('expectations',this)"><span class="nav-icon">📋</span>Role Expectations</div>
     <div class="nav-item" onclick="showPage('kpi',this)"><span class="nav-icon">📊</span>KPI Tracker</div>
     <div class="nav-sec" id="mgr-sec" style="display:none;">Manager</div>
     <div class="nav-item" id="nav-team" style="display:none;" onclick="showPage('team',this)"><span class="nav-icon">📈</span>Team Overview</div>
@@ -299,6 +298,7 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
       <div class="ss" id="s-onboarding-sub">First 30 days</div>
     </div>
   </div>
+  <div class="card" id="home-caseload" style="margin-bottom:14px;"></div>
   <div class="card" id="home-drill" style="display:none;margin-bottom:14px;"></div>
   <div class="g2">
     <div style="display:flex;flex-direction:column;gap:12px;">
@@ -1661,7 +1661,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-09-17T16:27';
+const HUB_BUILD='2026-09-18T10:46';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -2538,6 +2538,45 @@ function renderLtcGaps(){
 }
 
 // ═══════════════════════ HOME ═══════════════════════
+// The same read a manager gets on Team Overview, for your own caseload.
+// Courtney, 2026-09-17: "each CSM should have that kind of blown up on their
+// homepage each day" — tier mix, touchpoints, what is overdue, visit
+// compliance, so the morning question is answered without opening anything.
+function renderHomeCaseload(){
+  const el=document.getElementById('home-caseload'); if(!el||!P)return;
+  const cl=get('clients')||[];
+  if(!cl.length){ el.style.display='none'; return; }
+  el.style.display='block';
+  const wk=(typeof workloadFor==='function')?workloadFor(P.id):{touches:0};
+  const ov=cl.filter(c=>{const d=daysAgo(c.lastVisit);return c.freq!=='NA'&&(d===null||d>(parseInt(c.freq)||90));});
+  const trackable=cl.filter(c=>c.freq!=='NA');
+  const compliance=trackable.length?Math.round((trackable.length-ov.length)/trackable.length*100):100;
+  const cmpClr=compliance>=90?'#0F8F6B':compliance>=75?'#C2710C':'#C8362B';
+  const tier=k=>cl.filter(c=>(c.tier||'Medium')===k).length;
+  const hi=tier('High'), med=tier('Medium'), lo=tier('Low');
+  // Every client defaulting to one tier is not a tier mix, it is an unset
+  // field. Say that rather than drawing a bar that means nothing.
+  const tiersSet=[hi,med,lo].filter(n=>n>0).length>1;
+  const pill=(n,label,color,bg)=>`<div style="background:${bg};border-radius:8px;padding:8px 6px;text-align:center;">
+      <div style="font-size:18px;font-weight:800;color:${color};line-height:1;">${n}</div>
+      <div style="font-size:9.5px;color:#8C857B;margin-top:3px;">${escHtml(label)}</div></div>`;
+  el.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+      <div class="ct" style="margin:0;">📋 My caseload today</div>
+      <span style="font-size:11px;color:#8C857B;">${cl.length} client${cl.length===1?'':'s'}</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:6px;">
+      ${pill(wk.touches||0,'Touches 30d','#2C5689','#E8EFF7')}
+      ${pill(ov.length,'Visits overdue',ov.length?'#C8362B':'#0F8F6B',ov.length?'#F8E5E2':'#E2F2EC')}
+      ${pill(compliance+'%','Visit compliance',cmpClr,'#F7F4EF')}
+      ${tiersSet?pill(hi,'High touch','#C8362B','#F8E5E2'):''}
+      ${tiersSet?pill(med,'Medium touch','#C2710C','#FDF3E6'):''}
+      ${tiersSet?pill(lo,'Low touch','#0F8F6B','#E2F2EC'):''}
+    </div>
+    ${tiersSet?'':`<div style="font-size:11.5px;color:#92580B;margin-top:9px;">Touch tiers are not set yet — every client is still on the default, so there is no mix to show. They fill in once the Pulse scoring is switched on.</div>`}
+    ${ov.length?`<div style="font-size:11.5px;color:#57524A;margin-top:9px;">Overdue: ${cl.filter(c=>ov.includes(c)).slice(0,4).map(c=>escHtml(c.name)).join(', ')}${ov.length>4?' and '+(ov.length-4)+' more':''}</div>`:''}`;
+}
+
+
 function updateHome(){
   if(!P)return;
   const now=new Date(),h=now.getHours();
@@ -2545,7 +2584,12 @@ function updateHome(){
   document.getElementById('home-d').textContent=now.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   const cl=get('clients'),vs=get('visits');
   document.getElementById('s-total').textContent=cl.length;
-  document.getElementById('s-high').textContent=cl.filter(c=>c.tier==='High').length;
+  const _pByCid=(_PULSE&&_PULSE.byCid)||{};
+  const _highNeed=cl.filter(c=>{
+    const p=c.vivId?_pByCid[c.vivId]:null;
+    return p ? !!p.trulyHighNeed : c.tier==='High';   // fall back to the tier until the pulse loads
+  });
+  document.getElementById('s-high').textContent=_highNeed.length;
   const tm=vs.filter(v=>{const d=new Date(v.date);return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();});
   document.getElementById('s-visits').textContent=tm.length;
   const ov=cl.filter(c=>{const d=daysAgo(c.lastVisit);return c.freq!=='NA'&&(d===null||d>(parseInt(c.freq)||90));});
@@ -2579,12 +2623,26 @@ function updateHome(){
   }
   const hSub=document.getElementById('s-high-sub');
   const openCoC=_myCocTasks().filter(t=>t.open).length;
-  if(hSub)hSub.textContent=openCoC?(openCoC+' open change of condition'+(openCoC>1?'s':'')+' · tap for detail'):'Tap to see what is driving it';
+  if(hSub){
+    // Name the reasons, so the number is legible without opening it.
+    const reasons={};
+    _highNeed.forEach(c=>{
+      const p=c.vivId?_pByCid[c.vivId]:null;
+      const r=p&&p.flagReason;
+      if(r)reasons[r]=(reasons[r]||0)+1;
+    });
+    const LBL={L1:'safety or disclosure',L2:'escalation chain broke',L3:'health trend'};
+    const parts=Object.keys(reasons).sort().map(k=>reasons[k]+' '+(LBL[k]||k));
+    hSub.textContent = parts.length ? (parts.join(' · ')+' · tap for detail')
+      : (openCoC ? (openCoC+' open change of condition'+(openCoC>1?'s':'')+' · tap for detail')
+                 : 'Nothing open · tap to see what was checked');
+  }
   const vSub=document.getElementById('s-visits-sub'), vc=visitCompliance();
   // A bare "0% on track" on the 3rd of the month reads like a failure when it
   // just means the month is young — say the fraction instead.
   if(vSub)vSub.textContent=vc.due.length?(vc.done.length+' of '+vc.due.length+' due visits done'+(vc.pct>=100?' · on track':'')):'Nothing due this month';
   if(_homeDrill)toggleHomeDrill(_homeDrill),toggleHomeDrill(_homeDrill);
+  renderHomeCaseload();
   renderUpcomingVisits();
   renderCoveringBanner();
   syncTC();renderTodos();loadQN();
