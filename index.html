@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-09-30T09:17"></script>
+<script src="./entra-auth.js?v=2026-10-01T12:28"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1193,10 +1193,11 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
 
     <!-- Fill priority fields hidden here — edit via 📊 Fill Priority button in client detail -->
     <div style="display:none;">
-      <select id="cf-weekly-hours"><option value="">Not set</option><option value="short">1–7 hrs/week (Short Hourly)</option><option value="regular">8–12 hrs/week (Day or Night)</option><option value="extended">12–23 hrs/week (Extended)</option><option value="livein_247">Live-In or 24/7</option><option value="livein_plus">Live-In + 24/7 Team</option></select>
+      <select id="cf-weekly-hours"><option value="">Not set</option><option value="short">1–7 hrs/day (Short Hourly)</option><option value="regular">8–12 hrs/day (Day or Night)</option><option value="extended">12–23 hrs/day (Extended)</option><option value="livein_247">Live-In or 24/7</option><option value="livein_plus">Live-In + 24/7 Team</option></select>
       <select id="cf-med-complexity"><option value="">Not set</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
       <select id="cf-support"><option value="">Not set</option><option value="community">Community</option><option value="family">Family</option><option value="alone">Alone</option></select>
       <select id="cf-comm-tier"><option value="none">None</option><option value="tier1">Tier 1</option><option value="tier2_3">Tier 2–3</option></select>
+      <select id="cf-gcm"><option value="none">No GCM involved</option><option value="private">GCM — private practice</option><option value="key">GCM — key practice (Alder, Newberry)</option></select>
       <input type="number" id="cf-instability" value="0">
       <input type="checkbox" id="cf-end-of-life">
       <input type="checkbox" id="cf-recent-fall">
@@ -1334,9 +1335,9 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
       <div class="fg"><label class="fl">Weekly Hours of Care</label>
         <select class="fc" id="fp-weekly-hours" onchange="updateFPScore()">
           <option value="">Not set</option>
-          <option value="short">1–7 hrs/week (Short Hourly)</option>
-          <option value="regular">8–12 hrs/week (Day or Night)</option>
-          <option value="extended">12–23 hrs/week (Extended)</option>
+          <option value="short">1–7 hrs/day (Short Hourly)</option>
+          <option value="regular">8–12 hrs/day (Day or Night)</option>
+          <option value="extended">12–23 hrs/day (Extended)</option>
           <option value="livein_247">Live-In or 24/7</option>
           <option value="livein_plus">Live-In + 24/7 Team</option>
         </select>
@@ -1661,7 +1662,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-09-30T09:17';
+const HUB_BUILD='2026-10-01T12:28';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -3417,7 +3418,15 @@ function openAddClient(){editCId=null;document.getElementById('m-client-ttl').te
 function saveClient(){
   const name=document.getElementById('cf-name').value.trim();if(!name){alert('Name required.');return;}
   const fv=document.getElementById('cf-freq').value;
-  const c={id:editCId||Date.now().toString(),name,baselineNarrative:(document.getElementById('cf-baseline')?.value||'').trim(),tier:document.getElementById('cf-tier').value,loc:document.getElementById('cf-loc').value,city:document.getElementById('cf-city').value,type:document.getElementById('cf-type').value,ess:document.getElementById('cf-ess').value,freq:fv==='NA'?'NA':parseInt(fv)||90,startDate:document.getElementById('cf-start').value,lastVisit:document.getElementById('cf-lastv').value,birthday:document.getElementById('cf-bday').value,contact:document.getElementById('cf-contact').value,contactEmail:document.getElementById('cf-contact-email').value,comm:document.getElementById('cf-comm').value,caregivers:document.getElementById('cf-cg').value,carePlanDate:document.getElementById('cf-cp').value,vacation:document.getElementById('cf-vac').value,rateHistory:document.getElementById('cf-rate').value,notes:document.getElementById('cf-notes').value,csm:P.name,weeklyHours:document.getElementById('cf-weekly-hours').value,medComplexity:document.getElementById('cf-med-complexity').value,supportSystem:document.getElementById('cf-support').value,communityTier:document.getElementById('cf-comm-tier').value,recentInstability:parseInt(document.getElementById('cf-instability').value)||0,endOfLife:document.getElementById('cf-end-of-life').checked,recentFall:document.getElementById('cf-recent-fall').checked,activeConcern:document.getElementById('cf-active-concern').checked};
+  // If the CSM's saved tier differs from what the model computes, that is a
+  // deliberate override and recomputeTiers must stop touching this client.
+  const c={id:editCId||Date.now().toString(),name,baselineNarrative:(document.getElementById('cf-baseline')?.value||'').trim(),tier:document.getElementById('cf-tier').value,loc:document.getElementById('cf-loc').value,city:document.getElementById('cf-city').value,type:document.getElementById('cf-type').value,ess:document.getElementById('cf-ess').value,freq:fv==='NA'?'NA':parseInt(fv)||90,startDate:document.getElementById('cf-start').value,lastVisit:document.getElementById('cf-lastv').value,birthday:document.getElementById('cf-bday').value,contact:document.getElementById('cf-contact').value,contactEmail:document.getElementById('cf-contact-email').value,comm:document.getElementById('cf-comm').value,caregivers:document.getElementById('cf-cg').value,carePlanDate:document.getElementById('cf-cp').value,vacation:document.getElementById('cf-vac').value,rateHistory:document.getElementById('cf-rate').value,notes:document.getElementById('cf-notes').value,csm:P.name,weeklyHours:document.getElementById('cf-weekly-hours').value,medComplexity:document.getElementById('cf-med-complexity').value,supportSystem:document.getElementById('cf-support').value,communityTier:document.getElementById('cf-comm-tier').value,gcm:document.getElementById('cf-gcm')?.value||'none',recentInstability:parseInt(document.getElementById('cf-instability').value)||0,endOfLife:document.getElementById('cf-end-of-life').checked,recentFall:document.getElementById('cf-recent-fall').checked,activeConcern:document.getElementById('cf-active-concern').checked};
+  try{
+    const _auto=computedTierFor(c);
+    c.tierOverride = !!c.weeklyHours && c.tier!==_auto.tier;
+    c.tierSource = c.tierOverride?'manual':'auto';
+    c.tierScore=_auto.score;
+  }catch(e){}
   const cl=get('clients');
   if(editCId){const i=cl.findIndex(x=>x.id===editCId);if(i>-1)cl[i]=c;}else cl.push(c);
   set('clients',cl);closeM('m-client');renderClients();syncDropdowns();
@@ -3513,7 +3522,7 @@ async function loadCarePlan(vivId, manualDate){
 function editClient(id){
   const c=get('clients').find(x=>x.id===id);if(!c)return;
   editCId=id;document.getElementById('m-client-ttl').textContent='Edit — '+c.name;
-  document.getElementById('cf-name').value=c.name||'';{const b=document.getElementById('cf-baseline');if(b)b.value=c.baselineNarrative||'';}document.getElementById('cf-tier').value=c.tier||'Medium';document.getElementById('cf-loc').value=c.loc||'';document.getElementById('cf-city').value=c.city||'';document.getElementById('cf-type').value=c.type||'Hourly';document.getElementById('cf-ess').value=c.ess||'Essential';document.getElementById('cf-freq').value=c.freq==='NA'?'NA':(c.freq||90);document.getElementById('cf-start').value=c.startDate||'';document.getElementById('cf-lastv').value=c.lastVisit||'';document.getElementById('cf-bday').value=c.birthday||'';document.getElementById('cf-contact').value=c.contact||'';document.getElementById('cf-contact-email').value=c.contactEmail||'';document.getElementById('cf-comm').value=c.comm||'';document.getElementById('cf-weekly-hours').value=c.weeklyHours||'';document.getElementById('cf-med-complexity').value=c.medComplexity||'';document.getElementById('cf-support').value=c.supportSystem||'';document.getElementById('cf-comm-tier').value=c.communityTier||'none';document.getElementById('cf-instability').value=c.recentInstability||0;document.getElementById('cf-end-of-life').checked=!!c.endOfLife;document.getElementById('cf-recent-fall').checked=!!c.recentFall;document.getElementById('cf-active-concern').checked=!!c.activeConcern;document.getElementById('cf-cg').value=c.caregivers||'';document.getElementById('cf-cp').value=c.carePlanDate||'';document.getElementById('cf-vac').value=c.vacation||'';document.getElementById('cf-rate').value=c.rateHistory||'';document.getElementById('cf-notes').value=c.notes||'';
+  document.getElementById('cf-name').value=c.name||'';{const b=document.getElementById('cf-baseline');if(b)b.value=c.baselineNarrative||'';}document.getElementById('cf-tier').value=c.tier||'Medium';document.getElementById('cf-loc').value=c.loc||'';document.getElementById('cf-city').value=c.city||'';document.getElementById('cf-type').value=c.type||'Hourly';document.getElementById('cf-ess').value=c.ess||'Essential';document.getElementById('cf-freq').value=c.freq==='NA'?'NA':(c.freq||90);document.getElementById('cf-start').value=c.startDate||'';document.getElementById('cf-lastv').value=c.lastVisit||'';document.getElementById('cf-bday').value=c.birthday||'';document.getElementById('cf-contact').value=c.contact||'';document.getElementById('cf-contact-email').value=c.contactEmail||'';document.getElementById('cf-comm').value=c.comm||'';document.getElementById('cf-weekly-hours').value=c.weeklyHours||'';document.getElementById('cf-med-complexity').value=c.medComplexity||'';document.getElementById('cf-support').value=c.supportSystem||'';document.getElementById('cf-comm-tier').value=c.communityTier||'none';{const g=document.getElementById('cf-gcm');if(g)g.value=c.gcm||'none';}document.getElementById('cf-instability').value=c.recentInstability||0;document.getElementById('cf-end-of-life').checked=!!c.endOfLife;document.getElementById('cf-recent-fall').checked=!!c.recentFall;document.getElementById('cf-active-concern').checked=!!c.activeConcern;document.getElementById('cf-cg').value=c.caregivers||'';document.getElementById('cf-cp').value=c.carePlanDate||'';document.getElementById('cf-vac').value=c.vacation||'';document.getElementById('cf-rate').value=c.rateHistory||'';document.getElementById('cf-notes').value=c.notes||'';
   openM('m-client');
 }
 
@@ -6456,10 +6465,13 @@ function saveScenarioEntry(){
 function deleteScenarioEntry(id){if(!confirm('Delete this scenario guide?'))return;const a=_asstShared();a.scenarios=a.scenarios.filter(x=>x.id!==id);queueSave();renderScenarios();showToast('Guide deleted.');}
 
 // ═══════════════════════ FILL PRIORITY SCORING ═══════════════════════
+// Thresholds are hours per DAY — live-in sits at the top of the same scale, so
+// a "/week" reading leaves an impossible gap between 23/wk and 24/7 care. The
+// Pulse bands the daily average and these must match it band for band.
 const DEP_MAP={
-  'short':{pts:1,label:'1–7 hrs/week (Short Hourly)'},
-  'regular':{pts:2,label:'8–12 hrs/week (Day or Night)'},
-  'extended':{pts:3,label:'12–23 hrs/week (Extended)'},
+  'short':{pts:1,label:'1–7 hrs/day (Short Hourly)'},
+  'regular':{pts:2,label:'8–12 hrs/day (Day or Night)'},
+  'extended':{pts:3,label:'12–23 hrs/day (Extended)'},
   'livein_247':{pts:4,label:'Live-In or 24/7'},
   'livein_plus':{pts:5,label:'Live-In + 24/7 Team'}
 };
@@ -6468,6 +6480,15 @@ const MED_LABELS={
   '2':'ADLs, medication prompting, mild cognitive impairment',
   '3':'Transfers, moderate cognitive decline, fall risk, cannot be left alone',
   '4':'Advanced needs — oxygen, hospice, catheter, wounds, advanced dementia'
+};
+// Courtney, 10/1: GCM involvement was never an input to the score, which is a
+// large part of why "all hers are medium". A GCM means materially more CSM
+// attention; a key practice (Alder, Newberry) means the client stays High
+// regardless of what the other factors add up to — hence the floor, not points.
+const GCM_MAP={
+  'none':{pts:0,label:'No GCM involved'},
+  'private':{pts:2,label:'GCM involved — private practice'},
+  'key':{pts:4,label:'GCM involved — key practice (Alder, Newberry)',floor:'High'}
 };
 const SUP_MAP={
   'community':{pts:0,label:'Community with staff support'},
@@ -6507,6 +6528,8 @@ function calcScore(c){
   if(c.recentFall){score+=1;breakdown.push({label:'Recent Fall / Hospitalization',pts:1,detail:'Within the last 30 days'});}
   if(c.communityTier==='tier1'){score+=2;breakdown.push({label:'Tier 1 Community / Partner',pts:2,detail:'Key referral relationship'});}
   else if(c.communityTier==='tier2_3'){score+=1;breakdown.push({label:'Tier 2–3 Community / Partner',pts:1,detail:'Secondary referral relationship'});}
+  const gcm=GCM_MAP[c.gcm];
+  if(gcm&&gcm.pts>0){score+=gcm.pts;breakdown.push({label:'GCM Involvement',pts:gcm.pts,detail:gcm.label});}
 
   // Determine tier
   let tier,tierColor,tierBg,tierEmoji;
@@ -6515,7 +6538,7 @@ function calcScore(c){
   else if(score>=6){tier='Medium';tierColor='#3B72B8';tierBg='#E8EFF7';tierEmoji='🟡';}
   else{tier='Standard';tierColor='#0F8F6B';tierBg='#E2F2EC';tierEmoji='🟢';}
 
-  return{score,tier,tierColor,tierBg,tierEmoji,breakdown,incomplete:!c.weeklyHours||!c.medComplexity};
+  return{score,tier,tierColor,tierBg,tierEmoji,breakdown,floor:(gcm&&gcm.floor)||null,incomplete:!c.weeklyHours||!c.medComplexity};
 }
 
 // ═══════════════════════ FILL PRIORITY ═══════════════════════
@@ -6725,6 +6748,50 @@ function scoreToTier(score){
   return'Low';
 }
 
+// Courtney, 10/1: "we just have to make sure that the AI is ranking clients
+// tier wise appropriately because it's not right now." It was not ranking at
+// all. calcScore implemented her model faithfully but only ever ran inside the
+// edit-client form, and only when weeklyHours AND medComplexity were both set —
+// both blank on every Viv-synced client — so c.tier sat on its 'Medium'
+// default forever. That is why a whole caseload reads Medium.
+const TIER_ORD=['Low','Medium','High'];
+function computedTierFor(c){
+  const s=calcScore(c);
+  let t=scoreToTier(s.score);
+  // A key GCM practice (Alder, Newberry) holds the client at High whatever the
+  // points total — "they're automatically going to stay high".
+  if(s.floor==='High'&&TIER_ORD.indexOf(t)<TIER_ORD.indexOf('High'))t='High';
+  // A short sharp burst bumps one tier for a week and decays on its own, because
+  // the 7-day count falls out of its own window.
+  const burst=(parseInt(c.serviceEvents7)||0)>=4;
+  if(burst)t=TIER_ORD[Math.min(TIER_ORD.indexOf(t)+1,TIER_ORD.length-1)];
+  return {tier:t,score:s.score,floor:s.floor,burst};
+}
+
+// Applies the model across the caseload. A CSM's own pick always wins.
+function recomputeTiers(profileId){
+  const cl=get('clients',profileId);
+  let changed=0;
+  cl.forEach(c=>{
+    if(c.tierOverride)return;        // a person chose this tier; leave it
+    if(!c.weeklyHours)return;        // nothing to score on yet
+    // Do NOT auto-apply on hours alone. medComplexity carries up to 4 of the
+    // points and is blank on every synced client, so scoring without it caps
+    // the caseload at 9 points — nothing could ever reach High (11) and 70%
+    // would be driven to Low, which is a worse lie than the Medium default.
+    // hospRiskLevel is "None" on all 231 clients and 175 have zero clinical
+    // incidents, so it cannot be derived either; it is clinical judgment that
+    // belongs in the care plan. Rank only once a human has supplied complexity
+    // or a GCM relationship.
+    if(!c.medComplexity && (!c.gcm||c.gcm==='none'))return;
+    const r=computedTierFor(c);
+    if(c.tier!==r.tier){c.tier=r.tier;changed++;}
+    c.tierSource='auto';c.tierScore=r.score;c.tierBurst=!!r.burst;c.tierFloor=r.floor||null;
+  });
+  if(changed)queueSave();
+  return changed;
+}
+
 function autoUpdateTier(){
   // Build a temporary client object from the current form values
   const temp={
@@ -6732,6 +6799,7 @@ function autoUpdateTier(){
     medComplexity:document.getElementById('cf-med-complexity')?.value||'',
     supportSystem:document.getElementById('cf-support')?.value||'',
     communityTier:document.getElementById('cf-comm-tier')?.value||'none',
+    gcm:document.getElementById('cf-gcm')?.value||'none',
     recentInstability:parseInt(document.getElementById('cf-instability')?.value)||0,
     endOfLife:document.getElementById('cf-end-of-life')?.checked||false,
     recentFall:document.getElementById('cf-recent-fall')?.checked||false,
@@ -6739,8 +6807,10 @@ function autoUpdateTier(){
     startDate:document.getElementById('cf-start')?.value||''
   };
 
-  // Only auto-update if at least weekly hours AND medical complexity are set
-  const hasEnoughData=temp.weeklyHours&&temp.medComplexity;
+  // Weekly hours alone is enough to score. Requiring medComplexity too — a pure
+  // judgment field, blank on every synced client — is what kept the model from
+  // ever running outside a hand-entered record.
+  const hasEnoughData=!!temp.weeklyHours;
   const tierSel=document.getElementById('cf-tier');
   const autoBadge=document.getElementById('cf-tier-auto');
   const tierBadge=document.getElementById('cf-tier-badge');
@@ -7156,7 +7226,17 @@ function _applyFillProposals(){
     // Only propose hours we actually found. A client with no visits in the
     // sampled week would otherwise be written as an explicit "0", which reads
     // as "no care contracted" rather than "we did not see any that week".
-    if(fp.weeklyHours.value>0)put('weeklyHours',fp.weeklyHours.value,false);
+    // The proposal carries a band INDEX (1-5); DEP_MAP is keyed by name, so
+    // DEP_MAP[4] was undefined and Care Dependency scored 0 on every
+    // machine-filled client — the quiet reason scores stayed too low to tier.
+    const BAND_KEY={1:'short',2:'regular',3:'extended',4:'livein_247',5:'livein_plus'};
+    if(fp.weeklyHours.value>0)put('weeklyHours',BAND_KEY[fp.weeklyHours.value]||'',false);
+    if(fp.serviceEvents7)put('serviceEvents7',fp.serviceEvents7.value,false);
+    // medComplexity derived by RULE from the approved care plan's structured
+    // "Functional Status" picklists (transfers, ambulation, toileting, breathing
+    // equipment, skin, code status) — the one scoring input no other source
+    // holds. Machine-filled like the rest: a CSM's own value always wins.
+    if(fp.medComplexity&&fp.medComplexity.value)put('medComplexity',String(fp.medComplexity.value),false);
     put('recentInstability',fp.serviceEvents30.value,false);
     put('recentFall',fp.recentFall.value===1,true);
     put('activeConcern',fp.activeConcern.value===1,true);
@@ -7164,9 +7244,15 @@ function _applyFillProposals(){
     // the reasoning behind a number a CSM is being asked to trust.
     c.fillEvidence={at:fp.computedAt,
       weeklyHours:fp.weeklyHours.evidence, serviceEvents:fp.serviceEvents30.evidence,
-      recentFall:fp.recentFall.evidence, activeConcern:fp.activeConcern.evidence};
+      recentFall:fp.recentFall.evidence, activeConcern:fp.activeConcern.evidence,
+      medComplexity:(fp.medComplexity&&fp.medComplexity.evidence)||'',
+      carePlanBaseline:(fp.medComplexity&&fp.medComplexity.planDate)
+        ? ((fp.medComplexity.planVersion?'v'+fp.medComplexity.planVersion+', ':'')+'approved '+fp.medComplexity.planDate) : ''};
   }
   if(changed)queueSave();
+  // Proposals supply the scoring inputs, so the tier is recomputed immediately
+  // after they are applied rather than waiting for someone to open the form.
+  try{recomputeTiers();}catch(e){}
   return touched;
 }
 
