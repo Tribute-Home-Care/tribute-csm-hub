@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-10-20T13:45"></script>
+<script src="./entra-auth.js?v=2026-10-20T14:56"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1078,7 +1078,7 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
   </div>
 
   <!-- Market tabs -->
-  <div class="tabs" style="margin-bottom:14px;">
+  <div class="tabs" id="team-market-tabs" style="margin-bottom:14px;">
     <div class="tab active" onclick="teamTab('all',this)">🌐 All Markets</div>
     <div class="tab" onclick="teamTab('MA',this)">Massachusetts</div>
     <div class="tab" onclick="teamTab('MD',this)">Maryland</div>
@@ -1513,16 +1513,16 @@ const PROFILES=[
   {id:'emily',name:'Emily Willson',role:'CSM',initials:'EW',color:'#0F8F6B',hub:'MA',market:'Massachusetts'},
   {id:'tracy',name:'Tracy DuBois',role:'CSM',initials:'TD',color:'#C2710C',hub:'MA',market:'Massachusetts'},
   {id:'sam',name:'Sam Noren',role:'CSC',initials:'SN',color:'#E25309',hub:'MA',market:'Massachusetts',isCSC:true,ltcPrimary:true},
-  {id:'chelsea',name:'Chelsea Hancock',role:'Massachusetts Market Director',initials:'CH',color:'#6B4E9E',hub:'MA',market:'Massachusetts'},
+  {id:'chelsea',name:'Chelsea Hancock',role:'Massachusetts Market Director',initials:'CH',color:'#6B4E9E',hub:'MA',market:'Massachusetts',isDirector:true},
   // ─── MARYLAND ──────────────────────────────────────────────────────
   {id:'jada',name:'Jada Tiglao',role:'Senior CSM · Manager',initials:'JT',color:'#92580B',hub:'MD',market:'Maryland',isManager:true},
   {id:'bronwyn',name:'Bronwyn Carmel',role:'CSM',initials:'BC',color:'#0F6E56',hub:'MD',market:'Maryland'},
   {id:'tina',name:'Tina Merklinger',role:'CSM',initials:'TM',color:'#8A1A57',hub:'MD',market:'Maryland'},
   {id:'kristen',name:'Kristen Mayhew',role:'CSM',initials:'KM',color:'#2C5689',hub:'MD',market:'Maryland'},
-  {id:'rachel',name:'Rachel Kruger',role:'Maryland Market Director',initials:'RK',color:'#0E7490',hub:'MD',market:'Maryland'},
+  {id:'rachel',name:'Rachel Kruger',role:'Maryland Market Director',initials:'RK',color:'#0E7490',hub:'MD',market:'Maryland',isDirector:true},
   {id:'michelle',name:'Michelle Hejduk',role:'CSC',initials:'MH',color:'#C8362B',hub:'MD',market:'Maryland',isCSC:true},
   // ─── CHICAGO ───────────────────────────────────────────────────────
-  {id:'carrie',name:'Carrie Faerber',role:'Illinois Market Director',initials:'CF',color:'#C2710C',hub:'CHI',market:'Chicago',coverageMarketOnly:true},
+  {id:'carrie',name:'Carrie Faerber',role:'Illinois Market Director',initials:'CF',color:'#C2710C',hub:'CHI',market:'Chicago',coverageMarketOnly:true,isDirector:true},
   // ─── ALL MARKETS ───────────────────────────────────────────────────
   {id:'jen',name:'Jen Kulig',role:'Manager',initials:'JK',color:'#7A5C1E',hub:['MA','MD','CHI'],market:'Massachusetts',isManager:true},
 ];
@@ -1662,7 +1662,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-10-20T13:45';
+const HUB_BUILD='2026-10-20T14:56';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -1905,7 +1905,12 @@ async function launchProfile(id){
   const meta=HUB_META[selectedHub]||{emoji:'🏠',label:'All Markets'};
   const brandEl=document.querySelector('.sb-brand p');
   if(brandEl)brandEl.textContent=meta.label+' · 2026';
-  if(P.isManager||P.isCSC){
+  // Market directors (Chelsea/Rachel/Carrie) see THEIR STATE only. They are
+  // deliberately not isManager: accountIsManager() routes managers to the hub
+  // picker with "all hubs, all profiles", which is exactly what they must not
+  // have. isDirector gives the market view and the Pulse page, scoped to their
+  // own hub, and leaves the manager password lock alone.
+  if(P.isManager||P.isCSC||P.isDirector){
     document.getElementById('mgr-sec').style.display='block';
     document.getElementById('nav-team').style.display='flex';
     // Courtney, 10/15: the Pulse page comes out of the CSM nav (it now leads the
@@ -5835,6 +5840,13 @@ function cscSupport30(p){
 }
 
 function renderTeamOverview(){
+  // A market director is locked to their own hub — no 'all markets' view.
+  if(P&&P.isDirector){
+    const dh=Array.isArray(P.hub)?P.hub[0]:P.hub;
+    if(dh)_teamMarket=dh;
+    const tabs=document.getElementById('team-market-tabs');
+    if(tabs)tabs.style.display='none';
+  }
   // All CSMs visible to manager — exclude self and coverage-only profiles
   const pool=PROFILES.filter(p=>p.id!==(P&&P.id)&&!p.coverageMarketOnly);
 
@@ -7372,7 +7384,7 @@ function pulseDot(c){
 // profile shows Ramya's caseload even for an admin login. Only manager/CSC
 // profiles get the all-clients view + CSM filter. (Andrew hit this: his admin
 // account made every CSM's pulse page show all 253 clients.)
-function _pulseIsMgrView(){return !!(P&&(P.isManager||P.isCSC||P.id==='carrie'));}
+function _pulseIsMgrView(){return !!(P&&(P.isManager||P.isCSC||P.isDirector));}
 // Managers/CSCs see their MARKET'S clients, not the whole company: Courtney →
 // all MA (incl. her own + Julia's), Jada → all MD, Carrie → all Chicago,
 // Sam/Michelle → their market. Everyone else sees their own roster.
