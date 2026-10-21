@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-10-21T09:07"></script>
+<script src="./entra-auth.js?v=2026-10-21T14:13"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1662,7 +1662,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-10-21T09:07';
+const HUB_BUILD='2026-10-21T14:13';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -3239,7 +3239,12 @@ function buildClientDetail(id){
   // the median card was 1,796 characters, which is the "so overwhelming when
   // you open it" she described.
   const _pulseFull=(()=>{
-    const pp=_PULSE&&c.vivId?_PULSE.byCid[c.vivId]:null; if(!pp)return'';
+    const pp=_PULSE&&c.vivId?_PULSE.byCid[c.vivId]:null;
+    if(!pp){
+      if(!window._PULSE_REBUILDING)return'';
+      return `<div style="margin:0 0 14px;padding:11px 14px;background:#FBEADF;border:1px solid #EAE6DF;border-radius:10px;font-size:12.5px;color:#7A3B12;">
+        The Pulse is rebuilding right now, so this client's read is not available for a few minutes. It refreshes on its own.</div>`;
+    }
     const sug=(pp.card&&pp.card.recommendedAction)||'';
     return `<div style="margin:0 0 14px;padding:13px 15px;background:#fff;border:1px solid var(--line);border-radius:10px;">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:7px;">
@@ -7401,6 +7406,10 @@ async function loadPulse(interactive){
     if(!r.ok)throw new Error('HTTP '+r.status);
     const d=await r.json();
     if(d.building){
+      // The Client Tracker's Pulse block is guarded on _PULSE, which never gets
+      // set on this path — so during a rebuild it rendered NOTHING, with no
+      // message, three times a day. Say so instead of going blank.
+      window._PULSE_REBUILDING=true;
       // Server is rebuilding with no cache yet — say so and retry, never
       // cache an empty pulse.
       const el=document.getElementById('pulse-list');
@@ -7408,6 +7417,7 @@ async function loadPulse(interactive){
       if(!window._pulseRetry){window._pulseRetry=setTimeout(()=>{window._pulseRetry=null;loadPulse(false);},150000);}
       return;
     }
+    window._PULSE_REBUILDING=false;
     const byCid={};(d.clients||[]).forEach(c=>{byCid[c.cid]=c;});
     _PULSE={byCid,counts:d.counts,generatedAt:d.generatedAt,clients:d.clients||[],aiStatus:d.aiStatus};
     if(interactive)setVivLabel('Viv ✓ '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}));
