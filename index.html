@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-10-20T14:56"></script>
+<script src="./entra-auth.js?v=2026-10-20T23:19"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1662,7 +1662,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-10-20T14:56';
+const HUB_BUILD='2026-10-20T23:19';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -3493,7 +3493,7 @@ function _renderClientsLegacy(){
         <div style="min-width:0;"><div style="font-size:13.5px;font-weight:600;color:var(--navy);">${c.name}</div><div style="font-size:11.5px;color:#6B655C;">${c.loc||''}${c.city?' · '+c.city:''}</div></div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;">
           <span class="tb ${c.tier==='High'?'hi':c.tier==='Medium'?'med':'lo'}">${c.tier}</span>
-          ${(()=>{const s=calcScore(c);if(!s.score)return'';const ct=scoreToTier(s.score);const cc=ct==='High'?'#C8362B':ct==='Medium'?'#C2710C':'#0F8F6B';const cb=ct==='High'?'#F8E5E2':ct==='Medium'?'#F8EEDB':'#E2F2EC';return`<span style="font-size:10px;font-weight:700;color:${cc};background:${cb};padding:1px 6px;border-radius:8px;">${s.score}pts</span>`;})()}
+          ${(()=>{const s=calcScore(c);if(!s.score)return'';const ct=s.tier;const cc=ct==='High'?'#C8362B':ct==='Medium'?'#C2710C':'#0F8F6B';const cb=ct==='High'?'#F8E5E2':ct==='Medium'?'#F8EEDB':'#E2F2EC';return`<span style="font-size:10px;font-weight:700;color:${cc};background:${cb};padding:1px 6px;border-radius:8px;">${s.score}pts</span>`;})()}
         </div>
       </div>
       <div style="font-size:12px;color:#6B655C;display:flex;flex-direction:column;gap:3px;">
@@ -6541,55 +6541,111 @@ const GCM_MAP={
   'private':{pts:2,label:'GCM involved — private practice'},
   'key':{pts:4,label:'GCM involved — key practice (Alder, Newberry)',floor:'High'}
 };
+// Part 3, Part A: community 1 · family present 2 · lives alone 3. These were
+// one lower across the board, which pushed every static total down a point.
 const SUP_MAP={
-  'community':{pts:0,label:'Community with staff support'},
-  'family':{pts:1,label:'Family frequently present'},
-  'alone':{pts:2,label:'Lives alone / family unavailable'}
+  'community':{pts:1,label:'Community with staff support'},
+  'family':{pts:2,label:'Family frequently present'},
+  'alone':{pts:3,label:'Lives alone / family unavailable'}
 };
+// Partner tier: secondary 1 · KEY PARTNER 2.
+const PARTNER_PTS={none:0,tier2_3:1,tier1:2};
+// Part B observed signals, capped at 12 (touch tier only). Two of the nine are
+// not yet measurable from the record and are reported as unknown rather than
+// scored 0: a care-skill/connection match-failure complaint, and a
+// communication unanswered beyond five days.
+const PARTB_UNMEASURED=['match-failure complaint','communication unanswered >5 days'];
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Courtney's tiering model — Client Pulse Flagging & Tiering Guidance v3.8,
+// Part 3. Two scores from overlapping inputs, and TOUCH TIER is deliberately a
+// FLOOR set by the contract, LIFTED by what is actually happening. It is not a
+// single total: "Adding everything and banding the total lets service level
+// alone decide the tier. A settled 24/7 hospice client scores 15 static with
+// nothing wrong, and a single open concern would tip them into High Touch —
+// which is exactly the acuity-driven outcome this model exists to prevent."
+//
+// STATIC   hours + complexity + support + partner + end of life + couple  (17)
+// OBSERVED banded events + recent fall + active concern + Part B          (17)
+// ─────────────────────────────────────────────────────────────────────────────
+function calcStatic(c){
+  const b=[];
+  const dep=DEP_MAP[c.weeklyHours]; const hours=dep?dep.pts:0;
+  if(dep)b.push({label:'Weekly Hours of Care',pts:hours,detail:dep.label});
+  const complexity=parseInt(c.medComplexity)||0;
+  if(complexity)b.push({label:'Medical Complexity',pts:complexity,detail:MED_LABELS[c.medComplexity]||''});
+  const sup=SUP_MAP[c.supportSystem]; const support=sup?sup.pts:0;
+  if(sup)b.push({label:'Support System',pts:support,detail:sup.label});
+  const partner=PARTNER_PTS[c.communityTier||'none']||0;
+  if(partner)b.push({label:'Community / Partner Tier',pts:partner,detail:c.communityTier==='tier1'?'Key partner':'Secondary partner'});
+  const eol=c.endOfLife?1:0; if(eol)b.push({label:'End of Life',pts:1,detail:'Receiving end-of-life care'});
+  const couple=c.couple?2:0; if(couple)b.push({label:'Couple',pts:2,detail:'Two clients under one arrangement'});
+  return {total:Math.min(17,hours+complexity+support+partner+eol+couple),breakdown:b,
+          incomplete:!c.weeklyHours||!c.medComplexity};
+}
+
+// Part B: nine signals capped at 12. Seven are derivable today; the two that
+// are not are returned as `unknown` so a blank never reads as a clean zero.
+function calcPartB(c){
+  const b=[]; let t=0;
+  const add=(n,label,detail)=>{ if(n>0){t+=n;b.push({label,pts:n,detail});} };
+  const contact=parseInt(c.contactPerWeek)||0;
+  if(contact>3) add(c.contactSustained?2:1,'High contact',contact+' touchpoints a week'+(c.contactSustained?', sustained across a month':' in a single week'));
+  const pool=parseInt(c.caregiverPool);
+  if(c.caregiverRemovalRequested||(pool>0&&pool<=2)) add(2,'Caregiver pool at risk',c.caregiverRemovalRequested?'removal requested':'familiar pool down to '+pool);
+  if(c.pulseReason==='L3') add(2,'Confirmed health trend','open L3 flag');
+  if(c.pulseReason==='L2') add(2,'Escalation chain break','open L2 flag');
+  if((parseInt(c.carePlanEdits30)||0)>=3) add(1,'Care plan churn',c.carePlanEdits30+' versions in 30 days');
+  if(c.visitsOverdue) add(1,'Visits overdue','behind the cadence for this tier');
+  if((parseInt(c.externalOrgs)||0)>1) add(1,'Multiple organisations',c.externalOrgs+' external organisations involved');
+  return {total:Math.min(12,t),breakdown:b,unmeasured:PARTB_UNMEASURED};
+}
+
+function calcObserved(c){
+  const pb=calcPartB(c); const b=[...pb.breakdown];
+  const events=Math.max(0,Math.min(3,parseInt(c.recentInstability)||0));
+  if(events)b.unshift({label:'Service Events (30d)',pts:events,detail:'banded'});
+  const fall=c.recentFall?1:0; if(fall)b.push({label:'Recent Fall / Hospitalization',pts:1,detail:'within 30 days'});
+  const concern=c.activeConcern?1:0; if(concern)b.push({label:'Active Concern Flagged',pts:1,detail:'open Pulse flag'});
+  return {total:Math.min(17,events+fall+concern+pb.total),breakdown:b,partB:pb};
+}
+
+const TOUCH_BANDS=['Low','Medium','High'];
+function calcTouch(c){
+  // On hold is not tiered and not scored — a paused client consumes no capacity.
+  if(/^on ?hold$/i.test(String(c.vivStatus||c.status||''))) return {tier:null,status:'NOT TIERED',reason:'service on hold'};
+  const st=calcStatic(c), ob=calcObserved(c);
+  let floorIdx = st.total<=9 ? 0 : 1;                       // static alone never reaches High
+  const days=c.startDate?daysAgo(c.startDate):null;
+  const newClient = days!=null && days<90;
+  if(newClient) floorIdx=Math.max(floorIdx,1);              // Medium floor under 90 days
+  // Under-documented: scheduled visits but almost no notes. Do NOT score the
+  // observed half as 0 — hold at the floor and mark it provisional.
+  const provisional=!!c.underDocumented;
+  const lift = provisional ? 0 : (ob.total<=2 ? 0 : ob.total<=6 ? 1 : 2);
+  const idx=Math.min(2,floorIdx+lift);
+  return {tier:TOUCH_BANDS[idx], static:st.total, observed:ob.total,
+          floor:TOUCH_BANDS[floorIdx], lift, provisional, newClient,
+          anomaly: ob.total>st.total,
+          staticBreakdown:st.breakdown, observedBreakdown:ob.breakdown,
+          unmeasured:ob.partB.unmeasured, incomplete:st.incomplete};
+}
+
+// FILL PRIORITY — a straight sum, no floor logic: coverage is a point-in-time
+// question. hours + complexity + support + partner + EOL + couple + recent fall,
+// plus one where the familiar-caregiver pool is down to one or two. Max 19.
 function calcScore(c){
-  let score=0;
-  const breakdown=[];
-
-  // ① Care dependency
-  const dep=DEP_MAP[c.weeklyHours];
-  if(dep){score+=dep.pts;breakdown.push({label:'Care Dependency',pts:dep.pts,detail:dep.label});}
-  else{breakdown.push({label:'Care Dependency',pts:0,detail:'Not set — add weekly hours to score this'});}
-
-  // ② Medical complexity
-  const medPts=parseInt(c.medComplexity)||0;
-  if(medPts){score+=medPts;breakdown.push({label:'Medical Complexity',pts:medPts,detail:MED_LABELS[c.medComplexity]||''});}
-  else{breakdown.push({label:'Medical Complexity',pts:0,detail:'Not set — add complexity to score this'});}
-
-  // ③ Recent instability
-  const si=parseInt(c.recentInstability)||0;
-  const siPts=si===0?0:si===1?1:si<=3?2:3;
-  score+=siPts;
-  if(siPts)breakdown.push({label:'Recent Instability',pts:siPts,detail:si+' caregiver change'+(si!==1?'s':'')+' / SEs in last 30 days'});
-
-  // ④ Support system
-  const sup=SUP_MAP[c.supportSystem];
-  if(sup&&sup.pts>0){score+=sup.pts;breakdown.push({label:'Support System',pts:sup.pts,detail:sup.label});}
-
-  // Situational triggers
-  const inS30=c.startDate&&daysAgo(c.startDate)<=30;
-  if(inS30){score+=3;breakdown.push({label:'In Success in 30',pts:3,detail:'New client — first 30 days of service'});}
-  if(c.activeConcern){score+=1;breakdown.push({label:'Active Concern Flagged',pts:1,detail:'CSM has flagged an active concern'});}
-  if(c.endOfLife){score+=2;breakdown.push({label:'End of Life',pts:2,detail:'Client is receiving end-of-life care'});}
-  if(c.recentFall){score+=1;breakdown.push({label:'Recent Fall / Hospitalization',pts:1,detail:'Within the last 30 days'});}
-  if(c.communityTier==='tier1'){score+=2;breakdown.push({label:'Tier 1 Community / Partner',pts:2,detail:'Key referral relationship'});}
-  else if(c.communityTier==='tier2_3'){score+=1;breakdown.push({label:'Tier 2–3 Community / Partner',pts:1,detail:'Secondary referral relationship'});}
-  const gcm=GCM_MAP[c.gcm];
-  if(gcm&&gcm.pts>0){score+=gcm.pts;breakdown.push({label:'GCM Involvement',pts:gcm.pts,detail:gcm.label});}
-
-  // Determine tier
-  let tier,tierColor,tierBg,tierEmoji;
-  if(score>=16){tier='Critical';tierColor='#C8362B';tierBg='#F8E5E2';tierEmoji='🔴';}
-  else if(score>=11){tier='High';tierColor='#C2710C';tierBg='#F8EEDB';tierEmoji='🟠';}
-  else if(score>=6){tier='Medium';tierColor='#3B72B8';tierBg='#E8EFF7';tierEmoji='🟡';}
-  else{tier='Standard';tierColor='#0F8F6B';tierBg='#E2F2EC';tierEmoji='🟢';}
-
-  return{score,tier,tierColor,tierBg,tierEmoji,breakdown,floor:(gcm&&gcm.floor)||null,incomplete:!c.weeklyHours||!c.medComplexity};
+  const st=calcStatic(c);
+  const b=[...st.breakdown];
+  let score=st.total;
+  if(c.recentFall){score+=1;b.push({label:'Recent Fall / Hospitalization',pts:1,detail:'within 30 days'});}
+  const pool=parseInt(c.caregiverPool);
+  if(pool>0&&pool<=2){score+=1;b.push({label:'Thin caregiver pool',pts:1,detail:'only '+pool+' familiar caregiver(s)'});}
+  score=Math.min(19,score);
+  const tier=score>=14?'High':score>=8?'Medium':'Low';
+  const map={High:['#C8362B','#F8E5E2','🔴'],Medium:['#C2710C','#F8EEDB','🟠'],Low:['#0F8F6B','#E2F2EC','🟢']};
+  return {score,tier,tierColor:map[tier][0],tierBg:map[tier][1],tierEmoji:map[tier][2],
+          breakdown:b,floor:null,incomplete:st.incomplete};
 }
 
 // ═══════════════════════ FILL PRIORITY ═══════════════════════
@@ -6793,11 +6849,9 @@ function renderFillPriority(){
   }).join('');
 }
 
-function scoreToTier(score){
-  if(score>=11)return'High';
-  if(score>=6)return'Medium';
-  return'Low';
-}
+// scoreToTier() removed: banding a single score into a touch tier is the
+// behaviour Courtney's Part 3 replaces. Touch tier comes from calcTouch
+// (floor + lift); fill priority carries its own bands inside calcScore.
 
 // Courtney, 10/1: "we just have to make sure that the AI is ranking clients
 // tier wise appropriately because it's not right now." It was not ranking at
@@ -6806,20 +6860,22 @@ function scoreToTier(score){
 // both blank on every Viv-synced client — so c.tier sat on its 'Medium'
 // default forever. That is why a whole caseload reads Medium.
 const TIER_ORD=['Low','Medium','High'];
+// The displayed touch tier is Courtney's Part 3 model (calcTouch): a floor from
+// the contract, lifted by what is open. The previous version banded a single
+// total, which is the behaviour her document exists to replace.
+//
+// Two things from earlier conversations are deliberately NOT here, because Part 3
+// supersedes them: the GCM dropdown no longer sets a High floor (GCM load is
+// scored as an external organisation under Part B), and the 7-day "4 service
+// events bumps a band" burst is dropped as double counting — the 30-day banded
+// events plus Part B already lift a volatile client.
 function computedTierFor(c){
-  const s=calcScore(c);
-  let t=scoreToTier(s.score);
-  // A key GCM practice (Alder, Newberry) holds the client at High whatever the
-  // points total — "they're automatically going to stay high".
-  if(s.floor==='High'&&TIER_ORD.indexOf(t)<TIER_ORD.indexOf('High'))t='High';
-  // A short sharp burst bumps one tier for a week and decays on its own, because
-  // the 7-day count falls out of its own window.
-  const burst=(parseInt(c.serviceEvents7)||0)>=4;
-  if(burst)t=TIER_ORD[Math.min(TIER_ORD.indexOf(t)+1,TIER_ORD.length-1)];
-  return {tier:t,score:s.score,floor:s.floor,burst};
+  const t=calcTouch(c);
+  return {tier:t.tier, score:t.static, observed:t.observed, floor:t.floor,
+          lift:t.lift, anomaly:t.anomaly, provisional:t.provisional,
+          newClient:t.newClient, notTiered:t.tier===null, incomplete:t.incomplete};
 }
 
-// Applies the model across the caseload. A CSM's own pick always wins.
 function recomputeTiers(profileId){
   const cl=get('clients',profileId);
   let changed=0;
@@ -6836,8 +6892,10 @@ function recomputeTiers(profileId){
     // or a GCM relationship.
     if(!c.medComplexity && (!c.gcm||c.gcm==='none'))return;
     const r=computedTierFor(c);
+    if(r.notTiered){ c.tierSource='not-tiered'; return; }   // on hold: not tiered, not scored
     if(c.tier!==r.tier){c.tier=r.tier;changed++;}
-    c.tierSource='auto';c.tierScore=r.score;c.tierBurst=!!r.burst;c.tierFloor=r.floor||null;
+    c.tierSource='auto';c.tierStatic=r.score;c.tierObserved=r.observed;
+    c.tierFloor=r.floor;c.tierLift=r.lift;c.tierAnomaly=!!r.anomaly;c.tierProvisional=!!r.provisional;
   });
   if(changed)queueSave();
   return changed;
@@ -6867,15 +6925,18 @@ function autoUpdateTier(){
   const tierBadge=document.getElementById('cf-tier-badge');
 
   if(hasEnoughData){
-    const {score,tierEmoji}=calcScore(temp);
-    const computedTier=scoreToTier(score);
+    // Touch tier comes from the Part 3 floor/lift model; the fill score is a
+    // separate number and must not be banded into a tier.
+    const _t=calcTouch(temp);
+    const score=_t.static;
+    const computedTier=_t.tier||'Low';
     const cc=computedTier==='High'?'#C8362B':computedTier==='Medium'?'#C2710C':'#0F8F6B';
     const cb=computedTier==='High'?'#F8E5E2':computedTier==='Medium'?'#F8EEDB':'#E2F2EC';
     tierSel.value=computedTier;
     tierSel.style.borderColor=cc;
     tierSel.style.fontWeight='600';
     autoBadge.style.display='inline';
-    autoBadge.textContent=`Auto-set: ${score} pts → ${computedTier} Touch`;
+    autoBadge.textContent=`Auto-set: static ${_t.static} / observed ${_t.observed} → ${computedTier} Touch`+(_t.anomaly?' · ANOMALY':'')+(_t.provisional?' · PROVISIONAL':'');
     autoBadge.style.background=cb;
     autoBadge.style.color=cc;
     tierBadge.textContent='(auto-calculated from priority score)';
@@ -7288,6 +7349,19 @@ function _applyFillProposals(){
     // equipment, skin, code status) — the one scoring input no other source
     // holds. Machine-filled like the rest: a CSM's own value always wins.
     if(fp.medComplexity&&fp.medComplexity.value)put('medComplexity',String(fp.medComplexity.value),false);
+    // Part 3 static + observed inputs the record can answer. Machine-filled like
+    // the rest: a CSM's own value always wins.
+    if(fp.endOfLife)      put('endOfLife',   fp.endOfLife.value===1, true);
+    if(fp.couple)         put('couple',      fp.couple.value===2,    true);
+    if(fp.externalOrgs)   put('externalOrgs',fp.externalOrgs.value,  false);
+    if(fp.carePlanEdits30)put('carePlanEdits30',fp.carePlanEdits30.value,false);
+    if(fp.caregiverPool)  put('caregiverPool',fp.caregiverPool.value,false);
+    // These three are read straight off the Pulse each load rather than stored,
+    // because they describe right now and must not go stale in the record.
+    c.pulseReason   = pc.flagReason||'';
+    c.underDocumented = !!(fp.documentation && fp.documentation.thin);
+    c.visitsOverdue = (()=>{ try{ if(c.freq==='NA')return false;
+      const d=daysSince(c.lastVisit); return d!=null && d>(parseInt(c.freq)||90); }catch(e){ return false; } })();
     put('recentInstability',fp.serviceEvents30.value,false);
     put('recentFall',fp.recentFall.value===1,true);
     put('activeConcern',fp.activeConcern.value===1,true);
@@ -7297,6 +7371,10 @@ function _applyFillProposals(){
       weeklyHours:fp.weeklyHours.evidence, serviceEvents:fp.serviceEvents30.evidence,
       recentFall:fp.recentFall.evidence, activeConcern:fp.activeConcern.evidence,
       medComplexity:(fp.medComplexity&&fp.medComplexity.evidence)||'',
+      endOfLife:(fp.endOfLife&&fp.endOfLife.evidence)||'',
+      couple:(fp.couple&&fp.couple.evidence)||'',
+      caregiverPool:(fp.caregiverPool&&fp.caregiverPool.evidence)||'',
+      externalOrgs:(fp.externalOrgs&&fp.externalOrgs.evidence)||'',
       carePlanBaseline:(fp.medComplexity&&fp.medComplexity.planDate)
         ? ((fp.medComplexity.planVersion?'v'+fp.medComplexity.planVersion+', ':'')+'approved '+fp.medComplexity.planDate) : ''};
   }
