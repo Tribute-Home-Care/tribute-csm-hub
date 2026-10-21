@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-10-20T23:19"></script>
+<script src="./entra-auth.js?v=2026-10-21T08:09"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1662,7 +1662,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-10-20T23:19';
+const HUB_BUILD='2026-10-21T08:09';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -6550,11 +6550,12 @@ const SUP_MAP={
 };
 // Partner tier: secondary 1 · KEY PARTNER 2.
 const PARTNER_PTS={none:0,tier2_3:1,tier1:2};
-// Part B observed signals, capped at 12 (touch tier only). Two of the nine are
-// not yet measurable from the record and are reported as unknown rather than
-// scored 0: a care-skill/connection match-failure complaint, and a
-// communication unanswered beyond five days.
-const PARTB_UNMEASURED=['match-failure complaint','communication unanswered >5 days'];
+// Part B observed signals, capped at 12 (touch tier only). All nine are now
+// derived: match failure is its own Viv service-exception category, and
+// communication direction has always been on the comms events — what was
+// missing was the comms data itself (a cache TTL shorter than the gap between
+// the writer and the Pulse build).
+const PARTB_UNMEASURED=[];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Courtney's tiering model — Client Pulse Flagging & Tiering Guidance v3.8,
@@ -6591,14 +6592,19 @@ function calcPartB(c){
   const add=(n,label,detail)=>{ if(n>0){t+=n;b.push({label,pts:n,detail});} };
   const contact=parseInt(c.contactPerWeek)||0;
   if(contact>3) add(c.contactSustained?2:1,'High contact',contact+' touchpoints a week'+(c.contactSustained?', sustained across a month':' in a single week'));
+  // A small pool is only a signal when it has SHRUNK. A settled two-caregiver
+  // team of fourteen months scores nothing (Part 4, tests 20 and 23).
   const pool=parseInt(c.caregiverPool);
-  if(c.caregiverRemovalRequested||(pool>0&&pool<=2)) add(2,'Caregiver pool at risk',c.caregiverRemovalRequested?'removal requested':'familiar pool down to '+pool);
+  if(c.caregiverRemovalRequested||(pool>0&&pool<=2&&c.caregiverPoolShrank))
+    add(2,'Caregiver pool at risk',c.caregiverRemovalRequested?'removal requested':'familiar pool down to '+pool);
   if(c.pulseReason==='L3') add(2,'Confirmed health trend','open L3 flag');
   if(c.pulseReason==='L2') add(2,'Escalation chain break','open L2 flag');
   if((parseInt(c.carePlanEdits30)||0)>=3) add(1,'Care plan churn',c.carePlanEdits30+' versions in 30 days');
   if(c.visitsOverdue) add(1,'Visits overdue','behind the cadence for this tier');
   if((parseInt(c.externalOrgs)||0)>1) add(1,'Multiple organisations',c.externalOrgs+' external organisations involved');
-  return {total:Math.min(12,t),breakdown:b,unmeasured:PARTB_UNMEASURED};
+  if(c.matchFailure) add(2,'Match failure complaint','a care-skill or connection match failure on file');
+  if(c.commUnanswered) add(1,'Communication unanswered',(c.commUnansweredDays||'>5')+' days without a reply');
+  return {total:Math.min(12,t),breakdown:b,unmeasured:[]};
 }
 
 function calcObserved(c){
@@ -7356,6 +7362,9 @@ function _applyFillProposals(){
     if(fp.externalOrgs)   put('externalOrgs',fp.externalOrgs.value,  false);
     if(fp.carePlanEdits30)put('carePlanEdits30',fp.carePlanEdits30.value,false);
     if(fp.caregiverPool)  put('caregiverPool',fp.caregiverPool.value,false);
+    if(fp.caregiverPool)  c.caregiverPoolShrank=!!fp.caregiverPool.shrank;
+    if(fp.matchFailure)   c.matchFailure=fp.matchFailure.value===1;
+    if(fp.commUnanswered){c.commUnanswered=fp.commUnanswered.value===1;c.commUnansweredDays=fp.commUnanswered.days;}
     // These three are read straight off the Pulse each load rather than stored,
     // because they describe right now and must not go stale in the record.
     c.pulseReason   = pc.flagReason||'';
