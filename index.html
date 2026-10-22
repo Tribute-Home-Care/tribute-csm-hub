@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-10-21T14:13"></script>
+<script src="./entra-auth.js?v=2026-10-22T10:11"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1662,7 +1662,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-10-21T14:13';
+const HUB_BUILD='2026-10-22T10:11';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -6891,7 +6891,9 @@ function computedTierFor(c){
 }
 
 function recomputeTiers(profileId){
-  const cl=get('clients',profileId);
+  // Live array, not a get() copy, for the same reason as above.
+  const pid=profileId||(P&&P.id);
+  const cl=(DATA.profiles&&DATA.profiles[pid]&&DATA.profiles[pid].clients)||[];
   let changed=0;
   cl.forEach(c=>{
     if(c.tierOverride)return;        // a person chose this tier; leave it
@@ -7328,10 +7330,19 @@ function _renderFillEvidence(c){
     +'the care plan is too thin to propose them. Change any value and it stays changed.</div>';
 }
 
+// Runs across EVERY profile, not just the one that happens to be open, because
+// this is a shared document (the Viv sync merges all profiles for the same
+// reason). Keyed on P.id it only ever populated whoever was signed in, which is
+// why Emily's caseload had rankings and Ramya's had none (Courtney, 10/22).
+//
+// It also walks the LIVE array. get() returns a deep copy via JSON round-trip,
+// so the previous version mutated a throwaway and then called queueSave(),
+// which saved a DATA that had never changed.
 function _applyFillProposals(){
-  if(!_PULSE||!_PULSE.byCid||!P)return 0;
-  const cl=get('clients',P.id);
+  if(!_PULSE||!_PULSE.byCid)return 0;
   let touched=0, changed=false;
+  for(const prof of PROFILES){
+  const cl=(DATA.profiles&&DATA.profiles[prof.id]&&DATA.profiles[prof.id].clients)||[];
   for(const c of cl){
     const pc=c.vivId&&_PULSE.byCid[c.vivId];
     const fp=pc&&pc.fillProposal;
@@ -7395,10 +7406,11 @@ function _applyFillProposals(){
       carePlanBaseline:(fp.medComplexity&&fp.medComplexity.planDate)
         ? ((fp.medComplexity.planVersion?'v'+fp.medComplexity.planVersion+', ':'')+'approved '+fp.medComplexity.planDate) : ''};
   }
+  }
   if(changed)queueSave();
-  // Proposals supply the scoring inputs, so the tier is recomputed immediately
-  // after they are applied rather than waiting for someone to open the form.
-  try{recomputeTiers();}catch(e){}
+  // Proposals supply the scoring inputs, so tiers are recomputed immediately
+  // after they land, for every profile.
+  try{ PROFILES.forEach(pr=>recomputeTiers(pr.id)); }catch(e){}
   return touched;
 }
 
