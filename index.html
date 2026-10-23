@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-10-22T17:02"></script>
+<script src="./entra-auth.js?v=2026-10-23T08:17"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -262,6 +262,7 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
     <div class="nav-item" onclick="showPage('coverage',this)"><span class="nav-icon">🏖️</span>Coverage Notes</div>
     <div class="nav-item" onclick="showPage('emailcomm',this)"><span class="nav-icon">✉️</span>Email Community</div>
     <div class="nav-item" onclick="showPage('ltc',this)"><span class="nav-icon">🧾</span>LTC Submissions</div>
+    <div class="nav-item" id="nav-md" style="display:none;" onclick="showPage('md',this)"><span class="nav-icon">🩺</span>Maryland Compliance</div>
     <div class="nav-item" onclick="showPage('priority',this)"><span class="nav-icon">🚨</span>Fill Priority</div>
     <div class="nav-sec">Resources</div>
     <div class="nav-item" onclick="showPage('assistant',this)"><span class="nav-icon">🤖</span>Tribute Assistant</div>
@@ -791,6 +792,36 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
   </div>
 
   <div class="card" id="ltc-gaps" style="margin-top:12px;display:none;"></div>
+</div>
+
+<!-- MARYLAND COMPLIANCE -->
+<div id="page-md" class="page">
+  <div class="ph"><h2>🩺 Maryland Compliance</h2><p>The seven Baltimore requirements for every Maryland client, with the date and the Viv form each one came from. These are regulatory deadlines rather than judgement calls, so nothing here is a score: it is either on file or it is not, and you can open the form and check.</p></div>
+
+  <div class="card" style="margin-bottom:12px;">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <div style="font-size:14px;font-weight:700;color:var(--ink);" id="md-count">—</div>
+      <button class="btn btn-sm btn-o" onclick="renderMd(true)" style="margin-left:auto;">↻ Refresh</button>
+    </div>
+    <div id="md-kpi" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:10px;margin-top:12px;"></div>
+    <div id="md-stale" style="font-size:11px;color:#8C857B;margin-top:8px;"></div>
+  </div>
+
+  <div class="g2" id="md-grid" style="grid-template-columns:minmax(0,1fr) 400px;gap:14px;align-items:start;">
+    <div class="card" style="min-width:0;">
+      <div style="display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap;">
+        <button class="btn btn-sm" id="md-f-attention" onclick="mdFilter('attention')">Needs attention</button>
+        <button class="btn btn-sm" id="md-f-all" onclick="mdFilter('all')">All</button>
+        <button class="btn btn-sm" id="md-f-assess" onclick="mdFilter('assess')">Assessment due</button>
+        <button class="btn btn-sm" id="md-f-reassess" onclick="mdFilter('reassess')">Reassessment owed</button>
+        <button class="btn btn-sm" id="md-f-touch" onclick="mdFilter('touch')">Weekly note gaps</button>
+        <button class="btn btn-sm" id="md-f-mine" onclick="mdFilter('mine')">Mine</button>
+        <input type="text" class="si" id="md-search" placeholder="Search client or CSM…" oninput="renderMdRows()" style="flex:1;min-width:150px;">
+      </div>
+      <div id="md-rows" style="max-height:660px;overflow:auto;min-width:0;"></div>
+    </div>
+    <div id="md-detail" style="min-width:0;"><div class="card"><p style="font-size:12.5px;color:#8C857B;">Pick a client on the left to see all seven requirements, the date on each and the form it came from.</p></div></div>
+  </div>
 </div>
 
 <!-- FILL PRIORITY -->
@@ -1662,7 +1693,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-10-22T17:02';
+const HUB_BUILD='2026-10-23T08:17';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -1910,6 +1941,15 @@ async function launchProfile(id){
   // picker with "all hubs, all profiles", which is exactly what they must not
   // have. isDirector gives the market view and the Pulse page, scoped to their
   // own hub, and leaves the manager password lock alone.
+  // Maryland Compliance is a Baltimore regulatory board, so it belongs to the
+  // Maryland team and to the managers who sit over all three markets. Nobody
+  // else has a use for it and it would only add noise to their sidebar.
+  (function(){
+    const hubs=Array.isArray(P.hub)?P.hub:[P.hub];
+    const show=hubs.includes('MD')||P.isManager;
+    const el=document.getElementById('nav-md');
+    if(el)el.style.display=show?'flex':'none';
+  })();
   if(P.isManager||P.isCSC||P.isDirector){
     document.getElementById('mgr-sec').style.display='block';
     document.getElementById('nav-team').style.display='flex';
@@ -1981,7 +2021,7 @@ function showPage(p,el){
   document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
   document.getElementById('page-'+p).classList.add('active');
   if(el)el.classList.add('active');
-  ({home:updateHome,clients:renderClientMaster,pulse:renderPulse,emailcomm:renderEmailComm,priority:renderFillPriority,ltc:renderLtc,comms:()=>{syncTPClients();syncCIClients();renderDueNow();renderTPRecent();renderTouchpointHistory();},s60:()=>{syncS60();renderS60();renderS60Emails(null);},coverage:()=>{syncCov();renderCovSummary();renderTeamCoverage();},assistant:()=>{renderTemplates();renderScenarios();renderDecision();},expectations:renderExpectations,kpi:renderKPIHistory,team:()=>{if(_teamView==='visits')renderTeamVisits();else renderTeamOverview();}}[p]||(_=>{}))();
+  ({home:updateHome,clients:renderClientMaster,pulse:renderPulse,emailcomm:renderEmailComm,priority:renderFillPriority,ltc:renderLtc,md:renderMd,comms:()=>{syncTPClients();syncCIClients();renderDueNow();renderTPRecent();renderTouchpointHistory();},s60:()=>{syncS60();renderS60();renderS60Emails(null);},coverage:()=>{syncCov();renderCovSummary();renderTeamCoverage();},assistant:()=>{renderTemplates();renderScenarios();renderDecision();},expectations:renderExpectations,kpi:renderKPIHistory,team:()=>{if(_teamView==='visits')renderTeamVisits();else renderTeamOverview();}}[p]||(_=>{}))();
 }
 function aTab(t,el){['kb','emails','scenarios','decision'].forEach(x=>{document.getElementById('asst-'+x).classList.remove('active');});document.querySelectorAll('#page-assistant .tab').forEach(x=>x.classList.remove('active'));document.getElementById('asst-'+t).classList.add('active');el.classList.add('active');if(t==='emails')renderTemplates();if(t==='scenarios')renderScenarios();if(t==='decision')renderDecision();_updateAsstAdminBars();}
 function _updateAsstAdminBars(){
@@ -2003,6 +2043,240 @@ const daysAgo=d=>d?Math.floor((new Date()-new Date(d))/86400000):null;
 const fmtD=d=>d?new Date(d).toLocaleDateString():'—';
 const escHtml=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 function nextDue(lv,f){if(!lv||f==='NA')return null;const d=new Date(lv);d.setDate(d.getDate()+(parseInt(f)||90));return d;}
+
+// ═══════════════════════ MARYLAND COMPLIANCE ═══════════════════════
+// Courtney, 10/22: Baltimore holds us to seven requirements and Jada's team
+// tracks them by hand in a spreadsheet. The spreadsheet is the real artefact
+// here, so this board keeps its shape: one row per client, one column per
+// requirement, nothing inferred. Every date names the Viv form it came from so
+// a nurse can open the form rather than take the board's word for it.
+//
+// Two things are deliberately NOT automated. The 45/90-day designation is the
+// CSM's call (Andrew, 10/23: "the CSM will have to manage the meds") — the care
+// plan's medication answer is shown beside it as a hint and nothing more. And
+// there is no PMOF form in Viv, so the board can say a signed PMOF is needed
+// and cannot say whether one exists.
+let _mdData=null, _mdFilter='attention', _mdSel=null, _mdLoading=false;
+
+const MD_REGS=[
+  ['initial','Initial nursing assessment within 48 hours of care starting'],
+  ['cadence','In-person assessment every 90 days (45 for medication management or CMT)'],
+  ['annual','Annual nursing assessment'],
+  ['reassess','Reassessment after any hospital admission or change in condition'],
+  ['weekly','A note every week (visit, email, call, text, community or GCM)'],
+  ['pmof','Signed PMOF updated for any medication change on med-fill clients'],
+];
+
+function mdCadenceOf(cid){return parseInt(((DATA.shared&&DATA.shared.mdCadence)||{})[cid])||null;}
+function setMdCadence(cid,days){
+  DATA.shared=DATA.shared||{}; DATA.shared.mdCadence=DATA.shared.mdCadence||{};
+  if(days)DATA.shared.mdCadence[cid]=parseInt(days); else delete DATA.shared.mdCadence[cid];
+  queueSave(); renderMdKpi(); renderMdRows(); if(_mdSel===cid)renderMdDetail();
+  showToast(days?('Assessment cadence set to '+days+' days'):'Cadence back to the 90-day default');
+}
+
+// The server computes against a 90-day default because the override lives in
+// the hub document, not in Viv. Re-derive here so a CSM's 45-day designation
+// takes effect the moment they set it.
+function _mdRow(r){
+  const ov=mdCadenceOf(r.cid), cad=ov||r.cadence||90;
+  const today=new Date(new Date().toISOString().slice(0,10)+'T12:00:00');
+  const last=(r.lastAssessment&&r.lastAssessment.date)?new Date(r.lastAssessment.date+'T12:00:00'):null;
+  const next=last?new Date(last.getTime()+cad*864e5):null;
+  const overdueBy=next?Math.round((today-next)/864e5):null;
+  const status=!last?'none':(overdueBy>0?'overdue':(overdueBy>-14?'soon':'ok'));
+  return Object.assign({},r,{cadEff:cad,cadOverride:!!ov,
+    nextDueEff:next?next.toISOString().slice(0,10):null,overdueByEff:overdueBy,statusEff:status});
+}
+function _mdFlags(r){
+  const f=[];
+  if(r.statusEff==='none')f.push('no assessment on file');
+  else if(r.statusEff==='overdue')f.push(r.overdueByEff+'d overdue');
+  if(r.annualStatus==='overdue')f.push('annual overdue');
+  if(r.initial&&r.initial.ok===false)f.push('initial assessment outside 48h');
+  if(r.reassessmentCount>0)f.push(r.reassessmentCount+' reassessment'+(r.reassessmentCount>1?'s':'')+' owed');
+  if(r.missedWeeks12>0)f.push(r.missedWeeks12+' week'+(r.missedWeeks12>1?'s':'')+' with no note');
+  if(r.pmofNeeded)f.push('PMOF needed');
+  return f;
+}
+const _mdRows=()=>((_mdData&&_mdData.rows)||[]).map(_mdRow);
+
+function mdFilter(f){_mdFilter=f;renderMdRows();}
+
+async function renderMd(force){
+  if(_mdLoading)return;
+  const rowsEl=document.getElementById('md-rows');
+  if(!rowsEl)return;
+  if(_mdData&&!force){renderMdKpi();renderMdRows();renderMdDetail();return;}
+  _mdLoading=true;
+  rowsEl.innerHTML='<p style="font-size:12.5px;color:#8C857B;padding:12px;">Loading Maryland…</p>';
+  try{
+    const r=await fetch(VIV_PROXY+'?endpoint=md_compliance'+(force?'&refresh=1':''),{headers:await dataHeaders()});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    _mdData=await r.json();
+    if(_mdData.error)throw new Error(_mdData.error);
+  }catch(e){
+    _mdLoading=false;
+    rowsEl.innerHTML='<p style="font-size:12.5px;color:#B4453C;padding:12px;">Could not load the board: '+escHtml(e.message)+'</p>';
+    return;
+  }
+  _mdLoading=false;
+  renderMdKpi();renderMdRows();renderMdDetail();
+}
+
+function renderMdKpi(){
+  const rows=_mdRows();
+  document.getElementById('md-count').textContent=rows.length+' Maryland client'+(rows.length===1?'':'s');
+  const kpi=(n,l,col)=>`<div style="background:#fff;border:1px solid var(--line-soft);border-radius:12px;padding:12px;text-align:center;">
+    <div style="font-size:24px;font-weight:800;color:${col};line-height:1;">${n}</div>
+    <div style="font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#8C857B;margin-top:5px;">${l}</div></div>`;
+  document.getElementById('md-kpi').innerHTML=
+    kpi(rows.filter(r=>r.statusEff==='overdue'||r.statusEff==='none').length,'Assessment overdue','#B4453C')+
+    kpi(rows.filter(r=>r.statusEff==='soon').length,'Due in 14 days','#8C6D3F')+
+    kpi(rows.filter(r=>r.annualStatus==='overdue').length,'Annual overdue','#B4453C')+
+    kpi(rows.filter(r=>r.reassessmentCount>0).length,'Reassessment owed','#8A1A57')+
+    kpi(rows.some(r=>r.touchSource)?rows.filter(r=>r.missedWeeks12>0).length:'—','Weekly note gaps','#8C6D3F')+
+    kpi(rows.filter(r=>r.pmofNeeded).length,'PMOF needed','#6B5B8C')+
+    kpi(rows.filter(r=>!_mdFlags(r).length).length,'Fully clear','#3D7A5B');
+  const g=_mdData&&_mdData.generatedAt;
+  const incomplete=_mdRows().filter(r=>r.touchSource&&r.touchSource.complete===false).length;
+  document.getElementById('md-stale').innerHTML=
+    (g?'Read from Viv '+new Date(g).toLocaleString()+' · forms and the client feed refresh every 12 hours':'')+
+    (incomplete?' · <span style="color:#8C6D3F;">'+incomplete+' client'+(incomplete===1?' has':'s have')+' no client-feed history, so their weekly notes are counted from communications alone</span>':'');
+}
+
+function renderMdRows(){
+  const el=document.getElementById('md-rows'); if(!el)return;
+  const q=(document.getElementById('md-search').value||'').toLowerCase().trim();
+  ['attention','all','assess','reassess','touch','mine'].forEach(f=>{
+    const b=document.getElementById('md-f-'+f); if(b)b.className='btn btn-sm'+(_mdFilter===f?' btn-p':'');
+  });
+  const me=(P&&P.name||'').toLowerCase();
+  let rows=_mdRows().filter(r=>{
+    if(q&&!((r.name||'')+' '+(r.csm||'')+' '+(r.community||'')).toLowerCase().includes(q))return false;
+    if(_mdFilter==='attention')return _mdFlags(r).length>0;
+    if(_mdFilter==='assess')return r.statusEff==='overdue'||r.statusEff==='none'||r.statusEff==='soon';
+    if(_mdFilter==='reassess')return r.reassessmentCount>0;
+    if(_mdFilter==='touch')return r.missedWeeks12>0;
+    if(_mdFilter==='mine')return (r.csm||'').toLowerCase()===me;
+    return true;
+  });
+  // Worst first: overdue days, then how many requirements are open.
+  rows.sort((a,b)=>(b.overdueByEff||-9999)-(a.overdueByEff||-9999)||_mdFlags(b).length-_mdFlags(a).length);
+  if(!rows.length){el.innerHTML='<p style="font-size:12.5px;color:#8C857B;padding:12px;">Nothing here. Try another filter.</p>';return;}
+  const chip=(t,col,bg)=>`<span style="font-size:10px;font-weight:700;color:${col};background:${bg};padding:1px 7px;border-radius:8px;white-space:nowrap;">${t}</span>`;
+  el.innerHTML=rows.map(r=>{
+    const flags=_mdFlags(r);
+    const st=r.statusEff;
+    const stChip = st==='none'?chip('No assessment','#B4453C','var(--hi-bg)')
+      : st==='overdue'?chip(r.overdueByEff+'d overdue','#B4453C','var(--hi-bg)')
+      : st==='soon'?chip('Due '+fmtD(r.nextDueEff),'#8C6D3F','var(--med-bg)')
+      : chip('Next '+fmtD(r.nextDueEff),'#3D7A5B','#E7F2EC');
+    return `<div onclick="mdSelect('${r.cid}')" style="padding:9px 11px;border-radius:9px;margin-bottom:5px;cursor:pointer;background:${_mdSel===r.cid?'#F1EEE8':'#F7F4EF'};border:1px solid ${_mdSel===r.cid?'var(--line)':'transparent'};">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <strong style="font-size:13px;color:var(--ink);">${escHtml(r.name||'')}</strong>
+        ${stChip}
+        ${r.cadEff===45?chip('45-day','#6B5B8C','#EFEAF6'):''}
+        ${r.pmofNeeded?chip('PMOF','#6B5B8C','#EFEAF6'):''}
+      </div>
+      <div style="font-size:11px;color:#8C857B;margin-top:3px;">${escHtml(r.csm||'No CSM')}${r.community?' · '+escHtml(r.community):''}</div>
+      ${flags.length?`<div style="font-size:11px;color:#B4453C;margin-top:3px;">${escHtml(flags.join(' · '))}</div>`:`<div style="font-size:11px;color:#3D7A5B;margin-top:3px;">All seven requirements clear</div>`}
+    </div>`;
+  }).join('');
+}
+
+function mdSelect(cid){_mdSel=cid;renderMdRows();renderMdDetail();}
+
+function renderMdDetail(){
+  const el=document.getElementById('md-detail'); if(!el)return;
+  const r=_mdRows().find(x=>x.cid===_mdSel);
+  if(!r){el.innerHTML='<div class="card"><p style="font-size:12.5px;color:#8C857B;">Pick a client on the left to see all seven requirements, the date on each and the form it came from.</p></div>';return;}
+  const line=(label,ok,detail,source)=>{
+    const col = ok===true?'#3D7A5B' : ok===false?'#B4453C' : '#8C6D3F';
+    const mark= ok===true?'✓' : ok===false?'✕' : '?';
+    return `<div style="padding:9px 0;border-bottom:1px solid var(--line-soft);">
+      <div style="display:flex;gap:8px;align-items:flex-start;">
+        <span style="color:${col};font-weight:800;font-size:13px;line-height:1.4;">${mark}</span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:12px;font-weight:600;color:var(--ink);line-height:1.45;">${label}</div>
+          <div style="font-size:11.5px;color:#57524A;margin-top:2px;line-height:1.5;">${detail}</div>
+          ${source?`<div style="font-size:10.5px;color:#8C857B;margin-top:2px;">${source}</div>`:''}
+        </div></div></div>`;
+  };
+  const a=r.lastAssessment;
+  const src=f=>f?('From "'+escHtml(f.title)+'" dated '+fmtD(f.date)+(f.count>1?' · '+f.count+' on file':'')):'';
+
+  // 1 Initial within 48h
+  const ini=r.initial||{};
+  const iniDetail = ini.withinDays===null
+    ? (ini.careStarted?'No Client Admission form found. Care started '+fmtD(ini.careStarted)+'.':'No admission form and no care start date on file.')
+    : 'Admitted '+fmtD(ini.admitted)+', care started '+fmtD(ini.careStarted)+' ('+(ini.withinDays===0?'same day':Math.abs(ini.withinDays)+' day'+(Math.abs(ini.withinDays)===1?'':'s')+(ini.withinDays>0?' after':' before'))+').';
+
+  // 2 Cadence
+  const cadDetail = !a ? 'No nursing assessment on file.'
+    : 'Last '+fmtD(a.date)+'. Next due '+fmtD(r.nextDueEff)+
+      (r.overdueByEff>0?' — <strong style="color:#B4453C;">'+r.overdueByEff+' days overdue</strong>':' — '+Math.abs(r.overdueByEff)+' days away')+'.';
+
+  // 3 Annual
+  const annDetail = !a ? 'No nursing assessment on file.'
+    : (r.annualOverdueBy>0?'<strong style="color:#B4453C;">'+r.annualOverdueBy+' days past the annual deadline.</strong>'
+       :'Annual deadline in '+Math.abs(r.annualOverdueBy)+' days ('+fmtD(new Date(new Date(a.date+'T12:00:00').getTime()+365*864e5).toISOString().slice(0,10))+').');
+
+  // 4 Reassessment triggers
+  const tr=r.reassessmentOwed||[];
+  const trDetail = !tr.length ? 'No hospital admission or change of condition since the last assessment.'
+    : tr.map(t=>'<div style="margin-top:3px;">'+fmtD(t.date)+' — <strong>'+escHtml(t.kind)+'</strong>'+(t.detail?': '+escHtml(t.detail):'')+'</div>').join('')
+      +(r.reassessmentCount>tr.length?'<div style="margin-top:3px;color:#8C857B;">and '+(r.reassessmentCount-tr.length)+' more</div>':'');
+
+  // 5 Weekly note
+  const wk=r.weeklyTouch||[], ts=r.touchSource||{};
+  const grid=wk.map(w=>`<span title="Week of ${w.week}" style="display:inline-block;width:14px;height:14px;border-radius:3px;margin:1px;background:${w.touched?'#3D7A5B':'#E3B9B4'};"></span>`).join('');
+  const wkDetail = (r.missedWeeks12===0?'A note in every one of the last 12 weeks.':r.missedWeeks12+' of the last 12 weeks have no note of any kind.')
+    +'<div style="margin-top:4px;">'+grid+'</div>'
+    +'<div style="font-size:10.5px;color:#8C857B;margin-top:3px;">Newest week on the left. Green is a week with at least one touch.</div>';
+  // Never let the board state a source it does not have. Before the API
+  // carrying touchSource is deployed, say so rather than printing zeroes that
+  // read like a real count.
+  const wkSrc = !r.touchSource
+    ? 'This figure is from an older build that only read the most recent events, so it understates coverage. Do not act on it yet.'
+    : ts.complete===false
+    ? 'Counted from communications only — the Viv client feed returned nothing for this client, so a quiet week here may be a reporting gap.'
+    : 'From '+(ts.feedEvents||0)+' client-feed entries, '+(ts.comms||0)+' communications and '+(ts.csmVisits||0)+' CSM visits over '+(ts.windowDays||84)+' days.';
+
+  // 6 PMOF
+  const pmofDetail = r.pmofNeeded
+    ? 'A medication change appears in the record. Viv has no PMOF form, so the board cannot confirm a signed one exists — check the client documents.'
+    : 'No medication change found in the window.';
+
+  el.innerHTML=`<div class="card" style="min-width:0;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;">
+      <div><div style="font-size:16px;font-weight:800;color:var(--ink);">${escHtml(r.name||'')}</div>
+      <div style="font-size:11.5px;color:#8C857B;margin-top:2px;">${escHtml(r.csm||'No CSM')}${r.community?' · '+escHtml(r.community):''}${r.market?' · '+escHtml(r.market):''}</div></div>
+    </div>
+
+    <div style="margin-top:12px;padding:9px 11px;background:#F7F4EF;border-radius:9px;">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#8C857B;">Assessment cadence</div>
+      <div style="display:flex;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap;">
+        <button class="btn btn-sm${r.cadEff===90?' btn-p':''}" onclick="setMdCadence('${r.cid}',90)">Every 90 days</button>
+        <button class="btn btn-sm${r.cadEff===45?' btn-p':''}" onclick="setMdCadence('${r.cid}',45)">Every 45 days</button>
+        ${r.cadOverride?`<button class="btn btn-sm btn-o" onclick="setMdCadence('${r.cid}',0)">Clear</button>`:''}
+      </div>
+      <div style="font-size:11px;color:#57524A;margin-top:6px;line-height:1.5;">
+        You set this, not the system. 45 days applies to medication management and CMT clients.
+        ${r.medHint?`<br><span style="color:#8C857B;">The care plan says medication is administered by: <strong>${escHtml(r.medHint)}</strong>. That is a hint, not the setting.</span>`:''}
+      </div>
+    </div>
+
+    <div style="margin-top:12px;">
+      ${line(MD_REGS[0][1], ini.ok===null||ini.ok===undefined?null:ini.ok, iniDetail, src(r.initial&&r.initial.admitted?{title:'Client Admission',date:r.initial.admitted,count:1}:null))}
+      ${line(MD_REGS[1][1], !a?null:(r.overdueByEff>0?false:true), cadDetail, src(a))}
+      ${line(MD_REGS[2][1], !a?null:(r.annualOverdueBy>0?false:true), annDetail, src(a))}
+      ${line(MD_REGS[3][1], tr.length?false:true, trDetail, tr.length?'From service exceptions and changes of condition in the last 45 days':'')}
+      ${line(MD_REGS[4][1], r.missedWeeks12===0?true:false, wkDetail, wkSrc)}
+      ${line(MD_REGS[5][1], r.pmofNeeded?null:true, pmofDetail, '')}
+    </div>
+  </div>`;
+}
 
 // ═══════════════════════ LTC SUBMISSIONS ═══════════════════════
 // The weekly board that replaces Michelle's True/False grid and Sam's
