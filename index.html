@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-10-23T08:17"></script>
+<script src="./entra-auth.js?v=2026-10-23T08:21"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1693,7 +1693,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-10-23T08:17';
+const HUB_BUILD='2026-10-23T08:21';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -2093,7 +2093,7 @@ function _mdFlags(r){
   if(r.statusEff==='none')f.push('no assessment on file');
   else if(r.statusEff==='overdue')f.push(r.overdueByEff+'d overdue');
   if(r.annualStatus==='overdue')f.push('annual overdue');
-  if(r.initial&&r.initial.ok===false)f.push('initial assessment outside 48h');
+  if(r.initial&&r.initial.ok===false)f.push(r.initial.withinDays===null?'no admission form':'initial assessment outside 48h');
   if(r.reassessmentCount>0)f.push(r.reassessmentCount+' reassessment'+(r.reassessmentCount>1?'s':'')+' owed');
   if(r.missedWeeks12>0)f.push(r.missedWeeks12+' week'+(r.missedWeeks12>1?'s':'')+' with no note');
   if(r.pmofNeeded)f.push('PMOF needed');
@@ -2136,6 +2136,7 @@ function renderMdKpi(){
     kpi(rows.filter(r=>r.annualStatus==='overdue').length,'Annual overdue','#B4453C')+
     kpi(rows.filter(r=>r.reassessmentCount>0).length,'Reassessment owed','#8A1A57')+
     kpi(rows.some(r=>r.touchSource)?rows.filter(r=>r.missedWeeks12>0).length:'—','Weekly note gaps','#8C6D3F')+
+    kpi(rows.filter(r=>r.initial&&r.initial.ok===false).length,'Initial 48h missed','#B4453C')+
     kpi(rows.filter(r=>r.pmofNeeded).length,'PMOF needed','#6B5B8C')+
     kpi(rows.filter(r=>!_mdFlags(r).length).length,'Fully clear','#3D7A5B');
   const g=_mdData&&_mdData.generatedAt;
@@ -2208,14 +2209,22 @@ function renderMdDetail(){
 
   // 1 Initial within 48h
   const ini=r.initial||{};
-  const iniDetail = ini.withinDays===null
-    ? (ini.careStarted?'No Client Admission form found. Care started '+fmtD(ini.careStarted)+'.':'No admission form and no care start date on file.')
-    : 'Admitted '+fmtD(ini.admitted)+', care started '+fmtD(ini.careStarted)+' ('+(ini.withinDays===0?'same day':Math.abs(ini.withinDays)+' day'+(Math.abs(ini.withinDays)===1?'':'s')+(ini.withinDays>0?' after':' before'))+').';
+  const iniDetail = ini.withinDays!==null && ini.withinDays!==undefined
+    ? 'Admitted '+fmtD(ini.admitted)+', care started '+fmtD(ini.careStarted)+' ('+(ini.withinDays===0?'same day':Math.abs(ini.withinDays)+' day'+(Math.abs(ini.withinDays)===1?'':'s')+(ini.withinDays>0?' after':' before'))+').'
+    : ini.ok===false
+    ? 'Care started '+fmtD(ini.careStarted)+' and there is no Client Admission form on file.'
+    : ini.unknownReason==='care started before our records moved into Viv'
+    ? 'Care started '+fmtD(ini.careStarted)+', before our records moved into Viv in January 2026, so the form date cannot tell us when the assessment happened. Not something this board can judge.'
+    : (ini.unknownReason?escHtml(ini.unknownReason).replace(/^./,function(m){return m.toUpperCase();})+'.':'Nothing on file to judge this against.');
 
   // 2 Cadence
-  const cadDetail = !a ? 'No nursing assessment on file.'
+  const cp=r.lastCarePlan;
+  const cpNote = (cp&&cp.date&&(!a||cp.date>a.date))
+    ? '<div style="margin-top:3px;color:#8C857B;">The care plan was updated more recently, on '+fmtD(cp.date)+'. That is not an assessment, but it means somebody has been in.</div>' : '';
+  const cadDetail = !a
+    ? 'No nursing assessment on file'+(r.formsOnFile===0?' — in fact no Viv forms at all for this client.':'.')+cpNote
     : 'Last '+fmtD(a.date)+'. Next due '+fmtD(r.nextDueEff)+
-      (r.overdueByEff>0?' — <strong style="color:#B4453C;">'+r.overdueByEff+' days overdue</strong>':' — '+Math.abs(r.overdueByEff)+' days away')+'.';
+      (r.overdueByEff>0?' — <strong style="color:#B4453C;">'+r.overdueByEff+' days overdue</strong>':' — '+Math.abs(r.overdueByEff)+' days away')+'.'+cpNote;
 
   // 3 Annual
   const annDetail = !a ? 'No nursing assessment on file.'
