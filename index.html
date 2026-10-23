@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-10-23T08:21"></script>
+<script src="./entra-auth.js?v=2026-10-23T08:49"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1693,7 +1693,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-10-23T08:21';
+const HUB_BUILD='2026-10-23T08:49';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -2095,7 +2095,8 @@ function _mdFlags(r){
   if(r.annualStatus==='overdue')f.push('annual overdue');
   if(r.initial&&r.initial.ok===false)f.push(r.initial.withinDays===null?'no admission form':'initial assessment outside 48h');
   if(r.reassessmentCount>0)f.push(r.reassessmentCount+' reassessment'+(r.reassessmentCount>1?'s':'')+' owed');
-  if(r.missedWeeks12>0)f.push(r.missedWeeks12+' week'+(r.missedWeeks12>1?'s':'')+' with no note');
+  if(r.touchSource&&r.touchSource.noActivity)f.push('no activity at all in 12 weeks');
+  else if(r.missedWeeks12>0)f.push(r.missedWeeks12+' week'+(r.missedWeeks12>1?'s':'')+' with no note');
   if(r.pmofNeeded)f.push('PMOF needed');
   return f;
 }
@@ -2136,6 +2137,7 @@ function renderMdKpi(){
     kpi(rows.filter(r=>r.annualStatus==='overdue').length,'Annual overdue','#B4453C')+
     kpi(rows.filter(r=>r.reassessmentCount>0).length,'Reassessment owed','#8A1A57')+
     kpi(rows.some(r=>r.touchSource)?rows.filter(r=>r.missedWeeks12>0).length:'—','Weekly note gaps','#8C6D3F')+
+    kpi(rows.filter(r=>r.touchSource&&r.touchSource.noActivity).length,'No activity at all','#8A1A57')+
     kpi(rows.filter(r=>r.initial&&r.initial.ok===false).length,'Initial 48h missed','#B4453C')+
     kpi(rows.filter(r=>r.pmofNeeded).length,'PMOF needed','#6B5B8C')+
     kpi(rows.filter(r=>!_mdFlags(r).length).length,'Fully clear','#3D7A5B');
@@ -2158,7 +2160,7 @@ function renderMdRows(){
     if(_mdFilter==='attention')return _mdFlags(r).length>0;
     if(_mdFilter==='assess')return r.statusEff==='overdue'||r.statusEff==='none'||r.statusEff==='soon';
     if(_mdFilter==='reassess')return r.reassessmentCount>0;
-    if(_mdFilter==='touch')return r.missedWeeks12>0;
+    if(_mdFilter==='touch')return r.missedWeeks12>0||(r.touchSource&&r.touchSource.noActivity);
     if(_mdFilter==='mine')return (r.csm||'').toLowerCase()===me;
     return true;
   });
@@ -2239,10 +2241,23 @@ function renderMdDetail(){
 
   // 5 Weekly note
   const wk=r.weeklyTouch||[], ts=r.touchSource||{};
+  const nW=wk.length;
   const grid=wk.map(w=>`<span title="Week of ${w.week}" style="display:inline-block;width:14px;height:14px;border-radius:3px;margin:1px;background:${w.touched?'#3D7A5B':'#E3B9B4'};"></span>`).join('');
-  const wkDetail = (r.missedWeeks12===0?'A note in every one of the last 12 weeks.':r.missedWeeks12+' of the last 12 weeks have no note of any kind.')
-    +'<div style="margin-top:4px;">'+grid+'</div>'
-    +'<div style="font-size:10.5px;color:#8C857B;margin-top:3px;">Newest week on the left. Green is a week with at least one touch.</div>';
+  const wkDetail = ts.noActivity
+    ? 'No visit, note, call, email, text or CSM visit anywhere in the last 12 weeks. That usually means no care is being delivered rather than that notes were missed, so this is worth checking before it is treated as a gap.'
+    : (r.missedWeeks12===0?'A note in every one of the last '+nW+' week'+(nW===1?'':'s')+'.'
+       :r.missedWeeks12+' of the last '+nW+' week'+(nW===1?'':'s')+' have no note of any kind.')
+      +(nW<12&&ts.careStarted?' Care started '+fmtD(ts.careStarted)+', so there are only '+nW+' week'+(nW===1?'':'s')+' to count.':'')
+      +(()=>{ // All the touched weeks at the recent end and none before is a
+              // client whose activity stopped on a date, which is a different
+              // conversation from notes being missed here and there.
+        if(!r.missedWeeks12||!wk.length)return '';
+        const i=wk.findIndex(w=>!w.touched);
+        if(i<1||wk.slice(i).some(w=>w.touched))return '';
+        return ' Everything stops at the week of '+fmtD(wk[i-1].week)+', so this looks like service pausing rather than notes being missed.';
+      })()
+      +'<div style="margin-top:4px;">'+grid+'</div>'
+      +'<div style="font-size:10.5px;color:#8C857B;margin-top:3px;">Newest week on the left. Green is a week with at least one touch.</div>';
   // Never let the board state a source it does not have. Before the API
   // carrying touchSource is deployed, say so rather than printing zeroes that
   // read like a real count.
@@ -2250,7 +2265,7 @@ function renderMdDetail(){
     ? 'This figure is from an older build that only read the most recent events, so it understates coverage. Do not act on it yet.'
     : ts.complete===false
     ? 'Counted from communications only — the Viv client feed returned nothing for this client, so a quiet week here may be a reporting gap.'
-    : 'From '+(ts.feedEvents||0)+' client-feed entries, '+(ts.comms||0)+' communications and '+(ts.csmVisits||0)+' CSM visits over '+(ts.windowDays||84)+' days.';
+    : 'From '+(ts.feedEvents||0)+' client-feed entries over '+(ts.windowDays||84)+' days, '+(ts.csmVisits||0)+' CSM visits, and '+(ts.comms||0)+' communications. Calls, emails and texts are only held for about the last five weeks, so the feed is what covers the older part of the window.';
 
   // 6 PMOF
   const pmofDetail = r.pmofNeeded
@@ -2281,7 +2296,7 @@ function renderMdDetail(){
       ${line(MD_REGS[1][1], !a?null:(r.overdueByEff>0?false:true), cadDetail, src(a))}
       ${line(MD_REGS[2][1], !a?null:(r.annualOverdueBy>0?false:true), annDetail, src(a))}
       ${line(MD_REGS[3][1], tr.length?false:true, trDetail, tr.length?'From service exceptions and changes of condition in the last 45 days':'')}
-      ${line(MD_REGS[4][1], r.missedWeeks12===0?true:false, wkDetail, wkSrc)}
+      ${line(MD_REGS[4][1], (r.touchSource&&r.touchSource.noActivity)?null:(r.missedWeeks12===0), wkDetail, wkSrc)}
       ${line(MD_REGS[5][1], r.pmofNeeded?null:true, pmofDetail, '')}
     </div>
   </div>`;
