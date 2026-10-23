@@ -791,9 +791,23 @@
      a week that had not changed. Normalise, dedupe, sort, then hash.
      ───────────────────────────────────────────────────────────────────── */
 
+  // Production uses THIRTEEN market strings, not three — measured against the
+  // live book, which the synthetic three-market fixture could never show:
+  // Boston, MetroWest Boston, North of Boston, South of Boston, Massachusetts,
+  // Baltimore, Annapolis, Bethesda, Maryland, Chicago, Illinois, and two
+  // outside the three markets entirely (Northern New Jersey, Northern
+  // Virginia). All of them happen to land correctly today, but eight did so
+  // only by falling through to the default — so an unrecognised market is now
+  // REPORTED rather than silently assumed Eastern. A Chicago-area name nobody
+  // listed ("North Shore", "Naperville") is the case that would go wrong.
   const MARKET_TZ = {
-    'massachusetts': 'America/New_York', 'ma': 'America/New_York', 'boston': 'America/New_York',
-    'maryland': 'America/New_York', 'md': 'America/New_York', 'baltimore': 'America/New_York',
+    'massachusetts': 'America/New_York', 'ma': 'America/New_York',
+    'boston': 'America/New_York', 'metrowest boston': 'America/New_York',
+    'north of boston': 'America/New_York', 'south of boston': 'America/New_York',
+    'maryland': 'America/New_York', 'md': 'America/New_York',
+    'baltimore': 'America/New_York', 'annapolis': 'America/New_York',
+    'bethesda': 'America/New_York',
+    'northern virginia': 'America/New_York', 'northern new jersey': 'America/New_York',
     'chicago': 'America/Chicago', 'chi': 'America/Chicago', 'illinois': 'America/Chicago'
   };
   const DEFAULT_TZ = 'America/New_York';
@@ -803,6 +817,11 @@
     for (let i = 0; i < keys.length; i++) {
       const k = String(keys[i] || '').trim().toLowerCase();
       if (MARKET_TZ[k]) return MARKET_TZ[k];
+    }
+    const named = String((c && c.market) || '').trim();
+    if (named && window.TributeApp && window.TributeApp.noteAnomaly) {
+      window.TributeApp.noteAnomaly('unknown-market-timezone', 'weekly.tzFor',
+        named + ' \u2014 defaulting to ' + DEFAULT_TZ);
     }
     return DEFAULT_TZ;
   }

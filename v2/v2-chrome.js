@@ -104,9 +104,17 @@
      Run once per endpoint response. Deliberately conservative: it reports
      what is missing or unknown and changes nothing. */
   const ENUMS = {
-    pulseTier: ['needs_attention', 'watch', 'steady', 'ok', 'green', 'amber', 'red'],
+    // Measured against production, not guessed: client_pulse returns exactly
+    // needs_attention / monitor / status_quo. The first list here was invented
+    // from the prototype and would have flagged 132 of 238 live clients as an
+    // unknown enum on day one of the pilot.
+    pulseTier: ['needs_attention', 'monitor', 'status_quo'],
     ltcState: ['not_started', 'approved', 'sent', 'confirmed', 'skipped'],
-    mdStatus: ['ok', 'overdue', 'due soon', 'none on file', 'none']
+    mdStatus: ['ok', 'overdue', 'due soon', 'none on file', 'none'],
+    // The real market vocabulary is thirteen strings, not three.
+    market: ['Boston', 'MetroWest Boston', 'North of Boston', 'South of Boston',
+             'Massachusetts', 'Baltimore', 'Annapolis', 'Bethesda', 'Maryland',
+             'Chicago', 'Illinois', 'Northern New Jersey', 'Northern Virginia']
   };
 
   App.inspectPayload = function (ep, data) {
@@ -126,6 +134,13 @@
         if (noId) App.noteAnomaly('missing-field', ep + '.clients.vivId', noId + ' rows');
         if (noName) App.noteAnomaly('missing-field', ep + '.clients.name', noName + ' rows');
         if (noMarket) App.noteAnomaly('missing-field', ep + '.clients.market', noMarket + ' rows');
+        const mk = {};
+        cl.forEach(function (c) { if (c.market) mk[c.market] = (mk[c.market] || 0) + 1; });
+        Object.keys(mk).forEach(function (m) {
+          if (ENUMS.market.indexOf(m) < 0) {
+            App.noteAnomaly('unknown-market', ep + '.clients.market', m + ' (' + mk[m] + ' clients)');
+          }
+        });
       }
 
       if (ep === 'client_pulse') {

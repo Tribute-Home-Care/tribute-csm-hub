@@ -966,6 +966,25 @@
     return out;
   }
 
+  // Which sources the environment has recorded as failing. In V2 this comes
+  // from the diagnostics layer; locally there is nothing to report.
+  const SOURCE_LABEL = {
+    csm_hub: 'The Viv sync', csm_data: 'The shared document',
+    client_pulse: 'Client Pulse', md_compliance: 'Maryland Compliance',
+    ltc_board: 'The LTC board', csm_comms: 'Communications', coc_tasks: 'Change of condition'
+  };
+  function failedSources() {
+    const App = window.TributeApp;
+    if (!App || !App.anomalies) return [];
+    const bad = {};
+    App.anomalies.forEach(function (a) {
+      if (a.kind !== 'api-error' && a.kind !== 'api-failure') return;
+      const key = String(a.where || '').split('.')[0];
+      bad[SOURCE_LABEL[key] || key] = true;
+    });
+    return Object.keys(bad);
+  }
+
   let _attnKey = '';
   function renderAttention() {
     const el = $('#rd-attn');
@@ -973,10 +992,22 @@
     const sig = attentionSignals();
     const rank = { bad: 0, warn: 1, info: 2 };
     sig.sort(function (a, b) { return (rank[a.tone] - rank[b.tone]) || (b.n - a.n); });
-    const key = sig.map(function (s) { return s.tone + s.n + s.label; }).join('|');
+    const key = sig.map(function (s) { return s.tone + s.n + s.label; }).join('|') +
+                '#' + failedSources().join(',');
     if (key !== _attnKey) {
       _attnKey = key;
-      if (!sig.length) {
+      // THE RULE: an endpoint that FAILED is not an endpoint that said
+      // "nothing". Silence from a broken source must never be rendered as
+      // reassurance — that is the pass-1 defect ("Nothing is overdue" on a
+      // caseload with five overdue visits) in a different costume, and it is
+      // the one the production brief names explicitly.
+      const broken = failedSources();
+      if (!sig.length && broken.length) {
+        el.innerHTML = illustration('calm', 'Some of this could not be loaded',
+          broken.join(', ') + (broken.length === 1 ? ' did not answer' : ' did not answer') +
+          ', so this list is incomplete. Reload, or check back shortly \u2014 ' +
+          'this is not an all-clear.');
+      } else if (!sig.length) {
         // Tribute's public voice is warm and direct. "Everything is caught
         // up" says the same operational thing as "0 outstanding items" and
         // sounds like a colleague rather than a ticket queue. The detail
@@ -1003,6 +1034,11 @@
             (s.view ? ' data-view="' + s.view + '"' : '') + '>' +
             '<b>' + s.n + '</b> ' + esc(String(s.label).toLowerCase()) + '</button>';
         }).join('<span class="sep">\u00b7</span>') + '</div>' : '');
+        if (broken.length) {
+          el.insertAdjacentHTML('beforeend',
+            '<p class="rd-attn-partial">' + esc(broken.join(', ')) +
+            ' did not answer, so this list may be incomplete.</p>');
+        }
         $$('.rd-attn-card, .rd-attn-link', el).forEach(function (c) {
           c.addEventListener('click', function () {
             if (c.dataset.view) _view = c.dataset.view;
