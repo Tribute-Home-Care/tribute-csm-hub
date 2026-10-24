@@ -6126,8 +6126,8 @@ function renderEmailDraft(){
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         <button class="btn btn-sm btn-o" onclick="ecLoadDraft(true)" title="Rewrite the summaries and refresh the schedule">↻ Regenerate</button>
         <button class="btn btn-sm btn-o" onclick="ecSaveDraft()">Save draft</button>
-        <button class="btn btn-sm btn-o" onclick="ecSend(true)" ${canMail?'':'disabled title="Sign in with Microsoft to send"'}>Send test to me</button>
-        <button class="btn btn-sm btn-p" onclick="ecSend(false)" ${canMail?'':'disabled title="Sign in with Microsoft to send"'}>Send from my Outlook →</button>
+        <button class="btn btn-sm btn-o" data-ec-send onclick="ecSend(true)" ${canMail?'':'disabled title="Sign in with Microsoft to send"'}>Send test to me</button>
+        <button class="btn btn-sm btn-p" data-ec-send onclick="ecSend(false)" ${canMail?'':'disabled title="Sign in with Microsoft to send"'}>Send from my Outlook →</button>
       </div>
     </div>
     <div id="ec-sendmsg" style="display:none;padding:8px 16px;font-size:12.5px;border-bottom:1px solid var(--line);"></div>
@@ -6258,8 +6258,29 @@ function ecSkipWeek(skip){
   DATA.shared.communities[_ecSel]=d;queueSave();const keep=_ecDraft?_ecCollect():null;renderEmailCommDetail();_ecDraft=keep;renderEmailDraft();showToast(skip?'This Friday\'s automatic email is skipped for '+_ecSel+'.':'Back in the Friday run.');
 }
 // Send from the signed-in person's own mailbox (delegated Mail.Send).
+// A send leaves Tribute, so it has to be impossible to do twice by accident.
+// Three separate things can fire this handler more than once: a double click,
+// a repeated handler binding after a re-render, and a retry after a request
+// that the server already accepted but whose response never arrived. The
+// in-flight flag and the disabled button handle the first two. The third is
+// handled by the key: the same draft + the same recipients + the same minute
+// is treated as the same send, and the second attempt is refused rather than
+// delivered. Cleared on failure so a genuine retry still works.
+let _ecSending=false;
+const _ecSentKeys=new Set();
+function _ecSendKey(test,to){
+  return [_ecSel,test?'test':'real',(to||[]).join(','),
+          (_ecDraft&&_ecDraft.subject)||'',new Date().toISOString().slice(0,16)].join('|');
+}
+function _ecSendBtns(disabled,label){
+  document.querySelectorAll('[data-ec-send]').forEach(b=>{
+    b.disabled=!!disabled;
+    if(label!==undefined){ if(!b.dataset.ecLabel)b.dataset.ecLabel=b.textContent; b.textContent=disabled?label:b.dataset.ecLabel; }
+  });
+}
 async function ecSend(test){
   if(!_ecSel||!_ecDraft)return;
+  if(_ecSending){ _ecMsg('Still sending \u2014 give it a moment.','#92580B'); return; }
   const e=((DATA.shared.communities||{})[_ecSel]||{}).email||{};
   const me=_ecMe();if(!me.username){_ecMsg('Sign in with Microsoft to send from your mailbox.','#92580B');return;}
   const split=_ecAddrs;
@@ -6267,6 +6288,9 @@ async function ecSend(test){
   const cc=test?[]:split(document.getElementById('ec-cc')?.value);
   if(!to.length){_ecMsg('Add the community leader\'s email above first.','#92580B');return;}
   if(!test&&!confirm('Send this email for '+_ecSel+' to '+to.join(', ')+' now, from your mailbox ('+me.username+')?'))return;
+  const _key=_ecSendKey(test,to);
+  if(_ecSentKeys.has(_key)){ _ecMsg('That exact email already went out a moment ago \u2014 not sending it twice.','#92580B'); return; }
+  _ecSending=true; _ecSendBtns(true,'Sending\u2026');
   _ecMsg('Preparing…','#8C857B');
   try{
     const p=_ecCollect();
@@ -6280,7 +6304,12 @@ async function ecSend(test){
     if(!test){p.sentAt=new Date().toISOString();p.sentTo=to;p.edited=true;p.editedAt=p.editedAt||p.sentAt;_ecDraft=p;await _ecPost('save=1',p).catch(()=>{});renderEmailDraft();}
     _ecMsg('✓ Sent from '+escHtml(me.username)+' to '+escHtml(to.join(', '))+(cc.length?' (cc '+escHtml(cc.join(', '))+')':'')+' — it\'s in your Sent Items.','#0F6E56');
     showToast(test?'Test sent to you.':'Sent to '+_ecSel+'.');
-  }catch(err){_ecMsg('Send failed — '+escHtml(err.message),'#B42318');}
+    _ecSentKeys.add(_key);          // only after Graph accepted it
+  }catch(err){
+    _ecMsg('Send failed — '+escHtml(err.message)+' Nothing was sent; you can try again.','#B42318');
+  }finally{
+    _ecSending=false; _ecSendBtns(false);
+  }
 }
 
 // ═══════════════════════ KPI ═══════════════════════
@@ -8344,7 +8373,7 @@ try{ const cur=document.querySelector('.page.active'); TributeUsage.start({ app:
 <script src="./redesign.js?v=8b399815"></script>
 <script src="./workflows.js?v=2b8bd012"></script>
 <script src="./router.js?v=4d711368"></script>
-<script src="./v2-policy.js?v=739ac73b"></script>
+<script src="./v2-policy.js?v=48aece69"></script>
 <script src="./v2-chrome.js?v=757dd0ea"></script>
 </body>
 </html>
