@@ -319,6 +319,10 @@
       // building. capabilityFor lets one wrapper tell them apart.
       const cap = spec.capabilityFor ? spec.capabilityFor(arguments) : spec.capability;
       if (!App.canWrite(cap)) { deny(Object.assign({}, spec, { capability: cap })); return spec.returns; }
+      // Tell the tripwire which capability the call it is about to see
+      // belongs to. Without this a Graph request looks like an unlisted
+      // write path and is refused even though it was authorised.
+      if (spec.intent) App.__intent = { capability: cap, at: Date.now() };
       return orig.apply(this, arguments);
     };
     fn.__v2 = true;
@@ -401,11 +405,13 @@
       message: 'Preview only — nothing was deleted in Viv.'
     });
     gate('_lpAddToOutlook', {
+      intent: true,
       feature: 'Create Outlook event', capability: 'graph_calendar',
       endpoint: 'graph.microsoft.com/v1.0/me/events', operation: 'POST',
       message: 'Preview only — no calendar event was created.'
     });
     gate('_deleteOutlookEvent', {
+      intent: true,
       feature: 'Delete Outlook event', capability: 'graph_calendar',
       endpoint: 'graph.microsoft.com/v1.0/me/events/{id}', operation: 'DELETE',
       message: 'Preview only — no calendar event was deleted.'
@@ -418,6 +424,7 @@
     });
     gate('ecSend', {
       feature: 'Send community email', capability: 'community_send_real',
+      intent: true,
       capabilityFor: function (args) {
         return args[0] ? 'community_send_test' : 'community_send_real';
       },
@@ -530,6 +537,40 @@
           if (App.__serverShared && mine !== theirs) return 'csm_data_shared';
         } catch (e) { return 'csm_data_shared'; }   // cannot tell: claim the stricter one
         return 'csm_data_pocket';
+      }
+
+      // Graph is a different host with no endpoint= parameter, so it is
+      // matched by URL and authorised by the intent the gated function
+      // recorded a moment ago. An intent older than 10 seconds is ignored,
+      // so a stray Graph call can never ride on a previous authorisation.
+      const intent = App.__intent && (Date.now() - App.__intent.at < 10000) ? App.__intent.capability : null;
+      const GRAPH = [
+        { re: /graph\.microsoft\.com\/v1\.0\/me\/sendMail/i,
+          caps: ['community_send_test', 'community_send_real'], recordType: 'community email' },
+        { re: /graph\.microsoft\.com\/v1\.0\/me\/events/i,
+          caps: ['graph_calendar_add', 'graph_calendar_delete'], recordType: 'calendar event' }
+      ];
+      for (let i = 0; i < GRAPH.length; i++) {
+        const g = GRAPH[i];
+        if (!g.re.test(u)) continue;
+        const cap = (intent && g.caps.indexOf(intent) !== -1) ? intent : null;
+        if (!cap || !App.canWrite(cap)) {
+          App.recordBlockedWrite({ feature: g.recordType, capability: cap || 'unclaimed',
+            endpoint: u.split('?')[0], operation: method });
+          return Promise.resolve(new Response(JSON.stringify(
+            { error: 'v2: ' + g.recordType + ' is not switched on', v2Blocked: true }),
+            { status: 403, headers: { 'Content-Type': 'application/json' } }));
+        }
+        App.__intent = null;            // one authorisation, one request
+        return real(url, opts).then(function (r) {
+          App.recordWrite({ capability: cap, endpoint: u.split('?')[0], operation: method,
+            recordType: g.recordType, ok: r.ok, status: r.status });
+          return r;
+        }, function (err) {
+          App.recordWrite({ capability: cap, endpoint: u.split('?')[0], operation: method,
+            recordType: g.recordType, ok: false, status: 'network' });
+          throw err;
+        });
       }
 
       const APPROVED = [
