@@ -12,6 +12,7 @@ LOCAL PREVIEW bar are development-only and are asserted absent below.
 
 Output: v2/index.html — a sibling of V1, sharing nothing but the origin.
 """
+import hashlib
 import io, os, re, shutil, sys
 
 HUB = os.path.expanduser('~/tribute-csm-hub')
@@ -75,13 +76,27 @@ def main():
     # 3. The redesign layer + the V2 policy, before </body>.
     #    ORDER MATTERS: bridge.js assigns window.TributeApp, so v2-policy.js
     #    must come after it or the capability surface is overwritten.
+    #    Every asset is stamped with a hash of its own contents. Without it
+    #    the browser keeps a cached icons.js next to a fresh index.html and
+    #    the page silently runs last week's code — which is exactly what
+    #    happened to the market-illustration colour pass: Pages was serving
+    #    the new file and Chrome was ignoring it.
+    def stamp(name):
+        src = os.path.join(OUT, 'v2', name)
+        h = hashlib.sha1(io.open(src, 'rb').read()).hexdigest()[:8]
+        return './%s?v=%s' % (name, h)
+
+    # Copy the layer across FIRST, so the stamps are taken from what ships.
+    for f in LAYER + ['redesign.css']:
+        shutil.copyfile(os.path.join(RD, 'prototype', f), os.path.join(OUT, 'v2', f))
+
     tags = []
-    tags.append('<link rel="stylesheet" href="./redesign.css">')
-    tags.append('<link rel="stylesheet" href="./v2.css">')
+    tags.append('<link rel="stylesheet" href="%s">' % stamp('redesign.css'))
+    tags.append('<link rel="stylesheet" href="%s">' % stamp('v2.css'))
     for f in LAYER:
-        tags.append('<script src="./%s"></script>' % f)
-    tags.append('<script src="./v2-policy.js"></script>')
-    tags.append('<script src="./v2-chrome.js"></script>')
+        tags.append('<script src="%s"></script>' % stamp(f))
+    tags.append('<script src="%s"></script>' % stamp('v2-policy.js'))
+    tags.append('<script src="%s"></script>' % stamp('v2-chrome.js'))
     block = '\n' + '\n'.join(tags) + '\n'
     # There are two '</body>' in the file: one inside a printable-HTML string
     # the LTC packet builds, and the real one at the end. Anchor on the LAST.
@@ -91,9 +106,7 @@ def main():
     with io.open(os.path.join(OUT, 'v2', 'index.html'), 'w', encoding='utf-8') as f:
         f.write(html)
 
-    # 4. Copy the redesign layer across.
-    for f in LAYER + ['redesign.css']:
-        shutil.copyfile(os.path.join(RD, 'prototype', f), os.path.join(OUT, 'v2', f))
+    # 4. (the layer was copied above, before the stamps were taken)
 
     # 5. Assertions. A harness that reaches production is the one thing that
     #    must never happen, so it is checked rather than assumed.
