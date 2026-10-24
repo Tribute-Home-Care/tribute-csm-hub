@@ -14,6 +14,10 @@ All taken from the deployed V2 Hub, October 2026.
 | `guide-feedback-button.png` | Page · Feedback | Lower-right corner crop | no | n/a |
 | `guide-feedback-panel.png` | Page · Feedback | Feedback panel, filled in | no | n/a (example text is invented) |
 | `guide-blocked-action.png` | Task · When V2 says an action is not available | The blocked-action message | no | n/a |
+| `guide-coverage.png` | Page · Coverage Notes | Coverage Notes, My Clients tab | no | yes |
+| `guide-fill-priority.png` | Page · Fill Priority | Fill Priority, ranked list | no | yes |
+| `guide-email-community.png` | Page · Email Community | Community list, no draft open | no | yes (list only) |
+| `guide-team.png` | Page · Team Overview | Manager Hub, all markets | 2 callouts | yes |
 
 ## How to regenerate
 
@@ -44,9 +48,25 @@ All taken from the deployed V2 Hub, October 2026.
   so a replacement at a different resolution keeps its annotations. If the
   layout moves, update the percentages.
 
-## Not yet captured
+## Not captured, and why
 
-Client Pulse, Coverage Notes, Fill Priority, Email Community and Team
-Overview are described in the guide without a screenshot. They need a
-capture from an account with the right role and market, with the same
-two-pass sanitisation.
+**Client Pulse — deliberately not screenshotted.** The page is free-text
+clinical narrative. A single row on the live page contained a client's name
+with a quoted nickname, two caregivers' first names, three family contacts
+by name, and a paragraph describing overnight confusion, coughing episodes
+and a malfunctioning oxygen tank. Pattern matching cannot make prose like
+that safe, and a partly-sanitised clinical note is worse than none because
+it looks safe. A Pulse screenshot needs either a purpose-built demo record
+or a redaction pass somebody reads line by line before it ships.
+
+**LTC, Tribute Assistant and KPI Tracker** have no screenshot yet. LTC has no
+operational records to show, and the other two are low-question pages. None
+of them is blocked on safety.
+
+## A label is not a person
+
+The Team Overview capture had to be retaken: the sanitiser rewrote the stat
+label "IN ONBOARDING" as "RUSSELL THORNE", because a two-capitalised-word
+label looks exactly like a name. The capture pass now skips text that is
+entirely uppercase or sits in an element styled `text-transform: uppercase`.
+Check labels, not just names, before saving a screenshot.

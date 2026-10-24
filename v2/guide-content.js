@@ -114,6 +114,9 @@ window.GUIDE = (function () {
     coverage: {
       title: 'Coverage Notes',
       lede: 'What a covering colleague needs to know, plus handoffs and the community directory.',
+      shot: { src: 'guide-shots/guide-coverage.png',
+        alt: 'The Coverage Notes page with tabs for My Clients, Team Coverage, Handoffs and Communities, and a readiness list.',
+        caption: 'The link under the heading goes straight to this guide \u2014 every page has one.' },
       what: 'Coverage notes are written for somebody else: the person picking up your caseload while you are out. Handoffs assign that cover. Communities is the shared directory of who to call at each building.',
       first: ['My Clients is what you write. Team Coverage is what everyone else wrote.'],
       can: ['Read coverage notes, team coverage, handoffs and the community directory'],
@@ -146,6 +149,8 @@ window.GUIDE = (function () {
     priority: {
       title: 'Fill Priority',
       lede: 'Which open visits matter most, and where your caseload is exposed.',
+      shot: { src: 'guide-shots/guide-fill-priority.png',
+        alt: 'The Fill Priority page showing ranked clients with scores during a coverage event.' },
       what: 'Open visits on your caseload, ranked, alongside any coverage events a manager has created. It answers "if I can only solve one gap today, which one?"',
       first: ['High-rank items first.', 'An open visit in the next 48 hours is called out separately.'],
       can: ['Review open visits and their ranking'],
@@ -156,6 +161,9 @@ window.GUIDE = (function () {
     emailcomm: {
       title: 'Email Community',
       lede: 'The weekly update that goes to a senior living community.',
+      shot: { src: 'guide-shots/guide-email-community.png',
+        alt: 'The Email Community page listing communities with client counts and the CSMs who own them.',
+        caption: 'The list view. Opening a community loads that week\u2019s draft.' },
       what: 'For communities where Tribute has clients, the Hub assembles a weekly update and holds it as a draft. You can read it and see what would go out.',
       first: ['Pick a community on the left; its current draft loads on the right.'],
       can: ['Read the generated draft for a community'],
@@ -196,6 +204,12 @@ window.GUIDE = (function () {
     team: {
       title: 'Team Overview',
       lede: 'For managers: the whole team in one view, with a route down to the client.',
+      shot: { src: 'guide-shots/guide-team.png',
+        alt: 'The Manager Hub showing cross-market totals and one summary card per CSM.',
+        callouts: [
+          { n: 1, x: 24, y: 37, title: 'The market totals', body: 'Clients, touchpoints, high need and overdue visits across every market, or one at a time.' },
+          { n: 2, x: 24, y: 85, title: 'One card per CSM', body: 'Caseload, touches, overdue and onboarding. You are looking for the card that does not match the others.' }
+        ] },
       what: 'A cross-CSM summary so a manager can see where attention is needed without opening each caseload in turn.',
       first: ['Scan for the outliers, not the averages.'],
       can: ['Review the team', 'Open an individual CSM, then an individual client'],
