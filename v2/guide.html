@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Guide · Tribute CSM Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="./guide.css">
+</head>
+<body>
+<header class="gtop">
+  <div class="gtop-in">
+    <a class="gbrand" href="#/"><span>Tribute</span><span class="dot"></span><small>Hub Guide</small></a>
+    <nav id="gnav" aria-label="Guide sections"></nav>
+  </div>
+</header>
+
+<main id="view" class="wrap" tabindex="-1"></main>
+
+<script src="./guide-content.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   GUIDE RENDERER
+   The content lives in guide-content.js. This file only turns it into pages,
+   so changing wording never means touching markup.
+   Routes:  #/  #/role/<id>  #/page/<id>  #/task/<id>  #/help  #/words  #/v2
+   ═══════════════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+  const G = window.GUIDE;
+  const view = document.getElementById('view');
+
+  const esc = s => String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+  const NAV = [
+    ['#/', 'Start here'], ['#/roles', 'By role'], ['#/tasks', 'By task'],
+    ['#/pages', 'By page'], ['#/v2', 'Using the new Hub'], ['#/help', 'Troubleshooting'],
+    ['#/words', 'Glossary']
+  ];
+
+  /* ── Pieces ──────────────────────────────────────────────────────── */
+  function shot(s) {
+    if (!s) return '';
+    const marks = (s.callouts || []).map(c =>
+      '<span class="cm" style="left:' + c.x + '%;top:' + c.y + '%" aria-hidden="true">' + c.n + '</span>').join('');
+    const key = (s.callouts || []).length
+      ? '<ol class="cmlist">' + s.callouts.map(c =>
+          '<li><span class="n" aria-hidden="true">' + c.n + '</span><span><span class="t">' +
+          esc(c.title) + '</span><span class="b">' + esc(c.body) + '</span></span></li>').join('') + '</ol>'
+      : '';
+    return '<figure><div class="shot"><img src="' + esc(s.src) + '" alt="' + esc(s.alt) + '" loading="lazy">' +
+      marks + '</div>' + (s.caption ? '<figcaption>' + esc(s.caption) + '</figcaption>' : '') + '</figure>' + key;
+  }
+  const block = (h, inner) => inner ? '<div class="block"><h2>' + esc(h) + '</h2>' + inner + '</div>' : '';
+  const list  = a => (a && a.length) ? '<ul class="clean">' + a.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '';
+  const back  = (href, label) => '<a class="gback" href="' + href + '">&larr; ' + esc(label) + '</a>';
+
+  function relatedBlock(ids) {
+    if (!ids || !ids.length) return '';
+    const links = ids.map(id => {
+      if (G.pages[id])  return ['#/page/' + id, G.pages[id].title, 'Page'];
+      if (G.tasks[id])  return ['#/task/' + id, G.tasks[id].title, 'How to'];
+      if (G.roles[id])  return ['#/role/' + id, G.roles[id].title, 'Role'];
+      const t = G.trouble.find(x => x.id === id);
+      if (t) return ['#/help#' + id, t.q, 'Troubleshooting'];
+      if (id === 'v2-status') return ['#/v2', 'Using the new Hub', 'Guide'];
+      return null;
+    }).filter(Boolean);
+    if (!links.length) return '';
+    return block('Related', '<div class="cardlist">' + links.map(l =>
+      '<a href="' + l[0] + '"><span class="t">' + esc(l[1]) + '</span><span class="d">' + esc(l[2]) + '</span></a>').join('') + '</div>');
+  }
+
+  /* ── Views ───────────────────────────────────────────────────────── */
+  function home() {
+    const role = (id, k) => '<a class="card" href="#/role/' + id + '"><h3>' + esc(G.roles[id].title.replace(/^For /,'')) +
+      '</h3><p>' + esc(G.roles[id].lede) + '</p><span class="go">Open guide &rarr;</span></a>';
+    const quick = ['review-attention','find-client','log-touchpoint','quick-notes','switch-market','blocked-action','leave-feedback','did-it-save'];
+    return '<div class="hero">' +
+      '<span class="eyebrow">Tribute CSM Hub</span>' +
+      '<h1>Everything the Hub does, explained in the order you need it.</h1>' +
+      '<p>Short answers, real screenshots and a route to the next step. Start wherever you are — you do not need to read it through.</p>' +
+      '<div class="gsearch"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg>' +
+      '<input id="q" type="search" placeholder="Search the guide — try &ldquo;quick notes&rdquo; or &ldquo;why can’t I save&rdquo;" autocomplete="off" aria-label="Search the guide" aria-controls="res" role="combobox" aria-expanded="false">' +
+      '<div class="gres" id="res" role="listbox" hidden></div></div></div>' +
+
+      '<section><h2>Start with your role</h2><p class="sub">The same Hub reads differently depending on what you do with it.</p>' +
+      '<div class="grid g4">' + ['csm','csc','manager','multimarket'].map(role).join('') + '</div></section>' +
+
+      '<section><h2>The things people ask most</h2><p class="sub">Each one is a short, visual walkthrough.</p>' +
+      '<div class="grid g2"><div class="cardlist">' + quick.slice(0,4).map(t =>
+        '<a href="#/task/' + t + '"><span class="t">' + esc(G.tasks[t].title) + '</span><span class="d">' + esc(G.tasks[t].lede) + '</span></a>').join('') +
+      '</div><div class="cardlist">' + quick.slice(4).map(t =>
+        '<a href="#/task/' + t + '"><span class="t">' + esc(G.tasks[t].title) + '</span><span class="d">' + esc(G.tasks[t].lede) + '</span></a>').join('') +
+      '</div></div></section>' +
+
+      '<section><h2>New to the Hub?</h2><p class="sub">Five things, and you can work.</p>' +
+      '<div class="card"><ol class="steps">' + [
+        ['Home tells you what needs you', 'It is ordered by urgency. Read it top to bottom.'],
+        ['Client Tracker is where you work a client', 'Search, open, and the workspace appears beside the list.'],
+        ['Search gets you anywhere', 'Any part of a name. Faster than navigating.'],
+        ['Your work saves itself', 'No save button. The indicator says Saved with a time.'],
+        ['The Hub tells you when an action belongs elsewhere', 'A few team-wide actions are still done in the current Hub. You will be told, on screen, by name.']
+      ].map(s => '<li><span><span class="t">' + esc(s[0]) + '</span><span class="b">' + esc(s[1]) + '</span></span></li>').join('') +
+      '</ol></div></section>' +
+
+      '<section><h2>Also here</h2><div class="grid g3">' +
+        '<a class="card" href="#/v2"><h3>Using the new Hub</h3><p>What saves here, what still belongs in the current Hub, and why.</p></a>' +
+        '<a class="card" href="#/help"><h3>Something looks wrong</h3><p>The handful of checks that resolve most of it.</p></a>' +
+        '<a class="card" href="#/page/feedback"><h3>Telling us</h3><p>Fifteen seconds, without leaving the page.</p></a>' +
+      '</div></section>' + foot();
+  }
+
+  function rolesIdx() {
+    return '<div class="hero"><h1>By role</h1><p>What the Hub is for, depending on what you do.</p></div>' +
+      '<div class="grid g2">' + Object.keys(G.roles).map(id =>
+        '<a class="card" href="#/role/' + id + '"><h3>' + esc(G.roles[id].title) + '</h3><p>' +
+        esc(G.roles[id].lede) + '</p><span class="go">Open &rarr;</span></a>').join('') + '</div>' + foot();
+  }
+  function role(id) {
+    const r = G.roles[id]; if (!r) return notFound();
+    return back('#/roles','All roles') + '<div class="hero"><h1>' + esc(r.title) + '</h1><p>' + esc(r.lede) + '</p></div>' +
+      '<div class="narrow">' + r.sections.map(s =>
+        '<div class="block"><h2>' + esc(s.h) + '</h2><p>' + esc(s.b) + '</p></div>').join('') +
+      block('Where to start', '<div class="cardlist">' + (r.start||[]).filter(p=>G.pages[p]).map(p =>
+        '<a href="#/page/' + p + '"><span class="t">' + esc(G.pages[p].title) + '</span><span class="d">' + esc(G.pages[p].lede) + '</span></a>').join('') + '</div>') +
+      relatedBlock(r.related) + '</div>' + foot();
+  }
+
+  function pagesIdx() {
+    return '<div class="hero"><h1>By page</h1><p>Every area of the Hub: what it is for, what to look at first, and what you can change.</p></div>' +
+      '<div class="grid g3">' + Object.keys(G.pages).map(id =>
+        '<a class="card" href="#/page/' + id + '"><h3>' + esc(G.pages[id].title) + '</h3><p>' +
+        esc(G.pages[id].lede) + '</p></a>').join('') + '</div>' + foot();
+  }
+  function page(id) {
+    const p = G.pages[id]; if (!p) return notFound();
+    const shots = p.shots ? p.shots.map(shot).join('') : shot(p.shot);
+    return back('#/pages','All pages') + '<div class="hero"><h1>' + esc(p.title) + '</h1><p>' + esc(p.lede) + '</p></div>' +
+      (shots ? '<section>' + shots + '</section>' : '') +
+      '<div class="narrow">' +
+      block('What this page is for', '<p>' + esc(p.what) + '</p>') +
+      block('What to look at first', list(p.first)) +
+      block('What you can do here', list(p.can)) +
+      (p.saves ? block('What happens when you change something', '<div class="note ok">' + esc(p.saves) + '</div>') : '') +
+      (p.v1 ? block('Still in the current Hub', '<div class="note v1">' + esc(p.v1) + '</div>') : '') +
+      (p.know ? block('Good to know', list(p.know)) : '') +
+      relatedBlock(p.related) + '</div>' + foot();
+  }
+
+  function tasksIdx() {
+    return '<div class="hero"><h1>By task</h1><p>Short walkthroughs for the things people actually set out to do.</p></div>' +
+      '<div class="grid g2">' + Object.keys(G.tasks).map(id =>
+        '<a class="card" href="#/task/' + id + '"><h3>' + esc(G.tasks[id].title) + '</h3><p>' +
+        esc(G.tasks[id].lede) + '</p></a>').join('') + '</div>' + foot();
+  }
+  function task(id) {
+    const t = G.tasks[id]; if (!t) return notFound();
+    return back('#/tasks','All tasks') + '<div class="hero"><h1>' + esc(t.title) + '</h1><p>' + esc(t.lede) + '</p></div>' +
+      (t.shot ? '<section class="narrow">' + shot(t.shot) + '</section>' : '') +
+      '<div class="narrow">' +
+      block('How to', '<ol class="steps">' + (t.steps||[]).map(s =>
+        '<li><span><span class="t">' + esc(s.t) + '</span><span class="b">' + esc(s.b) + '</span></span></li>').join('') + '</ol>') +
+      (t.v1 ? block('Still in the current Hub', '<div class="note v1">' + esc(t.v1) + '</div>') : '') +
+      (t.know ? block('Good to know', list(t.know)) : '') +
+      relatedBlock(t.related) + '</div>' + foot();
+  }
+
+  function v2() {
+    const live = ['Quick Notes','To-dos','1:1 notes','KPI entries','Client details','Touchpoints and care conversations','Visit log','Success in 30','Acknowledging a Pulse read'];
+    const v1   = ['Coverage notes','Fill Priority changes','Community settings','Maryland assessment cadence','Sending a community email','Outlook and calendar changes','Viv visit changes','LTC actions'];
+    return '<div class="hero"><h1>Using the new Hub</h1>' +
+      '<p>The Hub is being introduced in stages. Both versions read and write the same records, so nothing you do here is separate or temporary.</p></div>' +
+      '<div class="narrow">' +
+      block('The short version', '<div class="note"><b>Use the new Hub as your main one.</b> When an action still belongs in the current Hub, the screen tells you so and names it. Everything else saves here, for real, and the current Hub shows the same thing.</div>') +
+      block('What saves here', '<div class="grid g2"><div>' + list(live.slice(0,5)) + '</div><div>' + list(live.slice(5)) + '</div></div>' +
+        '<p class="sub" style="margin-top:12px">These write to the same record the current Hub reads. A note written in one appears in the other.</p>') +
+      block('What still belongs in the current Hub', '<div class="grid g2"><div>' + list(v1.slice(0,4)) + '</div><div>' + list(v1.slice(4)) + '</div></div>' +
+        '<div class="note v1" style="margin-top:12px">These are shared across the whole team, so they are being switched on carefully, one at a time. A blocked action writes nothing at all — there is no half-saved state to worry about.</div>') +
+      block('Two things worth knowing', '<ul class="clean">' +
+        '<li>Avoid editing the same item in both versions at the same moment. The second save wins.</li>' +
+        '<li>Some pages are assembled on a schedule rather than the instant you open them. Those pages say when they were last built, so you can judge whether a number is current.</li></ul>') +
+      block('Not available yet', '<p>Community email sending, the weekly family schedule email and the automatic sending options are not switched on. Where you see them mentioned, treat them as planned rather than available.</p>') +
+      relatedBlock(['blocked-action','did-it-save','feedback']) + '</div>' + foot();
+  }
+
+  function help() {
+    return '<div class="hero"><h1>When something looks wrong</h1><p>Most of it comes down to four checks. Work down the list before assuming the worst.</p></div>' +
+      '<div class="narrow">' + G.trouble.map((t,i) =>
+        '<div class="block" id="' + esc(t.id || ('t'+i)) + '"><h2>' + esc(t.q) + '</h2>' +
+        '<ol class="steps">' + t.a.map(a => '<li><span><span class="b">' + esc(a) + '</span></span></li>').join('') + '</ol></div>').join('') +
+      block('Still stuck?', '<div class="note">Use the Feedback button in the lower-right of the Hub. Say what you were doing and what the screen showed. It takes about fifteen seconds and it goes straight to the people who can fix it. <a href="#/page/feedback">How feedback works &rarr;</a></div>') +
+      '</div>' + foot();
+  }
+
+  function words() {
+    return '<div class="hero"><h1>Glossary</h1><p>The words the Hub uses, and what they actually mean.</p></div>' +
+      '<div class="narrow"><dl class="gl">' + G.glossary.map(g =>
+        '<div><dt>' + esc(g[0]) + '</dt><dd>' + esc(g[1]) + '</dd></div>').join('') + '</dl>' +
+      '<div class="block"><h2>Questions that come up</h2>' + G.faq.map(f =>
+        '<details class="faq"><summary>' + esc(f[0]) + '</summary><p>' + esc(f[1]) + '</p></details>').join('') +
+      '</div></div>' + foot();
+  }
+
+  const notFound = () => '<div class="hero"><h1>Not here</h1><p>That part of the guide does not exist. <a href="#/">Start again &rarr;</a></p></div>' + foot();
+  const foot = () => '<div class="foot"><span>Tribute CSM Hub Guide &middot; updated ' + esc(G.updated) + '</span>' +
+    '<span><a href="https://tribute-home-care.github.io/tribute-csm-hub/v2/">Open the Hub</a></span></div>';
+
+  /* ── Search ──────────────────────────────────────────────────────── */
+  const ROUTE_OF = { page:'#/page/', task:'#/task/', role:'#/role/', trouble:'#/help#', term:'#/words', faq:'#/words' };
+  const LABEL = { page:'Page', task:'How to', role:'Role', trouble:'Troubleshooting', term:'Term', faq:'Question' };
+  function wireSearch() {
+    const q = document.getElementById('q'), res = document.getElementById('res');
+    if (!q) return;
+    let hits = [], cur = -1;
+    const close = () => { res.hidden = true; q.setAttribute('aria-expanded','false'); cur = -1; };
+    const run = () => {
+      const terms = q.value.toLowerCase().split(/\s+/).filter(Boolean);
+      if (!terms.length) return close();
+      hits = G.index.filter(r => terms.every(t => r.text.indexOf(t) !== -1)).slice(0, 8);
+      res.innerHTML = hits.length
+        ? hits.map((h,i) => '<a href="' + ROUTE_OF[h.kind] + (h.kind==='term'||h.kind==='faq' ? '' : h.id) +
+            '" role="option" data-i="' + i + '"><span class="k">' + LABEL[h.kind] + '</span><br><span class="t">' + esc(h.title) + '</span></a>').join('')
+        : '<div class="none">Nothing matches that. Try a word you can see on the screen, or <a href="#/help">look at troubleshooting</a>.</div>';
+      res.hidden = false; q.setAttribute('aria-expanded','true');
+    };
+    q.addEventListener('input', run);
+    q.addEventListener('keydown', e => {
+      if (res.hidden) return;
+      const items = [...res.querySelectorAll('a')];
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        cur = (cur + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % Math.max(items.length,1);
+        items.forEach((a,i) => a.classList.toggle('on', i === cur));
+        if (items[cur]) items[cur].scrollIntoView({ block:'nearest' });
+      } else if (e.key === 'Enter' && items[cur]) { e.preventDefault(); location.hash = items[cur].getAttribute('href').slice(1); close(); q.blur(); }
+      else if (e.key === 'Escape') { close(); q.blur(); }
+    });
+    document.addEventListener('click', e => { if (!res.contains(e.target) && e.target !== q) close(); });
+  }
+
+  /* ── Router ──────────────────────────────────────────────────────── */
+  function render() {
+    const raw = (location.hash || '#/').slice(1);
+    const [path, frag] = raw.split('#');
+    const p = path.split('/').filter(Boolean);
+    let html;
+    if (!p.length)                 html = home();
+    else if (p[0] === 'roles')     html = rolesIdx();
+    else if (p[0] === 'role')      html = role(p[1]);
+    else if (p[0] === 'pages')     html = pagesIdx();
+    else if (p[0] === 'page')      html = page(p[1]);
+    else if (p[0] === 'tasks')     html = tasksIdx();
+    else if (p[0] === 'task')      html = task(p[1]);
+    else if (p[0] === 'v2')        html = v2();
+    else if (p[0] === 'help')      html = help();
+    else if (p[0] === 'words')     html = words();
+    else                           html = notFound();
+    view.innerHTML = html;
+
+    const top = '#/' + (p[0] || '');
+    document.getElementById('gnav').innerHTML = NAV.map(n => {
+      const on = n[0] === top || (n[0] === '#/roles' && p[0] === 'role') ||
+                 (n[0] === '#/pages' && p[0] === 'page') || (n[0] === '#/tasks' && p[0] === 'task');
+      return '<a href="' + n[0] + '"' + (on ? ' aria-current="page"' : '') + '>' + esc(n[1]) + '</a>';
+    }).join('');
+
+    wireSearch();
+    if (frag) { const el = document.getElementById(frag); if (el) { el.scrollIntoView(); return; } }
+    window.scrollTo(0, 0);
+    view.focus({ preventScroll: true });
+  }
+  window.addEventListener('hashchange', render);
+  render();
+})();
+</script>
+</body>
+</html>

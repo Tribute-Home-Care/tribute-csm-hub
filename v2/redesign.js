@@ -973,6 +973,12 @@
     client_pulse: 'Client Pulse', md_compliance: 'Maryland Compliance',
     ltc_board: 'The LTC board', csm_comms: 'Communications', coc_tasks: 'Change of condition'
   };
+  // Endpoints that feed the Hub's own plumbing rather than this panel. If
+  // one of them is unreachable that is worth knowing, but it is not a reason
+  // to tell a CSM their caseload might be incomplete — and it must never put
+  // an endpoint name in front of them. Seen live: the attention panel read
+  // "v2_write_config did not answer, so this list may be incomplete."
+  const NOT_A_DATA_SOURCE = { v2_write_config: 1, v2_feedback: 1, usage_time: 1, build_stamp: 1 };
   function failedSources() {
     const App = window.TributeApp;
     if (!App || !App.anomalies) return [];
@@ -980,7 +986,10 @@
     App.anomalies.forEach(function (a) {
       if (a.kind !== 'api-error' && a.kind !== 'api-failure') return;
       const key = String(a.where || '').split('.')[0];
-      bad[SOURCE_LABEL[key] || key] = true;
+      if (NOT_A_DATA_SOURCE[key]) return;
+      // Only ever show a name we have written in plain English. An unmapped
+      // endpoint becomes "One of the sources" rather than leaking its id.
+      bad[SOURCE_LABEL[key] || 'One of the sources'] = true;
     });
     return Object.keys(bad);
   }
