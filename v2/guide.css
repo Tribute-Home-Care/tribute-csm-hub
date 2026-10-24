@@ -20,8 +20,12 @@
   --sh:0 1px 2px rgba(28,26,23,.04), 0 10px 30px rgba(28,26,23,.055);
   --sh-lg:0 2px 4px rgba(28,26,23,.04), 0 26px 60px rgba(28,26,23,.09);
   --t:.2s cubic-bezier(.4,0,.2,1);
-  --gut:40px;
+  --gut:40px; --max:1480px;
 }
+/* A very wide monitor should get composition, not margins. Prose still caps
+   at 72ch wherever it sits, so lines never get harder to read. */
+@media (min-width:1700px){ :root{ --max:1680px; --gut:56px; } }
+@media (min-width:2100px){ :root{ --max:1860px; } }
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
 body{
@@ -39,7 +43,7 @@ img{max-width:100%}
 /* ── Chrome ──────────────────────────────────────────────────────────── */
 .gtop{position:sticky;top:0;z-index:40;background:rgba(250,248,244,.82);
   backdrop-filter:saturate(1.7) blur(14px);border-bottom:1px solid var(--line)}
-.gtop-in{max-width:1420px;margin:0 auto;padding:14px var(--gut);display:flex;align-items:center;gap:22px}
+.gtop-in{max-width:var(--max);margin:0 auto;padding:14px var(--gut);display:flex;align-items:center;gap:22px}
 .gbrand{display:flex;align-items:baseline;gap:9px;font-family:"Space Grotesk",sans-serif;font-weight:600;font-size:19px;color:var(--ink)}
 .gbrand .dot{width:7px;height:7px;border-radius:50%;background:var(--brand);display:inline-block}
 .gbrand small{font-weight:500;color:var(--muted);font-size:14px;letter-spacing:0}
@@ -52,7 +56,7 @@ img{max-width:100%}
 .gback:hover{color:var(--brand-dark)}
 
 /* ── Layout ──────────────────────────────────────────────────────────── */
-.wrap{max-width:1420px;margin:0 auto;padding:0 var(--gut) 120px}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 var(--gut) 120px}
 .narrow{max-width:72ch}          /* prose never stretches, whatever the canvas */
 section{margin-top:76px}
 .sechead{margin-bottom:26px;max-width:62ch}
@@ -153,7 +157,7 @@ figcaption{font-size:14.5px;color:var(--muted);margin-top:14px}
 .cmlist .t{font-weight:650;font-size:16.5px;display:block;margin-bottom:2px}
 .cmlist .b{color:var(--muted);font-size:15.5px;line-height:1.55}
 /* Screenshot left, key right, on a wide screen. */
-.shotkey{display:grid;grid-template-columns:minmax(0,1.62fr) minmax(300px,.95fr);gap:44px;align-items:start}
+.shotkey{display:grid;grid-template-columns:minmax(0,1.95fr) minmax(320px,.9fr);gap:52px;align-items:start}
 
 /* ── Page-guide blocks ───────────────────────────────────────────────── */
 .block{margin-top:52px}
