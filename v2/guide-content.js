@@ -141,7 +141,7 @@ window.GUIDE = (function () {
       what: 'A per-client view of Maryland regulatory requirements — assessments, care plans, supervisory visits and the rest — showing what is complete, what is due and what has passed its date.',
       first: ['Overdue first, then due soon.', 'Check the freshness line at the top. The board is built on a schedule and says when it last ran.'],
       can: ['Review compliance by client', 'Open the client to act on what you find'],
-      v1: 'Changing a client\'s assessment cadence is still done in the current Hub.',
+
       know: [
         'If the board is still assembling you will see that plainly. A board that is loading is not a board that says you are compliant.'
       ],
@@ -166,23 +166,26 @@ window.GUIDE = (function () {
       shot: { src: 'guide-shots/guide-email-community.png',
         alt: 'The Email Community page listing communities with client counts and the CSMs who own them.',
         caption: 'The list view. Opening a community loads that week\u2019s draft.' },
-      what: 'For communities where Tribute has clients, the Hub assembles a weekly update and holds it as a draft. You can read it and see what would go out.',
-      first: ['Pick a community on the left; its current draft loads on the right.'],
-      can: ['Read the generated draft for a community'],
-      v1: 'Sending — both the test send and the real send — is done in the current Hub. Editing a community\'s recipients and settings is also still there. Saving an edited draft from V2 is available but has not yet been checked end to end, so treat the current Hub as the place to do it.',
-      related: ['blocked-action']
+      what: 'For communities where Tribute has clients, the Hub assembles a weekly update and holds it as a draft. You can read it, edit it, save it, and send a test copy to yourself.',
+      first: ['Pick a community on the left; its current draft loads on the right.',
+              'Read it before you do anything else. It is assembled from the week\u2019s schedule and recent notes.'],
+      can: ['Read and edit the generated draft', 'Save the draft the Friday run will use',
+            'Edit a community\u2019s recipients and settings', 'Send a test copy to yourself'],
+      saves: 'Draft edits and community settings save to the same records the Friday run and the current Hub read.',
+      v1: 'Sending the real email to a community is still done in the current Hub.',
+      know: ['A test send goes only to you, never to the community. It is the safe way to see exactly what would arrive.'],
+      related: ['blocked-action', 'coverage']
     },
-
     ltc: {
       title: 'LTC Submissions',
       lede: 'Long-term care insurance submissions, per client.',
-      what: 'The page exists to track long-term care insurance submissions and their supporting notes. It is built, and you can look at it.',
-      first: ['Open a client record to see what has been recorded.'],
+      what: 'Tracks long-term care insurance submissions and the notes behind them. You can review a submission and move it through its states here.',
+      first: ['Open a client record to see what has been recorded, and what state it is in.'],
       can: ['Review what is recorded', 'Approve, unapprove, mark sent, confirm, skip and add a note'],
       saves: 'Status changes save to the same LTC records the current Hub reads.',
       v1: 'Sending a packet to a carrier, and texting a caregiver about missing notes, are still done in the current Hub. Both leave Tribute, and neither has been exercised against a real submission yet.',
       know: [
-        'Being straight with you: this area has not been used operationally, so there is no real history to look at and nothing here has been checked against live submissions. Treat it as unproven and use the current Hub.'
+        'Being straight with you: this area has had very little operational use, so there is not much history to look at and none of it has been exercised against a live carrier submission. The status actions save properly; it is the real-world workflow around them that is untested. If something looks wrong, say so through Feedback rather than working around it.'
       ]
     },
 
@@ -341,7 +344,7 @@ window.GUIDE = (function () {
         { t: 'Check how current the board is', b: 'It is assembled on a schedule and tells you when it last ran.' },
         { t: 'Open the client', b: 'Act in the client workspace, where the detail is.' }
       ],
-      v1: 'Changing a client\'s assessment cadence is still done in the current Hub.',
+
       related: ['md', 'stale-data']
     },
     'switch-market': {
@@ -428,8 +431,8 @@ window.GUIDE = (function () {
       sections: [
         { h: 'Every day', b: 'Start on Home and read the attention panel in order. Work what it gives you. Add a to-do for anything you cannot do immediately.' },
         { h: 'Through the week', b: 'Client Tracker is where you work a client properly. Log touchpoints and care conversations as they happen rather than reconstructing them later. Check Success in 30 for anyone new.' },
-        { h: 'What you can update here', b: 'Quick Notes, to-dos, 1:1 notes, KPI entries, client details, touchpoints and care conversations, the visit log, Success in 30, and acknowledging a Pulse read. These save to the same record the current Hub reads.' },
-        { h: 'What still belongs in the current Hub', b: 'Coverage notes, Fill Priority changes, community settings, sending a community email, calendar changes, Viv visit changes, and LTC actions. The Hub will tell you on screen if you try one of these.' }
+        { h: 'What you can update here', b: 'Almost everything. Quick Notes, to-dos, 1:1 notes, KPI entries, client details, touchpoints and care conversations, the visit log, Success in 30, Pulse acknowledgement, coverage notes, Fill Priority, community settings, Maryland cadence, community email drafts, your Outlook calendar, and adding or cancelling a visit in Viv. All of it writes to the same records the current Hub reads.' },
+        { h: 'What still belongs in the current Hub', b: 'Sending a community email to a community, sending an LTC packet to a carrier, and texting a caregiver about LTC notes. Each one leaves Tribute, so each is being switched on separately. The Hub tells you on screen, by name, if you try one.' }
       ],
       start: ['home', 'tracker', 'pulse'],
       related: ['review-attention', 'find-client', 'log-touchpoint', 'blocked-action']
@@ -441,8 +444,8 @@ window.GUIDE = (function () {
       sections: [
         { h: 'Scope', b: 'You see across the market rather than a single caseload, so the Tracker and Pulse cover more ground. Search matters more to you than scrolling does.' },
         { h: 'Day to day', b: 'Pulse and Home are the fastest way to find where attention is needed across the market. From there the route is the same as anyone else\'s: open the client, read the evidence, act.' },
-        { h: 'LTC', b: 'The LTC page is built, but it has not been used operationally and nothing in it has been checked against live submissions. Use the current Hub for anything consequential, and treat what you see here as unproven.' },
-        { h: 'What you can update here', b: 'The same set as a CSM. Shared, team-wide items are still done in the current Hub.' }
+        { h: 'LTC', b: 'You can review a submission and move it through its states here. Sending a packet to a carrier and texting a caregiver are still done in the current Hub. The page has had little operational use, so treat what you see with some care and report anything odd through Feedback.' },
+        { h: 'What you can update here', b: 'The same set as a CSM, including the team-wide items: coverage notes, Fill Priority and community settings all save here now.' }
       ],
       start: ['pulse', 'tracker', 'ltc'],
       related: ['find-client', 'blocked-action']
