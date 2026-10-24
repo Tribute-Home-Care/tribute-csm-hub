@@ -72,10 +72,13 @@
     community_settings: true,
     md_cadence:      true,
 
-    // BLOCKED — ecSend has no in-flight guard and no idempotency key, so a
-    // double click sends two emails from the CSM's own mailbox. Brief §15:
-    // no idempotency, no enablement.
-    community_send: false,
+    // Sending splits in two. A test goes only to the signed-in person's own
+    // mailbox; a real send leaves Tribute and reaches a community. They are
+    // the same code path with one argument different, which is exactly why
+    // they must not share a switch.
+    community_send_test: false,
+    community_send_real: false,
+    community_send: false,      // legacy name, kept so nothing silently un-gates
 
     ltc_action: false,          // approve / mark sent / confirm / reopen
     ltc_send: false,            // send a submission packet to a carrier
@@ -98,13 +101,14 @@
   /* Which capabilities are business writes, for the diagnostics split. */
   const BUSINESS = new Set(['csm_data_pocket','csm_data_shared','coverage_notes','fill_priority',
     'community_settings','md_cadence','community_draft_save','community_send',
+    'community_send_test','community_send_real',
     'ltc_action','ltc_send','ltc_nudge','csm_visit','csm_visit_create','csm_visit_remove',
     'graph_calendar','graph_calendar_add','graph_calendar_delete','graph_mail','weekly_schedule']);
   // Capabilities the server knows about. The finer ones are page-side only,
   // so they must not be checked against the server's list or they would all
   // read as disabled.
   const SERVER_CAPS = new Set(['csm_data_pocket','csm_data_shared','community_draft_save',
-    'community_send','graph_calendar_add','graph_calendar_delete','csm_visit_create',
+    'community_send','community_send_test','community_send_real','graph_calendar_add','graph_calendar_delete','csm_visit_create',
     'csm_visit_remove','ltc_action','ltc_send','ltc_nudge','weekly_schedule']);
   // A page-side capability still depends on the transport the server gates.
   const NEEDS = { coverage_notes:'csm_data_shared', fill_priority:'csm_data_shared',
@@ -310,7 +314,11 @@
     const orig = window[name];
     if (typeof orig !== 'function') { wrapped.push({ name: name, status: 'MISSING' }); return; }
     const fn = function () {
-      if (!App.canWrite(spec.capability)) { deny(spec); return spec.returns; }
+      // Some functions mean different things depending on how they are
+      // called. ecSend(true) is a test to yourself; ecSend(false) leaves the
+      // building. capabilityFor lets one wrapper tell them apart.
+      const cap = spec.capabilityFor ? spec.capabilityFor(arguments) : spec.capability;
+      if (!App.canWrite(cap)) { deny(Object.assign({}, spec, { capability: cap })); return spec.returns; }
       return orig.apply(this, arguments);
     };
     fn.__v2 = true;
@@ -409,9 +417,12 @@
       message: 'Preview only — the draft was not saved.'
     });
     gate('ecSend', {
-      feature: 'Send community email', capability: 'community_send',
+      feature: 'Send community email', capability: 'community_send_real',
+      capabilityFor: function (args) {
+        return args[0] ? 'community_send_test' : 'community_send_real';
+      },
       endpoint: 'vivProxy?endpoint=community_email&send=1 + graph sendMail', operation: 'POST',
-      message: 'Preview only — no email was sent, not even a test to yourself.'
+      message: 'Sending is not switched on in this version yet \u2014 use the current Hub to send.'
     });
     gate('saveEmailComm', {
       feature: 'Save community email settings', capability: 'csm_data_shared',
