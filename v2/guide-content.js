@@ -119,8 +119,9 @@ window.GUIDE = (function () {
         caption: 'The link under the heading goes straight to this guide \u2014 every page has one.' },
       what: 'Coverage notes are written for somebody else: the person picking up your caseload while you are out. Handoffs assign that cover. Communities is the shared directory of who to call at each building.',
       first: ['My Clients is what you write. Team Coverage is what everyone else wrote.'],
-      can: ['Read coverage notes, team coverage, handoffs and the community directory'],
-      v1: 'Writing a coverage note, setting up a handoff and editing the community directory are still done in the current Hub. These are shared across the whole team, and V2 does not save them yet. The Hub will tell you on screen if you try.',
+      can: ['Write and update coverage notes', 'Read team coverage and handoffs', 'Edit the community directory'],
+      saves: 'Coverage notes save to the same shared record the current Hub reads. Everyone covering sees the same note, in either version.',
+      know: ['Coverage notes are shared across the whole team by design. If two people edit the same note at the same moment, the Hub keeps the other person\u2019s version, tells you which one, and saves the rest of your work so you can redo just that bit.'],
       related: ['blocked-action']
     },
 
@@ -153,8 +154,8 @@ window.GUIDE = (function () {
         alt: 'The Fill Priority page showing ranked clients with scores during a coverage event.' },
       what: 'Open visits on your caseload, ranked, alongside any coverage events a manager has created. It answers "if I can only solve one gap today, which one?"',
       first: ['High-rank items first.', 'An open visit in the next 48 hours is called out separately.'],
-      can: ['Review open visits and their ranking'],
-      v1: 'Changing a ranking, creating a coverage event or recording a fill status are still done in the current Hub.',
+      can: ['Review open visits and their ranking', 'Change the ranking', 'Record a fill status', 'Create a coverage event if you are a manager'],
+      saves: 'Rankings, fill statuses and coverage events save to the shared record and appear in the current Hub immediately.',
       related: ['blocked-action']
     },
 

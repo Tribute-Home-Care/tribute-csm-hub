@@ -20,7 +20,7 @@
 <main id="view" class="wrap" tabindex="-1"></main>
 
 <script src="./guide-art.js?v=cdfaee87"></script>
-<script src="./guide-content.js?v=e4e5b371"></script>
+<script src="./guide-content.js?v=4720f988"></script>
 <script>
 /* ═══════════════════════════════════════════════════════════════════════════
    GUIDE RENDERER
@@ -223,9 +223,11 @@
 
   function v2() {
     const live = ['Quick Notes','To-dos','1:1 notes','KPI entries','Client details',
-                  'Touchpoints and care conversations','Visit log','Success in 30','Acknowledging a Pulse read'];
-    const v1   = ['Coverage notes','Fill Priority changes','Community settings','Maryland assessment cadence',
-                  'Sending a community email','Outlook and calendar changes','Viv visit changes','LTC actions'];
+                  'Touchpoints and care conversations','Visit log','Success in 30','Acknowledging a Pulse read',
+                  'Coverage notes','Fill Priority','Community settings','Maryland cadence',
+                  'Community email drafts','A test email to yourself'];
+    const v1   = ['Sending a community email for real','Outlook and calendar changes',
+                  'Viv visit changes','LTC actions','The weekly family schedule email'];
     // The mark is a shape as well as a colour, so the two sides stay
     // distinguishable without colour vision.
     const row = (txt, mark) => '<li><span class="mk" aria-hidden="true">' + mark + '</span><span>' + esc(txt) + '</span></li>';
@@ -235,10 +237,10 @@
 
       '<section><div class="boundary">' +
         '<div class="panel live"><h3>Saves here</h3>' +
-        '<p class="lede">These write to the same record the current Hub reads. A note written in one appears in the other.</p>' +
+        '<p class="lede">These write to the same records the current Hub reads. A change made in one appears in the other.</p>' +
         '<ul>' + live.map(x => row(x, '\u2713')).join('') + '</ul></div>' +
         '<div class="panel v1"><h3>Use the current Hub</h3>' +
-        '<p class="lede">Shared across the whole team, so they are being switched on carefully, one at a time.</p>' +
+        '<p class="lede">Still being switched on, one at a time. Each one leaves Tribute, so each gets its own validation first.</p>' +
         '<ul>' + v1.map(x => row(x, '\u2192')).join('') + '</ul></div>' +
       '</div></section>' +
 
