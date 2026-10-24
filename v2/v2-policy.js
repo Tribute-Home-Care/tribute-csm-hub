@@ -80,12 +80,26 @@
     community_send_real: false,  // leaves Tribute: still off
     community_send: false,      // legacy name, kept so nothing silently un-gates
 
-    ltc_action: false,          // approve / mark sent / confirm / reopen
-    ltc_send: false,            // send a submission packet to a carrier
-    ltc_nudge: false,           // text a caregiver about missing notes
-    csm_visit_create: false,       // create a visit in Viv
-    csm_visit_remove: false,       // remove one — separate switch on purpose
+    ltc_action: false,          // legacy umbrella, superseded by the split above
+    ltc_send: false,            // legacy
+    ltc_nudge: false,           // legacy
+    // Viv. There is no update path in V1 or the API — only create and
+    // cancel — so there is no viv_visit_update to switch on. Inventing one
+    // would be new functionality, not parity.
+    viv_visit_create: true,
+    viv_visit_cancel: true,
     csm_visit: false,              // legacy name, still read by the gate below
+
+    // LTC, split by what each one actually does. The first three change
+    // state; the last two leave Tribute.
+    // The real actions are approve / unapprove / sent / confirm / skip /
+    // note. There is no "reopen", so there is no capability for one.
+    ltc_approve: true,             // approve, unapprove
+    ltc_mark_sent: true,           // sent
+    ltc_confirm: true,             // confirm
+    ltc_note: true,                // skip, note
+    ltc_send_carrier: false,       // external: a packet to a carrier
+    ltc_nudge_caregiver: false,    // external: a text to a caregiver
     graph_calendar_add: true,      // create an Outlook event (duplicate-guarded)
     graph_calendar_delete: true,   // delete one — separate switch on purpose
     graph_calendar: false,         // legacy name, still read by the gate below
@@ -102,14 +116,16 @@
   const BUSINESS = new Set(['csm_data_pocket','csm_data_shared','coverage_notes','fill_priority',
     'community_settings','md_cadence','community_draft_save','community_send',
     'community_send_test','community_send_real',
-    'ltc_action','ltc_send','ltc_nudge','csm_visit','csm_visit_create','csm_visit_remove',
+    'ltc_action','ltc_send','ltc_nudge','csm_visit','viv_visit_create','viv_visit_cancel',
+    'ltc_approve','ltc_mark_sent','ltc_confirm','ltc_note','ltc_send_carrier','ltc_nudge_caregiver',
     'graph_calendar','graph_calendar_add','graph_calendar_delete','graph_mail','weekly_schedule']);
   // Capabilities the server knows about. The finer ones are page-side only,
   // so they must not be checked against the server's list or they would all
   // read as disabled.
   const SERVER_CAPS = new Set(['csm_data_pocket','csm_data_shared','community_draft_save',
-    'community_send','community_send_test','community_send_real','graph_calendar_add','graph_calendar_delete','csm_visit_create',
-    'csm_visit_remove','ltc_action','ltc_send','ltc_nudge','weekly_schedule']);
+    'community_send','community_send_test','community_send_real','graph_calendar_add','graph_calendar_delete',
+    'viv_visit_create','viv_visit_cancel','ltc_approve','ltc_mark_sent','ltc_confirm','ltc_note',
+    'ltc_send_carrier','ltc_nudge_caregiver','weekly_schedule']);
   // A page-side capability still depends on the transport the server gates.
   const NEEDS = { coverage_notes:'csm_data_shared', fill_priority:'csm_data_shared',
                   community_settings:'csm_data_shared', md_cadence:'csm_data_shared' };
@@ -378,31 +394,40 @@
       });
     });
 
+    // One function, six actions, four capabilities. A state change and an
+    // external send should never share a switch.
     gate('ltcAct', {
-      feature: 'LTC submission action', capability: 'ltc_action',
+      feature: 'LTC submission action', capability: 'ltc_approve', intent: true,
+      capabilityFor: function (args) {
+        const a = String(args[0] || '');
+        if (a === 'sent') return 'ltc_mark_sent';
+        if (a === 'confirm') return 'ltc_confirm';
+        if (a === 'skip' || a === 'note') return 'ltc_note';
+        return 'ltc_approve';                       // approve, unapprove
+      },
       endpoint: 'vivProxy?endpoint=ltc_board', operation: 'POST',
-      message: 'Preview only — approvals and send-state changes are not written.'
+      message: 'That LTC action is not switched on in this version yet \u2014 use the current Hub.'
     });
     gate('ltcSend', {
-      feature: 'LTC packet send', capability: 'ltc_send',
+      feature: 'LTC packet send', capability: 'ltc_send_carrier', intent: true,
       endpoint: 'vivProxy?endpoint=ltc_send', operation: 'POST',
-      message: 'Preview only — nothing was sent to the carrier.'
+      message: 'Sending a packet to a carrier is not switched on in this version yet \u2014 use the current Hub.'
     });
     gate('ltcSendNudge', {
-      feature: 'LTC caregiver nudge (SMS)', capability: 'ltc_nudge',
+      feature: 'LTC caregiver nudge (SMS)', capability: 'ltc_nudge_caregiver', intent: true,
       endpoint: 'vivProxy?endpoint=ltc_nudge', operation: 'POST',
-      message: 'Preview only — no text message was sent.'
+      message: 'Texting a caregiver is not switched on in this version yet \u2014 use the current Hub.'
     });
 
     gate('lpSaveVisit', {
-      feature: 'Write visit to Viv', capability: 'csm_visit',
+      feature: 'Write visit to Viv', capability: 'viv_visit_create', intent: true,
       endpoint: 'vivProxy?endpoint=csm_visit', operation: 'POST',
-      message: 'Preview only — the visit was not written to Viv.'
+      message: 'Adding the visit to Viv is not switched on in this version yet \u2014 use the current Hub.'
     });
     gate('removeLinkedVisit', {
-      feature: 'Delete visit in Viv', capability: 'csm_visit',
+      feature: 'Cancel visit in Viv', capability: 'viv_visit_cancel', intent: true,
       endpoint: 'vivProxy?endpoint=csm_visit&action=delete', operation: 'POST',
-      message: 'Preview only — nothing was deleted in Viv.'
+      message: 'Cancelling a visit in Viv is not switched on in this version yet \u2014 use the current Hub.'
     });
     gate('_lpAddToOutlook', {
       intent: true,
@@ -569,6 +594,48 @@
         }, function (err) {
           App.recordWrite({ capability: cap, endpoint: u.split('?')[0], operation: method,
             recordType: g.recordType, ok: false, status: 'network' });
+          throw err;
+        });
+      }
+
+      // Viv and LTC go to vivProxy like everything else, so they are matched
+      // by endpoint. Where one endpoint serves several actions the capability
+      // comes from the intent the gated function recorded, the same mechanism
+      // Graph uses. Without these entries an authorised write falls through
+      // to UNGATED WRITE PATH and is refused with a false policy leak, which
+      // is exactly what happened to the first community test send.
+      const BY_ENDPOINT = [
+        { ep: 'csm_visit', when: () => /action=delete/.test(u), cap: 'viv_visit_cancel', recordType: 'Viv visit (cancel)' },
+        { ep: 'csm_visit', when: () => true,                    cap: 'viv_visit_create', recordType: 'Viv visit (create)' },
+        { ep: 'ltc_board', when: () => true, cap: null,         recordType: 'LTC submission state' },
+        { ep: 'ltc_send',  when: () => true, cap: 'ltc_send_carrier',    recordType: 'LTC carrier packet' },
+        { ep: 'ltc_nudge', when: () => true, cap: 'ltc_nudge_caregiver', recordType: 'LTC caregiver text' }
+      ];
+      for (let i = 0; i < BY_ENDPOINT.length; i++) {
+        const b = BY_ENDPOINT[i];
+        if (b.ep !== ep || !b.when()) continue;
+        // cap === null means "whatever the gated function just claimed"
+        const cap = b.cap || (intent && intent.indexOf('ltc_') === 0 ? intent : null);
+        if (!cap || !App.canWrite(cap)) {
+          App.recordBlockedWrite({ feature: b.recordType, capability: cap || 'unclaimed',
+            endpoint: 'vivProxy?endpoint=' + ep, operation: method });
+          App.previewToast(cap ? ('Not saved \u2014 ' + (App.writeBlockReason(cap) || 'not switched on') + '.')
+                               : 'Not saved \u2014 that action is not switched on in this version.');
+          return Promise.resolve(new Response(JSON.stringify(
+            { error: 'v2: ' + b.recordType + ' is not switched on', v2Blocked: true }),
+            { status: 403, headers: { 'Content-Type': 'application/json' } }));
+        }
+        App.__intent = null;
+        const o2 = Object.assign({}, opts || {});
+        o2.headers = Object.assign({}, (opts && opts.headers) || {},
+          { 'X-Tribute-Surface': 'v2-preview', 'X-Tribute-Capability': cap });
+        return real(url, o2).then(function (r) {
+          App.recordWrite({ capability: cap, endpoint: 'vivProxy?endpoint=' + ep, operation: method,
+            recordType: b.recordType, ok: r.ok, status: r.status });
+          return r;
+        }, function (err) {
+          App.recordWrite({ capability: cap, endpoint: 'vivProxy?endpoint=' + ep, operation: method,
+            recordType: b.recordType, ok: false, status: 'network' });
           throw err;
         });
       }
