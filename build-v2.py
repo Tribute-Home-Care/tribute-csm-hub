@@ -63,6 +63,13 @@ def main():
     #     patch did, and applies to both interfaces. Keeping a V2-only variant
     #     would mean two different merge semantics against one document.
 
+    # 2c. The greeting's waving hand. Stripping it at runtime meant a race
+    #     with updateHome() rewriting it, which it kept winning. Removing it
+    #     from the source the V2 page is built from settles it: there is
+    #     nothing to strip.
+    html = html.replace("+'! \U0001F44B'", "+'!'")
+    assert '\U0001F44B' not in html, 'the waving hand survived the build strip'
+
     # 3. The redesign layer + the V2 policy, before </body>.
     #    ORDER MATTERS: bridge.js assigns window.TributeApp, so v2-policy.js
     #    must come after it or the capability surface is overwritten.

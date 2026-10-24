@@ -269,7 +269,14 @@
   };
 
   // Left exactly as they are. See the header for why.
-  const KEEP = new Set(['🦞', '🌆', '🦀', '👋', '🛡']);
+  //
+  // The waving hand is NOT in this set. It was, and that is why it kept
+  // coming back: the greeting's strip pass removed it and the swapper put
+  // it straight back, because KEEP meant "protect this glyph". The wave is
+  // decoration standing in for tone, and "Good morning, Julia" at 27px with
+  // room around it is warmer than a glyph. The market marks stay because
+  // they are market identity, not punctuation.
+  const KEEP = new Set(['🦞', '🌆', '🦀', '🛡']);
 
   const EMOJI_RE = /[←-⇿①-➿⬀-⯿⚕⚖⚙⚠⚫✉❤■▲▶▼◀●★☆]️?|[\uD83C-\uD83E][\uDC00-\uDFFF](?:‍[\uD83C-\uD83E][\uDC00-\uDFFF])*️?/g;
 
