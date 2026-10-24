@@ -1920,3 +1920,66 @@ input[type="email"], select { min-height: var(--h-ctl); }
   grid-column: 1 / -1; margin: 10px 0 0;
   font-size: 12.5px; line-height: 1.5; color: var(--warn);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MARKET ILLUSTRATIONS — COLOUR PASS
+   ═══════════════════════════════════════════════════════════════════════════
+   The drawings were right and the colour was not: cool grey line work with a
+   single orange window, which reads as a wireframe somebody started to paint
+   and abandoned. Same geometry, same three stroke weights, same shared
+   horizon. The change is entirely palette.
+
+   Three rules:
+     · the ink is WARM graphite, not neutral grey, so it belongs to the same
+       family as the rest of the page
+     · masses carry a fill instead of being empty outlines, which is most of
+       what separates an illustration from a diagram
+     · each market gets ONE supporting tone from its own geography — harbour
+       blue for Boston, steel for the Chicago El, Chesapeake green for
+       Baltimore — low saturation, used once
+
+   Orange stays what it is everywhere else in V2: brand and action, the lit
+   window and the door. Not sprinkled around. The operational red / amber /
+   green are untouched.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.rd-mk .mk-1 path     { stroke: #6F6459; stroke-width: 1.7; }
+.rd-mk .mk-2 path     { stroke: #A3968A; stroke-width: 1.35; fill: #FAF5ED; }
+.rd-mk .mk-ctx path   { stroke: #CFC4B6; stroke-width: 1.1; }
+.rd-mk .mk-ctx circle { stroke: #CFC4B6; }
+.rd-mk .mk-fill       { fill: #F1E4D4; stroke: none; }
+.rd-mk .mk-el path    { stroke: #A79C92; fill: none; }
+
+/* The lit window: same meaning, now reading against colour rather than white. */
+.rd-mk .mk-lit rect   { fill: #FAD9BC; stroke: var(--brand); }
+.hub-card:hover .rd-mk .mk-lit rect { fill: #F7C79E; stroke: var(--brand); }
+.rd-mk .mk-fig path, .rd-mk .mk-fig circle { stroke: #8A4A1E; opacity: .9; }
+
+/* ── Massachusetts — Beacon Hill brick, the harbour, the Sacred Cod ────── */
+.mk-ma  .mk-fill      { fill: #EBD9C6; }
+.mk-ma  .mk-2 path    { fill: #FBF4EA; }
+.mk-ma  .mk-ctx path  { stroke: #AEC2CA; }
+.mk-ma  .mk-cod path  { stroke: #90A9B3; }
+.mk-ma  .mk-cod path:nth-child(2),
+.mk-ma  .mk-cod path:nth-child(3) { fill: #90A9B3; }
+.mk-ma  .mk-cod circle { fill: #F6F1EA; }
+
+/* ── Chicago — brick two-flat under steel ──────────────────────────────── */
+.mk-chi .mk-fill      { fill: #EBD6C4; }
+.mk-chi .mk-2 path    { fill: #FBF5EC; }
+.mk-chi .mk-el path   { stroke: #8D9BA4; }
+.mk-chi .mk-train path { stroke: #6F6459; fill: #DFE7EC; }
+.mk-chi .mk-ctx path  { stroke: #C6BCAF; }
+
+/* ── Maryland — Baltimore rowhouse, marble stoop, Chesapeake ───────────── */
+.mk-md  .mk-fill      { fill: #EADAC6; }
+.mk-md  .mk-2 path    { fill: #FBF5EB; }
+.mk-md  .mk-marble path { fill: #FCFAF6; stroke: #897E72; }
+.mk-md  .mk-boat path { stroke: #7FA096; fill: #EEF4F1; }
+.mk-md  .mk-ctx path  { stroke: #A6BFB7; }
+
+/* Hover warms the whole scene, not only the window. */
+.hub-card:hover .rd-mk .mk-1 path { stroke: #594F45; }
+.hub-card:hover .rd-mk .mk-fill   { filter: saturate(1.1) brightness(1.01); }
+@media (prefers-reduced-motion: reduce) {
+  .hub-card:hover .rd-mk .mk-fill { filter: none; }
+}

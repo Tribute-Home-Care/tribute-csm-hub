@@ -396,7 +396,7 @@
        line. Through the left bow window, someone seated and someone with
        them. */
     MA:
-      '<svg viewBox="0 0 180 124" class="rd-mk" aria-hidden="true">' +
+      '<svg viewBox="0 0 180 124" class="rd-mk mk-ma" aria-hidden="true">' +
         '<g class="mk-ctx"><path d="M10 110h160"/></g>' +
         '<path class="mk-fill" d="M34 104V38h116v66Z"/>' +
         '<g class="mk-1">' +
@@ -438,7 +438,7 @@
         '</g>' +
       '</svg>',
     CHI:
-      '<svg viewBox="0 0 180 124" class="rd-mk" aria-hidden="true">' +
+      '<svg viewBox="0 0 180 124" class="rd-mk mk-chi" aria-hidden="true">' +
         '<g class="mk-ctx"><path d="M10 112h160"/></g>' +
         '<path class="mk-fill" d="M20 104V44h78v60Z"/>' +
         '<g class="mk-2">' +
@@ -481,7 +481,7 @@
        marble. A skipjack under sail on the Chesapeake behind. One crab in
        the shallows, small enough that you have to look. */
     MD:
-      '<svg viewBox="0 0 180 124" class="rd-mk" aria-hidden="true">' +
+      '<svg viewBox="0 0 180 124" class="rd-mk mk-md" aria-hidden="true">' +
         '<g class="mk-ctx"><path d="M10 110h160"/></g>' +
         '<g class="mk-ctx mk-boat">' +
           '<path d="M34 100V56"/>' +
