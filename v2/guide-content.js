@@ -407,6 +407,7 @@ window.GUIDE = (function () {
     csm: {
       title: 'For CSMs',
       lede: 'The Hub as a daily instrument: what to check, what to update, what still lives in the current Hub.',
+      journeyTitle: 'Your day in the Hub',
       sections: [
         { h: 'Every day', b: 'Start on Home and read the attention panel in order. Work what it gives you. Add a to-do for anything you cannot do immediately.' },
         { h: 'Through the week', b: 'Client Tracker is where you work a client properly. Log touchpoints and care conversations as they happen rather than reconstructing them later. Check Success in 30 for anyone new.' },
@@ -419,6 +420,7 @@ window.GUIDE = (function () {
     csc: {
       title: 'For CSCs',
       lede: 'Where your work differs from a CSM\'s.',
+      journeyTitle: 'How your day differs',
       sections: [
         { h: 'Scope', b: 'You see across the market rather than a single caseload, so the Tracker and Pulse cover more ground. Search matters more to you than scrolling does.' },
         { h: 'Day to day', b: 'Pulse and Home are the fastest way to find where attention is needed across the market. From there the route is the same as anyone else\'s: open the client, read the evidence, act.' },
@@ -431,6 +433,7 @@ window.GUIDE = (function () {
     manager: {
       title: 'For Managers and Directors',
       lede: 'Seeing across the team, and getting from a signal to a person.',
+      journeyTitle: 'From the team to the client',
       sections: [
         { h: 'Start at team level', b: 'Team Overview puts one row per CSM in front of you. You are looking for the row that does not match the others, not for an average.' },
         { h: 'Mine, Team and All', b: 'Three scopes. Mine is your own caseload, Team is the people who report to you, All is everyone in the market you are currently in. If a number surprises you, check the scope before anything else.' },
@@ -443,6 +446,7 @@ window.GUIDE = (function () {
     multimarket: {
       title: 'Working in more than one market',
       lede: 'Massachusetts and Chicago, without losing track of which is which.',
+      journeyTitle: 'Working across two markets',
       sections: [
         { h: 'Choosing', b: 'You pick a market when you come in, and you can switch whenever you like. The market you are in is always shown in the Hub chrome.' },
         { h: 'What changes', b: 'Clients, search results, attention signals and compliance all re-scope to the market you are in.' },

@@ -1,192 +1,279 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    TRIBUTE CSM HUB — GUIDE
-   The guide belongs to the product, so it uses the product's tokens. Warm
+   ═══════════════════════════════════════════════════════════════════════════
+   The guide belongs to the product, so it uses the product's tokens: warm
    stone canvas, white surfaces, graphite ink, orange reserved for brand and
-   action. Nothing here is decorative for its own sake.
+   for the single thing you should look at.
+
+   The composition is built outward from the screenshots rather than around a
+   column of prose. A page guide is a large picture of the real screen with
+   its explanation arranged beside it; the writing supports the image, not
+   the other way round.
    ═══════════════════════════════════════════════════════════════════════════ */
 :root{
   --canvas:#FAF8F4; --surface:#FFFFFF; --line:#EAE6DF; --line-soft:#F1EEE8;
-  --ink:#1C1A17; --ink-2:#3D3833; --muted:#8C857B; --muted-soft:#B7B0A6;
-  --brand:#FF671F; --brand-dark:#E25309; --brand-soft:#FBEADF;
-  --ok:#0F6E56; --ok-bg:#E2F2EC; --warn:#92580B; --warn-bg:#F8EEDB;
-  --r:14px; --r-sm:10px; --shadow:0 1px 2px rgba(28,26,23,.04),0 8px 24px rgba(28,26,23,.05);
-  --t:.18s cubic-bezier(.4,0,.2,1);
+  --ink:#1C1A17; --ink-2:#3D3833; --muted:#7D766C; --muted-soft:#ADA69B;
+  --brand:#FF671F; --brand-dark:#D4480E; --brand-soft:#FDF0E6; --brand-line:#F6CBAA;
+  --ok:#0F6E56; --ok-bg:#EAF4F0; --ok-line:#BCDCD0;
+  --warn:#8A5207; --warn-bg:#FBF2E2; --warn-line:#EBD7AE;
+  --r:16px; --r-lg:22px; --r-sm:11px;
+  --sh:0 1px 2px rgba(28,26,23,.04), 0 10px 30px rgba(28,26,23,.055);
+  --sh-lg:0 2px 4px rgba(28,26,23,.04), 0 26px 60px rgba(28,26,23,.09);
+  --t:.2s cubic-bezier(.4,0,.2,1);
+  --gut:40px;
 }
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
 body{
   margin:0;background:var(--canvas);color:var(--ink);
   font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  font-size:15px;line-height:1.62;letter-spacing:-.005em;
+  font-size:16.5px;line-height:1.65;letter-spacing:-.006em;
   -webkit-font-smoothing:antialiased;
 }
-h1,h2,h3,.dsp{font-family:"Space Grotesk",Inter,sans-serif;letter-spacing:-.022em;line-height:1.18}
+h1,h2,h3,h4,.dsp{font-family:"Space Grotesk",Inter,sans-serif;letter-spacing:-.025em;line-height:1.14;margin:0}
 a{color:var(--brand-dark);text-decoration:none}
 a:hover{text-decoration:underline}
-:focus-visible{outline:2px solid var(--brand);outline-offset:3px;border-radius:4px}
+:focus-visible{outline:2.5px solid var(--brand);outline-offset:3px;border-radius:6px}
+img{max-width:100%}
 
 /* ── Chrome ──────────────────────────────────────────────────────────── */
-.gtop{
-  position:sticky;top:0;z-index:40;background:rgba(250,248,244,.86);
-  backdrop-filter:saturate(1.6) blur(12px);border-bottom:1px solid var(--line);
-}
-.gtop-in{max-width:1180px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;gap:18px}
-.gbrand{display:flex;align-items:baseline;gap:8px;font-family:"Space Grotesk",sans-serif;font-weight:600;font-size:17px;color:var(--ink)}
+.gtop{position:sticky;top:0;z-index:40;background:rgba(250,248,244,.82);
+  backdrop-filter:saturate(1.7) blur(14px);border-bottom:1px solid var(--line)}
+.gtop-in{max-width:1420px;margin:0 auto;padding:14px var(--gut);display:flex;align-items:center;gap:22px}
+.gbrand{display:flex;align-items:baseline;gap:9px;font-family:"Space Grotesk",sans-serif;font-weight:600;font-size:19px;color:var(--ink)}
 .gbrand .dot{width:7px;height:7px;border-radius:50%;background:var(--brand);display:inline-block}
-.gbrand small{font-weight:500;color:var(--muted);font-size:13px;letter-spacing:0}
-.gtop nav{margin-left:auto;display:flex;gap:4px;flex-wrap:wrap}
-.gtop nav a{
-  padding:7px 13px;border-radius:999px;color:var(--ink-2);font-size:13.5px;font-weight:500;
-  transition:background var(--t),color var(--t);
-}
+.gbrand small{font-weight:500;color:var(--muted);font-size:14px;letter-spacing:0}
+.gtop nav{margin-left:auto;display:flex;gap:3px;flex-wrap:wrap}
+.gtop nav a{padding:8px 15px;border-radius:999px;color:var(--ink-2);font-size:14.5px;font-weight:500;
+  transition:background var(--t),color var(--t)}
 .gtop nav a:hover{background:var(--line-soft);text-decoration:none}
 .gtop nav a[aria-current="page"]{background:var(--ink);color:#fff}
-.gback{display:inline-flex;align-items:center;gap:6px;font-size:13.5px;color:var(--muted);margin-bottom:18px}
+.gback{display:inline-flex;align-items:center;gap:7px;font-size:14.5px;color:var(--muted);margin-bottom:26px;font-weight:500}
 .gback:hover{color:var(--brand-dark)}
 
 /* ── Layout ──────────────────────────────────────────────────────────── */
-.wrap{max-width:1180px;margin:0 auto;padding:0 24px 96px}
-.narrow{max-width:760px}
-section{margin-top:52px}
-h2{font-size:23px;margin:0 0 6px}
-h3{font-size:17px;margin:0 0 4px}
-.sub{color:var(--muted);font-size:14.5px;margin:0 0 20px;max-width:62ch}
+.wrap{max-width:1420px;margin:0 auto;padding:0 var(--gut) 120px}
+.narrow{max-width:72ch}          /* prose never stretches, whatever the canvas */
+section{margin-top:76px}
+.sechead{margin-bottom:26px;max-width:62ch}
+.sechead h2{font-size:34px}
+.sechead p{color:var(--muted);font-size:17.5px;margin:9px 0 0}
 
 /* ── Hero ────────────────────────────────────────────────────────────── */
-.hero{padding:76px 0 8px;max-width:720px}
-.hero h1{font-size:46px;margin:0 0 18px;letter-spacing:-.03em}
-.hero p{font-size:18.5px;line-height:1.55;color:var(--ink-2);margin:0 0 26px}
-.hero .eyebrow{
-  display:inline-block;font-size:11.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
-  color:var(--brand-dark);background:var(--brand-soft);padding:5px 11px;border-radius:999px;margin-bottom:20px;
+.hero{padding:88px 0 10px;max-width:900px}
+.hero h1{font-size:clamp(38px,5.1vw,68px);letter-spacing:-.034em;margin:0 0 22px}
+.hero p{font-size:21px;line-height:1.52;color:var(--ink-2);margin:0 0 30px;max-width:60ch}
+.eyebrow{display:inline-block;font-size:12px;font-weight:650;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--brand-dark);background:var(--brand-soft);border:1px solid var(--brand-line);
+  padding:6px 13px;border-radius:999px;margin-bottom:24px}
+.hero-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:60px;align-items:center;padding:78px 0 0}
+.hero-split .hero{padding:0;max-width:none}
+
+/* The product collage: three real screenshots, stacked. Nothing invented. */
+.collage{position:relative;height:430px}
+.collage figure{position:absolute;margin:0;border-radius:var(--r);overflow:hidden;
+  border:1px solid var(--line);background:var(--surface);box-shadow:var(--sh-lg);line-height:0}
+.collage img{display:block;width:100%}
+.collage .c1{width:84%;left:0;top:0;z-index:3}
+.collage .c2{width:60%;right:0;top:120px;z-index:4}
+.collage .c3{width:52%;left:8%;bottom:0;z-index:5}
+@media (prefers-reduced-motion:no-preference){
+  .collage figure{transition:transform var(--t)}
+  .collage:hover .c1{transform:translateY(-4px)}
+  .collage:hover .c2{transform:translateY(-7px)}
+  .collage:hover .c3{transform:translateY(-10px)}
 }
-/* search */
-.gsearch{position:relative;max-width:520px;margin-top:4px}
-.gsearch input{
-  width:100%;padding:14px 16px 14px 44px;border:1px solid var(--line);border-radius:var(--r);
-  background:var(--surface);font:inherit;font-size:15px;color:var(--ink);box-shadow:var(--shadow);
-  transition:border-color var(--t);
-}
-.gsearch input:focus{outline:none;border-color:var(--brand)}
-.gsearch svg{position:absolute;left:15px;top:50%;transform:translateY(-50%);color:var(--muted-soft)}
-.gres{
-  position:absolute;top:calc(100% + 8px);left:0;right:0;background:var(--surface);
-  border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);
-  max-height:380px;overflow:auto;z-index:30;padding:6px;
-}
+
+/* ── Search ──────────────────────────────────────────────────────────── */
+.gsearch{position:relative;max-width:580px}
+.gsearch input{width:100%;padding:17px 18px 17px 50px;border:1px solid var(--line);border-radius:var(--r);
+  background:var(--surface);font:inherit;font-size:16.5px;color:var(--ink);box-shadow:var(--sh);
+  transition:border-color var(--t),box-shadow var(--t)}
+.gsearch input:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 4px var(--brand-soft)}
+.gsearch svg{position:absolute;left:18px;top:50%;transform:translateY(-50%);color:var(--muted-soft)}
+.gres{position:absolute;top:calc(100% + 10px);left:0;right:0;background:var(--surface);
+  border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh-lg);
+  max-height:420px;overflow:auto;z-index:30;padding:8px}
 .gres[hidden]{display:none}
-.gres a{display:block;padding:10px 12px;border-radius:var(--r-sm);color:var(--ink)}
+.gres a{display:block;padding:12px 14px;border-radius:var(--r-sm);color:var(--ink)}
 .gres a:hover,.gres a.on{background:var(--line-soft);text-decoration:none}
-.gres .k{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted-soft);font-weight:600}
-.gres .t{font-weight:550;font-size:14.5px}
-.gres .none{padding:14px 12px;color:var(--muted);font-size:14px}
+.gres .k{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted-soft);font-weight:650}
+.gres .t{font-weight:550;font-size:15.5px}
+.gres .none{padding:16px 14px;color:var(--muted);font-size:15px}
 
-/* ── Cards ───────────────────────────────────────────────────────────── */
-.grid{display:grid;gap:16px}
-.g2{grid-template-columns:repeat(2,1fr)}
-.g3{grid-template-columns:repeat(3,1fr)}
-.g4{grid-template-columns:repeat(4,1fr)}
-.card{
-  background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
-  padding:22px;transition:border-color var(--t),transform var(--t),box-shadow var(--t);
-}
+/* ── Grids & cards ───────────────────────────────────────────────────── */
+.grid{display:grid;gap:20px}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:26px;
+  transition:border-color var(--t),transform var(--t),box-shadow var(--t)}
 a.card{display:block;color:inherit}
-a.card:hover{border-color:var(--muted-soft);transform:translateY(-2px);box-shadow:var(--shadow);text-decoration:none}
-.card h3{margin:0 0 5px}
-.card p{margin:0;color:var(--muted);font-size:14px;line-height:1.55}
-.card .go{margin-top:12px;font-size:13.5px;font-weight:550;color:var(--brand-dark)}
-.cardlist{display:flex;flex-direction:column;gap:2px}
-.cardlist a{
-  display:flex;align-items:baseline;gap:10px;padding:11px 14px;border-radius:var(--r-sm);color:var(--ink);
-  border:1px solid transparent;transition:background var(--t),border-color var(--t);
-}
+a.card:hover{border-color:var(--brand-line);transform:translateY(-3px);box-shadow:var(--sh-lg);text-decoration:none}
+.card h3{font-size:19px;margin:0 0 7px}
+.card p{margin:0;color:var(--muted);font-size:15px;line-height:1.58}
+.card .go{display:inline-block;margin-top:16px;font-size:14.5px;font-weight:600;color:var(--brand-dark)}
+
+/* Role card: illustration on top, in the market-card language. */
+.rolecard .art{background:var(--line-soft);border-radius:var(--r-sm);padding:14px 10px;margin:-6px -6px 18px}
+.g-art{width:100%;height:auto;display:block}
+.g-art path,.g-art rect,.g-art circle{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.g-art .a-1 path{stroke:#6F6459;stroke-width:1.7}
+.g-art .a-2 path{stroke:#A3968A;stroke-width:1.35;fill:#FAF5ED}
+.g-art .a-ctx path,.g-art .a-ctx circle{stroke:#CFC4B6;stroke-width:1.1}
+.g-art .a-fill{fill:#EFE0D0;stroke:none}
+.g-art .a-lit rect{fill:#FAD9BC;stroke:var(--brand);stroke-width:1.5}
+a.card:hover .g-art .a-lit rect{fill:#F7C79E}
+
+/* Compact link rows */
+.cardlist{display:flex;flex-direction:column;gap:3px}
+.cardlist a{display:flex;align-items:baseline;gap:12px;padding:14px 16px;border-radius:var(--r-sm);color:var(--ink);
+  border:1px solid transparent;transition:background var(--t),border-color var(--t)}
 .cardlist a:hover{background:var(--surface);border-color:var(--line);text-decoration:none}
-.cardlist .t{font-weight:550;font-size:14.5px}
-.cardlist .d{color:var(--muted);font-size:13.5px}
+.cardlist .t{font-weight:600;font-size:15.5px;flex:0 0 auto}
+.cardlist .d{color:var(--muted);font-size:14.5px}
 
-/* ── Screenshot ──────────────────────────────────────────────────────── */
-figure{margin:0 0 10px}
-.shot{
-  position:relative;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;
-  background:var(--surface);box-shadow:var(--shadow);line-height:0;
-}
+/* ── Screenshots ─────────────────────────────────────────────────────── */
+.shotwrap{background:var(--line-soft);border-radius:var(--r-lg);padding:26px}
+figure{margin:0}
+.shot{position:relative;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;
+  background:var(--surface);box-shadow:var(--sh-lg);line-height:0}
 .shot img{width:100%;height:auto;display:block}
-.shot .cm{
-  position:absolute;width:24px;height:24px;margin:-12px 0 0 -12px;border-radius:50%;
-  background:var(--brand);color:#fff;font-size:12.5px;font-weight:700;line-height:24px;text-align:center;
-  box-shadow:0 0 0 3px rgba(255,255,255,.92),0 2px 7px rgba(28,26,23,.28);
-  font-family:Inter,sans-serif;
-}
-figcaption{font-size:13.5px;color:var(--muted);margin-top:10px}
-/* the numbered key, so the meaning never depends on seeing the dot */
-.cmlist{list-style:none;margin:16px 0 0;padding:0;display:grid;gap:12px}
-.cmlist li{display:flex;gap:12px;align-items:flex-start}
-.cmlist .n{
-  flex:0 0 auto;width:23px;height:23px;border-radius:50%;background:var(--brand);color:#fff;
-  font-size:12.5px;font-weight:700;line-height:23px;text-align:center;
-}
-.cmlist .t{font-weight:600;font-size:14.5px;display:block}
-.cmlist .b{color:var(--muted);font-size:14px}
+.shot .cm{position:absolute;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;
+  background:var(--brand);color:#fff;font-size:15px;font-weight:700;line-height:30px;text-align:center;
+  box-shadow:0 0 0 4px rgba(255,255,255,.95),0 3px 10px rgba(28,26,23,.3);font-family:Inter,sans-serif}
+figcaption{font-size:14.5px;color:var(--muted);margin-top:14px}
+/* The key. Carries the meaning on its own, so the dots are never load-bearing. */
+.cmlist{list-style:none;margin:0;padding:0;display:grid;gap:18px}
+.cmlist li{display:flex;gap:15px;align-items:flex-start}
+.cmlist .n{flex:0 0 auto;width:28px;height:28px;border-radius:50%;background:var(--brand);color:#fff;
+  font-size:14px;font-weight:700;line-height:28px;text-align:center}
+.cmlist .t{font-weight:650;font-size:16.5px;display:block;margin-bottom:2px}
+.cmlist .b{color:var(--muted);font-size:15.5px;line-height:1.55}
+/* Screenshot left, key right, on a wide screen. */
+.shotkey{display:grid;grid-template-columns:minmax(0,1.62fr) minmax(300px,.95fr);gap:44px;align-items:start}
 
-/* ── Page pattern ────────────────────────────────────────────────────── */
-.block{margin-top:38px}
-.block > h2{font-size:15px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-family:Inter,sans-serif;font-weight:650;margin-bottom:12px}
-ul.clean{margin:0;padding-left:20px}
-ul.clean li{margin-bottom:7px}
-.note{
-  border-left:3px solid var(--brand);background:var(--brand-soft);padding:14px 18px;
-  border-radius:0 var(--r-sm) var(--r-sm) 0;font-size:14.5px;color:var(--ink-2);
-}
+/* ── Page-guide blocks ───────────────────────────────────────────────── */
+.block{margin-top:52px}
+.block > h2{font-size:13px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);
+  font-family:Inter,sans-serif;font-weight:700;margin-bottom:16px}
+.block > p{margin:0;font-size:17.5px;line-height:1.6;max-width:72ch}
+ul.clean{margin:0;padding-left:22px;max-width:72ch}
+ul.clean li{margin-bottom:10px}
+/* "What you can do" as compact capability chips rather than a bullet list */
+.caps{display:flex;flex-wrap:wrap;gap:10px}
+.caps span{background:var(--surface);border:1px solid var(--line);border-radius:999px;
+  padding:9px 16px;font-size:15px;font-weight:500}
+.note{border-left:3px solid var(--brand);background:var(--brand-soft);padding:18px 22px;
+  border-radius:0 var(--r-sm) var(--r-sm) 0;font-size:16.5px;color:var(--ink-2);max-width:80ch}
 .note.v1{border-left-color:var(--warn);background:var(--warn-bg)}
 .note.ok{border-left-color:var(--ok);background:var(--ok-bg)}
 .note b{color:var(--ink)}
-.steps{counter-reset:s;list-style:none;margin:0;padding:0;display:grid;gap:14px}
-.steps li{counter-increment:s;display:flex;gap:14px;align-items:flex-start}
-.steps li::before{
-  content:counter(s);flex:0 0 auto;width:26px;height:26px;border-radius:50%;
-  background:var(--ink);color:#fff;font-size:13px;font-weight:650;line-height:26px;text-align:center;
-}
-.steps .t{font-weight:600;display:block;font-size:15px}
-.steps .b{color:var(--muted);font-size:14.5px}
-dl.gl{margin:0;display:grid;gap:0}
-dl.gl > div{padding:16px 0;border-bottom:1px solid var(--line)}
-dl.gl dt{font-weight:650;font-size:15px}
-dl.gl dd{margin:3px 0 0;color:var(--muted);font-size:14.5px;max-width:70ch}
-details.faq{border-bottom:1px solid var(--line);padding:4px 0}
-details.faq summary{
-  cursor:pointer;padding:14px 0;font-weight:550;font-size:15.5px;list-style:none;
-  display:flex;justify-content:space-between;gap:16px;align-items:center;
-}
+
+/* ── Steps / journeys ────────────────────────────────────────────────── */
+.steps{counter-reset:s;list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.steps li{counter-increment:s;display:flex;gap:20px;align-items:flex-start;
+  padding:20px 0;border-top:1px solid var(--line)}
+.steps li:first-child{border-top:0;padding-top:4px}
+.steps li::before{content:counter(s);flex:0 0 auto;width:36px;height:36px;border-radius:50%;
+  background:var(--ink);color:#fff;font-size:16px;font-weight:650;line-height:36px;text-align:center;
+  font-family:"Space Grotesk",sans-serif}
+.steps .t{font-weight:650;display:block;font-size:18px;margin-bottom:3px}
+.steps .b{color:var(--muted);font-size:16px;line-height:1.55}
+/* The journey: a role's day, as a sequence you can scan */
+.journey{display:grid;gap:18px}
+.jstep{display:grid;grid-template-columns:76px minmax(0,1fr);gap:22px;align-items:start;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:26px 28px}
+.jstep .num{font-family:"Space Grotesk",sans-serif;font-size:40px;font-weight:600;color:var(--brand);
+  line-height:1;letter-spacing:-.04em}
+.jstep h3{font-size:21px;margin-bottom:7px}
+.jstep p{margin:0;color:var(--muted);font-size:16.5px;line-height:1.58;max-width:70ch}
+
+/* ── The V1/V2 boundary: two panels, read in about two seconds ───────── */
+.boundary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
+.panel{border-radius:var(--r-lg);padding:30px 32px;border:1px solid}
+.panel.live{background:var(--ok-bg);border-color:var(--ok-line)}
+.panel.v1{background:var(--warn-bg);border-color:var(--warn-line)}
+.panel h3{font-size:23px;margin-bottom:6px}
+.panel.live h3{color:var(--ok)} .panel.v1 h3{color:var(--warn)}
+.panel .lede{font-size:15.5px;margin:0 0 20px;color:var(--ink-2)}
+.panel ul{list-style:none;margin:0;padding:0;display:grid;gap:11px}
+.panel li{display:flex;gap:11px;align-items:flex-start;font-size:16px;font-weight:500}
+/* The mark is a SHAPE as well as a colour, so the two panels stay
+   distinguishable without colour vision. */
+.panel .mk{flex:0 0 auto;width:21px;height:21px;border-radius:50%;display:inline-block;
+  font-size:12px;line-height:21px;text-align:center;font-weight:800;color:#fff;margin-top:2px}
+.panel.live .mk{background:var(--ok)}
+.panel.v1 .mk{background:var(--warn);border-radius:4px}
+
+/* ── Troubleshooting decision cards ──────────────────────────────────── */
+.tcards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:start}
+details.tcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  padding:4px 28px 6px;transition:border-color var(--t),box-shadow var(--t)}
+details.tcard[open]{border-color:var(--brand-line);box-shadow:var(--sh)}
+details.tcard summary{cursor:pointer;list-style:none;padding:24px 0;display:flex;gap:16px;
+  align-items:center;justify-content:space-between;font-family:"Space Grotesk",sans-serif;
+  font-size:20px;font-weight:600;letter-spacing:-.02em}
+details.tcard summary::-webkit-details-marker{display:none}
+details.tcard summary::after{content:'';flex:0 0 auto;width:26px;height:26px;border-radius:50%;
+  background:var(--line-soft);background-image:linear-gradient(currentColor,currentColor),linear-gradient(currentColor,currentColor);
+  background-size:11px 1.6px,1.6px 11px;background-position:center,center;background-repeat:no-repeat;
+  color:var(--muted);transition:transform var(--t)}
+details.tcard[open] summary::after{background-size:11px 1.6px,0 0;transform:rotate(180deg)}
+details.tcard .in{padding:0 0 22px}
+
+/* ── Glossary & FAQ ──────────────────────────────────────────────────── */
+dl.gl{margin:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 48px}
+dl.gl > div{padding:20px 0;border-bottom:1px solid var(--line)}
+dl.gl dt{font-weight:700;font-size:16.5px}
+dl.gl dd{margin:4px 0 0;color:var(--muted);font-size:15.5px;line-height:1.56}
+details.faq{border-bottom:1px solid var(--line)}
+details.faq summary{cursor:pointer;padding:19px 0;font-weight:550;font-size:17.5px;list-style:none;
+  display:flex;justify-content:space-between;gap:18px;align-items:center}
 details.faq summary::-webkit-details-marker{display:none}
-details.faq summary::after{content:'+';color:var(--muted);font-size:19px;font-weight:400}
+details.faq summary::after{content:'+';color:var(--muted);font-size:21px;font-weight:300}
 details.faq[open] summary::after{content:'\2212'}
-details.faq p{margin:0 0 16px;color:var(--muted);max-width:72ch}
-.pill{
-  display:inline-block;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;
-  background:var(--line-soft);color:var(--ink-2);
-}
-.pill.live{background:var(--ok-bg);color:var(--ok)}
-.pill.v1{background:var(--warn-bg);color:var(--warn)}
-.foot{margin-top:72px;padding-top:22px;border-top:1px solid var(--line);color:var(--muted-soft);font-size:13px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+details.faq p{margin:0 0 20px;color:var(--muted);max-width:76ch;font-size:16.5px}
+
+.foot{margin-top:96px;padding-top:26px;border-top:1px solid var(--line);color:var(--muted-soft);
+  font-size:14px;display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap}
 
 /* ── Responsive ──────────────────────────────────────────────────────── */
-@media (max-width:900px){
-  .g3,.g4{grid-template-columns:repeat(2,1fr)}
-  .hero h1{font-size:36px}
-  .hero{padding-top:52px}
+@media (max-width:1180px){
+  .shotkey{grid-template-columns:1fr;gap:30px}
+  .hero-split{grid-template-columns:1fr;gap:44px}
+  .collage{height:360px}
+  .g4{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
-@media (max-width:620px){
-  .wrap{padding:0 16px 72px}
-  .gtop-in{padding:12px 16px;gap:10px}
-  .gtop nav{width:100%;margin-left:0;overflow-x:auto;flex-wrap:nowrap}
+@media (max-width:900px){
+  :root{--gut:28px}
+  .g3{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .boundary,.tcards,dl.gl{grid-template-columns:1fr}
+  .hero{padding-top:56px}
+  .sechead h2{font-size:28px}
+}
+@media (max-width:640px){
+  :root{--gut:18px}
+  body{font-size:16px}
   .g2,.g3,.g4{grid-template-columns:1fr}
-  .hero h1{font-size:30px}
-  .hero p{font-size:16.5px}
+  .hero p{font-size:18px}
+  .shotwrap{padding:14px;border-radius:var(--r)}
+  .jstep{grid-template-columns:1fr;gap:10px;padding:22px}
+  .jstep .num{font-size:32px}
+  .collage{height:250px}
   /* A numbered dot on a phone-width screenshot points at nothing legible,
-     so the key below the image carries the meaning on its own. */
+     so the key below carries the meaning by itself. */
   .shot .cm{display:none}
+  details.tcard{padding:4px 20px 6px}
+  details.tcard summary{font-size:18px}
 }
 @media (prefers-reduced-motion:reduce){
   *{transition:none!important;scroll-behavior:auto!important}
   a.card:hover{transform:none}
+  .collage figure{transition:none}
 }
+
+/* The key's own heading, inside the screenshot tray. */
+.shotkey .kh{font-size:13px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);
+  font-family:Inter,sans-serif;font-weight:700;margin:0 0 18px}
+@media (max-width:1180px){ .shotkey .kh{margin-top:4px} }

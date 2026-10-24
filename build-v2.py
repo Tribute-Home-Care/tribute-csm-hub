@@ -107,7 +107,7 @@ def main():
     gpath = os.path.join(OUT, 'v2', 'guide.html')
     if os.path.exists(gpath):
         g = read(gpath)
-        for asset in ('guide-content.js', 'guide.css'):
+        for asset in ('guide-content.js', 'guide-art.js', 'guide.css'):
             h = hashlib.sha1(io.open(os.path.join(OUT, 'v2', asset), 'rb').read()).hexdigest()[:8]
             g = re.sub(r'\./' + re.escape(asset) + r'(\?v=[0-9a-f]+)?',
                        './' + asset + '?v=' + h, g)
