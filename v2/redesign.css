@@ -1983,3 +1983,18 @@ input[type="email"], select { min-height: var(--h-ctl); }
 @media (prefers-reduced-motion: reduce) {
   .hub-card:hover .rd-mk .mk-fill { filter: none; }
 }
+
+/* The Maryland crab. It is the counterpart of the Massachusetts Sacred Cod,
+   and it was left in the default grey while the Cod took the harbour tone —
+   which made Maryland look like the unfinished one.
+
+   A live Chesapeake blue crab is blue-green, not the red of a steamed one,
+   so the market's own supporting tone is also the literal colour of the
+   animal. The body carries a fill so it reads as a creature rather than a
+   diagram of one; the claws and legs stay line work. Deliberately NOT
+   orange: orange is brand and action everywhere else in V2, and the lit
+   window in this same drawing is using it. */
+.mk-md .mk-egg path   { stroke: #7F9E95; }
+.mk-md .mk-egg path:first-child { fill: #DCE8E3; stroke: #6F9086; }
+.mk-md .mk-egg circle { stroke: #7F9E95; fill: none; }
+.hub-card:hover .mk-md .mk-egg path:first-child { fill: #CFE0DA; }
