@@ -526,10 +526,11 @@
      with. Until it answers, canWrite() says no to every business capability,
      so the page cannot offer a control whose write would be refused. */
   function askServer() {
-    // The readers live on TributeApp.fn, set by bridge.js, which loads
-    // first. VIV_PROXY is a top-level const in index.html and so is not on
-    // window (TD-07) — the bridge is the only way to reach it.
-    const proxy = (App.fn && App.fn.vivProxy && App.fn.vivProxy()) || '';
+    // bridge.js exposes each reader as a GETTER on TributeApp itself, not as
+    // a function under .fn — so this is a property read, not a call.
+    // VIV_PROXY is a top-level const in index.html and therefore not on
+    // window (TD-07), which makes the bridge the only way to reach it.
+    const proxy = App.vivProxy || '';
     const gate = window.tributeKsfGate;
     if (!proxy || !gate || !gate.getToken) return false;
     App.loadWriteConfig(proxy, async function () {
