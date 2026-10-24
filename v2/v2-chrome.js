@@ -191,6 +191,17 @@
         }
       }
 
+      // Stale-while-revalidate: the server may serve a snapshot past its TTL
+      // while it refreshes behind the request. That is the right trade for a
+      // 59-second rebuild, but the page must never present it as current.
+      if (data._stale === true || data._staleServed === true) {
+        const age = data._cachedAt
+          ? Math.round((Date.now() - new Date(data._cachedAt).getTime()) / 60000) : null;
+        App.noteAnomaly('serving-stale', ep,
+          age != null ? ('snapshot is ' + age + ' min old; refreshing behind this request') : 'snapshot past TTL');
+        banner(ep, 'stale', null, age);
+      }
+
       if (ep === 'csm_data') {
         const d = data.data || data;
         const shared = d.shared || {};
@@ -219,7 +230,7 @@
     coc_tasks: 'change of condition', csm_data: 'the shared document',
     community_email: 'the community draft'
   };
-  function banner(ep, state, status) {
+  function banner(ep, state, status, ageMin) {
     const pageId = SOURCE_PAGE[ep];
     if (!pageId) return;
     const page = document.getElementById(pageId);
@@ -233,6 +244,12 @@
       if (h && h.nextSibling) page.insertBefore(el, h.nextSibling); else page.prepend(el);
     }
     el.className = 'v2-src-banner ' + state;
+    if (state === 'stale') {
+      el.textContent = 'Showing the last good ' + (LABEL[ep] || ep) +
+        (ageMin != null ? ', from ' + ageMin + ' minutes ago' : '') +
+        '. A refresh is running behind this page \u2014 reload shortly for current figures.';
+      return;
+    }
     el.textContent = state === 'slow'
       ? 'Still loading ' + (LABEL[ep] || ep) + ' \u2014 over 20 seconds so far. ' +
         'Nothing below is complete yet.'

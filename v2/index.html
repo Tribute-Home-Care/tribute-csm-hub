@@ -7629,12 +7629,17 @@ function tpAutoChip(t){
 // only, so a covering CSM never sees it. Pulled here and shown for BOTH your
 // own clients and any you are covering (Courtney, 9/3).
 let _COC=null;
+let _cocInFlight=null;
 async function loadCoC(){
+  if(_cocInFlight) return _cocInFlight;
+  _cocInFlight=(async()=>{
   try{
     const r=await fetch(VIV_PROXY+'?endpoint=coc_tasks&days=14',{headers:await dataHeaders()});
     const j=await r.json(); if(j&&Array.isArray(j.tasks))_COC=j.tasks;
   }catch(e){ /* non-fatal */ }
   if(P){updateHome(); if(_homeDrill==='high')toggleHomeDrill('high'),toggleHomeDrill('high');}
+  })().finally(()=>{_cocInFlight=null;});
+  return _cocInFlight;
 }
 // Clients I am responsible for right now: mine + anything handed off to me.
 function _myCidSet(){

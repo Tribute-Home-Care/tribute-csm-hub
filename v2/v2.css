@@ -72,3 +72,4 @@
 }
 .v2-src-banner.slow   { background: #FAF2E0; color: #93610A; }
 .v2-src-banner.failed { background: #FBECEA; color: #B42318; font-weight: 500; }
+.v2-src-banner.stale { background: #EEF3F9; color: #2C5689; }
