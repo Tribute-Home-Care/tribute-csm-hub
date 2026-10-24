@@ -280,9 +280,7 @@
   }
 
   function paint() {
-    const b = document.getElementById('v2-blocked-count');
-    if (b) b.textContent = (App.writeAttempts && App.writeAttempts.length)
-      ? App.writeAttempts.length + ' blocked' : 'read-only';
+    if (App.updateWriteBadge) App.updateWriteBadge();
     const a = document.getElementById('v2-anom');
     if (a) a.textContent = anomalies.length + (anomalies.length === 1 ? ' note' : ' notes');
   }
@@ -302,12 +300,35 @@
     };
     const html =
       '<h3>V2 Preview diagnostics</h3>' +
-      '<p class="v2-lead"><b>Business / operational production writes: 0</b>. ' +
-      'Blocked attempts: <b>' + wr.blockedAttempts + '</b>. ' +
-      'Policy leaks: <b class="' + (wr.policyLeaks ? 'bad' : '') + '">' + wr.policyLeaks + '</b>.</p>' +
+      '<p class="v2-lead">' +
+        'Approved business writes: <b>' + (wr.approvedBusinessWrites || 0) + '</b>. ' +
+        'Blocked business writes: <b>' + (wr.blockedBusinessWrites || 0) + '</b>. ' +
+        'Failed writes: <b class="' + (wr.failedWrites ? 'bad' : '') + '">' + (wr.failedWrites || 0) + '</b>. ' +
+        'Duplicates prevented: <b>' + (wr.duplicatePrevented || 0) + '</b>. ' +
+        'Policy leaks: <b class="' + (wr.policyLeaks ? 'bad' : '') + '">' + (wr.policyLeaks || 0) + '</b>.' +
+      '</p>' +
+      '<p class="v2-lead">' + (
+        !App.serverWrite.known
+          ? 'Still checking what the server will accept.'
+          : !App.serverWrite.enabled
+            ? '<b>Business writes are switched off on the server.</b> V2 is readable and feedback still works.'
+            : !App.serverWrite.isPilotWriter
+              ? 'This account is <b>read-only</b> in V2: it is not in the write pilot.'
+              : 'Write-enabled for this account. Enabled: <b>' +
+                esc((wr.enabledCapabilities || []).filter(function (c) {
+                  return App.isBusinessCapability && App.isBusinessCapability(c); }).join(', ') || 'none') + '</b>.'
+      ) + '</p>' +
+      (wr.sharedWritesSuppressed
+        ? '<p class="v2-lead">Shared-document changes not sent: <b>' + wr.sharedWritesSuppressed +
+          '</b> \u2014 V2 does not write team-wide keys, so no one else\u2019s edit can be lost.</p>' : '') +
       '<p class="v2-lead v2-lead-fb">Pilot feedback submissions: <b>' +
       (wr.pilotFeedbackSubmissions || 0) + '</b> \u2014 stored in the pilot feedback container, ' +
       'not in any operational system.</p>' +
+      '<h4>Approved writes</h4>' +
+      rows(App.writeLog || [], [['When', function (r) { return r.at.slice(11, 19); }],
+                 ['User', 'user'], ['Capability', 'capability'], ['Endpoint', 'endpoint'],
+                 ['Record', 'recordType'], ['OK', function (r) { return r.ok ? 'yes' : 'NO'; }],
+                 ['Status', 'status']]) +
       '<h4>Endpoint latency</h4>' +
       rows(lat, [['Endpoint', 'endpoint'], ['Calls', 'calls'], ['Mean', function (r) { return r.meanMs + 'ms'; }],
                  ['Min', function (r) { return r.minMs + 'ms'; }], ['Max', function (r) { return r.maxMs + 'ms'; }],

@@ -1,7 +1,8 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    CSM HUB V2 PREVIEW — WRITE POLICY
    ═══════════════════════════════════════════════════════════════════════════
-   V2 reads production for real and writes nothing.
+   V2 reads production for real, and writes to the SAME production sources
+   of truth V1 writes to — never a copy, never a V2-only store.
 
    The local prototype blocked writes by replacing window.fetch. That was
    right for a machine with no credentials and wrong for a deployment that
@@ -11,8 +12,9 @@
 
    So the mechanism here is a CAPABILITY the application asks about:
 
-       TributeApp.environment            === 'v2-preview'
-       TributeApp.canWrite('csm_data')   === false
+       TributeApp.environment                 === 'v2-preview'
+       TributeApp.canWrite('csm_data_pocket') === true   (approved)
+       TributeApp.canWrite('community_send')  === false  (not approved)
 
    Each write-capable function is wrapped individually, declares which
    capability it needs, and refuses before it builds a request. A blocked
@@ -30,35 +32,115 @@
   App.version = 'V2 Preview';
 
   /* ── The policy ────────────────────────────────────────────────────────
-     Phase 1: every capability that changes stored state is false.
-     `assist` and `render` are POSTs that mutate nothing; they stay on so the
-     Assistant and the email preview can be evaluated, and they are named
-     separately so either can be switched off without touching the rest. */
+     A capability is true only when it maps to a write path V1 ALREADY uses,
+     and only when that path has been shown to be safe for two interfaces at
+     once. Everything else stays false. Three things decide the answer, and
+     all three must agree:
+
+       1. this table                       (what has been approved)
+       2. the signed-in user               (the four pilot testers)
+       3. the server's own switch          (V2_BUSINESS_WRITES_ENABLED)
+
+     The server enforces 2 and 3 again on every write, so turning writes off
+     does not depend on this file being reloaded.
+
+     WHY THE SHARED-DOCUMENT SPLIT. csm_data is one JSON document. V1's 409
+     retry replaces whole top-level keys of DATA.shared with its own copy, so
+     a save made while someone else's coverage note was in flight discards
+     that note. The profile pocket does not have this problem: the retry
+     keeps each person's own pocket and leaves every other pocket alone.
+     So the transport is split in two here — the pocket is enabled and the
+     shared keys are not — and V2's own retry refuses to write shared keys
+     at all. See TECH-DEBT TD-30 and test/csm-data-concurrency.test.js. */
   const POLICY = {
-    csm_data: false,            // the shared document — ALL CSM edits funnel here
+    // ENABLED — profile-pocket edits through V1's own saveToFile/queueSave.
+    // Quick Notes, to-dos, 1:1 notes, KPI entries, client metadata,
+    // touchpoints, the visit log and Success-in-30 all live here.
+    csm_data_pocket: true,
+
+    // ENABLED — the community draft. ecSaveDraft POSTs community_email&save=1,
+    // the same stored draft the Friday run reads and V1 edits.
+    community_draft_save: true,
+
+    // BLOCKED — writes to DATA.shared.* (coverage notes, Fill Priority
+    // events and status, community settings, Maryland cadence). Same
+    // document, but the 409 retry can drop another person's edit.
+    csm_data_shared: false,
+
+    // BLOCKED — ecSend has no in-flight guard and no idempotency key, so a
+    // double click sends two emails from the CSM's own mailbox. Brief §15:
+    // no idempotency, no enablement.
+    community_send: false,
+
     ltc_action: false,          // approve / mark sent / confirm / reopen
     ltc_send: false,            // send a submission packet to a carrier
     ltc_nudge: false,           // text a caregiver about missing notes
     csm_visit: false,           // create or delete a visit in Viv
     graph_calendar: false,      // create or delete an Outlook event
     graph_mail: false,          // send mail from the CSM's mailbox
-    community_draft_save: false,// persist an edited community draft
-    community_send: false,      // send the community email, including a test
-    weekly_schedule: false,     // not built in production at all
-    usage_telemetry: false,     // active-time tracking: a preview must not
-                                // write usage rows or skew real usage stats
+    weekly_schedule: false,     // client_week is not implemented in production
+    usage_telemetry: false,     // a pilot must not skew real usage stats
 
     assist: true,               // POST, but a question — mutates nothing
     community_render: true,     // POST, but returns HTML — persists nothing
-
-    // The ONE intentionally authorised V2 write. It is not a business write:
-    // its own endpoint, its own container, nothing operational. It is counted
-    // SEPARATELY so a feedback submission can never make the diagnostics
-    // panel imply that V2 has modified operational data.
-    v2_feedback: true
+    v2_feedback: true           // counted separately; never a business write
   };
 
-  App.canWrite = function (capability) { return POLICY[capability] === true; };
+  /* Which capabilities are business writes, for the diagnostics split. */
+  const BUSINESS = new Set(['csm_data_pocket','csm_data_shared','community_draft_save',
+    'community_send','ltc_action','ltc_send','ltc_nudge','csm_visit',
+    'graph_calendar','graph_mail','weekly_schedule']);
+  App.isBusinessCapability = function (c) { return BUSINESS.has(c); };
+
+  /* ── What the server will actually accept ──────────────────────────────
+     Asked once at boot. Until it answers, nothing business-y is writable:
+     an unknown switch is treated as off, so a slow network cannot produce a
+     page that looks write-enabled when it is not. */
+  App.serverWrite = { known: false, enabled: false, isPilotWriter: false, capabilities: [] };
+  App.loadWriteConfig = async function (proxy, headers) {
+    try {
+      const r = await fetch(proxy + '?endpoint=v2_write_config', { headers: await headers() });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const j = await r.json();
+      App.serverWrite = {
+        known: true,
+        enabled: !!j.businessWritesEnabled,
+        isPilotWriter: !!j.isPilotWriter,
+        capabilities: j.capabilities || [],
+        user: j.user
+      };
+    } catch (e) {
+      App.serverWrite = { known: false, enabled: false, isPilotWriter: false,
+                          capabilities: [], error: String(e.message || e) };
+    }
+    if (App.updateWriteBadge) App.updateWriteBadge();
+    if (App.onWriteConfig) try { App.onWriteConfig(); } catch (e) {}
+    return App.serverWrite;
+  };
+
+  // Three gates, all of which must agree. A business capability additionally
+  // needs the server's switch, the pilot allow-list, and the server's own
+  // list of enabled capabilities — so the answer here matches what the
+  // server would do with the request, and the UI never offers a control
+  // whose write the server is going to refuse.
+  App.canWrite = function (capability) {
+    if (POLICY[capability] !== true) return false;
+    if (!BUSINESS.has(capability)) return true;          // assist, render, feedback
+    const sw = App.serverWrite;
+    if (!sw.known || !sw.enabled || !sw.isPilotWriter) return false;
+    return sw.capabilities.indexOf(capability) !== -1;
+  };
+  // Why a capability is off, in words, for the UI and the diagnostics panel.
+  App.writeBlockReason = function (capability) {
+    if (POLICY[capability] !== true) return 'not approved for the V2 pilot';
+    if (!BUSINESS.has(capability)) return null;
+    const sw = App.serverWrite;
+    if (!sw.known) return 'still checking what the server will accept';
+    if (!sw.enabled) return 'business writes are switched off on the server';
+    if (!sw.isPilotWriter) return 'this account is not in the write pilot';
+    if (sw.capabilities.indexOf(capability) === -1) return 'the server has not enabled this capability';
+    return null;
+  };
   App.writePolicy = function () { return JSON.parse(JSON.stringify(POLICY)); };
 
   /* ── Instrumentation ───────────────────────────────────────────────────
@@ -98,20 +180,58 @@
     return row;
   };
 
+  /* Approved writes that actually happened. Same rule as the blocked log:
+     who, when, what capability, which endpoint, whether it worked, and a
+     record type — never the body, which carries client names and notes. */
+  const writes = [];
+  App.writeLog = writes;
+  App.recordWrite = function (info) {
+    const row = {
+      at: new Date().toISOString(),
+      user: whoAmI(),
+      capability: info.capability,
+      endpoint: info.endpoint,
+      operation: info.operation || 'POST',
+      recordType: info.recordType || null,
+      recordId: info.recordId || null,
+      ok: info.ok === true,
+      status: info.status || null
+    };
+    writes.push(row);
+    updateBadge();
+    return row;
+  };
+  let duplicatePrevented = 0;
+  App.recordDuplicatePrevented = function (what) {
+    duplicatePrevented++;
+    try { console.warn('[V2] duplicate prevented:', what); } catch (e) {}
+    return duplicatePrevented;
+  };
+
   App.writeReport = function () {
     const byFeature = {};
     attempts.forEach(function (a) { byFeature[a.feature] = (byFeature[a.feature] || 0) + 1; });
     const leaks = attempts.filter(function (a) { return /FETCH GUARD/.test(a.blockedBy); });
+    const ok = writes.filter(function (w) { return w.ok; });
+    const bad = writes.filter(function (w) { return !w.ok; });
     return {
       environment: App.environment,
-      // Two different things, never added together.
-      businessWrites: 0,
-      productionWrites: 0,
+      // The goal is no longer "no writes". It is "no writes we did not approve".
+      approvedBusinessWrites: ok.length,
+      blockedBusinessWrites: attempts.filter(function (a) {
+        return App.isBusinessCapability(a.capability); }).length,
       pilotFeedbackSubmissions: App.feedbackWrites || 0,
-      blockedAttempts: attempts.length,
-      byFeature: byFeature,
       policyLeaks: leaks.length,
+      duplicatePrevented: duplicatePrevented,
+      sharedWritesSuppressed: App.__sharedWriteSuppressed || 0,
+      failedWrites: bad.length,
+      // Context for the panel
+      writesEnabledOnServer: App.serverWrite.enabled && App.serverWrite.known,
+      isPilotWriter: App.serverWrite.isPilotWriter,
+      enabledCapabilities: Object.keys(POLICY).filter(function (c) { return App.canWrite(c); }),
+      byFeature: byFeature,
       leakDetail: leaks,
+      writeLog: writes.slice(),
       attempts: attempts.slice()
     };
   };
@@ -142,7 +262,12 @@
 
   function updateBadge() {
     const el = document.getElementById('v2-blocked-count');
-    if (el) el.textContent = attempts.length ? attempts.length + ' blocked' : 'read-only';
+    if (!el) return;
+    const sw = App.serverWrite;
+    if (!sw.known)        el.textContent = 'checking\u2026';
+    else if (!sw.enabled) el.textContent = 'writes off';
+    else if (!sw.isPilotWriter) el.textContent = 'read-only';
+    else el.textContent = writes.length ? writes.length + ' saved' : 'write pilot';
   }
   App.updateWriteBadge = updateBadge;
 
@@ -180,7 +305,7 @@
     // The shared document. Every client edit, note, to-do, tier change,
     // Pulse acknowledgement and KPI entry reaches storage through here.
     gate('saveToFile', {
-      feature: 'Shared document save', capability: 'csm_data',
+      feature: 'Shared document save', capability: 'csm_data_pocket',
       endpoint: 'vivProxy?endpoint=csm_data', operation: 'POST',
       onDeny: function () {
         if (typeof window.setSyncStatus === 'function') {
@@ -192,13 +317,31 @@
     // Stop the debounce too, so a blocked save is reported once per edit
     // rather than once per keystroke burst.
     gate('queueSave', {
-      feature: 'Shared document save (queued)', capability: 'csm_data',
+      feature: 'Shared document save (queued)', capability: 'csm_data_pocket',
       endpoint: 'vivProxy?endpoint=csm_data', operation: 'POST',
       onDeny: function () {
         if (typeof window.setSyncStatus === 'function') {
           window.setSyncStatus('err', 'Preview — not saved');
         }
       }
+    });
+
+    /* DATA.shared editors. The payload guard above already makes these
+       harmless, but a change that quietly does nothing is worse than one
+       that says why, so each is gated and explains itself. */
+    [['setMdCadence','Maryland visit cadence'],
+     ['saveCommunity','Community directory entry'],
+     ['ecSkipWeek','Skip this week\u2019s community email'],
+     ['setFpStatus','Fill Priority status'],
+     ['setFpOrder','Fill Priority order'],
+     ['createFpEvent','Fill Priority event'],
+     ['saveSettings','Hub settings']].forEach(function (pair) {
+      gate(pair[0], {
+        feature: pair[1], capability: 'csm_data_shared',
+        endpoint: 'vivProxy?endpoint=csm_data', operation: 'POST',
+        message: pair[1] + ' is shared across the whole team. V2 is not saving '
+               + 'those yet \u2014 use V1 for this one.'
+      });
     });
 
     gate('ltcAct', {
@@ -249,7 +392,7 @@
       message: 'Preview only — no email was sent, not even a test to yourself.'
     });
     gate('saveEmailComm', {
-      feature: 'Save community email settings', capability: 'csm_data',
+      feature: 'Save community email settings', capability: 'csm_data_shared',
       endpoint: 'vivProxy?endpoint=csm_data', operation: 'POST',
       message: 'Preview only — community settings are not saved.'
     });
@@ -296,7 +439,21 @@
       const u = String((url && url.url) || url || '');
       const method = String((opts && opts.method) || 'GET').toUpperCase();
       const prod = /azurewebsites\.net|graph\.microsoft\.com|tributehomecare\.com/i.test(u);
-      if (!prod || method === 'GET' || method === 'HEAD') return real(url, opts);
+      if (!prod || method === 'GET' || method === 'HEAD') {
+        // Keep the server's own DATA.shared from every read of the document.
+        // It is what V2 will send back, untouched — see sanitiseCsmData.
+        if (prod && /endpoint=csm_data/.test(u) && method === 'GET') {
+          return real(url, opts).then(function (r) {
+            try {
+              r.clone().json().then(function (j) {
+                if (j && j.data && j.data.shared) App.__serverShared = j.data.shared;
+              }, function () {});
+            } catch (e) {}
+            return r;
+          });
+        }
+        return real(url, opts);
+      }
 
       // Allowed non-GET reads, by capability.
       const ep = (/[?&]endpoint=([a-z0-9_]+)/.exec(u) || [])[1] || '';
@@ -319,6 +476,74 @@
       if (ep === 'community_email' && /render=1/.test(u) && !/save=1|send=1|test=1/.test(u)
           && App.canWrite('community_render')) return real(url, opts);
 
+      /* ── Approved business writes ──────────────────────────────────────
+         These go to V1's own endpoints, unchanged. V2 adds two headers so
+         the server can apply the pilot allow-list and the kill switch to
+         V2 traffic without affecting V1, which sends neither header. The
+         result is recorded: an approved write is a fact to be counted, not
+         a silent pass-through. */
+      /* V2 must never write a DATA.shared key. Gating each function that
+         touches one is necessary for telling the user, but it is not
+         sufficient: several of them are lexical consts the wrapper cannot
+         reach, and any future one would be missed. So the payload itself is
+         made safe here — whatever the page did to DATA.shared in memory, the
+         bytes that leave carry the server's copy. Nothing another interface
+         wrote can be lost by a V2 save.
+
+         Returns the body to send, or null to leave it alone. */
+      function sanitiseCsmData(o) {
+        if (!o || typeof o.body !== 'string') return null;
+        let payload;
+        try { payload = JSON.parse(o.body); } catch (e) { return null; }
+        if (!payload || !payload.data) return null;
+        const serverShared = App.__serverShared;
+        if (!serverShared) {
+          // Never seen the server's copy, so we cannot prove ours is current.
+          // Send no shared block at all rather than a guess.
+          if (payload.data.shared) { delete payload.data.shared; o.body = JSON.stringify(payload); }
+          return o;
+        }
+        const mine = JSON.stringify(payload.data.shared || {});
+        if (mine === JSON.stringify(serverShared)) return null;   // identical, nothing to do
+        App.__sharedWriteSuppressed = (App.__sharedWriteSuppressed || 0) + 1;
+        payload.data.shared = serverShared;
+        o.body = JSON.stringify(payload);
+        try { console.warn('[V2] a DATA.shared change was not sent; V2 does not write shared keys'); } catch (e) {}
+        return o;
+      }
+
+      const APPROVED = [
+        { test: function () { return ep === 'csm_data'; },
+          capability: 'csm_data_pocket', recordType: 'csm_data document' },
+        { test: function () { return ep === 'community_email' && /save=1/.test(u) && !/send=1|test=1/.test(u); },
+          capability: 'community_draft_save', recordType: 'community draft' }
+      ];
+      for (let i = 0; i < APPROVED.length; i++) {
+        const a = APPROVED[i];
+        if (!a.test()) continue;
+        if (!App.canWrite(a.capability)) {
+          App.recordBlockedWrite({ feature: a.recordType, capability: a.capability,
+            endpoint: u.split('?')[0] + '?endpoint=' + ep, operation: method });
+          App.previewToast('Not saved — ' + App.writeBlockReason(a.capability) + '.');
+          return Promise.resolve(new Response(JSON.stringify(
+            { error: 'v2: ' + App.writeBlockReason(a.capability), v2Blocked: true }),
+            { status: 403, headers: { 'Content-Type': 'application/json' } }));
+        }
+        let o = Object.assign({}, opts || {});
+        o.headers = Object.assign({}, (opts && opts.headers) || {},
+          { 'X-Tribute-Surface': 'v2-preview', 'X-Tribute-Capability': a.capability });
+        if (ep === 'csm_data') o = sanitiseCsmData(o) || o;
+        return real(url, o).then(function (r) {
+          App.recordWrite({ capability: a.capability, endpoint: 'vivProxy?endpoint=' + ep,
+            operation: method, recordType: a.recordType, ok: r.ok, status: r.status });
+          return r;
+        }, function (err) {
+          App.recordWrite({ capability: a.capability, endpoint: 'vivProxy?endpoint=' + ep,
+            operation: method, recordType: a.recordType, ok: false, status: 'network' });
+          throw err;
+        });
+      }
+
       App.recordBlockedWrite({
         feature: 'UNGATED WRITE PATH', capability: ep || 'unknown',
         endpoint: u.split('?')[0] + (ep ? '?endpoint=' + ep : ''),
@@ -331,6 +556,29 @@
       ));
     };
   }
+
+  /* Ask the server what it will accept, as soon as there is a token to ask
+     with. Until it answers, canWrite() says no to every business capability,
+     so the page cannot offer a control whose write would be refused. */
+  function askServer() {
+    const bridge = window.TributeBridge;
+    const proxy = bridge && bridge.vivProxy && bridge.vivProxy();
+    const gate = window.tributeKsfGate;
+    if (!proxy || !gate || !gate.getToken) return false;
+    App.loadWriteConfig(proxy, async function () {
+      const t = await gate.getToken();
+      return t ? { Authorization: 'Bearer ' + t } : {};
+    });
+    return true;
+  }
+  App.refreshWriteConfig = askServer;
+  if (!askServer()) {
+    const ct = setInterval(function () { if (askServer()) clearInterval(ct); }, 300);
+    setTimeout(function () { clearInterval(ct); }, 30000);
+  }
+  // Re-ask periodically so flipping the kill switch reaches an open tab
+  // without anyone having to reload it.
+  setInterval(askServer, 60000);
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () { App.installWritePolicy(); });
