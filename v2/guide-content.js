@@ -82,7 +82,7 @@ window.GUIDE = (function () {
       first: ['Overview first. It is built to be read in a few seconds.', 'Then the area Overview points you at.'],
       can: ['Update client details', 'Log a touchpoint or care conversation', 'Review the visit log and schedule', 'Acknowledge a Pulse read'],
       saves: 'Everything in the workspace saves to the shared record as you go.',
-      v1: 'Adding or removing an actual visit in Viv, and calendar changes, are still done in the current Hub.',
+      v1: 'Adding or removing the actual visit in Viv is still done in the current Hub. Putting the visit on your own Outlook calendar, and taking it off again, works here.',
       related: ['log-touchpoint', 'pulse-status', 'blocked-action']
     },
 
