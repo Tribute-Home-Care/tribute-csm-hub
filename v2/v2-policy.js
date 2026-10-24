@@ -135,7 +135,7 @@
      Asked once at boot. Until it answers, nothing business-y is writable:
      an unknown switch is treated as off, so a slow network cannot produce a
      page that looks write-enabled when it is not. */
-  App.serverWrite = { known: false, enabled: false, isPilotWriter: false, capabilities: [] };
+  App.serverWrite = { known: false, enabled: false, isPilotWriter: false, capabilities: [], capabilityMap: null };
   App.loadWriteConfig = async function (proxy, headers) {
     try {
       const r = await fetch(proxy + '?endpoint=v2_write_config', { headers: await headers() });
@@ -146,6 +146,10 @@
         enabled: !!j.businessWritesEnabled,
         isPilotWriter: !!j.isPilotWriter,
         capabilities: j.capabilities || [],
+        // The map carries the category switches. Without it the page could
+        // offer a control the server would refuse, which is how a Viv
+        // shutdown would have looked like a bug rather than a decision.
+        capabilityMap: j.capabilityMap || null,
         user: j.user
       };
     } catch (e) {
@@ -170,6 +174,10 @@
     // A page-side capability is allowed only if the transport it rides on is.
     const gate = SERVER_CAPS.has(capability) ? capability : NEEDS[capability];
     if (!gate) return true;
+    // Prefer the map when the server sent one: it already has the category
+    // switches applied. Fall back to the list for an older server.
+    if (sw.capabilityMap && Object.prototype.hasOwnProperty.call(sw.capabilityMap, gate))
+      return sw.capabilityMap[gate] === true;
     return sw.capabilities.indexOf(gate) !== -1;
   };
   // Why a capability is off, in words, for the UI and the diagnostics panel.
