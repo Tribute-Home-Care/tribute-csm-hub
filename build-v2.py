@@ -13,6 +13,7 @@ LOCAL PREVIEW bar are development-only and are asserted absent below.
 Output: v2/index.html — a sibling of V1, sharing nothing but the origin.
 """
 import hashlib
+import re
 import io, os, re, shutil, sys
 
 HUB = os.path.expanduser('~/tribute-csm-hub')
@@ -98,6 +99,20 @@ def main():
         f.write(html)
 
     # 4. (the layer was copied above, before the stamps were taken)
+
+    # 4b. The guide is a hand-written page, but its two assets are not: a
+    #     cached guide-content.js beside a fresh guide.html shows the old
+    #     wording and puts callout dots on the wrong part of a screenshot.
+    #     Same content-hash treatment as everything else.
+    gpath = os.path.join(OUT, 'v2', 'guide.html')
+    if os.path.exists(gpath):
+        g = read(gpath)
+        for asset in ('guide-content.js', 'guide.css'):
+            h = hashlib.sha1(io.open(os.path.join(OUT, 'v2', asset), 'rb').read()).hexdigest()[:8]
+            g = re.sub(r'\./' + re.escape(asset) + r'(\?v=[0-9a-f]+)?',
+                       './' + asset + '?v=' + h, g)
+        with io.open(gpath, 'w', encoding='utf-8') as f:
+            f.write(g)
 
     # 5. Assertions. A harness that reaches production is the one thing that
     #    must never happen, so it is checked rather than assumed.
