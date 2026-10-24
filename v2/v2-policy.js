@@ -299,7 +299,7 @@
       if (!prod || method === 'GET' || method === 'HEAD') return real(url, opts);
 
       // Allowed non-GET reads, by capability.
-      const ep = (/[?&]endpoint=([a-z_]+)/.exec(u) || [])[1] || '';
+      const ep = (/[?&]endpoint=([a-z0-9_]+)/.exec(u) || [])[1] || '';
       if (ep === 'csm_assist' && App.canWrite('assist')) return real(url, opts);
       // Pilot feedback: allowed, and tallied on its own counter so the
       // business-write total stays 0.

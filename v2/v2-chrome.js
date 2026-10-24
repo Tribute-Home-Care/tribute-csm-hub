@@ -62,7 +62,7 @@
     const real = window.fetch.bind(window);
     window.fetch = function (url, opts) {
       const u = String((url && url.url) || url || '');
-      const ep = (/[?&]endpoint=([a-z_]+)/.exec(u) || [])[1]
+      const ep = (/[?&]endpoint=([a-z0-9_]+)/.exec(u) || [])[1]
               || (/graph\.microsoft\.com\/v1\.0\/([a-zA-Z/]+)/.exec(u) || [])[1]
               || null;
       if (!ep) return real(url, opts);
