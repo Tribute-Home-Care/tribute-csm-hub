@@ -74,9 +74,11 @@ section{margin-top:76px}
 .collage figure{position:absolute;margin:0;border-radius:var(--r);overflow:hidden;
   border:1px solid var(--line);background:var(--surface);box-shadow:var(--sh-lg);line-height:0}
 .collage img{display:block;width:100%}
-.collage .c1{width:84%;left:0;top:0;z-index:3}
-.collage .c2{width:60%;right:0;top:120px;z-index:4}
-.collage .c3{width:52%;left:8%;bottom:0;z-index:5}
+/* Home is the subject; the other two are supporting. The feedback panel is
+   a tall image, so it is kept small or it takes over the composition. */
+.collage .c1{width:80%;left:0;top:6px;z-index:3}
+.collage .c2{width:54%;right:0;top:168px;z-index:4}
+.collage .c3{width:27%;left:3%;bottom:0;z-index:5}
 @media (prefers-reduced-motion:no-preference){
   .collage figure{transition:transform var(--t)}
   .collage:hover .c1{transform:translateY(-4px)}
