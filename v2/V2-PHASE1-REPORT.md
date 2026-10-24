@@ -311,7 +311,8 @@ registered, so sign-in will work immediately.
 
 | Repo | Branch | Commit | Contains | Pushed |
 |---|---|---|---|---|
-| `tribute-csm-hub` | `v2-preview` | `a4e1ed6` | V2 (`v2/`, `build-v2.py`) — **adds files only** | **No** |
+| `tribute-csm-hub` | `v2-preview` | `a4e1ed6` | V2 (`v2/`, `build-v2.py`) — **adds files only** | see below |
+| `tribute-csm-hub` | `v2-preview` | **`ba36853`** (HEAD) | the three real-data fixes in §10, plus this report | see below |
 | `tribute-csm-hub` | `fix/community-email-timezone-wording` | `8c3b8d6` | TD-26 preview fix | **No** |
 | `tribute-api` | `fix/community-email-timezone-wording` | `9dfafc3` | TD-26 server fix | **No** |
 
@@ -321,6 +322,16 @@ merge it because V2 is shipping.
 
 Also changed, outside git: **two SPA redirect URIs added** to Entra app
 `1df79777` (92 → 94). To revert, restore the backed-up 92-URI list.
+
+### A note on the commit numbers
+
+This report first named `a4e1ed6` as the branch HEAD because that is what it
+was when the report was written. The three real-data fixes in §10 — the Pulse
+enum, the thirteen-market map, and not rendering a failed source as an
+all-clear — were committed immediately afterwards as **`ba36853`**, together
+with this file. So the report was stale by one commit, and stale because it
+is inside the commit it failed to mention. `ba36853` is the HEAD, and it
+contains only the work described here.
 
 ## 17 · V1 untouched — confirmed
 
