@@ -1,0 +1,1922 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   TRIBUTE CSM HUB — REDESIGN LAYER
+   ═══════════════════════════════════════════════════════════════════════════
+   Loaded AFTER the app's own <style> block, so this is a pure override layer.
+   Not one line of the original CSS is deleted: every rule here either retunes
+   a token the original already uses, or restyles a class the original already
+   applies. That is deliberate. It means the 349 render functions keep emitting
+   exactly the markup they emit today, and the redesign can be evaluated, kept,
+   partially kept or thrown away without unpicking the application.
+
+   The design language is taken from the Tribute Transformation Map. The
+   product architecture is NOT. See REDESIGN.md for the transfer / adapt /
+   unique decisions behind each block.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. TOKENS ────────────────────────────────────────────────────────────
+   TRANSFER DIRECTLY from the Transformation Map. Two products that share a
+   palette and a type ramp read as one product family even when their layouts
+   differ, which is the whole objective.
+
+   The hub's existing variable NAMES are kept and repointed. Hundreds of inline
+   styles in the render functions reference var(--line-soft), var(--hi) and so
+   on; repointing rather than renaming means all of them move to the new
+   palette for free, and none of them break. */
+:root {
+  /* Map canvas and surfaces */
+  --canvas: #F7F6F4;
+  --surface: #FFFFFF;
+  --surface-2: #F1EFEC;
+  --line: #E8E4E0;
+  --line-2: #D6D0CB;
+  --line-soft: #F1EFEC;
+
+  /* Map ink ramp. The hub had one muted grey; the Map has three steps, which
+     is what makes its dense rows readable. */
+  --ink: #231F20;
+  --ink-2: #5E5557;
+  --ink-3: #6E6568;
+  --head: #3A3335;
+  --muted: #5E5557;
+  --muted-soft: #6E6568;
+
+  /* Brand. The hub used #FF5A1F, which at scale reads hot and fights the
+     semantic reds. The Map's #C95018 is the same hue family, lower in
+     saturation, and sits beside --bad without competing with it. */
+  --orange: #C95018;
+  --orange-dark: #A8400F;
+  --orange-soft: #FBEEE6;
+  --orange-fg: #A8400F;
+  --brand: #C95018;
+  --brand-ink: #A8400F;
+  --brand-soft: #FBEEE6;
+
+  /* Legacy aliases the original stylesheet still resolves */
+  --navy: #231F20;
+  --navy-h: #000000;
+  --gold: #C95018;
+  --gold-l: #A8400F;
+  --cream: #F7F6F4;
+
+  /* Semantic status. Mapped onto the hub's existing hi/med/lo pairs so every
+     existing tier badge, pill and inline colour follows.
+       red   = action required / outside desired state
+       amber = watch / approaching threshold
+       green = healthy / complete / on track
+       grey  = unknown / no data / not applicable
+     Orange is NOT in this list. It is brand and primary action only. */
+  --bad: #B42318;  --bad-bg: #FBECEA;
+  --warn: #93610A; --warn-bg: #FAF2E0;
+  --pos: #2E7A57;  --pos-bg: #E8F2EC;
+  --info: #3F5E9E; --info-bg: #EDF1F8;
+  --none: #6E6568; --none-bg: #F1EFEC;
+  --hi: #B42318;   --hi-bg: #FBECEA;
+  --med: #93610A;  --med-bg: #FAF2E0;
+  --lo: #2E7A57;   --lo-bg: #E8F2EC;
+
+  /* Map geometry, shadow and motion */
+  --r: 10px; --r-sm: 8px; --r-xs: 7px;
+  --e1: 0 1px 2px rgba(35,31,32,.04);
+  --e2: 0 8px 28px rgba(35,31,32,.08), 0 1px 3px rgba(35,31,32,.05);
+  --e3: 0 24px 64px rgba(35,31,32,.18), 0 2px 8px rgba(35,31,32,.06);
+  --ring: 0 0 0 2px #FFFFFF, 0 0 0 4px var(--brand);
+  --t: 180ms cubic-bezier(.2,.7,.2,1);
+  --t-slow: 260ms cubic-bezier(.2,.7,.2,1);
+
+  --sb: #FBFAF8;
+  --sb-2: #F0EDEA;
+  --sw: 236px;
+  --mono: ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+}
+
+/* ── 2. TYPOGRAPHY ────────────────────────────────────────────────────────
+   ADAPT. The Map is single-family (Source Sans 3). The hub paired Inter with
+   Space Grotesk for display headings. Source Sans 3 is adopted for body to
+   match the family; Space Grotesk is RETIRED rather than kept, because two
+   display faces across two products in the same suite is exactly the thing
+   that makes them look unrelated. Page titles instead earn their hierarchy
+   from size and weight, as they do in the Map. */
+body {
+  font-family: "Source Sans 3", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  letter-spacing: 0;
+  color: var(--ink);
+  background: var(--canvas);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+h1, h2, .mt, .hub-card .hub-name, .sb-brand h1, .ph h2 {
+  font-family: inherit;
+  letter-spacing: -.01em;
+  color: var(--head);
+}
+.sv, .snum, .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+b, strong { font-weight: 600; }
+:focus { outline: none; }
+:focus-visible { box-shadow: var(--ring); border-radius: var(--r-xs); }
+
+/* ── 3. SHELL ─────────────────────────────────────────────────────────────
+   ADAPT. The Map's quiet left rail is transferred. Its sticky translucent top
+   bar is transferred too, but it carries different cargo here: the Map shows
+   "as of" context for an executive, the hub shows what the CSM is looking at,
+   the global search, and the sync state, because this is a workbench. */
+.sidebar {
+  width: var(--sw);
+  background: var(--sb);
+  border-right: 1px solid var(--line);
+  padding: 0;
+}
+.sb-brand { padding: 20px 18px 6px; border-bottom: none; }
+.sb-brand h1 { font-size: 16px; font-weight: 600; letter-spacing: -.01em; }
+.sb-brand h1 .dot { color: var(--brand); }
+.sb-brand p {
+  font-size: 12px; font-weight: 500; color: var(--ink-2);
+  text-transform: none; letter-spacing: .01em; margin-top: 2px;
+}
+.sb-who {
+  margin: 10px 10px 4px; padding: 9px 10px; border-radius: var(--r-xs);
+  border-bottom: none; background: transparent; transition: background var(--t);
+}
+.sb-who:hover { background: var(--sb-2); }
+.sb-av { width: 26px; height: 26px; font-size: 10px; font-weight: 600; }
+.sb-wname { font-size: 13.5px; font-weight: 600; }
+.sb-wsub { font-size: 12px; color: var(--ink-2); }
+.sb-sync {
+  margin: 0 10px 6px; padding: 6px 10px; border-radius: var(--r-xs);
+  border-bottom: none; font-size: 12.5px; color: var(--ink-2); cursor: pointer;
+}
+.sb-sync:hover { background: var(--sb-2); }
+.sb-nav { padding: 4px 0 8px; }
+
+/* Nav section headers and items follow .tm-navh / .tm-nav from the Map. */
+.nav-sec {
+  font-size: 11.5px; font-weight: 600; color: var(--ink-3);
+  text-transform: none; letter-spacing: .01em;
+  padding: 16px 18px 5px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 10px; margin: 1px 10px; border-radius: var(--r-xs);
+  font-size: 14.5px; font-weight: 500; color: var(--ink-2);
+  transition: background var(--t), color var(--t);
+}
+.nav-item:hover { background: var(--sb-2); color: var(--ink); }
+.nav-item.active {
+  background: var(--surface); color: var(--ink); font-weight: 600;
+  box-shadow: 0 0 0 1px var(--line), var(--e1);
+}
+/* ICONOGRAPHY. The original hid .nav-icon entirely (display:none) and the
+   markup carried an emoji in it. Emoji in a left rail at 12px is noise, but
+   a rail with no marks at all is harder to scan than one with them, so the
+   Map's approach is adopted: a 17px line icon, inherited stroke, three
+   quarters opacity, full opacity and brand colour when current. Icons are
+   injected by redesign.js; this is only their styling. */
+.nav-item .nav-icon {
+  display: inline-flex; width: 17px; height: 17px; flex: none;
+  align-items: center; justify-content: center;
+  font-size: 0; line-height: 0;
+}
+.nav-item .nav-icon svg {
+  width: 17px; height: 17px;
+  stroke: currentColor; fill: none;
+  stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round;
+  opacity: .75; transition: opacity var(--t), color var(--t);
+}
+.nav-item.active .nav-icon svg { opacity: 1; color: var(--brand); }
+/* Count badge on the right of a nav row: the Map's .cnt. Used here for
+   "how many things on this page want me", which is the single most useful
+   thing a left rail can tell an operator. */
+.nav-item .nav-cnt {
+  margin-left: auto; font-size: 12.5px; font-weight: 600;
+  color: var(--brand-ink); font-variant-numeric: tabular-nums;
+}
+.nav-item .nav-cnt.zero { color: var(--ink-3); font-weight: 500; }
+.sb-foot {
+  padding: 12px 18px; border-top: 1px solid var(--line);
+  font-size: 12.5px; color: var(--ink-3); font-style: normal;
+}
+
+.main { margin-left: var(--sw); padding: 0; }
+
+/* Sticky top bar. TRANSFER (behaviour) / ADAPT (contents). */
+#rd-top {
+  position: sticky; top: 0; z-index: 30;
+  background: rgba(247,246,244,.9);
+  backdrop-filter: saturate(1.1) blur(10px);
+  -webkit-backdrop-filter: saturate(1.1) blur(10px);
+  border-bottom: 1px solid transparent;
+  transition: border-color var(--t);
+}
+#rd-top.scrolled { border-bottom-color: var(--line); }
+.rd-top-in {
+  display: flex; align-items: center; gap: 14px;
+  padding: 11px 32px; min-height: 60px;
+}
+.rd-h1 { font-size: 15px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+.rd-ctx {
+  display: flex; align-items: center; gap: 8px; margin-left: auto;
+  font-size: 13px; color: var(--ink-3); white-space: nowrap;
+}
+.rd-ctx .sep { width: 1px; height: 14px; background: var(--line-2); }
+.rd-ctx b { color: var(--ink-2); font-weight: 600; }
+.rd-ctx .stale { color: var(--warn); font-weight: 600; }
+.page { padding: 20px 32px 72px; max-width: 1400px; }
+
+/* ── 4. SURFACES ──────────────────────────────────────────────────────────
+   ADAPT. The hub's 16px radius and soft shadow read friendly but blur the
+   grid on a dense operational page. The Map's 10px / hairline / e1 keeps the
+   warmth and sharpens the structure. */
+.card, .sc, .sc-card, .md {
+  border-radius: var(--r);
+  border: 1px solid var(--line);
+  box-shadow: var(--e1);
+  background: var(--surface);
+}
+.card { padding: 16px 18px; }
+.sc { padding: 14px 16px; }
+.ct {
+  font-size: 11.5px; font-weight: 600; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--ink-3);
+}
+.ph { margin-bottom: 18px; }
+.ph h2 { font-size: 21px; font-weight: 600; letter-spacing: -.01em; }
+.ph p { color: var(--ink-2); font-size: 14px; margin-top: 3px; max-width: 76ch; line-height: 1.5; }
+.sl { font-size: 11.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+.sv { font-size: 26px; font-weight: 600; color: var(--ink); letter-spacing: -.01em; }
+.ss { font-size: 12.5px; color: var(--ink-2); }
+
+/* ── 5. CONTROLS ──────────────────────────────────────────────────────────
+   ADAPT. Pill buttons and the Map's control geometry transfer. One deliberate
+   divergence: the Map makes its primary button INK. Here primary stays BRAND
+   ORANGE, because the brief reserves orange for primary action and brand, and
+   because on an operational page the single "do the thing" button benefits
+   from being the only saturated element on screen. Ink is kept for the
+   secondary-strong button the hub already had (.btn-g). */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 34px; padding: 0 14px;
+  border-radius: 999px; border: 1px solid var(--line-2);
+  background: var(--surface); color: var(--ink);
+  font-size: 14px; font-weight: 600; letter-spacing: 0;
+  transition: background var(--t), border-color var(--t), color var(--t);
+}
+.btn:hover { background: var(--surface-2); }
+.btn:active { transform: translateY(.5px); }
+.btn-p { background: var(--brand); border-color: var(--brand); color: #fff; }
+.btn-p:hover { background: var(--brand-ink); border-color: var(--brand-ink); }
+.btn-g { background: var(--ink); border-color: var(--ink); color: #fff; }
+.btn-g:hover { background: var(--head); border-color: var(--head); }
+.btn-o { background: var(--surface); border-color: var(--line-2); color: var(--ink); }
+.btn-o:hover { background: var(--surface-2); }
+.btn-d { background: var(--surface); border-color: #EBC5C1; color: var(--bad); }
+.btn-d:hover { background: var(--bad-bg); }
+.btn-sm { min-height: 29px; padding: 0 12px; font-size: 13px; }
+
+.si, .fc, input[type="text"], input[type="date"], input[type="number"], input[type="email"], select, textarea {
+  min-height: 34px; padding: 6px 11px;
+  border: 1px solid var(--line-2); border-radius: var(--r-xs);
+  background: var(--surface); color: var(--ink);
+  font-size: 14.5px; font-family: inherit;
+}
+.si:hover, .fc:hover { border-color: #BDB5AF; }
+.si:focus, .fc:focus, input:focus, select:focus, textarea:focus {
+  box-shadow: 0 0 0 3px var(--brand-soft); border-color: var(--brand); outline: none;
+}
+textarea, textarea.fc { min-height: 80px; resize: vertical; line-height: 1.45; }
+.fl { font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.fg { margin-bottom: 12px; }
+
+/* Tabs become the Map's segmented control: a tray with a raised current tab.
+   Clearer than an underline when a page has several tab bars, which several
+   hub pages do. */
+.tabs {
+  display: inline-flex; padding: 2px; gap: 2px;
+  background: var(--surface-2); border-radius: var(--r-sm);
+  border-bottom: none; margin-bottom: 16px;
+}
+.tab {
+  padding: 0 13px; min-height: 32px;
+  display: inline-flex; align-items: center;
+  border-radius: 6px; border-bottom: none !important;
+  font-size: 14px; font-weight: 500; color: var(--ink-2);
+  transition: background var(--t), color var(--t);
+}
+.tab:hover { color: var(--ink); }
+.tab.active {
+  background: var(--surface); color: var(--ink); font-weight: 600;
+  box-shadow: 0 1px 2px rgba(35,31,32,.08), 0 0 0 1px var(--line);
+}
+
+/* Filter buttons in the row lists (.btn used as a filter) get the Map's
+   pressed-state treatment through .btn-p, which the pages already apply. */
+
+/* ── 6. STATUS GRAMMAR ────────────────────────────────────────────────────
+   ADAPT. The Map's rule is that the TEXT carries the meaning and the mark is
+   a 7px dot. That is kept. What is NOT taken from the Map is its vocabulary
+   (Live / Build / Plan / Hold); the hub's domain language stays exactly as it
+   is, because High Need, Overdue, Needs Attention, Blocked and Not Sent are
+   different concepts that happen to share a colour. Only the grammar is
+   unified. */
+.tb {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 9px; border-radius: 999px;
+  font-size: 12px; font-weight: 600; letter-spacing: 0;
+}
+.tb.hi, .hi { background: var(--hi-bg); color: var(--hi); }
+.tb.med, .med { background: var(--med-bg); color: var(--med); }
+.tb.lo, .lo { background: var(--lo-bg); color: var(--lo); }
+.st {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 14px; white-space: nowrap; color: var(--ink);
+}
+.st::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--line-2); flex: none; }
+.st.bad::before  { background: var(--bad); }
+.st.warn::before { background: var(--warn); }
+.st.pos::before  { background: var(--pos); }
+.st.info::before { background: var(--info); }
+.st.none { color: var(--ink-3); }
+.st.none::before { background: transparent; border: 1.5px dashed #BDB5AF; width: 6px; height: 6px; }
+.st.bad  { color: var(--bad); }
+.st.warn { color: var(--warn); }
+
+/* A small spaced-caps word for provenance (Viv / HubSpot / Manual), from the
+   Map's .x-badge. Says where a number came from without shouting. */
+.rd-src {
+  display: inline-block; font-size: 10.5px; font-weight: 600;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3);
+  vertical-align: .1em;
+}
+
+/* ── 7. MODALS ────────────────────────────────────────────────────────────
+   TRANSFER the Map's elevation and scrim weight. */
+.mo { background: rgba(35,31,32,.38); backdrop-filter: blur(2px); }
+.md { border-radius: var(--r); box-shadow: var(--e3); padding: 22px 24px; }
+.mh { font-size: 17px; font-weight: 600; color: var(--head); }
+
+/* ── 8. HOME: OPERATIONAL COMMAND CENTRE ──────────────────────────────────
+   UNIQUE to the CSM Hub. The Map opens on a portfolio an executive browses.
+   The hub opens on a shift a CSM has to get through, so the hierarchy is
+   Needs attention → Coming up → Caseload health → Tools. Section wrappers are
+   added around the EXISTING home blocks; nothing is rebuilt, so every render
+   function still writes into the element it has always written into. */
+.rd-sec { margin-top: 30px; }
+.rd-sec:first-child { margin-top: 0; }
+.rd-sec-h { display: flex; align-items: baseline; gap: 12px; margin-bottom: 11px; }
+.rd-sec-h h3 { font-size: 19px; font-weight: 600; letter-spacing: -.01em; color: var(--head); }
+.rd-sec-h .lede { font-size: 13.5px; color: var(--ink-3); }
+.rd-sec-h .aside { margin-left: auto; font-size: 13.5px; color: var(--ink-3); }
+.rd-sec.quiet > .rd-sec-h h3 { color: var(--ink-2); font-size: 17px; }
+
+/* The attention strip: the one thing a CSM should read first. */
+#rd-attn { display: grid; grid-template-columns: repeat(auto-fit, minmax(172px, 1fr)); gap: 10px; }
+.rd-attn-card {
+  background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--line-2);
+  border-radius: var(--r); padding: 12px 14px; cursor: pointer;
+  transition: box-shadow var(--t), border-color var(--t), transform var(--t);
+}
+.rd-attn-card:hover { box-shadow: var(--e2); transform: translateY(-1px); }
+.rd-attn-card.bad  { border-left-color: var(--bad); }
+.rd-attn-card.warn { border-left-color: var(--warn); }
+.rd-attn-card.pos  { border-left-color: var(--pos); }
+.rd-attn-card.none { border-left-color: var(--line-2); }
+.rd-attn-n { font-family: var(--mono); font-size: 27px; font-weight: 600; line-height: 1; letter-spacing: -.02em; }
+.rd-attn-card.bad .rd-attn-n  { color: var(--bad); }
+.rd-attn-card.warn .rd-attn-n { color: var(--warn); }
+.rd-attn-card.pos .rd-attn-n  { color: var(--pos); }
+.rd-attn-card.none .rd-attn-n { color: var(--ink-3); }
+.rd-attn-l { font-size: 13.5px; font-weight: 600; color: var(--ink); margin-top: 6px; line-height: 1.3; }
+.rd-attn-s { font-size: 12.5px; color: var(--ink-3); margin-top: 2px; }
+.rd-allclear {
+  padding: 18px 20px; border: 1px dashed var(--line-2); border-radius: var(--r);
+  color: var(--ink-2); font-size: 14.5px; background: var(--surface);
+}
+
+/* ── 9. GLOBAL SEARCH ─────────────────────────────────────────────────────
+   UNIQUE. The Map has no equivalent; it is a browse product. The hub is a
+   lookup product, and the single most common thing a CSM does is find one
+   client. This supplements the page-level filters rather than replacing any
+   of them: every existing search box is untouched. */
+.rd-search-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 34px; padding: 0 12px 0 11px;
+  border: 1px solid var(--line-2); border-radius: 999px;
+  background: var(--surface); color: var(--ink-3);
+  font-size: 14px; cursor: pointer; transition: border-color var(--t), color var(--t);
+}
+.rd-search-btn:hover { border-color: #BDB5AF; color: var(--ink); }
+.rd-search-btn kbd {
+  font-family: inherit; font-size: 11.5px; font-weight: 600;
+  border: 1px solid var(--line); border-radius: 4px; padding: 0 5px;
+  color: var(--ink-3); background: var(--surface-2);
+}
+#rd-pal {
+  display: none; position: fixed; inset: 0; z-index: 2000;
+  background: rgba(35,31,32,.34); backdrop-filter: blur(2px);
+  align-items: flex-start; justify-content: center; padding-top: 11vh;
+}
+#rd-pal.open { display: flex; }
+.rd-pal-box {
+  width: 640px; max-width: 94vw; background: var(--surface);
+  border: 1px solid var(--line); border-radius: var(--r);
+  box-shadow: var(--e3); overflow: hidden;
+}
+#rd-pal-input {
+  width: 100%; border: none; border-bottom: 1px solid var(--line);
+  border-radius: 0; min-height: 52px; padding: 0 18px; font-size: 16.5px;
+}
+#rd-pal-input:focus { box-shadow: none; border-color: var(--line); }
+#rd-pal-results { max-height: 56vh; overflow: auto; }
+.rd-pal-grp {
+  font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--ink-3); padding: 11px 18px 4px;
+}
+.rd-pal-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 18px; cursor: pointer; border: none; background: none;
+  width: 100%; text-align: left; color: inherit; font-size: 14.5px;
+}
+.rd-pal-row:hover, .rd-pal-row.sel { background: var(--surface-2); }
+.rd-pal-row .r-sub { margin-left: auto; font-size: 12.5px; color: var(--ink-3); }
+.rd-pal-empty { padding: 26px 18px; color: var(--ink-3); font-size: 14.5px; text-align: center; }
+
+/* ── 10. CLIENT WORKSPACE ─────────────────────────────────────────────────
+   UNIQUE, and the answer to "information about one client is scattered".
+   The client detail already renders every section the brief lists; what it
+   lacked was a way to move between them. A section rail is added over the
+   EXISTING detail markup, so nothing about how the sections are produced
+   changes. Contextual disclosure: a section whose data is empty for this
+   client is marked, not hidden, so the CSM learns the shape of the record. */
+.rd-cw-rail {
+  display: flex; gap: 2px; flex-wrap: wrap; padding: 2px;
+  background: var(--surface-2); border-radius: var(--r-sm); margin-bottom: 14px;
+}
+.rd-cw-rail button {
+  appearance: none; border: none; background: none;
+  padding: 0 12px; min-height: 31px; border-radius: 6px;
+  font: inherit; font-size: 13.5px; font-weight: 500; color: var(--ink-2); cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: background var(--t), color var(--t);
+}
+.rd-cw-rail button:hover { color: var(--ink); }
+.rd-cw-rail button[aria-pressed="true"] {
+  background: var(--surface); color: var(--ink); font-weight: 600;
+  box-shadow: 0 1px 2px rgba(35,31,32,.08), 0 0 0 1px var(--line);
+}
+.rd-cw-rail button .dotn {
+  font-size: 11.5px; font-weight: 600; color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.rd-cw-rail button.empty { color: var(--ink-3); }
+
+/* ── 11. PROTOTYPE CHROME ─────────────────────────────────────────────────
+   Prototype-only. Never ships. Deliberately loud so this page can never be
+   mistaken for the real hub in a screenshot. */
+html.proto-on body { padding-bottom: 46px; }
+#proto-bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 4000;
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 7px 16px; min-height: 46px;
+  background: #231F20; color: #F7F6F4;
+  font-family: "Source Sans 3", system-ui, sans-serif; font-size: 13px;
+  border-top: 3px solid var(--brand);
+}
+#proto-bar .proto-tag {
+  background: var(--brand); color: #fff; font-weight: 700;
+  font-size: 11px; letter-spacing: .1em; padding: 3px 9px; border-radius: 4px;
+}
+#proto-bar .proto-txt { color: #C9C3BF; }
+#proto-bar .proto-as { display: flex; align-items: center; gap: 7px; margin-left: auto; color: #C9C3BF; }
+#proto-bar select {
+  background: #3A3335; color: #F7F6F4; border: 1px solid #5E5557;
+  border-radius: 6px; min-height: 28px; padding: 2px 8px; font-size: 12.5px; max-width: 330px;
+}
+#proto-bar .proto-w { color: #C9C3BF; }
+#proto-bar .proto-w b { color: #fff; }
+#proto-bar .proto-btn {
+  background: #3A3335; color: #F7F6F4; border: 1px solid #5E5557;
+  border-radius: 999px; min-height: 28px; padding: 0 12px; font-size: 12.5px;
+  cursor: pointer; font-family: inherit;
+}
+#proto-bar .proto-btn:hover { background: #4A4345; }
+
+/* ── 12. RESPONSIVE ───────────────────────────────────────────────────────
+   ADAPT. The original was fixed at a 252px rail with no breakpoints, so it
+   broke below about 1000px. The Map collapses its rail; the same is done
+   here, with the rail becoming a horizontal scroller rather than a drawer,
+   because a CSM on a tablet in a client's hallway wants one tap to a page,
+   not two. */
+@media (max-width: 1100px) {
+  .g4 { grid-template-columns: repeat(2, 1fr); }
+  .rd-top-in, .page { padding-left: 22px; padding-right: 22px; }
+}
+@media (max-width: 900px) {
+  .sidebar {
+    position: static; width: 100%; height: auto;
+    flex-direction: column; border-right: none; border-bottom: 1px solid var(--line);
+  }
+  /* The prototype banner offset below is a desk-width rule only. Left applying
+     here it kept height:calc(100vh - 32px) on a now-static sidebar, which ate
+     the whole viewport and pushed the page off the bottom of the screen. */
+  html.proto-on .sidebar { top: auto; height: auto; }
+  .sb-nav {
+    display: flex; align-items: center;   /* without this the current pill
+                                             stretches to the rail's height */
+    overflow-x: auto; padding: 6px 8px; gap: 4px;
+  }
+  .sb-nav .nav-sec { display: none; }
+  .nav-item { margin: 0; white-space: nowrap; flex: none; }
+  .nav-item .nav-cnt { margin-left: 6px; }
+  .main { margin-left: 0; }
+  #app { flex-direction: column; }
+  .g2, .g3, .g4 { grid-template-columns: 1fr; }
+  .rd-top-in { padding: 10px 16px; }
+  .page { padding: 16px 16px 80px; }
+  .rd-ctx { display: none; }
+}
+@media (max-width: 620px) {
+  #rd-attn { grid-template-columns: 1fr 1fr; }
+  .ph h2 { font-size: 19px; }
+  #proto-bar .proto-txt, #proto-bar .proto-w { display: none; }
+}
+
+/* ── 13. PRINT ────────────────────────────────────────────────────────────
+   LTC packets and Maryland evidence get printed. The rail, top bar and
+   prototype chrome should not be on the paper. */
+@media print {
+  .sidebar, #rd-top, #proto-bar, .rd-search-btn { display: none !important; }
+  .main { margin-left: 0; }
+  .card, .sc { box-shadow: none; border: 1px solid #DDD; }
+}
+
+/* ── 14. SETUP SCREENS ────────────────────────────────────────────────────
+   The hub picker, profile grid, loading splash and no-access notice are the
+   first thing anyone sees, so they have to carry the family look too. ADAPT:
+   the Map has no equivalent screen, but its surface, radius, shadow and type
+   ramp apply directly. */
+.setup-screen h1 { font-size: 26px; font-weight: 600; letter-spacing: -.015em; color: var(--head); }
+.setup-screen p { color: var(--ink-2); font-size: 14.5px; }
+.folder-box {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--r); box-shadow: var(--e2); padding: 28px 26px;
+}
+.hub-card, .pc {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--r); box-shadow: var(--e1);
+  transition: box-shadow var(--t), border-color var(--t), transform var(--t);
+}
+.hub-card:hover, .pc:hover {
+  box-shadow: var(--e2); border-color: var(--line-2); transform: translateY(-1px);
+}
+.hub-card .hub-name { font-size: 16.5px; font-weight: 600; letter-spacing: -.01em; }
+.pname { font-size: 14.5px; font-weight: 600; }
+.prole { font-size: 12.5px; color: var(--ink-2); }
+.pav { font-weight: 600; }
+.pc.mgr, .pc.csc-card { border-color: var(--line-2); }
+
+/* Empty states: the Map's quiet, sentence-shaped empty rather than a big
+   glyph and a fragment. */
+.es { padding: 26px 18px; text-align: center; color: var(--ink-2); font-size: 14.5px; }
+.es .ei { font-size: 22px; opacity: .55; margin-bottom: 6px; }
+.es p { color: var(--ink-2); font-size: 14.5px; }
+
+/* The production stale-copy guard. Kept and restyled: it is correct that it
+   fires here, and it is a useful second signal that this is not the live hub.
+   redesign.js rewrites its wording for the prototype. */
+#rd-stale-note {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+  background: var(--bad); color: #fff;
+  font: 600 12.5px "Source Sans 3", system-ui, sans-serif;
+  padding: 7px 14px; text-align: center;
+}
+
+/* ── 15. FIXES FOUND IN THE BROWSER ───────────────────────────────────────
+   Stat figures use the body face with tabular numerals rather than the mono
+   stack. SF Mono draws a slashed zero, which at 26px reads as a struck-out
+   number on a card whose whole job is to be read at a glance. The Map does
+   the same thing: --fig is the body face. Small inline figures keep the mono
+   stack, where the slash is a feature. */
+.sv { font-family: inherit; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.rd-attn-n { font-family: inherit; font-variant-numeric: tabular-nums; }
+
+/* The production stale-copy guard is position:fixed at the top of the
+   viewport, so the sticky top bar has to start below it. */
+html.proto-on #rd-top { top: 32px; }
+html.proto-on body { padding-top: 32px; }
+@media (min-width: 901px) {
+  html.proto-on .sidebar { top: 32px; height: calc(100vh - 32px); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PASS 2 — calm control
+   ═══════════════════════════════════════════════════════════════════════════
+   Everything below either refines pass 1 or belongs to a surface pass 1 did
+   not have. Kept as its own block so the two passes stay auditable; it would
+   be folded into one sheet before any transfer to production.
+
+   The spacing scale is 4px. Every vertical gap, inset and row height below is
+   a multiple of it, because the person this is for will notice when one is
+   not. Control heights are 34 (standard) / 29 (small) / 30 (view tab) and
+   nothing else. Radii are 10 / 8 / 7 / 999 and nothing else.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --sp: 4px;
+  --h-ctl: 34px;
+  --h-sm: 29px;
+  --row: 56px;
+  --page-max: 1320px;
+}
+
+/* ── Icons ────────────────────────────────────────────────────────────────
+   One family, one weight. The wrapper keeps an icon on the text baseline so
+   a line of mixed text and icons does not jitter. */
+.ti {
+  width: 1em; height: 1em;
+  stroke: currentColor; fill: none;
+  stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.ti-w {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.05em; height: 1.05em;
+  vertical-align: -0.16em;
+  flex: none;
+  margin-right: .14em;
+}
+.ti-w:last-child { margin-right: 0; }
+.ti-bad  { color: var(--bad); }
+.ti-warn { color: var(--warn); }
+.ti-pos  { color: var(--pos); }
+.ti-mute { color: var(--ink-3); }
+/* A status puck is a filled dot, not an outline. */
+.ti-bad .ti, .ti-warn .ti, .ti-pos .ti, .ti-mute .ti { fill: currentColor; stroke: none; }
+.btn .ti-w, .nav-item .ti-w { margin-right: 0; }
+.ct .ti-w, .mh .ti-w, th .ti-w { color: var(--ink-3); }
+
+/* ── Illustration ─────────────────────────────────────────────────────────
+   Four drawings, same hand as the icons: three stroke weights, one accent.
+   They appear only where there is genuinely nothing to do, which is the one
+   place a little warmth costs nothing operationally. */
+.rd-art { width: 148px; height: 99px; display: block; margin: 0 auto 16px; }
+.rd-art path, .rd-art rect, .rd-art circle { fill: none; stroke: var(--line-2); stroke-linecap: round; stroke-linejoin: round; }
+.rd-art .l1 { stroke-width: 1.6; }
+.rd-art .l2 { stroke-width: 1.4; stroke: #CFC8C2; }
+.rd-art .l3 { stroke-width: 1.2; stroke: #E0DAD4; }
+.rd-art .accent { stroke: var(--brand); }
+.rd-empty { padding: 48px 24px 52px; text-align: center; }
+.rd-empty-t { font-size: 16px; font-weight: 600; color: var(--head); letter-spacing: -.01em; }
+.rd-empty-b { font-size: 14px; color: var(--ink-2); margin-top: 6px; max-width: 46ch; margin-inline: auto; line-height: 1.5; }
+
+/* ═══ CLIENT TRACKER ══════════════════════════════════════════════════════
+   One row, one line of meaning. Identity on the left, the single worst
+   exception in the middle, the next due thing on the right, a chevron to
+   open. A healthy row carries no colour at all. */
+#rd-views {
+  display: flex; gap: 2px; padding: 2px; margin-bottom: 12px;
+  background: var(--surface-2); border-radius: var(--r-sm);
+  width: fit-content; max-width: 100%; overflow-x: auto;
+}
+.rd-view {
+  appearance: none; border: none; background: none;
+  min-height: 30px; padding: 0 12px; border-radius: 6px;
+  font: inherit; font-size: 13.5px; font-weight: 500; color: var(--ink-2);
+  cursor: pointer; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 7px;
+  transition: background var(--t), color var(--t);
+}
+.rd-view:hover { color: var(--ink); }
+.rd-view[aria-selected="true"] {
+  background: var(--surface); color: var(--ink); font-weight: 600;
+  box-shadow: 0 1px 2px rgba(35,31,32,.08), 0 0 0 1px var(--line);
+}
+.rd-view .n {
+  font-size: 12px; font-weight: 600; color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.rd-view[aria-selected="true"] .n { color: var(--brand-ink); }
+
+.rd-cl { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.rd-cl-row { border-bottom: 1px solid var(--line); }
+.rd-cl-open {
+  appearance: none; width: 100%; border: none; background: none;
+  display: grid;
+  grid-template-columns: minmax(180px, 1.35fr) minmax(170px, 1.1fr) minmax(96px, auto) 24px;
+  align-items: center; column-gap: 20px;
+  min-height: var(--row); padding: 10px 16px;
+  text-align: left; font: inherit; color: inherit; cursor: pointer;
+  transition: background var(--t);
+}
+.rd-cl-open:hover { background: #FBFAF8; }
+.rd-cl-open:focus-visible { box-shadow: var(--ring); border-radius: var(--r-xs); }
+
+.rd-cl-id { min-width: 0; }
+.rd-cl-name {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 15px; font-weight: 600; color: var(--ink); letter-spacing: -.005em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.rd-cl-secure { display: inline-flex; color: var(--brand-ink); font-size: 13px; flex: none; }
+.rd-cl-secure .ti { width: 13px; height: 13px; }
+.rd-cl-where {
+  display: block; font-size: 13px; color: var(--ink-3); margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.rd-cl-mid { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
+.rd-cl-tier {
+  font-size: 11.5px; font-weight: 600; letter-spacing: .02em;
+  color: var(--ink-2); background: var(--surface-2);
+  padding: 2px 7px; border-radius: 999px; white-space: nowrap;
+}
+/* THE EXCEPTION. One per row, and the only coloured thing on it. */
+.rd-cl-ex {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 13.5px; font-weight: 500; white-space: nowrap;
+  min-width: 0; overflow: hidden; text-overflow: ellipsis;
+}
+.rd-cl-ex::before { content: ""; width: 6px; height: 6px; border-radius: 50%; flex: none; }
+.rd-cl-ex.bad  { color: var(--bad); }
+.rd-cl-ex.bad::before  { background: var(--bad); }
+.rd-cl-ex.warn { color: var(--warn); }
+.rd-cl-ex.warn::before { background: var(--warn); }
+.rd-cl-ex.mute { color: var(--ink-3); }
+.rd-cl-ex.mute::before { background: var(--line-2); }
+/* HEALTH IS SILENT. No dot, no colour, no competing for the eye. */
+.rd-cl-ok { font-size: 13.5px; color: var(--ink-3); }
+
+.rd-cl-right { text-align: right; }
+.rd-cl-next { font-size: 13px; color: var(--ink-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rd-cl-next.muted { color: var(--ink-3); }
+
+.rd-cl-chev { display: flex; justify-content: flex-end; color: var(--ink-3); }
+.rd-cl-chev .ti { width: 15px; height: 15px; transition: transform var(--t); }
+.rd-cl-row.open .rd-cl-chev .ti { transform: rotate(90deg); }
+.rd-cl-row.open > .rd-cl-open { background: var(--surface-2); }
+.rd-cl-row.open { background: #FCFBF9; }
+/* A row with an exception carries a hairline rule, not a fill: enough to
+   find with the eye, not enough to shout. */
+.rd-cl-row.has-ex.bad  > .rd-cl-open { box-shadow: inset 2px 0 0 var(--bad); }
+.rd-cl-row.has-ex.warn > .rd-cl-open { box-shadow: inset 2px 0 0 var(--warn); }
+.rd-cl-det { padding: 0 16px 18px; }
+
+/* ── Client workspace ─────────────────────────────────────────────────── */
+.rd-cw-rail { margin: 4px 0 16px; }
+.rd-cw-rail button[aria-selected="true"] {
+  background: var(--surface); color: var(--ink); font-weight: 600;
+  box-shadow: 0 1px 2px rgba(35,31,32,.08), 0 0 0 1px var(--line);
+}
+.rd-cw-body > div:first-child { margin-top: 0; }
+
+/* ── Home ─────────────────────────────────────────────────────────────── */
+#rd-attn { display: grid; grid-template-columns: repeat(auto-fit, minmax(188px, 1fr)); gap: 10px; }
+.rd-attn-card {
+  appearance: none; text-align: left; font: inherit;
+  display: flex; flex-direction: column; gap: 2px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-left: 2px solid var(--line-2);
+  border-radius: var(--r); padding: 14px 16px; cursor: pointer;
+  transition: box-shadow var(--t), border-color var(--t), transform var(--t);
+}
+.rd-attn-card:hover { box-shadow: var(--e2); transform: translateY(-1px); }
+.rd-attn-card:focus-visible { box-shadow: var(--ring); }
+.rd-attn-card.bad  { border-left-color: var(--bad); }
+.rd-attn-card.warn { border-left-color: var(--warn); }
+.rd-attn-card.info { border-left-color: var(--info); }
+.rd-attn-n { font-size: 26px; font-weight: 600; line-height: 1.1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.rd-attn-card.bad  .rd-attn-n { color: var(--bad); }
+.rd-attn-card.warn .rd-attn-n { color: var(--warn); }
+.rd-attn-card.info .rd-attn-n { color: var(--info); }
+.rd-attn-l { font-size: 14px; font-weight: 600; color: var(--ink); margin-top: 4px; }
+.rd-attn-s { font-size: 13px; color: var(--ink-3); }
+.rd-allclear { display: none; }
+
+#rd-next { padding: 4px 16px; }
+.rd-next-row {
+  display: grid; grid-template-columns: 64px minmax(0,1fr) auto;
+  align-items: baseline; gap: 14px;
+  padding: 10px 0; border-bottom: 1px solid var(--line-soft);
+}
+.rd-next-row:last-child { border-bottom: none; }
+.rd-next-row .d { font-size: 13px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.rd-next-row .w { font-size: 14px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rd-next-row .k { font-size: 13px; color: var(--ink-3); white-space: nowrap; }
+.rd-quiet { font-size: 14px; color: var(--ink-3); padding: 14px 0; }
+
+/* ── Search palette ───────────────────────────────────────────────────── */
+.rd-search-btn { gap: 7px; padding: 0 10px 0 11px; }
+.rd-search-btn .ti { width: 15px; height: 15px; }
+.rd-pal-top {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 16px; border-bottom: 1px solid var(--line); color: var(--ink-3);
+}
+.rd-pal-top .ti { width: 17px; height: 17px; flex: none; }
+#rd-pal-input { border: none; border-radius: 0; min-height: 54px; padding: 0; font-size: 16px; flex: 1; }
+#rd-pal-input:focus { box-shadow: none; }
+.rd-pal-top kbd {
+  font: inherit; font-size: 11px; font-weight: 600; color: var(--ink-3);
+  border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; background: var(--surface-2);
+}
+.rd-pal-row { gap: 11px; padding: 9px 16px; }
+.rd-pal-row .ic { display: inline-flex; color: var(--ink-3); flex: none; }
+.rd-pal-row .ic .ti { width: 16px; height: 16px; }
+.rd-pal-row .lb { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rd-pal-row.sel .ic { color: var(--brand-ink); }
+
+/* ── Dialog ───────────────────────────────────────────────────────────── */
+.rd-dlg .md { animation: rd-pop 180ms cubic-bezier(.2,.7,.2,1); }
+@keyframes rd-pop { from { opacity: 0; transform: translateY(6px) scale(.985); } to { opacity: 1; transform: none; } }
+.rd-dlg-b { font-size: 14.5px; color: var(--ink-2); line-height: 1.5; margin: 10px 0 16px; }
+.rd-dlg-f { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+/* ── Pixel discipline ─────────────────────────────────────────────────────
+   One height for controls, one for small controls, one radius family, one
+   modal header and footer shape, one page width. Normalised rather than
+   decorated: hierarchy comes from spacing, type and surface. */
+.btn, .si, .fc, input[type="text"], input[type="date"], input[type="number"],
+input[type="email"], select { min-height: var(--h-ctl); }
+.btn-sm, .rd-view { min-height: var(--h-sm); }
+.page { max-width: var(--page-max); padding: 24px 32px 80px; }
+.rd-top-in { padding: 11px 32px; }
+.card { padding: 16px 18px; }
+.card + .card { margin-top: 12px; }
+.ph { margin-bottom: 20px; }
+.ph h2 { font-size: 22px; line-height: 1.25; }
+.ph p { margin-top: 4px; }
+.rd-sec { margin-top: 32px; }
+.rd-sec-h { margin-bottom: 12px; }
+.rd-sec-h h3 { font-size: 18px; }
+.tabs { margin-bottom: 16px; }
+.mh {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding-bottom: 14px; margin-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.mc {
+  appearance: none; background: none; border: none; cursor: pointer;
+  width: 30px; height: 30px; border-radius: var(--r-xs);
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--ink-3); font-size: 15px; line-height: 1;
+  transition: background var(--t), color var(--t);
+}
+.mc:hover { background: var(--surface-2); color: var(--ink); }
+.market-filter-bar {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  padding: 0 0 12px; border: none; background: none;
+}
+.mfb-lab { font-size: 13px; color: var(--ink-3); margin-right: 2px; }
+.mfb-btn {
+  appearance: none; min-height: var(--h-sm); padding: 0 12px;
+  border: 1px solid var(--line-2); border-radius: 999px;
+  background: var(--surface); color: var(--ink-2);
+  font: inherit; font-size: 13.5px; cursor: pointer;
+  transition: background var(--t), color var(--t), border-color var(--t);
+}
+.mfb-btn:hover { border-color: #BDB5AF; color: var(--ink); }
+.mfb-btn.active { background: var(--ink); border-color: var(--ink); color: #fff; font-weight: 600; }
+
+/* Numbers align. Dates, counts and currency all use tabular figures so a
+   column of them has a straight right edge. */
+.sv, .rd-attn-n, .rd-cl-next, .rd-next-row .d, .rd-view .n, td, .snum { font-variant-numeric: tabular-nums; }
+
+/* Motion explains state change and does nothing else. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+/* ── Responsive ───────────────────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .rd-cl-open { grid-template-columns: minmax(150px,1.3fr) minmax(150px,1fr) 24px; }
+  .rd-cl-right { display: none; }
+}
+@media (max-width: 760px) {
+  .rd-cl-open { grid-template-columns: minmax(0,1fr) 24px; row-gap: 4px; padding: 12px 14px; }
+  .rd-cl-mid { grid-column: 1; }
+  .rd-cl-chev { grid-row: 1; grid-column: 2; }
+  #rd-attn { grid-template-columns: 1fr; }
+  .page { padding: 16px 16px 80px; }
+  .rd-art { width: 120px; height: 80px; }
+}
+
+/* Attention overflow: everything past the fourth card, named but quiet. */
+.rd-attn-more {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 2px 0; font-size: 13.5px; color: var(--ink-3);
+}
+.rd-attn-more .sep { color: var(--line-2); }
+.rd-attn-link {
+  appearance: none; border: none; background: none; padding: 0;
+  font: inherit; font-size: 13.5px; color: var(--ink-2); cursor: pointer;
+  text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 3px;
+}
+.rd-attn-link:hover { color: var(--ink); text-decoration-color: var(--ink-3); }
+.rd-attn-link b { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PASS 3 — the client workspace
+   ═══════════════════════════════════════════════════════════════════════════
+   Fewer containers. A border now means "this is a separate surface", not
+   "this is a conceptual group". Groups are made with space and type.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* The page that holds the tracker loses its card frame: the split view is
+   the surface, and wrapping it in another box adds a border that means
+   nothing. */
+#page-clients > .card:has(#rd-split) { border: none; background: none; box-shadow: none; padding: 0; }
+
+#rd-split {
+  display: grid;
+  grid-template-columns: minmax(300px, 400px) minmax(0, 1fr);
+  gap: 32px;
+  align-items: start;
+}
+#rd-split.no-ws { grid-template-columns: minmax(0, 1fr); }
+#rd-split.no-ws .rd-split-ws { display: none; }
+.rd-split-list { min-width: 0; }
+.rd-split-ws {
+  min-width: 0;
+  position: sticky; top: 92px;
+  max-height: calc(100vh - 150px);
+  overflow: auto;
+  border-left: 1px solid var(--line);
+  padding-left: 32px;
+}
+
+/* ── The list ─────────────────────────────────────────────────────────────
+   An Apple Settings list, not a table. No borders between rows; separation
+   comes from the selected state and from space. */
+.rd-cl { list-style: none; margin: 0; padding: 0; border-top: none; }
+.rd-cl-row, .rd-cl li { border: none; }
+.rd-cl-open {
+  appearance: none; width: 100%; border: none; background: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "id status" "id next";
+  align-items: center; column-gap: 14px; row-gap: 1px;
+  min-height: 0; padding: 11px 12px;
+  border-radius: var(--r-sm);
+  text-align: left; font: inherit; color: inherit; cursor: pointer;
+  transition: background var(--t);
+  box-shadow: none !important;
+}
+.rd-cl-open:hover { background: var(--surface-2); }
+.rd-cl-open.sel { background: var(--surface); box-shadow: 0 0 0 1px var(--line), var(--e1) !important; }
+.rd-cl-open:focus-visible { box-shadow: var(--ring) !important; }
+.rd-cl-id { grid-area: id; min-width: 0; }
+.rd-cl-name {
+  display: block; font-size: 15px; font-weight: 500; color: var(--ink);
+  letter-spacing: -.005em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.rd-cl-open.sel .rd-cl-name { font-weight: 600; }
+.rd-cl-where {
+  display: block; font-size: 12.5px; color: var(--ink-3); margin-top: 1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* ONE exception. No dot: the colour and the position carry it. */
+.rd-cl-ex {
+  grid-area: status; justify-self: end;
+  font-size: 12.5px; font-weight: 500; white-space: nowrap;
+}
+.rd-cl-ex::before { content: none; }
+.rd-cl-ex.bad { color: var(--bad); }
+.rd-cl-ex.warn { color: var(--warn); }
+.rd-cl-ex.mute { color: var(--ink-3); }
+.rd-cl-next {
+  grid-area: next; justify-self: end;
+  font-size: 12px; color: var(--ink-3); white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.rd-cl-ok, .rd-cl-tier, .rd-cl-chev, .rd-cl-secure { display: none; }
+
+/* ── The workspace ───────────────────────────────────────────────────── */
+.rd-ws-empty { padding: 72px 20px; text-align: center; color: var(--ink-3); font-size: 14.5px; }
+.rd-ws-empty .rd-art { opacity: .8; }
+.rd-ws-empty p { margin-top: 14px; }
+
+.rd-ws-head { position: relative; padding-bottom: 4px; }
+.rd-ws-back {
+  appearance: none; border: none; background: none; padding: 0; cursor: pointer;
+  display: none; align-items: center; gap: 5px;
+  font: inherit; font-size: 13px; color: var(--ink-2); margin-bottom: 10px;
+}
+.rd-ws-back .ti { width: 14px; height: 14px; }
+.rd-ws-head h2 {
+  font-size: 27px; font-weight: 600; letter-spacing: -.02em; color: var(--ink);
+  line-height: 1.15; margin: 0;
+}
+.rd-ws-sub { font-size: 14.5px; color: var(--ink-2); margin-top: 5px; }
+.rd-ws-sub .dot { margin: 0 7px; color: var(--line-2); }
+
+/* Area nav: quiet underline, not a tray of pills. */
+.rd-ws-head .rd-cw-rail {
+  display: flex; gap: 2px; margin: 22px 0 0; padding: 0;
+  background: none; border-radius: 0; border-bottom: 1px solid var(--line);
+}
+.rd-ws-head .rd-cw-rail button {
+  appearance: none; border: none; background: none; cursor: pointer;
+  font: inherit; font-size: 14px; font-weight: 500; color: var(--ink-3);
+  padding: 0 2px 9px; margin-right: 22px; min-height: 0;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  box-shadow: none !important;
+  transition: color var(--t), border-color var(--t);
+}
+.rd-ws-head .rd-cw-rail button:hover { color: var(--ink); }
+.rd-ws-head .rd-cw-rail button[aria-selected="true"] {
+  color: var(--ink); font-weight: 600; border-bottom-color: var(--brand); background: none;
+}
+
+.rd-ws-body { padding: 4px 0 8px; }
+.rd-ws-block { margin-top: 28px; }
+.rd-ws-block:first-child { margin-top: 22px; }
+.rd-ws-block h4 {
+  font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--ink-3); margin: 0 0 8px;
+}
+.rd-ws-block.quiet h4 { color: var(--muted-soft); }
+.rd-ws-plain { font-size: 15px; color: var(--ink); line-height: 1.5; }
+.rd-ws-quiet { font-size: 14px; color: var(--ink-3); line-height: 1.5; }
+.rd-ws-next { font-size: 17px; font-weight: 500; color: var(--ink); }
+.rd-ws-next .dot { margin: 0 8px; color: var(--line-2); }
+.rd-ws-ex { font-size: 17px; font-weight: 500; }
+.rd-ws-ex.bad { color: var(--bad); }
+.rd-ws-ex.warn { color: var(--warn); }
+.rd-ul { margin: 10px 0 0 18px; font-size: 14px; color: var(--ink-2); line-height: 1.6; }
+
+/* One compact signal instead of a bordered Pulse box with three buttons. */
+.rd-signal { padding-left: 13px; border-left: 2px solid var(--line-2); }
+.rd-signal.bad { border-left-color: var(--bad); }
+.rd-signal.warn { border-left-color: var(--warn); }
+.rd-signal.ok { border-left-color: var(--pos); }
+.rd-signal .k {
+  display: block; font-size: 11.5px; font-weight: 600; letter-spacing: .05em;
+  text-transform: uppercase; margin-bottom: 4px; color: var(--ink-3);
+}
+.rd-signal.bad .k { color: var(--bad); }
+.rd-signal.warn .k { color: var(--warn); }
+.rd-signal p { font-size: 15px; color: var(--ink); line-height: 1.55; }
+.rd-ack { margin-top: 12px; display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--ink-3); }
+
+/* A quiet text button. Most actions do not need a border. */
+.rd-link {
+  appearance: none; border: none; background: none; padding: 0; cursor: pointer;
+  font: inherit; font-size: 14px; color: var(--brand-ink); font-weight: 500;
+  text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px;
+  transition: text-decoration-color var(--t);
+}
+.rd-link:hover { text-decoration-color: currentColor; }
+.rd-ws-block .rd-link { margin-top: 8px; display: inline-block; }
+.rd-signal .rd-link { margin-top: 8px; display: inline-block; font-size: 13.5px; }
+
+.rd-ev {
+  display: grid; grid-template-columns: 62px minmax(0, 1fr) auto;
+  gap: 14px; align-items: baseline; padding: 7px 0;
+  font-size: 14px; border-bottom: 1px solid var(--line-soft);
+}
+.rd-ev:last-child { border-bottom: none; }
+.rd-ev .d { color: var(--ink-3); font-size: 13px; font-variant-numeric: tabular-nums; }
+.rd-ev .t { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rd-ev .m { color: var(--ink-3); font-size: 13px; white-space: nowrap; }
+
+.rd-kvs { margin: 4px 0 0; }
+.rd-kv { display: grid; grid-template-columns: 136px minmax(0, 1fr); gap: 14px; padding: 6px 0; font-size: 14px; }
+.rd-kv dt { color: var(--ink-3); }
+.rd-kv dd { color: var(--ink); margin: 0; }
+.rd-more { margin-top: 30px; border-top: 1px solid var(--line); padding-top: 14px; }
+.rd-more > summary {
+  list-style: none; cursor: pointer; font-size: 14px; color: var(--ink-2);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.rd-more > summary::-webkit-details-marker { display: none; }
+.rd-more > summary::after {
+  content: ""; width: 6px; height: 6px; border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor; transform: rotate(45deg); margin-left: 2px;
+  transition: transform var(--t);
+}
+.rd-more[open] > summary::after { transform: rotate(-135deg); }
+.rd-more > summary:hover { color: var(--ink); }
+
+/* Actions: one primary, one overflow. */
+.rd-ws-actions {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 30px; padding-top: 18px; border-top: 1px solid var(--line);
+}
+.rd-menu { position: relative; }
+.rd-menu .btn { border-radius: var(--r-xs); }
+.rd-menu .btn .ti { width: 14px; height: 14px; margin-left: 2px; }
+.btn.btn-icon {
+  width: 34px; padding: 0; border-radius: var(--r-xs);
+  background: var(--surface); border-color: var(--line-2); color: var(--ink-2);
+}
+.btn.btn-icon .ti { width: 17px; height: 17px; }
+.rd-menu-list {
+  display: none; position: absolute; bottom: calc(100% + 6px); left: 0; z-index: 40;
+  min-width: 190px; background: var(--surface);
+  border: 1px solid var(--line); border-radius: var(--r-sm); box-shadow: var(--e2);
+  padding: 4px;
+}
+.rd-menu-list.right { left: auto; right: 0; }
+.rd-menu-list.open { display: block; }
+.rd-menu-list button {
+  appearance: none; display: block; width: 100%; text-align: left;
+  border: none; background: none; cursor: pointer;
+  font: inherit; font-size: 14px; color: var(--ink);
+  padding: 8px 10px; border-radius: 6px;
+}
+.rd-menu-list button:hover { background: var(--surface-2); }
+
+/* The compatibility host is never seen. */
+#rd-compat { display: none !important; }
+
+/* ── Responsive: the split becomes a stack, the workspace takes over ───── */
+@media (max-width: 980px) {
+  #rd-split { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .rd-split-ws {
+    position: static; max-height: none; overflow: visible;
+    border-left: none; padding-left: 0;
+    border-top: 1px solid var(--line); margin-top: 20px; padding-top: 20px;
+  }
+  #rd-split.has-sel .rd-split-list { display: none; }
+  #rd-split.has-sel .rd-ws-back { display: inline-flex; }
+  #rd-split.has-sel .rd-split-ws { border-top: none; margin-top: 0; padding-top: 0; }
+}
+
+/* The view bar now sits in a 400px column, so it wraps rather than clipping
+   "Onboarding" off the edge. */
+#rd-views { flex-wrap: wrap; width: 100%; overflow: visible; }
+.rd-view { flex: 0 0 auto; }
+
+/* The overflow control needs to read as a control, not a smudge. */
+.btn.btn-icon .ti path { stroke-width: 2.4; }
+
+/* Acknowledgement is a quiet choice, not three brand-coloured calls to
+   action. Orange stays for the primary action and the current nav item. */
+.rd-ack .rd-link { color: var(--ink-2); font-weight: 500; text-decoration-color: var(--line-2); }
+.rd-ack .rd-link:hover { color: var(--ink); text-decoration-color: var(--ink-3); }
+.rd-ws-block .rd-link, .rd-signal .rd-link { color: var(--ink-2); text-decoration-color: var(--line-2); }
+.rd-ws-block .rd-link:hover, .rd-signal .rd-link:hover { color: var(--ink); text-decoration-color: var(--ink-3); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE MARKET SCREEN
+   ═══════════════════════════════════════════════════════════════════════════
+   The illustration is the emotional focal point. The card is a surface for
+   it to sit on, not a box competing with it: a hairline, almost no
+   elevation, and hover that lifts rather than outlines.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+#screen-hub.setup-screen { padding: 64px 24px; }
+.rd-hub-head { margin-bottom: 48px !important; }
+.rd-hub-head h1 {
+  font-size: 34px; font-weight: 600; letter-spacing: -.025em;
+  color: var(--head); line-height: 1.1; margin: 0;
+}
+.rd-hub-head p {
+  font-size: 16px; color: var(--ink-2); margin: 12px 0 0; font-weight: 400;
+}
+.rd-hub-row {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(236px, 268px));
+  gap: 20px; justify-content: center; width: 100%; max-width: 900px;
+}
+
+.hub-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 28px 24px 26px;
+  text-align: left;
+  box-shadow: 0 1px 2px rgba(35,31,32,.03);
+  transition: transform var(--t-slow), box-shadow var(--t-slow), border-color var(--t-slow);
+  min-width: 0; width: auto;
+  display: flex; flex-direction: column; gap: 0;
+  position: relative; overflow: hidden;
+}
+.hub-card:hover {
+  border-color: var(--line-2);
+  transform: translateY(-3px);
+  box-shadow: 0 14px 34px rgba(35,31,32,.09), 0 2px 6px rgba(35,31,32,.04);
+}
+.hub-card:active { transform: translateY(-1px); }
+.hub-card:focus-visible { box-shadow: var(--ring); }
+
+/* The illustration area: generous, and the only thing above the fold of the
+   card. A very faint warm wash behind it so the drawing sits in air rather
+   than on a seam. */
+.hub-card .hub-icon {
+  font-size: 0; margin: 0 0 22px;
+  background: linear-gradient(180deg, #FBFAF8 0%, #F6F4F1 100%);
+  border-radius: 11px;
+  padding: 14px 12px 10px;
+  display: block;
+}
+.rd-mk { width: 100%; height: auto; display: block; }
+.rd-mk g path, .rd-mk path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.rd-mk .mk-1 path { stroke: #9A918B; stroke-width: 1.7; }
+.rd-mk .mk-2 path { stroke: #BDB5AF; stroke-width: 1.35; }
+.rd-mk .mk-ctx path { stroke: #D8D2CC; stroke-width: 1.1; }
+/* One lit window. The whole idea of the company in one mark. */
+.rd-mk .mk-lit {
+  fill: var(--brand-soft); stroke: var(--brand); stroke-width: 1.5;
+  transition: fill var(--t-slow), stroke var(--t-slow);
+}
+.hub-card:hover .rd-mk .mk-lit { fill: #F8DFCD; stroke: var(--brand-ink); }
+/* The drawing lifts a touch more than the card, so the card feels like a
+   window onto it rather than a container around it. */
+.rd-mk { transition: transform var(--t-slow); }
+.hub-card:hover .rd-mk { transform: translateY(-2px); }
+.hub-card:hover .rd-mk .mk-1 path { stroke: #857C76; }
+
+.hub-card .hub-name {
+  font-family: inherit;
+  font-size: 19px; font-weight: 600; letter-spacing: -.015em;
+  color: var(--ink); line-height: 1.2;
+}
+.hub-card .hub-sub {
+  font-size: 13.5px; color: var(--ink-3); margin-top: 3px; font-weight: 400;
+}
+
+/* The same mark, small, on the profile screen header. */
+.rd-hub-mark { display: block; width: 104px; margin: 0 auto 14px; font-size: 0; }
+.rd-hub-mark .rd-mk { opacity: .9; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hub-card:hover { transform: none; }
+  .hub-card:hover .rd-mk { transform: none; }
+}
+@media (max-width: 720px) {
+  #screen-hub.setup-screen { padding: 40px 18px; }
+  .rd-hub-head h1 { font-size: 27px; }
+  .rd-hub-row { grid-template-columns: minmax(0, 320px); }
+}
+
+/* ── Market illustrations: depth and the care moment ──────────────────────
+   The flat line drawings read as diagrams. These three layers give the
+   scene foreground and distance without adding noise: a pale wash so the
+   near building sits in front of what is behind it, a lighter weight for
+   the distant city, and the lit window as the only warm thing in the frame.
+   ───────────────────────────────────────────────────────────────────────── */
+.rd-mk .mk-fill { fill: #FDFCFA; stroke: none; }
+.rd-mk .mk-el path { stroke: #DED8D2; }
+.rd-mk .mk-ctx circle { fill: none; stroke: #D8D2CC; stroke-width: 1.1; }
+
+/* The regional detail: a shade lighter than the structure, so it rewards a
+   second look rather than competing for the first. */
+.rd-mk .mk-egg path, .rd-mk .mk-egg circle {
+  stroke: #C6BEB7; stroke-width: 1.15; fill: none;
+}
+
+/* The care moment. One warm window per market, and two people inside it. */
+.rd-mk .mk-lit rect {
+  fill: var(--brand-soft); stroke: var(--brand); stroke-width: 1.5;
+  transition: fill var(--t-slow), stroke var(--t-slow);
+}
+.rd-mk .mk-fig path, .rd-mk .mk-fig circle {
+  fill: none; stroke: var(--brand-ink); stroke-width: 1.3;
+  stroke-linecap: round; stroke-linejoin: round;
+  opacity: .72; transition: opacity var(--t-slow);
+}
+.hub-card:hover .rd-mk .mk-lit rect { fill: #F8DFCD; stroke: var(--brand-ink); }
+.hub-card:hover .rd-mk .mk-fig path, .hub-card:hover .rd-mk .mk-fig circle { opacity: .9; }
+
+/* Local signals get their own weights: the L and the skipjack sit between
+   context and structure, the marble steps are filled because marble is the
+   point, and the easter egg stays lighter than everything else. */
+.rd-mk .mk-el path { stroke: #B9B1AA; stroke-width: 1.35; fill: none; }
+.rd-mk .mk-train path { stroke: #9A918B; stroke-width: 1.5; fill: #FDFCFA; }
+.rd-mk .mk-boat path { stroke: #C6BEB7; stroke-width: 1.2; fill: #FBFAF8; }
+.rd-mk .mk-marble path { fill: #FFFFFF; stroke: #9A918B; stroke-width: 1.4; }
+
+/* A little more room for the drawing. */
+.rd-hub-row { grid-template-columns: repeat(auto-fit, minmax(252px, 296px)); }
+
+/* Three markets, three columns. auto-fit was wrapping to two at the new
+   card width and leaving Maryland stranded on its own row. */
+.rd-hub-row { grid-template-columns: repeat(3, minmax(0, 290px)); max-width: 940px; }
+@media (max-width: 980px) { .rd-hub-row { grid-template-columns: repeat(2, minmax(0, 290px)); max-width: 620px; } }
+@media (max-width: 720px) { .rd-hub-row { grid-template-columns: minmax(0, 330px); max-width: 100%; } }
+
+/* THE SACRED COD, as a weathervane.
+   The lobster was attempted three times at this size and failed three
+   different ways: a line skeleton read as a spider, a filled profile read
+   as a cannon, and seen from above it read as a bee. A lobster does not
+   survive 22px in this line system.
+   The cod is the better answer anyway. It is the emblem of the
+   Commonwealth — the Sacred Cod has hung in the State House since 1784 —
+   it is unmistakable at any size, and it does not repeat Maryland's sail. */
+.rd-mk .mk-cod path { fill: none; stroke: #C6BEB7; stroke-width: 1.15; stroke-linejoin: round; }
+.rd-mk .mk-cod path:nth-child(2),
+.rd-mk .mk-cod path:nth-child(3) { fill: #C6BEB7; stroke-width: 1; }
+.rd-mk .mk-cod circle { fill: #FBFAF8; stroke: none; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BRAND
+   ═══════════════════════════════════════════════════════════════════════════
+   Measured from the approved mark at ~/TributeKSFs/assets/logo.jpeg, not
+   chosen by eye. See prototype/brand.js for the derivation and for why the
+   interactive orange is a desaturated relative of the mark rather than the
+   mark's own value.
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  --brand-pure: #F85000;   /* the mark itself — brand moments only */
+  --brand-grey: #88898B;   /* the "Home Care" line of the lockup */
+}
+
+/* The mark is a white-background JPEG. multiply drops the white on any light
+   surface, which is how the Transformation Map already places this same file.
+   Never recoloured, never redrawn. */
+.rd-logo {
+  display: block; height: auto; width: 100%;
+  mix-blend-mode: multiply;
+}
+.rd-logo.sb { max-width: 112px; }
+.rd-logo.hub { max-width: 188px; margin: 0 auto; }
+
+.sb-brand h1 { padding: 2px 0 0; }
+.sb-brand p { margin-top: 7px; }
+
+/* Market screen lockup: the mark, then the product name underneath it in the
+   secondary grey of the logo's own second line. The product is a quiet
+   subordinate of the brand, which is the relationship the lockup already
+   expresses. */
+.rd-hub-lockup { display: block; }
+.rd-hub-product {
+  display: block; margin-top: 10px;
+  font-size: 20px; font-weight: 500; letter-spacing: .01em;
+  color: var(--brand-grey);
+}
+.rd-hub-head p { margin-top: 14px; color: var(--ink-2); }
+
+/* The brand dot in the sidebar is the one place the mark's own orange is
+   used in the interface, because there it IS the brand speaking. */
+.sb-brand h1 .dot { color: var(--brand-pure); }
+
+/* Empty and all-clear states carry Tribute's voice: warm, short, and never
+   at the expense of precision. The title is the reassurance, the line under
+   it is the operational fact. */
+.rd-empty-t { font-size: 17px; font-weight: 600; letter-spacing: -.012em; color: var(--head); }
+.rd-empty-b { font-size: 14.5px; color: var(--ink-2); margin-top: 7px; }
+.rd-art .accent { stroke: var(--brand); }
+
+/* Lockup hierarchy. Three centred lines of similar weight read as a list;
+   these read as brand, then product, then instruction. */
+.rd-logo.hub { max-width: 152px; }
+.rd-hub-product {
+  margin-top: 14px; font-size: 17px; font-weight: 500;
+  letter-spacing: .005em; color: var(--ink-2);
+}
+.rd-hub-head p { margin-top: 24px; font-size: 15px; color: var(--ink-3); }
+.rd-hub-head { margin-bottom: 44px !important; }
+
+/* In the rail the mark is a quiet presence, not a banner. The product should
+   feel branded without the logo doing the work. */
+.rd-logo.sb { max-width: 92px; }
+.sb-brand { padding: 18px 18px 4px; }
+.sb-brand p { font-size: 11.5px; color: var(--ink-3); margin-top: 8px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BRAND PALETTE — the authoritative one
+   ═══════════════════════════════════════════════════════════════════════════
+   Source: SharePoint, /sites/Shared → Documents → Home Office → Marketing →
+   Logos → "Tribute Brand Colors.pdf" and "Brand Style and Colors.pptx".
+
+     Primary   Orange   #FF671F   RGB 255 103 31   CMYK 0 70 100 0
+     Secondary Purple   #AA0061   RGB 170 0 97
+     Secondary Blue     #407EC9   RGB 64 126 201
+     Secondary Yellow   #FDDA24   RGB 253 218 36
+
+   These replace every orange this prototype used before. The earlier values
+   were a measurement off a compressed JPEG of the logo (#F85000) and a
+   borrowed value from the Transformation Map (#C95018). Both are now
+   superseded by the specification.
+
+   WHY TWO ORANGES
+   #FF671F on white gives 2.9:1 against white text, which fails WCAG AA for
+   anything but large type. So the specified colour is used wherever orange
+   is a MARK — the brand dot, the lit window in the market illustrations,
+   accent strokes, the focus ring — and a darkened shade of the same hue
+   carries text or backs white text:
+
+     #FF671F   hue 19.3   the specification
+     #C95018   hue 19.0   4.53:1 with white  ← buttons, links, text
+
+   Same hue to within a third of a degree. It is the brand colour at a
+   legible value, not a different colour.
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  --brand:        #FF671F;   /* the specified primary — marks, not text */
+  --brand-pure:   #FF671F;
+  --brand-ink:    #C95018;   /* AA-legible shade of the same hue */
+  --brand-dark:   #A8400F;
+  --brand-soft:   #FFEFE6;   /* tint of the primary */
+  --orange:       #FF671F;
+  --orange-dark:  #C95018;
+  --orange-soft:  #FFEFE6;
+  --orange-fg:    #C95018;
+
+  /* The official secondaries, available as tokens. Used sparingly: the brand
+     deck calls orange "a color we can own", and three more saturated hues on
+     an operational page would undo that. */
+  --brand-purple: #AA0061;
+  --brand-blue:   #407EC9;
+  --brand-yellow: #FDDA24;
+}
+
+/* Orange that backs or carries text uses the legible shade. */
+.btn-p { background: var(--brand-ink); border-color: var(--brand-ink); }
+.btn-p:hover { background: var(--brand-dark); border-color: var(--brand-dark); }
+.rd-link, .nav-cnt, .rd-view[aria-selected="true"] .n { color: var(--brand-ink); }
+.rd-mk .mk-fig path, .rd-mk .mk-fig circle { stroke: var(--brand-ink); }
+
+/* Orange as a mark uses the specified colour. */
+.sb-brand h1 .dot { color: var(--brand); }
+.nav-item.active .nav-icon svg { color: var(--brand); }
+.rd-mk .mk-lit rect { stroke: var(--brand); fill: var(--brand-soft); }
+.rd-art .accent { stroke: var(--brand); }
+.rd-ws-head .rd-cw-rail button[aria-selected="true"] { border-bottom-color: var(--brand); }
+.hub-card:hover .rd-mk .mk-lit rect { fill: #FFE0CC; stroke: var(--brand-ink); }
+
+/* The one categorical accent in the product takes the brand's own blue. */
+.rd-attn-card.info { border-left-color: var(--brand-blue); }
+.rd-attn-card.info .rd-attn-n { color: #35649F; }  /* brand blue, AA on white */
+
+/* ── Domain symbols on card headings ──────────────────────────────────────
+   Sized to the uppercase label beside them and set in the muted ink, so the
+   symbol is a landmark rather than an ornament. Only the curated headings
+   get one; the restraint is what makes them work. */
+.ct-sym { display: inline-flex; vertical-align: -0.15em; margin-right: 7px; color: var(--ink-3); }
+.ct-sym .ti { width: 14px; height: 14px; }
+.ct { display: flex; align-items: center; }
+
+/* The rail's symbols are the product's most-used landmarks, so they get a
+   hair more presence than a heading symbol. */
+.nav-item .nav-icon svg { stroke-width: 1.5; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PASS 4 — WORKFLOW REDESIGNS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Shared workflow primitives ─────────────────────────────────────────── */
+
+/* The stat strip. Replaces the tile wall: no borders, no boxes, no colour.
+   A number and what it counts, separated by rule rather than by card. */
+.rd-strip {
+  display: flex; flex-wrap: wrap; gap: 0;
+  margin-top: 14px; border-top: 1px solid var(--line-soft); padding-top: 14px;
+}
+.rd-stat {
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 0 26px 0 0; margin-right: 26px;
+  border-right: 1px solid var(--line-soft);
+}
+.rd-stat:last-child { border-right: 0; margin-right: 0; padding-right: 0; }
+.rd-stat .n {
+  font-weight: 600; font-size: 25px; line-height: 1; letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums; color: var(--ink);
+}
+.rd-stat .l {
+  font-size: 11.5px; color: var(--muted); letter-spacing: 0.01em;
+}
+.rd-allgood {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 13.5px; color: var(--ink);
+}
+.rd-allgood svg { width: 19px; height: 19px; color: var(--brand-pure); }
+
+/* The view bar. Four or five answers to "what am I looking at", not a row of
+   filter pills — a pill says "narrow this", a view says "this is the list". */
+.rd-views {
+  display: flex; gap: 2px; flex-wrap: wrap;
+  border-bottom: 1px solid var(--line-soft); margin-bottom: 2px;
+}
+.rd-view {
+  appearance: none; background: none; border: 0; cursor: pointer;
+  font-weight: 500; font-size: 13px; line-height: 1; color: var(--muted);
+  padding: 9px 13px 10px; border-bottom: 2px solid transparent;
+  margin-bottom: -1px; display: inline-flex; align-items: center; gap: 7px;
+  border-radius: 7px 7px 0 0; transition: color .12s ease, background .12s ease;
+}
+.rd-view:hover { color: var(--ink); background: var(--line-soft); }
+.rd-view .n {
+  font-size: 11px; font-variant-numeric: tabular-nums; color: var(--muted-soft);
+}
+.rd-view[aria-selected="true"] {
+  color: var(--ink); font-weight: 600; border-bottom-color: var(--brand-pure);
+}
+.rd-view[aria-selected="true"] .n { color: var(--muted); }
+
+/* The quiet secondary line. Everything the view bar is not: scope, search,
+   and anything advanced. Deliberately lighter than the bar above it. */
+.rd-subbar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 0 12px; flex-wrap: wrap;
+}
+.rd-toggle {
+  appearance: none; cursor: pointer;
+  background: none; border: 1px solid var(--line);
+  border-radius: 999px; padding: 4px 12px;
+  font-weight: 500; font-size: 12px; line-height: 1.45; color: var(--muted);
+  transition: background .12s ease, color .12s ease, border-color .12s ease;
+}
+.rd-toggle:hover { color: var(--ink); border-color: var(--muted-soft); }
+.rd-toggle.on,
+.rd-toggle[aria-pressed="true"] {
+  background: var(--ink); border-color: var(--ink); color: #fff;
+}
+.rd-quietsearch {
+  flex: 1; min-width: 170px; max-width: 340px;
+  appearance: none; background: none;
+  border: 0; border-bottom: 1px solid var(--line);
+  border-radius: 0; padding: 4px 2px;
+  font-weight: 400; font-size: 13px; line-height: 1.5; color: var(--ink);
+}
+.rd-quietsearch::placeholder { color: var(--muted-soft); }
+.rd-quietsearch:focus {
+  outline: none; border-bottom-color: var(--brand-pure);
+  box-shadow: 0 1px 0 0 var(--brand-pure);
+}
+.rd-linkbtn {
+  appearance: none; background: none; border: 0; cursor: pointer; padding: 0;
+  font-weight: 500; font-size: 12px; line-height: 1.45; color: var(--brand);
+  text-decoration: underline; text-underline-offset: 2px;
+}
+
+/* The native filter rows stay in the DOM — their handlers are the ones the
+   view bar calls — but they are not shown twice. */
+.rd-native-filters { display: none !important; }
+
+/* ── Maryland compliance ────────────────────────────────────────────────── */
+
+#page-md .ph p { max-width: 62ch; }
+#page-md #md-kpi:empty { display: none; }
+#md-stale { font-size: 11px; color: var(--muted); margin-top: 10px; }
+#md-stale .warn { color: var(--warn); }
+
+.md-list { max-height: none; }
+.md-cad-tag {
+  margin-left: 8px; font-size: 10.5px; color: var(--muted-soft);
+  border: 1px solid var(--line); border-radius: 999px; padding: 0 7px;
+}
+
+/* The detail pane: a document, not a dashboard. One card, seven stanzas,
+   separated by rule. The only colour is the status word. */
+.md-det {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--r); padding: 20px 22px 18px;
+}
+.md-det-h h3 { font-weight: 600; font-size: 17px; line-height: 1.3; letter-spacing: -0.012em; margin: 0; color: var(--ink); }
+.md-det-h p { font-size: 12.5px; color: var(--muted); margin: 3px 0 0; }
+.md-cad {
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+  margin: 15px 0 4px; padding-bottom: 15px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.md-cad .lb { font-size: 12px; color: var(--muted); margin-right: 3px; }
+.md-cad em { font-style: normal; font-size: 11.5px; color: var(--muted-soft); width: 100%; }
+
+.md-req { padding: 14px 0 13px; border-bottom: 1px solid var(--line-soft); }
+.md-req:last-child { border-bottom: 0; padding-bottom: 4px; }
+.md-req-h { display: flex; align-items: baseline; gap: 12px; }
+.md-req-n { font-weight: 600; font-size: 13px; line-height: 1.4; color: var(--ink); flex: 1; }
+.md-req-s {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.02em; white-space: nowrap;
+}
+.md-req.met    .md-req-s { color: var(--pos); }
+.md-req.missed .md-req-s { color: var(--bad); }
+.md-req.unknown .md-req-s { color: var(--muted); }
+.md-req-d { font-size: 12.5px; line-height: 1.55; color: var(--ink-2); margin-top: 5px; }
+.md-req-d strong { font-weight: 600; color: var(--bad); }
+.md-req.met .md-req-d strong { color: var(--ink); }
+.md-req-w { font-size: 11.5px; color: var(--muted); margin-top: 4px; font-variant-numeric: tabular-nums; }
+.md-req-e { font-size: 11px; color: var(--muted-soft); margin-top: 4px; }
+.md-req-q {
+  display: block; margin-top: 6px; padding-left: 11px;
+  border-left: 2px solid var(--line); font-size: 11.5px; color: var(--muted);
+}
+.md-det-f { margin-top: 16px; font-size: 11px; color: var(--muted-soft); }
+
+/* ── LTC submissions ────────────────────────────────────────────────────── */
+
+#page-ltc .ph p { max-width: 62ch; }
+#ltc-kpi:empty { display: none; }
+#ltc-stale { font-size: 11px; color: var(--muted); margin-top: 10px; }
+#ltc-stale .warn { color: var(--warn); }
+#ltc-stale .bad { color: var(--bad); }
+.rd-weeklabel { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
+.rd-scroll { max-height: 640px; overflow: auto; }
+
+.ltc-list .ltc-st {
+  font-size: 11px; color: var(--muted-soft); white-space: nowrap;
+  border-left: 1px solid var(--line); padding-left: 12px; margin-left: 2px;
+}
+
+.ltc-det {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--r); padding: 18px 20px 16px;
+}
+.ltc-det-h { position: relative; padding-right: 86px; }
+.ltc-det-h h3 { font-size: 16px; font-weight: 600; line-height: 1.3; letter-spacing: -0.012em; margin: 0; color: var(--ink); }
+.ltc-det-h p { font-size: 12px; color: var(--muted); margin: 3px 0 0; }
+.ltc-det-st {
+  position: absolute; top: 1px; right: 0;
+  font-size: 11px; font-weight: 600; color: var(--muted);
+}
+.ltc-det-st.sent { color: var(--info); }
+.ltc-det-st.confirmed { color: var(--pos); }
+.ltc-det-st.approved { color: var(--warn); }
+
+/* Blocked is the only thing on this pane allowed a background. It is the
+   reason the row is in the queue, and it has to be unmissable. */
+.ltc-block {
+  margin: 15px 0 0; padding: 11px 13px;
+  background: var(--bad-bg); border-radius: var(--r-sm);
+}
+.ltc-block h4 {
+  margin: 0 0 5px; font-size: 11px; font-weight: 600;
+  letter-spacing: 0.05em; text-transform: uppercase; color: var(--bad);
+}
+.ltc-block ul { margin: 0; padding-left: 16px; }
+.ltc-block li { font-size: 12.5px; line-height: 1.5; color: var(--ink-2); }
+
+.ltc-facts { margin-top: 15px; }
+.ltc-kv {
+  display: flex; justify-content: space-between; gap: 14px;
+  padding: 7px 0; border-bottom: 1px solid var(--line-soft); font-size: 12.5px;
+}
+.ltc-kv:last-child { border-bottom: 0; }
+.ltc-kv .k { color: var(--muted); }
+.ltc-kv .v { color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+.ltc-kv .bad { color: var(--bad); }
+.ltc-kv .pos { color: var(--pos); }
+
+.ltc-missing { margin-top: 15px; }
+.ltc-missing h4 {
+  margin: 0 0 6px; font-size: 11px; font-weight: 600;
+  letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted);
+}
+.ltc-miss {
+  display: flex; justify-content: space-between; gap: 10px;
+  font-size: 12px; padding: 4px 0; border-bottom: 1px solid var(--line-soft);
+}
+.ltc-miss .bad { color: var(--bad); font-variant-numeric: tabular-nums; }
+.ltc-missing p { font-size: 11.5px; color: var(--muted); margin: 8px 0 9px; line-height: 1.5; }
+
+.ltc-note {
+  margin-top: 13px; font-size: 12px; line-height: 1.55; color: var(--ink-2);
+  padding-left: 11px; border-left: 2px solid var(--line);
+}
+.ltc-note a { color: var(--brand-dark); font-weight: 600; }
+
+.ltc-acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 17px; }
+.ltc-det-f { margin-top: 13px; font-size: 11px; color: var(--muted-soft); line-height: 1.5; }
+.ltc-hist { margin-top: 9px; }
+.ltc-hist summary {
+  font-size: 11.5px; color: var(--muted); cursor: pointer;
+  list-style: none; display: inline-flex; align-items: center; gap: 5px;
+}
+.ltc-hist summary::-webkit-details-marker { display: none; }
+.ltc-hist summary::before { content: "\203A"; transition: transform var(--t); display: inline-block; }
+.ltc-hist[open] summary::before { transform: rotate(90deg); }
+.ltc-hist div { font-size: 11px; color: var(--muted-soft); padding: 2px 0; }
+
+/* "Ready" is the one positive state that is still a call to action — a
+   packet waiting to go out — so unlike a healthy client row it gets a mark.
+   "Sent" and "Confirmed" are done, and go quiet. */
+.rd-cl-ex.ok { color: var(--pos); }
+.rd-cl-ex.ok::before { background: var(--pos); }
+.ltc-list .rd-cl-ex.done, .ltc-list .rd-cl-ex.mute { color: var(--ink-3); }
+.ltc-list .rd-cl-ex.done::before { background: var(--line-2); }
+
+/* ── Email Community ────────────────────────────────────────────────────── */
+
+#page-emailcomm .ph p { max-width: 62ch; }
+
+/* Settings, behind the content. Closed, it is one line that answers the only
+   question you have before sending: who is this going to, and from whom. */
+.ec-settings {
+  margin-top: 12px; background: var(--surface);
+  border: 1px solid var(--line); border-radius: var(--r);
+}
+.ec-settings > summary {
+  display: flex; align-items: center; gap: 14px;
+  padding: 11px 16px; cursor: pointer; list-style: none;
+  font-size: 12.5px; color: var(--muted);
+}
+.ec-settings > summary::-webkit-details-marker { display: none; }
+.ec-settings > summary:hover { background: var(--line-soft); border-radius: var(--r); }
+.ec-settings[open] > summary {
+  border-bottom: 1px solid var(--line-soft); border-radius: var(--r) var(--r) 0 0;
+}
+.ec-set-sum { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 7px; }
+.ec-set-sum b { color: var(--ink); font-weight: 600; }
+.ec-set-sum .warn { color: var(--warn); }
+.ec-set-sum .sep { color: var(--muted-soft); }
+.ec-set-open {
+  white-space: nowrap; font-weight: 500; color: var(--ink-3);
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.ec-set-open::after { content: "\203A"; transition: transform var(--t); display: inline-block; }
+.ec-settings[open] .ec-set-open::after { transform: rotate(90deg); }
+.ec-settings[open] .ec-set-sum { display: none; }
+.ec-settings[open] .ec-set-open { color: var(--ink); }
+/* The application's own settings card sits inside; it already has a border
+   of its own, which would read as a box in a box. */
+.ec-settings > .card { border: 0; border-radius: 0; box-shadow: none; margin-bottom: 0; }
+
+/* Two options, one control. */
+.rd-seg {
+  display: inline-flex; padding: 2px; gap: 2px;
+  background: var(--line-soft); border-radius: 999px; margin-bottom: 9px;
+}
+.rd-seg-b {
+  appearance: none; border: 0; background: none; cursor: pointer;
+  padding: 4px 13px; border-radius: 999px;
+  font-size: 12px; font-weight: 500; line-height: 1.45; color: var(--muted);
+  transition: background var(--t), color var(--t);
+}
+.rd-seg-b:hover { color: var(--ink); }
+.rd-seg-b.on { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: var(--e1); }
+
+/* ── Weekly client schedule email ───────────────────────────────────────── */
+
+.wk-block { }
+.wk-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+.wk-mode { font-size: 13px; font-weight: 600; color: var(--ink); }
+.wk-alert { font-size: 13px; line-height: 1.5; color: var(--warn); margin: 0; }
+.wk-acts { display: flex; gap: 7px; margin-top: 9px; flex-wrap: wrap; }
+
+.wk-modes { display: grid; gap: 2px; }
+.wk-mode-opt {
+  display: flex; gap: 10px; align-items: start;
+  padding: 10px 11px; border-radius: var(--r-sm); cursor: pointer;
+}
+.wk-mode-opt:hover { background: var(--line-soft); }
+.wk-mode-opt input { margin-top: 3px; accent-color: var(--brand); }
+.wk-mode-opt span { display: block; font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+.wk-mode-opt b { display: block; font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.wk-to { display: block; margin-top: 12px; }
+.wk-to span { display: block; font-size: 11.5px; color: var(--muted); margin-bottom: 4px; }
+.wk-to input {
+  width: 100%; padding: 7px 10px; font: inherit; font-size: 13px;
+  border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface); color: var(--ink);
+}
+
+/* The dialog, showing the email as the family will see it. */
+.rd-dlg-h { max-height: 62vh; overflow: auto; margin: 0 -2px; }
+.rd-dlg-wide .rd-dlg-h { padding: 0 2px; }
+.wk-prev-to {
+  display: flex; gap: 12px; padding: 6px 0;
+  border-bottom: 1px solid var(--line-soft); font-size: 12.5px;
+}
+.wk-prev-to span { color: var(--muted); min-width: 56px; }
+.wk-prev-to b { color: var(--ink); font-weight: 500; }
+.wk-prev-to .warn { color: var(--warn); font-style: normal; }
+
+.wk-mail {
+  margin-top: 14px; padding: 22px 20px;
+  background: var(--canvas); border-radius: var(--r);
+  font-size: 13.5px; line-height: 1.6; color: var(--ink-2);
+}
+.wk-mail-brand { font-size: 18px; font-weight: 700; color: var(--ink); letter-spacing: -0.02em; }
+.wk-mail-brand span { color: var(--brand-pure); }
+.wk-mail h4 {
+  margin: 12px 0 2px; font-size: 19px; font-weight: 700;
+  letter-spacing: -0.015em; color: var(--ink);
+}
+.wk-mail-sub { margin: 0 0 14px; font-size: 12.5px; color: var(--muted); }
+.wk-mail p { margin: 0 0 11px; }
+.wk-mail-t {
+  width: 100%; margin: 4px 0 16px; border-collapse: collapse;
+  background: var(--surface); border-radius: var(--r-sm); overflow: hidden;
+}
+.wk-mail-t td { padding: 8px 12px; border-bottom: 1px solid var(--line-soft); font-size: 13px; }
+.wk-mail-t tr:last-child td { border-bottom: 0; }
+.wk-mail-t td:first-child { font-weight: 500; color: var(--ink); white-space: nowrap; }
+.wk-mail-t .q { color: var(--muted); font-weight: 400; }
+.wk-mail-sign b { color: var(--ink); }
+.wk-mail-sign span { color: var(--muted); font-size: 12.5px; }
+.wk-mail-foot {
+  margin-top: 16px; padding-top: 11px; border-top: 1px solid var(--line);
+  font-size: 11px; color: var(--muted-soft);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PASS 4 — HOME, FEWER RECTANGLES
+   ═══════════════════════════════════════════════════════════════════════════
+   Counted on a real Home: twelve bordered boxes above the fold. Three were
+   the attention cards, which earn their borders — they are clickable, they
+   are the point of the screen, and there are never more than four. The other
+   nine were a four-box stat grid, a card wrapping two task rows, and a
+   second four-box grid underneath repeating the same three numbers.
+
+   Nothing is removed. Boxes become rules, which is the same information with
+   none of the furniture. Twelve rectangles become three.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* 1. The stat grid: four numbers, separated by rule rather than by card. */
+#rd-s-case .g4 {
+  display: flex; flex-wrap: wrap; gap: 0;
+  border-top: 1px solid var(--line-soft); padding-top: 15px;
+}
+#rd-s-case .g4 > .sc,
+#rd-s-case .g4 > .card {
+  flex: 0 1 auto; background: none; border: 0; box-shadow: none;
+  padding: 0 28px 0 0; margin: 0 28px 0 0;
+  border-right: 1px solid var(--line-soft); border-radius: 0;
+  text-align: left;
+}
+#rd-s-case .g4 > :last-child { border-right: 0; margin-right: 0; padding-right: 0; }
+/* The application sets an inline `border-top: 3px solid #9D2667` on whichever
+   stat is clickable. In a row of bordered cards that read as a tab; in a row
+   of rules it is a stray purple stripe over one number and nothing else. The
+   click target is kept — only the stripe goes. */
+#rd-s-case .g4 > .sc[style] { border-top: 0 !important; }
+#rd-s-case .g4 > .sc[style*="cursor"] { cursor: pointer; }
+
+/* 2. "Coming up": the rows are the content; the card around them was not. */
+#rd-next {
+  background: none; border: 0; box-shadow: none; padding: 0;
+  border-top: 1px solid var(--line-soft);
+}
+#rd-next > * { border-bottom: 1px solid var(--line-soft); }
+#rd-next > :last-child { border-bottom: 0; }
+
+/* 3. #home-caseload is the application's own summary strip. It repeats the
+      three numbers directly above it, and in a production transfer the right
+      answer is to merge the two. It is NOT removed here — the brief is
+      explicit about not deleting what looks redundant — it is flattened, so
+      the repetition costs a line instead of five boxes. */
+#home-caseload,
+#home-caseload > div,
+#home-drill {
+  background: none !important; border: 0 !important;
+  box-shadow: none !important; border-radius: 0 !important;
+}
+#home-caseload { border-top: 1px solid var(--line-soft) !important; padding: 13px 0 0 !important; margin-top: 15px; }
+#home-caseload .g3, #home-caseload .g4 { gap: 0; }
+
+/* 4. The Upcoming-visits card in "Coming up", and the to-do rows in
+      "Working notes". A list of four to-dos was four bordered rectangles
+      stacked inside a fifth; they are rows, and rows are separated by a
+      rule. Form controls keep their borders — a field that does not look
+      like a field is a worse problem than one box too many. */
+#rd-s-next #v-upcoming-card {
+  background: none; border: 0; box-shadow: none; padding: 0;
+  border-top: 1px solid var(--line-soft);
+}
+#rd-s-tools .todo-item {
+  border: 0; border-bottom: 1px solid var(--line-soft);
+  border-radius: 0; background: none; padding-left: 0; padding-right: 0;
+}
+#rd-s-tools .todo-item:last-of-type { border-bottom: 0; }
+
+/* ── Pass-4 screens below the desktop width ─────────────────────────────── */
+/* #md-grid and #ltc-grid carry an inline `grid-template-columns:
+   minmax(0,1fr) 400px` with no breakpoint, so below about 1050px the list
+   and the detail pane fight each other. The same stack the Client Tracker
+   uses: the detail goes under the list. */
+@media (max-width: 1080px) {
+  #md-grid, #ltc-grid, #page-emailcomm .g2 {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  #md-detail, #ltc-detail { margin-top: 14px; }
+  #page-emailcomm .g2 > .card:first-child { order: 2; }
+}
+@media (max-width: 760px) {
+  .rd-views { flex-wrap: wrap; }
+  .rd-view { padding: 8px 10px 9px; font-size: 12.5px; }
+  .rd-subbar { gap: 6px; }
+  .rd-quietsearch { max-width: none; }
+  .rd-strip { gap: 14px 0; }
+  .rd-stat { padding-right: 18px; margin-right: 18px; }
+  .rd-cl-open .rd-cl-ex { white-space: normal; }
+  .ltc-det, .md-det { padding: 15px 16px 14px; }
+  #rd-s-case .g4 > .sc, #rd-s-case .g4 > .card {
+    padding-right: 16px; margin-right: 16px;
+  }
+}
+.wk-mode-opt.disabled { cursor: not-allowed; }
+.wk-mode-opt.disabled b, .wk-mode-opt.disabled span { color: var(--muted-soft); }
+.wk-mode-opt.disabled:hover { background: none; }
+.wk-mode-opt b em {
+  font-style: normal; font-weight: 500; font-size: 11px;
+  color: var(--warn); margin-left: 6px;
+}
+.wk-note {
+  margin: 8px 0 0; padding-left: 11px; border-left: 2px solid var(--line);
+  font-size: 12px; line-height: 1.55; color: var(--muted);
+}
+
+/* A record joined by name rather than by id is shown, and labelled. The
+   alternative is presenting a guess as a fact, which is how a client rename
+   silently moves someone else's insurance policy onto their record. */
+.rd-flag {
+  margin-left: 8px; font-size: 10.5px; color: var(--muted-soft);
+  border: 1px solid var(--line); border-radius: 999px; padding: 0 7px;
+}
+.rd-ws-warn {
+  margin: 6px 0 0; font-size: 12px; line-height: 1.55; color: var(--warn);
+}
+
+/* A source that did not answer. Never rendered as reassurance. */
+.rd-attn-partial {
+  grid-column: 1 / -1; margin: 10px 0 0;
+  font-size: 12.5px; line-height: 1.5; color: var(--warn);
+}
