@@ -406,15 +406,15 @@
     });
     gate('_lpAddToOutlook', {
       intent: true,
-      feature: 'Create Outlook event', capability: 'graph_calendar',
+      feature: 'Create Outlook event', capability: 'graph_calendar_add',
       endpoint: 'graph.microsoft.com/v1.0/me/events', operation: 'POST',
-      message: 'Preview only — no calendar event was created.'
+      message: 'Adding to Outlook is not switched on in this version yet \u2014 use the current Hub.'
     });
     gate('_deleteOutlookEvent', {
       intent: true,
-      feature: 'Delete Outlook event', capability: 'graph_calendar',
+      feature: 'Delete Outlook event', capability: 'graph_calendar_delete',
       endpoint: 'graph.microsoft.com/v1.0/me/events/{id}', operation: 'DELETE',
-      message: 'Preview only — no calendar event was deleted.'
+      message: 'Removing an Outlook event is not switched on in this version yet \u2014 use the current Hub.'
     });
 
     gate('ecSaveDraft', {
