@@ -677,16 +677,24 @@
         return real(url, o2).then(function (r) {
           // Ask the response whether anything actually changed. A dry run is
           // never counted as a write, and never as an external action.
+          // Count from the server's own answer, and only when something
+          // actually happened. A refusal is neither a dry run nor a live
+          // write: a 404 for a missing LTC record was being counted as a
+          // real status change, which is exactly the kind of number that
+          // makes a diagnostics panel worth less than nothing.
           try {
-            r.clone().json().then(function (j) {
-              const dry = j && j.mode === 'dryRun';
-              const k = cap === 'viv_visit_create' ? 'vivCreate'
-                      : cap === 'viv_visit_cancel' ? 'vivCancel'
-                      : cap.indexOf('ltc_') === 0 && cap !== 'ltc_send_carrier' && cap !== 'ltc_nudge_caregiver' ? 'ltcStatus'
-                      : cap === 'ltc_send_carrier' ? 'ltcCarrier'
-                      : cap === 'ltc_nudge_caregiver' ? 'ltcCaregiver' : null;
-              if (k) (dry ? App.countDryRun : App.countLiveSend)(k);
-            }, function () {});
+            const k = cap === 'viv_visit_create' ? 'vivCreate'
+                    : cap === 'viv_visit_cancel' ? 'vivCancel'
+                    : cap === 'ltc_send_carrier' ? 'ltcCarrier'
+                    : cap === 'ltc_nudge_caregiver' ? 'ltcCaregiver'
+                    : cap.indexOf('ltc_') === 0 ? 'ltcStatus' : null;
+            if (k && r.ok) {
+              r.clone().json().then(function (j) {
+                if (j && j.error) return;                 // refused: count nothing
+                if (j && j.mode === 'dryRun') App.countDryRun(k);
+                else App.countLiveSend(k);
+              }, function () {});
+            }
           } catch (e) {}
           App.recordWrite({ capability: cap, endpoint: 'vivProxy?endpoint=' + ep, operation: method,
             recordType: b.recordType, ok: r.ok, status: r.status });
