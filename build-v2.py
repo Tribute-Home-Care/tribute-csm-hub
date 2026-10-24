@@ -46,7 +46,14 @@ def main():
     #    location.pathname, so serving at /v2/ asks Entra for /v2/ — which is
     #    why /v2/ needs its own registered SPA redirect URI.
     html = html.replace('src="./entra-auth.js', 'src="../entra-auth.js')
-    html = html.replace('src="./tribute-usage.js', 'src="../tribute-usage.js')
+    # tribute-usage.js POSTs active-time telemetry. A read-only preview must
+    # not write usage rows, and it must not pollute real usage statistics
+    # with pilot activity. Found live: the fetch tripwire caught it as an
+    # ungated write path (endpoint=usage_time) because the audit covered
+    # index.html and not this companion script. V2 simply does not load it.
+    import re as _re
+    html = _re.sub(r'\s*<script src="\./tribute-usage\.js[^"]*"></script>', '', html)
+    assert not _re.search(r'<script[^>]*tribute-usage', html), 'usage telemetry still loaded'
 
     # 3. The redesign layer + the V2 policy, before </body>.
     #    ORDER MATTERS: bridge.js assigns window.TributeApp, so v2-policy.js

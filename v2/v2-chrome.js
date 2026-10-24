@@ -67,13 +67,25 @@
               || null;
       if (!ep) return real(url, opts);
       const t0 = performance.now();
+      // A slow read must SAY it is slow. Found live: md_compliance took 67
+      // seconds to rebuild while the page showed only "Loading Maryland…",
+      // with no progress, no timeout and no way to tell a 67-second rebuild
+      // from a dead endpoint. The request is not aborted — aborting a
+      // legitimate rebuild would be worse — but it stops being silent.
+      const slowTimer = setTimeout(function () {
+        App.noteAnomaly('still-pending', ep, 'no response after 20s');
+        banner(ep, 'slow');
+      }, 20000);
       return real(url, opts).then(function (r) {
+        clearTimeout(slowTimer);
+        clearBanner(ep);
         const ms = performance.now() - t0;
         let bytes = 0;
         try { bytes = +(r.headers.get('content-length') || 0); } catch (e) {}
         timings.push({ endpoint: ep, ms: ms, status: r.status, bytes: bytes, at: Date.now() });
         if (!r.ok) {
           App.noteAnomaly('api-error', ep, 'HTTP ' + r.status);
+          banner(ep, 'failed', r.status);
         } else if (ms > 8000) {
           App.noteAnomaly('slow-endpoint', ep, Math.round(ms) + 'ms');
         }
@@ -91,9 +103,11 @@
         paint();
         return r;
       }, function (e) {
+        clearTimeout(slowTimer);
         const ms = performance.now() - t0;
         timings.push({ endpoint: ep, ms: ms, error: true, at: Date.now() });
         App.noteAnomaly('api-failure', ep, String((e && e.message) || e).slice(0, 80));
+        banner(ep, 'failed');
         paint();
         throw e;
       });
@@ -189,6 +203,47 @@
       App.noteAnomaly('inspector-error', ep, String((e && e.message) || e).slice(0, 80));
     }
   };
+
+  /* ── Visible failure ──────────────────────────────────────────────────
+     The brief is explicit: V2 must fail visibly and specifically, and must
+     never turn an API failure into "nothing to show". Production renders a
+     bare page header when client_pulse fails; this says what happened. */
+  const SOURCE_PAGE = {
+    client_pulse: 'page-pulse', md_compliance: 'page-md', ltc_board: 'page-ltc',
+    csm_hub: 'page-home', csm_comms: 'page-home', coc_tasks: 'page-home',
+    csm_data: 'page-home', community_email: 'page-emailcomm'
+  };
+  const LABEL = {
+    client_pulse: 'Client Pulse', md_compliance: 'Maryland Compliance',
+    ltc_board: 'the LTC board', csm_hub: 'the Viv sync', csm_comms: 'communications',
+    coc_tasks: 'change of condition', csm_data: 'the shared document',
+    community_email: 'the community draft'
+  };
+  function banner(ep, state, status) {
+    const pageId = SOURCE_PAGE[ep];
+    if (!pageId) return;
+    const page = document.getElementById(pageId);
+    if (!page) return;
+    let el = page.querySelector('.v2-src-banner[data-ep="' + ep + '"]');
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'v2-src-banner';
+      el.setAttribute('data-ep', ep);
+      const h = page.querySelector('.ph');
+      if (h && h.nextSibling) page.insertBefore(el, h.nextSibling); else page.prepend(el);
+    }
+    el.className = 'v2-src-banner ' + state;
+    el.textContent = state === 'slow'
+      ? 'Still loading ' + (LABEL[ep] || ep) + ' \u2014 over 20 seconds so far. ' +
+        'Nothing below is complete yet.'
+      : 'Could not load ' + (LABEL[ep] || ep) +
+        (status ? ' (HTTP ' + status + ')' : '') +
+        '. This page is NOT showing an all-clear \u2014 it is showing nothing. Reload to try again.';
+  }
+  function clearBanner(ep) {
+    document.querySelectorAll('.v2-src-banner[data-ep="' + ep + '"]').forEach(function (e) { e.remove(); });
+  }
+  App.sourceBanner = banner;
 
   /* ── The quiet mark ────────────────────────────────────────────────────
      A word beside the product name and a small status line. No banner. */

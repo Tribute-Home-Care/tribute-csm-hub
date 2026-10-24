@@ -45,6 +45,8 @@
     community_draft_save: false,// persist an edited community draft
     community_send: false,      // send the community email, including a test
     weekly_schedule: false,     // not built in production at all
+    usage_telemetry: false,     // active-time tracking: a preview must not
+                                // write usage rows or skew real usage stats
 
     assist: true,               // POST, but a question — mutates nothing
     community_render: true      // POST, but returns HTML — persists nothing
@@ -290,6 +292,15 @@
       // Allowed non-GET reads, by capability.
       const ep = (/[?&]endpoint=([a-z_]+)/.exec(u) || [])[1] || '';
       if (ep === 'csm_assist' && App.canWrite('assist')) return real(url, opts);
+      // usage_time is a known write and is named rather than reported as a
+      // missed path, so a genuine leak stays visible in policyLeaks.
+      if (ep === 'usage_time') {
+        App.recordBlockedWrite({ feature: 'Active-time usage telemetry',
+          capability: 'usage_telemetry', endpoint: u.split('?')[0] + '?endpoint=usage_time',
+          operation: method });
+        return Promise.resolve(new Response(JSON.stringify({ ok: false, v2Blocked: true }),
+          { status: 202, headers: { 'Content-Type': 'application/json' } }));
+      }
       if (ep === 'community_email' && /render=1/.test(u) && !/save=1|send=1|test=1/.test(u)
           && App.canWrite('community_render')) return real(url, opts);
 
