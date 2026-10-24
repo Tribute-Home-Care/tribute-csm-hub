@@ -28,9 +28,9 @@ window.GUIDE = (function () {
         src: 'guide-shots/guide-home-overview.png',
         alt: 'The Hub Home screen, showing the attention panel, counts for the caseload, and upcoming visits.',
         callouts: [
-          { n: 1, x: 30, y: 22, title: 'Needs attention', body: 'Everything the Hub thinks you should look at today, most pressing first.' },
-          { n: 2, x: 78, y: 16, title: 'Your caseload at a glance', body: 'Counts for the clients you own. A number here is a link, not a label.' },
-          { n: 3, x: 30, y: 62, title: 'To-dos and notes', body: 'Your own working list. Saved for real, and visible to you in either version of the Hub.' }
+          { n: 1, x: 19, y: 22, title: 'Needs attention', body: 'Everything the Hub thinks you should look at today, most pressing first.' },
+          { n: 2, x: 17, y: 55, title: 'Caseload health', body: 'Where your caseload stands: how many clients, how many high need, visits done against visits due.' },
+          { n: 3, x: 26, y: 81, title: 'Working notes', body: 'Your to-dos and 1:1 notes. Saved for real, and the same list appears in either version of the Hub.' }
         ]
       },
       what: 'Home answers one question: what needs me right now? It gathers overdue visits, clients whose Pulse has moved, open visits in the next few days, and anything you flagged yourself.',
@@ -54,9 +54,9 @@ window.GUIDE = (function () {
         src: 'guide-shots/guide-client-tracker.png',
         alt: 'The Client Tracker, showing a searchable list of clients on the left and a selected client workspace on the right.',
         callouts: [
-          { n: 1, x: 14, y: 17, title: 'Search', body: 'Type any part of a name. Fastest way to anyone in your caseload.' },
-          { n: 2, x: 14, y: 46, title: 'The list', body: 'Your clients, with tier and status. Selecting one opens it beside the list.' },
-          { n: 3, x: 62, y: 20, title: 'The workspace', body: 'The client opens here, with its own tabs. The list stays put so you keep your place.' }
+          { n: 1, x: 27, y: 15, title: 'Search', body: 'Type any part of a name. Fastest way to anyone in your caseload.' },
+          { n: 2, x: 21, y: 34, title: 'The list, already triaged', body: 'Needs attention, Due soon, All clients, Onboarding, Coverage. It opens on the ones that need you.' },
+          { n: 3, x: 50, y: 27, title: 'The workspace', body: 'The client opens beside the list, so you keep your place while working through several.' }
         ]
       },
       what: 'The Tracker is the list; the workspace is where the work happens. They sit side by side so you can move through several clients without losing your position.',
@@ -73,9 +73,9 @@ window.GUIDE = (function () {
         src: 'guide-shots/guide-client-workspace.png',
         alt: 'A client workspace with Overview, Care, Schedule, Communication and More tabs.',
         callouts: [
-          { n: 1, x: 56, y: 13, title: 'The five areas', body: 'Overview, Care, Schedule, Communication, More. Overview summarises; the others go deep.' },
-          { n: 2, x: 56, y: 27, title: 'Pulse signal', body: 'A compact read on how this client is doing. Open it for the evidence behind it.' },
-          { n: 3, x: 85, y: 13, title: 'Primary action', body: 'The one thing you most often do here. Everything rarer sits under the overflow menu.' }
+          { n: 1, x: 27, y: 21, title: 'The five areas', body: 'Overview, Care, Schedule, Communication, More. Overview summarises; the others go deep.' },
+          { n: 2, x: 12, y: 37, title: 'What needs attention', body: 'The one thing about this client that is outstanding, stated plainly.' },
+          { n: 3, x: 11, y: 90, title: 'One primary action', body: 'Log activity is the thing you do most. Everything rarer sits under the … beside it.' }
         ]
       },
       what: 'Overview is a summary, not a dumping ground: it tells you the state of the client and points at the area that needs you. Care, Schedule, Communication and More hold the detail.',
@@ -89,14 +89,6 @@ window.GUIDE = (function () {
     pulse: {
       title: 'Client Pulse',
       lede: 'A read on how each client is actually doing, drawn from what caregivers wrote.',
-      shot: {
-        src: 'guide-shots/guide-pulse.png',
-        alt: 'The Client Pulse page listing clients by attention level with supporting evidence.',
-        callouts: [
-          { n: 1, x: 22, y: 20, title: 'The level', body: 'Needs attention, Monitor, or Status quo. Sorted so the first rows matter most.' },
-          { n: 2, x: 62, y: 34, title: 'Why', body: 'The evidence behind the read. Open a row to see what it is based on.' }
-        ]
-      },
       what: 'Pulse reads caregiver visit notes, changes of condition, incidents and recent communication, and summarises where each client stands. It is a prompt to look, not a verdict.',
       first: ['Start at the top. Needs attention is ordered first.', 'Open a row before acting. The summary is a pointer; the evidence is the substance.'],
       can: ['Review your caseload', 'Open the evidence behind a read', 'Acknowledge that you have seen it'],
@@ -122,7 +114,6 @@ window.GUIDE = (function () {
     coverage: {
       title: 'Coverage Notes',
       lede: 'What a covering colleague needs to know, plus handoffs and the community directory.',
-      shot: { src: 'guide-shots/guide-coverage.png', alt: 'The Coverage Notes page with tabs for My Clients, Team Coverage, Handoffs and Communities.' },
       what: 'Coverage notes are written for somebody else: the person picking up your caseload while you are out. Handoffs assign that cover. Communities is the shared directory of who to call at each building.',
       first: ['My Clients is what you write. Team Coverage is what everyone else wrote.'],
       can: ['Read coverage notes, team coverage, handoffs and the community directory'],
@@ -137,8 +128,9 @@ window.GUIDE = (function () {
         src: 'guide-shots/guide-md-compliance.png',
         alt: 'The Maryland Compliance board listing clients against regulatory requirements.',
         callouts: [
-          { n: 1, x: 24, y: 19, title: 'What is outstanding', body: 'Clients with something due or overdue come first.' },
-          { n: 2, x: 70, y: 19, title: 'When this was built', body: 'The board is assembled on a schedule. This tells you how current it is.' }
+          { n: 1, x: 23, y: 26, title: 'How current this is', body: 'The board is assembled on a schedule, and says so rather than letting you assume it is live.' },
+          { n: 2, x: 16, y: 40, title: 'The four counts', body: 'Assessments overdue, reassessments owed, documentation gaps, and initial 48-hour visits missed.' },
+          { n: 3, x: 10, y: 63, title: 'What is outstanding', body: 'Overdue first, with how many days, and the CSM who owns it.' }
         ]
       },
       what: 'A per-client view of Maryland regulatory requirements — assessments, care plans, supervisory visits and the rest — showing what is complete, what is due and what has passed its date.',
@@ -154,7 +146,6 @@ window.GUIDE = (function () {
     priority: {
       title: 'Fill Priority',
       lede: 'Which open visits matter most, and where your caseload is exposed.',
-      shot: { src: 'guide-shots/guide-fill-priority.png', alt: 'The Fill Priority page showing ranked open visits and coverage events.' },
       what: 'Open visits on your caseload, ranked, alongside any coverage events a manager has created. It answers "if I can only solve one gap today, which one?"',
       first: ['High-rank items first.', 'An open visit in the next 48 hours is called out separately.'],
       can: ['Review open visits and their ranking'],
@@ -165,7 +156,6 @@ window.GUIDE = (function () {
     emailcomm: {
       title: 'Email Community',
       lede: 'The weekly update that goes to a senior living community.',
-      shot: { src: 'guide-shots/guide-email-community.png', alt: 'The Email Community page showing a community list and a generated weekly draft.' },
       what: 'For communities where Tribute has clients, the Hub assembles a weekly update and holds it as a draft. You can read it and see what would go out.',
       first: ['Pick a community on the left; its current draft loads on the right.'],
       can: ['Read the generated draft for a community'],
@@ -206,14 +196,6 @@ window.GUIDE = (function () {
     team: {
       title: 'Team Overview',
       lede: 'For managers: the whole team in one view, with a route down to the client.',
-      shot: {
-        src: 'guide-shots/guide-team.png',
-        alt: 'The Team Overview page showing per-CSM summary rows for a manager.',
-        callouts: [
-          { n: 1, x: 24, y: 22, title: 'Per CSM', body: 'One row per person, with caseload and the signals that matter.' },
-          { n: 2, x: 72, y: 22, title: 'Drill down', body: 'From a row to that CSM, and from there to the individual client.' }
-        ]
-      },
       what: 'A cross-CSM summary so a manager can see where attention is needed without opening each caseload in turn.',
       first: ['Scan for the outliers, not the averages.'],
       can: ['Review the team', 'Open an individual CSM, then an individual client'],
@@ -230,7 +212,7 @@ window.GUIDE = (function () {
         src: 'guide-shots/guide-market-select.png',
         alt: 'The market selection screen showing Massachusetts, Chicago and Maryland cards.',
         callouts: [
-          { n: 1, x: 22, y: 60, title: 'Pick a market', body: 'Everything after this is scoped to it — clients, search, attention, compliance.' }
+          { n: 1, x: 17, y: 67, title: 'Pick a market', body: 'Everything after this is scoped to it — clients, search, attention, compliance.' }
         ]
       },
       what: 'The Hub is organised by market. Choosing one sets the context for everything that follows. If you work in a single market you will usually go straight in without seeing this screen.',
