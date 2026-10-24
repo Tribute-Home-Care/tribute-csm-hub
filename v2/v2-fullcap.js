@@ -26,11 +26,10 @@
     const b = document.createElement('div');
     b.id = 'v2-fullcap';
     b.className = 'v2-fullcap';
-    const d = App.serverWrite.liveDelivery || {};
-    const suppressed = ['community', 'ltcCarrier', 'ltcCaregiver'].filter(k => d[k] !== true).length;
-    b.innerHTML = '<b>Full-capability test</b>' +
-      (suppressed ? '<span>' + suppressed + ' external ' +
-        (suppressed === 1 ? 'delivery' : 'deliveries') + ' suppressed</span>' : '<span>all deliveries live</span>');
+    const n = App.capabilityInspector().filter(r => r.mode === 'Suppressed').length;
+    b.innerHTML = '<b>Full-capability test</b><span>' +
+      (n ? n + ' consequential action' + (n === 1 ? '' : 's') + ' suppressed' : 'everything live') +
+      '</span>';
     b.title = 'Every connected workflow is available. Open diagnostics for the capability inspector.';
     b.addEventListener('click', function () { App.showCapabilityInspector(); });
     document.body.appendChild(b);
@@ -59,48 +58,60 @@
   }
 
   /* ── The inspector ─────────────────────────────────────────────────── */
+  // mode: 'live' = a real production write happens.
+  //       'suppressed' = the whole workflow runs and the final change does not.
+  //       'unbuilt' = the feature does not exist.
+  // 'consequential' rows become suppressed for a full-capability tester;
+  // 'delivery' rows are suppressed by their own external-delivery flag.
   const ROWS = [
-    ['Quick Notes',          'csm_data_pocket',      null],
-    ['To-dos / 1:1 / KPI',   'csm_data_pocket',      null],
-    ['Client metadata',      'csm_data_pocket',      null],
-    ['Touchpoints',          'csm_data_pocket',      null],
-    ['Success in 30',        'csm_data_pocket',      null],
-    ['Pulse acknowledgement','csm_data_pocket',      null],
-    ['Coverage Notes',       'coverage_notes',       null],
-    ['Fill Priority',        'fill_priority',        null],
-    ['Community settings',   'community_settings',   null],
-    ['Maryland cadence',     'md_cadence',           null],
-    ['Community draft save', 'community_draft_save', null],
-    ['Community test send',  'community_send_test',  'self'],
-    ['Community real send',  'community_send_real',  'community'],
-    ['Calendar add',         'graph_calendar_add',   null],
-    ['Calendar delete',      'graph_calendar_delete',null],
-    ['Viv visit create',     'viv_visit_create',     null],
-    ['Viv visit cancel',     'viv_visit_cancel',     null],
-    ['LTC approve',          'ltc_approve',          null],
-    ['LTC mark sent',        'ltc_mark_sent',        null],
-    ['LTC confirm',          'ltc_confirm',          null],
-    ['LTC skip / note',      'ltc_note',             null],
-    ['LTC carrier packet',   'ltc_send_carrier',     'ltcCarrier'],
-    ['LTC caregiver text',   'ltc_nudge_caregiver',  'ltcCaregiver'],
-    ['Weekly family email',  'weekly_schedule',      null]
+    ['Quick Notes',          'csm_data_pocket',      {}],
+    ['To-dos / 1:1 / KPI',   'csm_data_pocket',      {}],
+    ['Client metadata',      'csm_data_pocket',      {}],
+    ['Touchpoints',          'csm_data_pocket',      {}],
+    ['Success in 30',        'csm_data_pocket',      {}],
+    ['Pulse acknowledgement','csm_data_pocket',      {}],
+    ['Coverage Notes',       'coverage_notes',       {}],
+    ['Fill Priority',        'fill_priority',        {}],
+    ['Community settings',   'community_settings',   {}],
+    ['Maryland cadence',     'md_cadence',           {}],
+    ['Community draft save', 'community_draft_save', {}],
+    ['Community test send',  'community_send_test',  { note: 'to yourself' }],
+    ['Community real send',  'community_send_real',  { delivery: 'community' }],
+    ['Calendar add',         'graph_calendar_add',   {}],
+    ['Calendar delete',      'graph_calendar_delete',{}],
+    ['Viv visit create',     'viv_visit_create',     { consequential: true }],
+    ['Viv visit cancel',     'viv_visit_cancel',     { consequential: true }],
+    ['LTC approve',          'ltc_approve',          { consequential: true }],
+    ['LTC mark sent',        'ltc_mark_sent',        { consequential: true }],
+    ['LTC confirm',          'ltc_confirm',          { consequential: true }],
+    ['LTC skip / note',      'ltc_note',             { consequential: true }],
+    ['LTC carrier packet',   'ltc_send_carrier',     { delivery: 'ltcCarrier' }],
+    ['LTC caregiver text',   'ltc_nudge_caregiver',  { delivery: 'ltcCaregiver' }],
+    ['Weekly family email',  'weekly_schedule',      { unbuilt: true }]
   ];
   App.capabilityInspector = function () {
     const sw = App.serverWrite || {};
     const map = sw.capabilityMap || {};
     const d = sw.liveDelivery || {};
+    const suppressOps = sw.suppressConsequential === true;
     return ROWS.map(function (r) {
-      const [label, cap, delivery] = r;
+      const [label, cap, opt] = r;
       const page = App.writePolicy ? App.writePolicy()[cap] === true : null;
       const server = Object.prototype.hasOwnProperty.call(map, cap) ? map[cap] : null;
       const can = App.canWrite(cap);
+      let mode;
+      if (opt.unbuilt) mode = 'Unbuilt';
+      else if (!can) mode = 'Unavailable';
+      else if (opt.delivery) mode = d[opt.delivery] === true ? 'Live' : 'Suppressed';
+      else if (opt.consequential && suppressOps) mode = 'Suppressed';
+      else mode = 'Live';
       return {
         capability: label, key: cap,
-        page: page, server: server, available: can,
-        delivery: !delivery ? 'n/a'
-                : delivery === 'self' ? 'to yourself'
-                : (d[delivery] === true ? 'LIVE' : 'suppressed'),
-        why: can ? '' : (App.writeBlockReason ? (App.writeBlockReason(cap) || '') : '')
+        page: page, server: server,
+        functional: opt.unbuilt ? false : can,
+        available: can, mode: mode,
+        detail: opt.note || '',
+        why: can || opt.unbuilt ? '' : (App.writeBlockReason ? (App.writeBlockReason(cap) || '') : '')
       };
     });
   };
@@ -112,16 +123,19 @@
     if (!el) { el = document.createElement('div'); el.id = 'v2-capinsp'; el.className = 'v2-capinsp'; document.body.appendChild(el); }
     el.innerHTML =
       '<div class="v2-capinsp-in"><div class="v2-capinsp-h"><b>Capability inspector</b>' +
-      '<button type="button" aria-label="Close">×</button></div>' +
-      '<p>Workflow availability and external delivery are separate. A suppressed row means the ' +
-      'whole workflow runs and stops before anything leaves Tribute.</p>' +
-      '<table><thead><tr><th>Capability</th><th>Page</th><th>Server</th><th>Available</th>' +
-      '<th>Delivery</th><th>Why not</th></tr></thead><tbody>' +
+      '<button type="button" aria-label="Close">\u00d7</button></div>' +
+      '<p><b>Live</b> means a real production write happens. <b>Suppressed</b> means the whole ' +
+      'workflow runs and the final change does not. <b>Unbuilt</b> means the feature does not exist. ' +
+      'Normal pilot users do not see this, and their writes are not suppressed.</p>' +
+      '<table><thead><tr><th>Capability</th><th>Page</th><th>Server</th><th>Functional</th>' +
+      '<th>Mode</th><th>Note</th></tr></thead><tbody>' +
       rows.map(function (r) {
-        return '<tr class="' + (r.available ? '' : 'off') + '"><td>' + esc(r.capability) + '</td><td>' +
-          yn(r.page) + '</td><td>' + yn(r.server) + '</td><td><b>' + yn(r.available) + '</b></td><td>' +
-          (r.delivery === 'LIVE' ? '<b class="live">LIVE</b>' : esc(r.delivery)) + '</td><td>' +
-          esc(r.why) + '</td></tr>';
+        const cls = r.mode === 'Live' ? 'live' : r.mode === 'Suppressed' ? 'supp'
+                  : r.mode === 'Unbuilt' ? 'unbuilt' : 'off';
+        return '<tr class="' + (r.functional ? '' : 'off') + '"><td>' + esc(r.capability) + '</td><td>' +
+          yn(r.page) + '</td><td>' + yn(r.server) + '</td><td><b>' + yn(r.functional) + '</b></td><td>' +
+          '<span class="m ' + cls + '">' + esc(r.mode) + '</span></td><td>' +
+          esc(r.detail || r.why) + '</td></tr>';
       }).join('') + '</tbody></table></div>';
     el.querySelector('button').addEventListener('click', function () { el.remove(); });
     el.addEventListener('click', function (e) { if (e.target === el) el.remove(); });

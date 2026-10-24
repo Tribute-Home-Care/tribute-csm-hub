@@ -139,7 +139,7 @@
      an unknown switch is treated as off, so a slow network cannot produce a
      page that looks write-enabled when it is not. */
   App.serverWrite = { known: false, enabled: false, isPilotWriter: false, capabilities: [],
-                      capabilityMap: null, fullCapability: false,
+                      capabilityMap: null, fullCapability: false, suppressConsequential: false,
                       liveDelivery: { community: false, ltcCarrier: false, ltcCaregiver: false } };
 
   /* Is a real external send suppressed right now? The page asks before it
@@ -153,14 +153,19 @@
     return d[what] === true ? 'live' : 'suppressed';
   };
   /* A dry run is not an external action and is never counted as one. */
-  const dryRuns = { community: 0, ltcCarrier: 0, ltcCaregiver: 0 };
-  const liveSends = { community: 0, ltcCarrier: 0, ltcCaregiver: 0 };
+  const dryRuns = { community: 0, ltcCarrier: 0, ltcCaregiver: 0,
+                    vivCreate: 0, vivCancel: 0, ltcStatus: 0 };
+  const liveSends = { community: 0, ltcCarrier: 0, ltcCaregiver: 0,
+                      vivCreate: 0, vivCancel: 0, ltcStatus: 0 };
   App.countDryRun = function (k) { if (k in dryRuns) dryRuns[k]++; };
   App.countLiveSend = function (k) { if (k in liveSends) liveSends[k]++; };
   App.sendCounters = function () {
     return { communitySendDryRuns: dryRuns.community, communitySendLive: liveSends.community,
              ltcCarrierDryRuns: dryRuns.ltcCarrier,   ltcCarrierLive: liveSends.ltcCarrier,
-             ltcCaregiverDryRuns: dryRuns.ltcCaregiver, ltcCaregiverLive: liveSends.ltcCaregiver };
+             ltcCaregiverDryRuns: dryRuns.ltcCaregiver, ltcCaregiverLive: liveSends.ltcCaregiver,
+             vivCreateDryRuns: dryRuns.vivCreate, vivCreateLive: liveSends.vivCreate,
+             vivCancelDryRuns: dryRuns.vivCancel, vivCancelLive: liveSends.vivCancel,
+             ltcStatusDryRuns: dryRuns.ltcStatus, ltcStatusLive: liveSends.ltcStatus };
   };
   App.loadWriteConfig = async function (proxy, headers) {
     try {
@@ -177,6 +182,7 @@
         // shutdown would have looked like a bug rather than a decision.
         capabilityMap: j.capabilityMap || null,
         fullCapability: !!j.fullCapability,
+        suppressConsequential: !!j.suppressConsequential,
         liveDelivery: j.liveDelivery || { community:false, ltcCarrier:false, ltcCaregiver:false },
         user: j.user
       };
@@ -669,6 +675,19 @@
         o2.headers = Object.assign({}, (opts && opts.headers) || {},
           { 'X-Tribute-Surface': 'v2-preview', 'X-Tribute-Capability': cap });
         return real(url, o2).then(function (r) {
+          // Ask the response whether anything actually changed. A dry run is
+          // never counted as a write, and never as an external action.
+          try {
+            r.clone().json().then(function (j) {
+              const dry = j && j.mode === 'dryRun';
+              const k = cap === 'viv_visit_create' ? 'vivCreate'
+                      : cap === 'viv_visit_cancel' ? 'vivCancel'
+                      : cap.indexOf('ltc_') === 0 && cap !== 'ltc_send_carrier' && cap !== 'ltc_nudge_caregiver' ? 'ltcStatus'
+                      : cap === 'ltc_send_carrier' ? 'ltcCarrier'
+                      : cap === 'ltc_nudge_caregiver' ? 'ltcCaregiver' : null;
+              if (k) (dry ? App.countDryRun : App.countLiveSend)(k);
+            }, function () {});
+          } catch (e) {}
           App.recordWrite({ capability: cap, endpoint: 'vivProxy?endpoint=' + ep, operation: method,
             recordType: b.recordType, ok: r.ok, status: r.status });
           return r;
