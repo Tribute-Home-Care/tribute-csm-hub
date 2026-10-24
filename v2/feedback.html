@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>V2 Pilot Feedback</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
+<script src="../entra-auth.js?v=2026-10-23T08:49"></script>
+<style>
+:root{--canvas:#FAF8F4;--surface:#fff;--line:#E8E4E0;--line-soft:#F1EFEC;--ink:#231F20;--ink-2:#5E5557;
+--muted:#8C857B;--brand:#C95018;--bad:#B42318;--warn:#93610A;--pos:#2E7A57;--info:#2C5689}
+*{box-sizing:border-box}
+body{margin:0;background:var(--canvas);color:var(--ink);
+font:400 14px/1.55 "Source Sans 3",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif}
+header{padding:26px 28px 14px;max-width:1240px;margin:0 auto}
+h1{margin:0;font-size:21px;font-weight:600;letter-spacing:-.015em}
+.sub{margin:3px 0 0;font-size:13px;color:var(--muted)}
+main{max-width:1240px;margin:0 auto;padding:0 28px 50px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:14px 0 16px;border-bottom:1px solid var(--line-soft)}
+select,input[type=search]{appearance:none;border:1px solid var(--line);border-radius:8px;padding:6px 10px;
+font:inherit;font-size:13px;background:#fff;color:var(--ink)}
+.spacer{flex:1}
+.count{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.row{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-top:12px}
+.rh{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.who{font-weight:600}
+.when,.where{font-size:12px;color:var(--muted)}
+.tag{font-size:10.5px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;
+border-radius:999px;padding:2px 9px;white-space:nowrap}
+.t-broken{background:#FBECEA;color:var(--bad)} .t-confusing{background:#FAF2E0;color:var(--warn)}
+.t-cannot_find{background:#EEF3F9;color:var(--info)} .t-data_wrong{background:#FBECEA;color:var(--bad)}
+.t-idea{background:#E8F2EC;color:var(--pos)}
+.i-blocked{background:var(--bad);color:#fff} .i-slowed{background:#FAF2E0;color:var(--warn)}
+.i-minor{background:var(--line-soft);color:var(--muted)}
+.msg{margin:9px 0 0;white-space:pre-wrap;font-size:14px;line-height:1.6}
+.exp{margin:8px 0 0;padding-left:11px;border-left:2px solid var(--line);font-size:13px;color:var(--ink-2);white-space:pre-wrap}
+.exp b{font-weight:600;color:var(--muted);font-size:11px;letter-spacing:.04em;text-transform:uppercase;display:block;margin-bottom:2px}
+.meta{margin-top:11px;padding-top:10px;border-top:1px solid var(--line-soft);
+display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.st{margin-left:auto}
+.st select{font-size:12px;padding:3px 8px}
+.empty{text-align:center;padding:60px 20px;color:var(--muted)}
+.err{background:#FBECEA;color:var(--bad);border-radius:10px;padding:14px 16px;margin-top:16px;font-size:13.5px}
+details.tc{margin-top:8px}
+details.tc summary{font-size:11.5px;color:var(--muted);cursor:pointer}
+details.tc pre{background:var(--canvas);border-radius:8px;padding:10px;font-size:11px;overflow:auto;margin:6px 0 0}
+</style></head>
+<body>
+<header>
+  <h1>V2 Pilot Feedback</h1>
+  <p class="sub">What testers reported from inside the Hub, with the page and build they were on.
+     No client information is stored here.</p>
+</header>
+<main>
+  <div class="bar">
+    <select id="f-tester"><option value="">All testers</option></select>
+    <select id="f-type"><option value="">All types</option>
+      <option value="broken">Something is broken</option>
+      <option value="confusing">Something is confusing</option>
+      <option value="cannot_find">Can't find something</option>
+      <option value="data_wrong">Data looks wrong</option>
+      <option value="idea">Idea / suggestion</option></select>
+    <select id="f-impact"><option value="">Any impact</option>
+      <option value="blocked">Couldn't continue</option>
+      <option value="slowed">Slowed me down</option>
+      <option value="minor">Minor</option></select>
+    <select id="f-status"><option value="open">Unresolved</option>
+      <option value="">Any status</option>
+      <option value="new">New</option><option value="reviewed">Reviewed</option>
+      <option value="fix_planned">Fix planned</option><option value="resolved">Resolved</option>
+      <option value="not_changing">Not changing</option></select>
+    <input type="search" id="f-q" placeholder="Search text">
+    <span class="spacer"></span><span class="count" id="count"></span>
+  </div>
+  <div id="list"><div class="empty">Loading…</div></div>
+</main>
+<script>
+const VIV_PROXY='https://tribute-api-prod-bkc4hfcwf3f2f6bf.centralus-01.azurewebsites.net/api/vivProxy';
+const LBL={broken:'Something is broken',confusing:'Something is confusing',cannot_find:"Can't find something",
+data_wrong:'Data looks wrong',idea:'Idea / suggestion'};
+const IMP={minor:'Minor',slowed:'Slowed me down',blocked:"Couldn't continue"};
+const STS={new:'New',reviewed:'Reviewed',fix_planned:'Fix planned',resolved:'Resolved',not_changing:'Not changing'};
+const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+let ITEMS=[];
+// entra-auth.js exposes window.tributeKsfGate (NOT TributeAuth) and gates
+// the page itself, so getToken() resolves once the user is signed in.
+async function hdrs(){ const t=await window.tributeKsfGate.getToken(); return {Authorization:'Bearer '+t}; }
+async function load(){
+  try{
+    const r=await fetch(VIV_PROXY+'?endpoint=v2_feedback',{headers:await hdrs()});
+    if(r.status===403){ document.getElementById('list').innerHTML=
+      '<div class="err">Your account is not on the pilot-feedback reviewer list. '+
+      'This is enforced on the server, so the data is not reachable from here either.</div>'; return; }
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const j=await r.json();
+    ITEMS=j.items||[];
+    const sel=document.getElementById('f-tester');
+    [...new Set(ITEMS.map(i=>i.displayName||i.user))].sort().forEach(n=>{
+      const o=document.createElement('option'); o.value=n; o.textContent=n; sel.appendChild(o); });
+    render();
+  }catch(e){ document.getElementById('list').innerHTML='<div class="err">Could not load feedback — '+esc(e.message)+'</div>'; }
+}
+function render(){
+  const t=document.getElementById('f-tester').value, ty=document.getElementById('f-type').value,
+        im=document.getElementById('f-impact').value, st=document.getElementById('f-status').value,
+        q=document.getElementById('f-q').value.toLowerCase().trim();
+  let rows=ITEMS.filter(i=>{
+    if(t && (i.displayName||i.user)!==t) return false;
+    if(ty && i.category!==ty) return false;
+    if(im && i.impact!==im) return false;
+    if(st==='open'){ if(i.status==='resolved'||i.status==='not_changing') return false; }
+    else if(st && i.status!==st) return false;
+    if(q && !((i.message||'')+' '+(i.expected||'')+' '+(i.route||'')).toLowerCase().includes(q)) return false;
+    return true;
+  });
+  document.getElementById('count').textContent=rows.length+' of '+ITEMS.length;
+  document.getElementById('list').innerHTML = rows.length ? rows.map(i=>`
+    <div class="row">
+      <div class="rh">
+        <span class="who">${esc(i.displayName||i.user)}</span>
+        <span class="tag t-${esc(i.category)}">${esc(LBL[i.category]||i.category)}</span>
+        <span class="tag i-${esc(i.impact)}">${esc(IMP[i.impact]||i.impact)}</span>
+        <span class="when">${new Date(i.submittedAt).toLocaleString()}</span>
+        <span class="st"><select data-id="${esc(i.id)}">${Object.keys(STS).map(s=>
+          `<option value="${s}"${(i.status||'new')===s?' selected':''}>${STS[s]}</option>`).join('')}</select></span>
+      </div>
+      <p class="msg">${esc(i.message)}</p>
+      ${i.expected?`<div class="exp"><b>Expected</b>${esc(i.expected)}</div>`:''}
+      <div class="meta">
+        <span>${esc(i.route||'?')}</span>
+        ${i.workspaceArea?`<span>area: ${esc(i.workspaceArea)}</span>`:''}
+        <span>${esc(i.role||'?')}</span><span>${esc(i.market||'?')}</span>
+        <span>build ${esc(i.build||'?')}</span>
+        <span>${esc(i.viewport||'')}</span>
+      </div>
+      <details class="tc"><summary>Technical context</summary><pre>${esc(JSON.stringify(i.technicalContext||{},null,1))}</pre></details>
+    </div>`).join('') : '<div class="empty">Nothing matches those filters.</div>';
+  document.querySelectorAll('.st select').forEach(s=>s.addEventListener('change',async()=>{
+    const id=s.dataset.id, status=s.value;
+    try{
+      const r=await fetch(VIV_PROXY+'?endpoint=v2_feedback',{method:'PATCH',
+        headers:Object.assign({'Content-Type':'application/json'},await hdrs()),
+        body:JSON.stringify({id,status})});
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const it=ITEMS.find(x=>x.id===id); if(it) it.status=status;
+      render();
+    }catch(e){ alert('Status not saved — '+e.message); }
+  }));
+}
+['f-tester','f-type','f-impact','f-status'].forEach(id=>document.getElementById(id).addEventListener('change',render));
+document.getElementById('f-q').addEventListener('input',render);
+document.addEventListener('tribute-gate-unlocked',load);
+// getToken() awaits the gate internally, so this is safe either way.
+load();
+</script>
+</body></html>

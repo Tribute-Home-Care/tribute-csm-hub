@@ -49,7 +49,13 @@
                                 // write usage rows or skew real usage stats
 
     assist: true,               // POST, but a question — mutates nothing
-    community_render: true      // POST, but returns HTML — persists nothing
+    community_render: true,     // POST, but returns HTML — persists nothing
+
+    // The ONE intentionally authorised V2 write. It is not a business write:
+    // its own endpoint, its own container, nothing operational. It is counted
+    // SEPARATELY so a feedback submission can never make the diagnostics
+    // panel imply that V2 has modified operational data.
+    v2_feedback: true
   };
 
   App.canWrite = function (capability) { return POLICY[capability] === true; };
@@ -98,7 +104,10 @@
     const leaks = attempts.filter(function (a) { return /FETCH GUARD/.test(a.blockedBy); });
     return {
       environment: App.environment,
+      // Two different things, never added together.
+      businessWrites: 0,
       productionWrites: 0,
+      pilotFeedbackSubmissions: App.feedbackWrites || 0,
       blockedAttempts: attempts.length,
       byFeature: byFeature,
       policyLeaks: leaks.length,
@@ -292,6 +301,12 @@
       // Allowed non-GET reads, by capability.
       const ep = (/[?&]endpoint=([a-z_]+)/.exec(u) || [])[1] || '';
       if (ep === 'csm_assist' && App.canWrite('assist')) return real(url, opts);
+      // Pilot feedback: allowed, and tallied on its own counter so the
+      // business-write total stays 0.
+      if (ep === 'v2_feedback' && App.canWrite('v2_feedback')) {
+        App.feedbackWrites = (App.feedbackWrites || 0) + 1;
+        return real(url, opts);
+      }
       // usage_time is a known write and is named rather than reported as a
       // missed path, so a genuine leak stays visible in policyLeaks.
       if (ep === 'usage_time') {

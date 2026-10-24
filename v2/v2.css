@@ -73,3 +73,62 @@
 .v2-src-banner.slow   { background: #FAF2E0; color: #93610A; }
 .v2-src-banner.failed { background: #FBECEA; color: #B42318; font-weight: 500; }
 .v2-src-banner.stale { background: #EEF3F9; color: #2C5689; }
+
+/* ── Pilot feedback ─────────────────────────────────────────────────────── */
+#v2-fb-btn {
+  position: fixed; right: 20px; bottom: 20px; z-index: 8800;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 16px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--line, #E8E4E0); background: #fff;
+  font: 500 13px/1.4 inherit; color: var(--ink, #231F20);
+  box-shadow: 0 3px 14px rgba(0,0,0,.10);
+  transition: box-shadow .15s ease, transform .15s ease;
+}
+#v2-fb-btn:hover { box-shadow: 0 6px 20px rgba(0,0,0,.15); transform: translateY(-1px); }
+.v2-fb-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--brand-pure, #FF671F); }
+
+#v2-fb { position: fixed; inset: 0; z-index: 8900; display: none;
+  background: rgba(28,26,23,.38); padding: 28px 16px; overflow: auto; }
+#v2-fb.open { display: block; }
+.v2-fb-panel {
+  position: relative; max-width: 480px; margin: 0 auto;
+  background: #fff; border-radius: 14px; padding: 24px 26px 22px;
+  box-shadow: 0 18px 60px rgba(0,0,0,.26);
+}
+.v2-fb-x { position: absolute; top: 12px; right: 14px; border: 0; background: none;
+  font-size: 22px; line-height: 1; color: var(--muted, #8C857B); cursor: pointer; }
+.v2-fb-panel h3 { margin: 0 0 3px; font-size: 17px; font-weight: 600; letter-spacing: -.012em; }
+.v2-fb-sub { margin: 0 0 16px; font-size: 12.5px; color: var(--muted, #8C857B); }
+.v2-fb-f { margin-bottom: 14px; }
+.v2-fb-f > label { display: block; font-size: 11.5px; font-weight: 600; color: var(--muted, #8C857B);
+  letter-spacing: .02em; margin-bottom: 6px; }
+.v2-fb-f > label em { font-style: normal; font-weight: 400; opacity: .75; }
+.v2-fb-opts { display: flex; flex-wrap: wrap; gap: 6px; }
+.v2-fb-opt {
+  appearance: none; cursor: pointer; border: 1px solid var(--line, #E8E4E0);
+  background: none; border-radius: 999px; padding: 5px 13px;
+  font: 400 12.5px/1.45 inherit; color: var(--ink-2, #5E5557);
+  transition: background .12s ease, border-color .12s ease, color .12s ease;
+}
+.v2-fb-opt:hover { border-color: var(--muted-soft, #B7B0A6); }
+.v2-fb-opt.on { background: var(--ink, #231F20); border-color: var(--ink, #231F20); color: #fff; }
+.v2-fb-f textarea {
+  width: 100%; box-sizing: border-box; padding: 9px 11px; resize: vertical;
+  border: 1px solid var(--line, #E8E4E0); border-radius: 9px;
+  font: 400 13.5px/1.55 inherit; color: var(--ink, #231F20); background: #fff;
+}
+.v2-fb-f textarea:focus { outline: none; border-color: var(--brand-pure, #FF671F);
+  box-shadow: 0 0 0 3px rgba(255,103,31,.13); }
+.v2-fb-priv { margin: 0 0 12px; font-size: 11.5px; line-height: 1.5; color: var(--muted-soft, #8C857B);
+  padding-left: 11px; border-left: 2px solid var(--line-soft, #F1EFEC); }
+.v2-fb-err { margin: 0 0 12px; padding: 10px 12px; border-radius: 9px;
+  background: #FBECEA; color: #B42318; font-size: 12.5px; line-height: 1.5; font-weight: 500; }
+.v2-fb-act { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.v2-fb-done { text-align: center; padding: 14px 4px 6px; }
+.v2-fb-tick { width: 44px; height: 44px; margin: 0 auto 12px; border-radius: 50%;
+  background: #E8F2EC; color: #2E7A57; font-size: 23px; line-height: 44px; }
+.v2-fb-done h3 { margin-bottom: 5px; }
+.v2-fb-done p { margin: 0 0 16px; font-size: 13px; color: var(--muted, #8C857B); }
+.v2-fb-done .v2-fb-act { justify-content: center; }
+.v2-lead-fb { margin-top: 4px; color: var(--ink-2, #5E5557); }
+@media (max-width: 620px) { #v2-fb-btn { right: 12px; bottom: 12px; } }

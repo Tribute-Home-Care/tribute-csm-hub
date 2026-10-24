@@ -302,9 +302,12 @@
     };
     const html =
       '<h3>V2 Preview diagnostics</h3>' +
-      '<p class="v2-lead">Production writes from this session: <b>0</b>. ' +
+      '<p class="v2-lead"><b>Business / operational production writes: 0</b>. ' +
       'Blocked attempts: <b>' + wr.blockedAttempts + '</b>. ' +
       'Policy leaks: <b class="' + (wr.policyLeaks ? 'bad' : '') + '">' + wr.policyLeaks + '</b>.</p>' +
+      '<p class="v2-lead v2-lead-fb">Pilot feedback submissions: <b>' +
+      (wr.pilotFeedbackSubmissions || 0) + '</b> \u2014 stored in the pilot feedback container, ' +
+      'not in any operational system.</p>' +
       '<h4>Endpoint latency</h4>' +
       rows(lat, [['Endpoint', 'endpoint'], ['Calls', 'calls'], ['Mean', function (r) { return r.meanMs + 'ms'; }],
                  ['Min', function (r) { return r.minMs + 'ms'; }], ['Max', function (r) { return r.maxMs + 'ms'; }],
