@@ -73,6 +73,7 @@ details.tc pre{background:var(--canvas);border-radius:8px;padding:10px;font-size
     <input type="search" id="f-q" placeholder="Search text">
     <span class="spacer"></span><span class="count" id="count"></span>
   </div>
+  <div class="err" id="err" hidden></div>
   <div id="list"><div class="empty">Loading…</div></div>
 </main>
 <script>
@@ -139,13 +140,25 @@ function render(){
   document.querySelectorAll('.st select').forEach(s=>s.addEventListener('change',async()=>{
     const id=s.dataset.id, status=s.value;
     try{
-      const r=await fetch(VIV_PROXY+'?endpoint=v2_feedback',{method:'PATCH',
+      // POST, not PATCH: the vivProxy route is GET/POST/OPTIONS, so a PATCH
+      // never reaches the function at all. It failed silently until the
+      // status was read back from the server instead of from the dropdown.
+      const r=await fetch(VIV_PROXY+'?endpoint=v2_feedback',{method:'POST',
         headers:Object.assign({'Content-Type':'application/json'},await hdrs()),
-        body:JSON.stringify({id,status})});
+        body:JSON.stringify({op:'status',id,status})});
       if(!r.ok) throw new Error('HTTP '+r.status);
       const it=ITEMS.find(x=>x.id===id); if(it) it.status=status;
       render();
-    }catch(e){ alert('Status not saved — '+e.message); }
+    }catch(e){
+      // Not alert(): a modal dialog blocks the page and tells the reviewer
+      // nothing they can act on. Put the dropdown back where it was so the
+      // screen never shows a status the server did not accept.
+      const it=ITEMS.find(x=>x.id===s.dataset.id); if(it) s.value=it.status||'new';
+      const box=document.getElementById('err'); if(box){
+        box.textContent='Status not saved ('+e.message+'). It still reads as it did before.';
+        box.hidden=false; setTimeout(()=>{box.hidden=true;},6000);
+      }
+    }
   }));
 }
 ['f-tester','f-type','f-impact','f-status'].forEach(id=>document.getElementById(id).addEventListener('change',render));
