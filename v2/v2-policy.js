@@ -77,7 +77,10 @@
     // the same code path with one argument different, which is exactly why
     // they must not share a switch.
     community_send_test: true,   // to the signed-in person's own mailbox only
-    community_send_real: false,  // leaves Tribute: still off
+    // Enabled in the table, granted by the server only to a full-capability
+    // tester, and even then the DELIVERY is separately suppressed. The
+    // workflow and the transmission are two different questions.
+    community_send_real: true,
     community_send: false,      // legacy name, kept so nothing silently un-gates
 
     ltc_action: false,          // legacy umbrella, superseded by the split above
@@ -98,8 +101,8 @@
     ltc_mark_sent: true,           // sent
     ltc_confirm: true,             // confirm
     ltc_note: true,                // skip, note
-    ltc_send_carrier: false,       // external: a packet to a carrier
-    ltc_nudge_caregiver: false,    // external: a text to a caregiver
+    ltc_send_carrier: true,        // workflow on; delivery suppressed by default
+    ltc_nudge_caregiver: true,     // workflow on; delivery suppressed by default
     graph_calendar_add: true,      // create an Outlook event (duplicate-guarded)
     graph_calendar_delete: true,   // delete one — separate switch on purpose
     graph_calendar: false,         // legacy name, still read by the gate below
@@ -135,7 +138,30 @@
      Asked once at boot. Until it answers, nothing business-y is writable:
      an unknown switch is treated as off, so a slow network cannot produce a
      page that looks write-enabled when it is not. */
-  App.serverWrite = { known: false, enabled: false, isPilotWriter: false, capabilities: [], capabilityMap: null };
+  App.serverWrite = { known: false, enabled: false, isPilotWriter: false, capabilities: [],
+                      capabilityMap: null, fullCapability: false,
+                      liveDelivery: { community: false, ltcCarrier: false, ltcCaregiver: false } };
+
+  /* Is a real external send suppressed right now? The page asks before it
+     transmits; the server enforces the same thing independently. */
+  App.suppressCommunitySend = function () {
+    const d = App.serverWrite.liveDelivery || {};
+    return d.community !== true;
+  };
+  App.deliveryState = function (what) {
+    const d = App.serverWrite.liveDelivery || {};
+    return d[what] === true ? 'live' : 'suppressed';
+  };
+  /* A dry run is not an external action and is never counted as one. */
+  const dryRuns = { community: 0, ltcCarrier: 0, ltcCaregiver: 0 };
+  const liveSends = { community: 0, ltcCarrier: 0, ltcCaregiver: 0 };
+  App.countDryRun = function (k) { if (k in dryRuns) dryRuns[k]++; };
+  App.countLiveSend = function (k) { if (k in liveSends) liveSends[k]++; };
+  App.sendCounters = function () {
+    return { communitySendDryRuns: dryRuns.community, communitySendLive: liveSends.community,
+             ltcCarrierDryRuns: dryRuns.ltcCarrier,   ltcCarrierLive: liveSends.ltcCarrier,
+             ltcCaregiverDryRuns: dryRuns.ltcCaregiver, ltcCaregiverLive: liveSends.ltcCaregiver };
+  };
   App.loadWriteConfig = async function (proxy, headers) {
     try {
       const r = await fetch(proxy + '?endpoint=v2_write_config', { headers: await headers() });
@@ -150,6 +176,8 @@
         // offer a control the server would refuse, which is how a Viv
         // shutdown would have looked like a bug rather than a decision.
         capabilityMap: j.capabilityMap || null,
+        fullCapability: !!j.fullCapability,
+        liveDelivery: j.liveDelivery || { community:false, ltcCarrier:false, ltcCaregiver:false },
         user: j.user
       };
     } catch (e) {
@@ -273,6 +301,9 @@
       pilotFeedbackSubmissions: App.feedbackWrites || 0,
       policyLeaks: leaks.length,
       duplicatePrevented: duplicatePrevented,
+      fullCapabilityTester: App.serverWrite.fullCapability === true,
+      liveDelivery: App.serverWrite.liveDelivery,
+      ...App.sendCounters(),
       failedWrites: bad.length,
       // Context for the panel
       writesEnabledOnServer: App.serverWrite.enabled && App.serverWrite.known,

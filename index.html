@@ -6328,6 +6328,20 @@ async function ecSend(test){
     if(!tok)throw new Error('Outlook permission was not granted. Ask Andrew to enable Mail.Send for the hub app.');
     const msg={subject:(test?'[TEST] ':'')+p.subject,body:{contentType:'HTML',content:j.html},toRecipients:to.map(a=>({emailAddress:{address:a}}))};
     if(cc.length)msg.ccRecipients=cc.map(a=>({emailAddress:{address:a}}));
+    // THE DELIVERY BOUNDARY. Everything above is the real thing: the draft
+    // was saved, the HTML rendered, the sender resolved, the recipients
+    // parsed, the Graph payload built. A suppressed send stops here and
+    // says so. It never claims the email went.
+    if(!test && window.TributeApp && TributeApp.suppressCommunitySend
+       && TributeApp.suppressCommunitySend()){
+      TributeApp.countDryRun && TributeApp.countDryRun('community');
+      _ecMsg('<b>Ready to send.</b> Validated for '+escHtml(_ecSel)+' \u2014 '+to.length+
+        ' recipient'+(to.length===1?'':'s')+', subject &ldquo;'+escHtml(p.subject)+'&rdquo;, from '+
+        escHtml(me.username)+'. <b>Nothing was sent:</b> external delivery is suppressed in '+
+        'full-capability test mode.','#8A5207');
+      showToast('Validated — nothing sent.');
+      return;
+    }
     const r=await fetch('https://graph.microsoft.com/v1.0/me/sendMail',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+tok},body:JSON.stringify({saveToSentItems:true,message:msg})});
     if(r.status!==202){const t=await r.text();throw new Error('Outlook said '+r.status+': '+t.slice(0,180));}
     if(!test){p.sentAt=new Date().toISOString();p.sentTo=to;p.edited=true;p.editedAt=p.editedAt||p.sentAt;_ecDraft=p;await _ecPost('save=1',p).catch(()=>{});renderEmailDraft();}

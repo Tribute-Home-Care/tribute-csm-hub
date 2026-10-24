@@ -96,6 +96,7 @@ def main():
     tags.append('<script src="%s"></script>' % stamp('v2-chrome.js'))
     tags.append('<script src="%s"></script>' % stamp('v2-feedback.js'))
     tags.append('<script src="%s"></script>' % stamp('v2-help.js'))
+    tags.append('<script src="%s"></script>' % stamp('v2-fullcap.js'))
     block = '\n' + '\n'.join(tags) + '\n'
     # There are two '</body>' in the file: one inside a printable-HTML string
     # the LTC packet builds, and the real one at the end. Anchor on the LAST.
@@ -128,7 +129,7 @@ def main():
     # regenerated the page without it and the pilot's Feedback button was
     # dead for two hours before a screenshot caught it. Assert every V2
     # script is actually referenced, so a rebuild can never drop one again.
-    for _req in ('v2-policy.js', 'v2-chrome.js', 'v2-feedback.js', 'v2-help.js'):
+    for _req in ('v2-policy.js', 'v2-chrome.js', 'v2-feedback.js', 'v2-help.js', 'v2-fullcap.js'):
         assert _req in out, 'built index.html does not load %s' % _req
     present = sorted(os.listdir(os.path.join(OUT, 'v2')))
     problems = []

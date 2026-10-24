@@ -144,3 +144,34 @@
 .v2-help-link::before{content:'?';display:inline-block;width:14px;height:14px;line-height:14px;
   text-align:center;border:1px solid currentColor;border-radius:50%;font-size:10px;margin-right:6px;vertical-align:1px}
 #v2-guide-link{cursor:pointer;text-decoration:none}
+
+/* ── Full-capability test mode ───────────────────────────────────────────
+   Quiet. It states a fact about the session; it is not a warning, and the
+   only people who see it are the handful who asked for it. */
+.v2-fullcap{
+  position:fixed;left:16px;bottom:16px;z-index:60;cursor:pointer;
+  background:#FFFFFF;border:1px solid #EBD7AE;border-left:3px solid #8A5207;
+  border-radius:9px;padding:7px 13px;font-size:12px;line-height:1.35;
+  box-shadow:0 1px 2px rgba(28,26,23,.05),0 8px 22px rgba(28,26,23,.07);
+  font-family:Inter,-apple-system,sans-serif;color:#3D3833;max-width:230px;
+}
+.v2-fullcap b{display:block;font-size:12.5px;color:#8A5207}
+.v2-fullcap span{color:#7D766C}
+.v2-fullcap:hover{border-color:#8A5207}
+.v2-suppressed-note{font-size:11.5px;color:#8A5207;margin-top:6px;max-width:280px;line-height:1.4}
+
+.v2-capinsp{position:fixed;inset:0;z-index:90;background:rgba(28,26,23,.34);
+  display:flex;align-items:center;justify-content:center;padding:28px}
+.v2-capinsp-in{background:#fff;border-radius:14px;max-width:920px;width:100%;
+  max-height:84vh;overflow:auto;padding:24px 26px;
+  box-shadow:0 30px 70px rgba(28,26,23,.3);font-family:Inter,-apple-system,sans-serif}
+.v2-capinsp-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.v2-capinsp-h b{font-size:17px}
+.v2-capinsp-h button{background:none;border:0;font-size:22px;cursor:pointer;color:#8C857B;line-height:1}
+.v2-capinsp p{margin:0 0 16px;color:#7D766C;font-size:13.5px;max-width:70ch}
+.v2-capinsp table{width:100%;border-collapse:collapse;font-size:13px}
+.v2-capinsp th{text-align:left;padding:7px 10px;border-bottom:1px solid #EAE6DF;
+  font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:#8C857B}
+.v2-capinsp td{padding:7px 10px;border-bottom:1px solid #F1EEE8}
+.v2-capinsp tr.off td{color:#A39A8F}
+.v2-capinsp .live{color:#A4271E}
