@@ -4593,7 +4593,21 @@ async function _lpRenderShift(){
   el.innerHTML=list.length?('👥 <b>'+escHtml(_lpShiftLine(list))+'</b> scheduled at this time — included on the calendar entry.')
     :'<span style="color:#8C857B;">No caregiver scheduled at that time.</span>';
 }
+// A calendar event leaves the Hub, so the same rule as sending applies: it
+// must be impossible to create two by accident. Keyed on the client and the
+// exact start instant, so a genuine second visit for the same client at a
+// different time still goes through. Recorded only after Graph accepts.
+let _lpCalBusy=false;
+const _lpCalKeys=new Set();
 async function _lpAddToOutlook(clientName,note,w,loc,shift){
+  const _key=[clientName,w&&w.start&&w.start.toISOString(),w&&w.end&&w.end.toISOString()].join('|');
+  if(_lpCalBusy)throw new Error('Still adding that one to Outlook — give it a moment');
+  if(_lpCalKeys.has(_key))throw new Error('That visit is already on your Outlook calendar');
+  _lpCalBusy=true;
+  try{ return await _lpAddToOutlookInner(clientName,note,w,loc,shift,_key); }
+  finally{ _lpCalBusy=false; }
+}
+async function _lpAddToOutlookInner(clientName,note,w,loc,shift,_key){
   const gate=window.tributeKsfGate;
   const tok=gate&&gate.getGraphToken?await gate.getGraphToken(['Calendars.ReadWrite']):null;
   if(!tok)throw new Error('Outlook is not connected — use the Connect Outlook button and try again');
@@ -4609,6 +4623,7 @@ async function _lpAddToOutlook(clientName,note,w,loc,shift){
   const r=await fetch('https://graph.microsoft.com/v1.0/me/events',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+tok},body:JSON.stringify(ev)});
   if(!r.ok){const t=await r.text();throw new Error('Outlook said '+r.status+': '+t.slice(0,160));}
   const j=await r.json();
+  if(_key)_lpCalKeys.add(_key);          // only after Graph accepted it
   return {id:j.id,link:j.webLink||'',when:j.start&&j.start.dateTime?new Date(j.start.dateTime+'Z'):w.start};
 }
 async function lpSaveVisit(cid){

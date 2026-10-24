@@ -86,8 +86,8 @@
     csm_visit_create: false,       // create a visit in Viv
     csm_visit_remove: false,       // remove one — separate switch on purpose
     csm_visit: false,              // legacy name, still read by the gate below
-    graph_calendar_add: false,     // create an Outlook event
-    graph_calendar_delete: false,  // delete one — separate switch on purpose
+    graph_calendar_add: true,      // create an Outlook event (duplicate-guarded)
+    graph_calendar_delete: true,   // delete one — separate switch on purpose
     graph_calendar: false,         // legacy name, still read by the gate below
     graph_mail: false,          // send mail from the CSM's mailbox
     weekly_schedule: false,     // client_week is not implemented in production
