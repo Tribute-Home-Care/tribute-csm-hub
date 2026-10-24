@@ -318,9 +318,6 @@
                 esc((wr.enabledCapabilities || []).filter(function (c) {
                   return App.isBusinessCapability && App.isBusinessCapability(c); }).join(', ') || 'none') + '</b>.'
       ) + '</p>' +
-      (wr.sharedWritesSuppressed
-        ? '<p class="v2-lead">Shared-document changes not sent: <b>' + wr.sharedWritesSuppressed +
-          '</b> \u2014 V2 does not write team-wide keys, so no one else\u2019s edit can be lost.</p>' : '') +
       '<p class="v2-lead v2-lead-fb">Pilot feedback submissions: <b>' +
       (wr.pilotFeedbackSubmissions || 0) + '</b> \u2014 stored in the pilot feedback container, ' +
       'not in any operational system.</p>' +

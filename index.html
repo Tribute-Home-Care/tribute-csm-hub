@@ -1568,6 +1568,7 @@ let P=null;
 let DATA={profiles:{},version:1};
 let saveTimer=null;
 let _dataEtag=null;
+let _sharedBaseline=null;   // DATA.shared as of our last agreement with the server (TD-30)
 let _dataLoaded=false;
 
 async function dataHeaders(json){
@@ -1585,6 +1586,10 @@ async function loadDataFromFile(){
     _dataEtag=j.etag;
     DATA=j.data||{profiles:{},version:1};
     if(!DATA.profiles)DATA.profiles={};
+    // The point at which this session last agreed with the server. Every
+    // later merge asks "what did WE change since this?", which is the only
+    // way to tell our edit apart from a colleague's.
+    _sharedBaseline=_clone(DATA.shared||{});
     _dataLoaded=true;
     setSyncStatus('ok','Synced');
   }catch(e){
@@ -1592,6 +1597,135 @@ async function loadDataFromFile(){
     if(!DATA||!DATA.profiles)DATA={profiles:{},version:1};
     setSyncStatus('err','Read error');
   }
+}
+
+// ═══════════════════════ SHARED-DOCUMENT MERGE (TD-30) ═══════════════════════
+// The shared document is one JSON blob with ETag concurrency, so two people
+// saving within the same second produce a 409 for the second one. The retry
+// used to rebuild the document as
+//
+//     merged.shared = {...server.shared, ...my.shared}
+//
+// which replaces whole top-level keys with this session's copy. If a
+// colleague had just added a coverage note, that note was gone — and it was
+// gone even when this session had only typed a Quick Note, because the stale
+// `shared` block rode along with every save.
+//
+// Replacing it with "if coverage changed locally, send my coverage" is not
+// enough either: two CSMs editing two DIFFERENT clients both have a changed
+// `coverage`, and whoever retries second still erases the other.
+//
+// So the merge is a THREE-WAY merge at the level of a business record:
+//
+//     base   = shared as it was when this session last agreed with the server
+//     mine   = shared as it is now, in this tab
+//     server = shared as it is now, freshly fetched
+//
+// For each record: if mine still equals base this session did not touch it,
+// so the server's copy wins. If the server still equals base, nobody else
+// touched it, so this session's copy wins. If both moved, that is a real
+// conflict and it is reported rather than silently resolved.
+const _SHARED_SPEC = {
+  // Arrays of independent records. The key is whatever actually identifies
+  // the record in this codebase, not an assumed `id`.
+  coverage:   { kind:'array', key:n => (n && (n.clientId + '|' + n.csmId)) },
+  fillEvents: { kind:'array', key:e => (e && e.id) },
+  ltc:        { kind:'array', key:r => (r && r.id) },
+  // Maps of independent records, keyed by community name / client id / field.
+  communities:{ kind:'map',  depth:2 },     // name -> {email:{...}, levels:[]} -> field
+  mdCadence:  { kind:'map' },               // clientId -> days
+  settings:   { kind:'map' },               // field -> value
+  assistant:  { kind:'map', depth:1 },      // {kb:[],templates:[],scenarios:[]}
+  fillStatus: { kind:'map2' },              // eventId -> clientId -> record
+  // Regenerated wholesale by a sync; never hand-edited. Whichever copy was
+  // generated later is the right one, and that is a documented rule rather
+  // than an accident of who saved last.
+  comms:      { kind:'generated' },
+  viv:        { kind:'generated' }
+};
+const _eq=(a,b)=>JSON.stringify(a===undefined?null:a)===JSON.stringify(b===undefined?null:b);
+const _clone=v=>v===undefined?undefined:JSON.parse(JSON.stringify(v));
+
+// Three-way merge of one value. Pushes a description onto `conflicts` when
+// both sides moved, and leaves the SERVER's value in place when they did —
+// refusing to overwrite someone else is the safe direction.
+function _merge3(base,mine,server,path,conflicts){
+  if(_eq(mine,base))   return _clone(server);   // this session did not touch it
+  if(_eq(server,base)) return _clone(mine);     // nobody else touched it
+  if(_eq(mine,server)) return _clone(server);   // both made the same change
+  conflicts.push(path);
+  return _clone(server);
+}
+function _mergeArray(base,mine,server,keyOf,name,conflicts){
+  base=base||[]; mine=mine||[]; server=server||[];
+  const idx=a=>{const m=new Map();(a||[]).forEach(r=>{const k=keyOf(r);if(k!=null)m.set(String(k),r);});return m;};
+  const B=idx(base),M=idx(mine),S=idx(server);
+  const out=[]; const seen=new Set();
+  // Server order first, so records this session never saw keep their place.
+  for(const [k,sv] of S){
+    seen.add(k);
+    const v=_merge3(B.get(k),M.has(k)?M.get(k):(B.has(k)?undefined:sv),sv,name+'['+k+']',conflicts);
+    if(v!==undefined&&v!==null)out.push(v);
+  }
+  for(const [k,mv] of M){
+    if(seen.has(k))continue;
+    if(B.has(k))continue;          // this session deleted it; server already dropped it
+    out.push(_clone(mv));          // this session added it
+  }
+  return out;
+}
+// `depth` is how many more levels of plain objects to descend before
+// comparing values whole. communities needs 2 (name -> email -> field) so
+// that one person changing the recipient and another changing the tier on
+// the SAME community both keep their change.
+function _mergeMap(base,mine,server,name,conflicts,depth){
+  base=base||{}; mine=mine||{}; server=server||{};
+  depth=depth||0;
+  const out={}; const keys=new Set([...Object.keys(server),...Object.keys(mine),...Object.keys(base)]);
+  const plain=o=>o&&typeof o==='object'&&!Array.isArray(o);
+  for(const k of keys){
+    const b=base[k],m=mine[k],sv=server[k];
+    const has=o=>Object.prototype.hasOwnProperty.call(o,k);
+    if(!has(mine)&&has(base)&&has(server)){ continue; }                 // deleted here
+    if(depth>0&&plain(b)&&plain(m)&&plain(sv)){
+      out[k]=_mergeMap(b,m,sv,name+'.'+k,conflicts,depth-1);
+      continue;
+    }
+    const v=_merge3(b,m,sv,name+'.'+k,conflicts);
+    if(v!==undefined)out[k]=v;
+  }
+  return out;
+}
+function _mergeMap2(base,mine,server,name,conflicts){
+  base=base||{}; mine=mine||{}; server=server||{};
+  const out={}; const keys=new Set([...Object.keys(server),...Object.keys(mine),...Object.keys(base)]);
+  for(const k of keys){
+    out[k]=_mergeMap(base[k]||{},mine[k]||{},server[k]||{},name+'.'+k,conflicts,0);
+  }
+  return out;
+}
+function _mergeGenerated(base,mine,server){
+  const t=o=>Date.parse((o&&o.generatedAt)||0)||0;
+  return _clone(t(mine)>t(server)?mine:server);
+}
+// Returns {shared, conflicts}. `base` may be null the first time round, in
+// which case nothing is treated as locally changed and the server wins —
+// the safe default when we cannot prove what this session altered.
+function mergeSharedDocument(base,mine,server){
+  const conflicts=[];
+  base=base||{}; mine=mine||{}; server=server||{};
+  const out={};
+  const keys=new Set([...Object.keys(server),...Object.keys(mine),...Object.keys(base)]);
+  for(const k of keys){
+    const spec=_SHARED_SPEC[k];
+    if(!spec){ out[k]=_merge3(base[k],mine[k],server[k],k,conflicts); continue; }
+    if(spec.kind==='array')      out[k]=_mergeArray(base[k],mine[k],server[k],spec.key,k,conflicts);
+    else if(spec.kind==='map')   out[k]=_mergeMap(base[k],mine[k],server[k],k,conflicts,spec.depth||0);
+    else if(spec.kind==='map2')  out[k]=_mergeMap2(base[k],mine[k],server[k],k,conflicts);
+    else if(spec.kind==='generated') out[k]=_mergeGenerated(base[k],mine[k],server[k]);
+    if(out[k]===undefined)delete out[k];
+  }
+  return {shared:out,conflicts};
 }
 
 async function _putData(){
@@ -1603,26 +1737,51 @@ async function saveToFile(){
     DATA.lastSaved=new Date().toISOString();
     DATA.lastSavedBy=P?P.name:'unknown';
     let r=await _putData();
-    if(r.status===409){
-      // Someone else saved since we loaded. Take their document, put our
-      // current profile pocket + shared settings back on top, retry once.
+    // Someone else saved between our load and our save. Take THEIR document
+    // and re-apply only what this session actually changed, record by record,
+    // so two people editing two different clients both keep their work.
+    // Bounded: two attempts, because a tab that cannot win in three tries is
+    // in a save storm and should say so rather than spin.
+    let attempts=0, conflicts=[];
+    while(r.status===409 && attempts<2){
+      attempts++;
       const fr=await fetch(VIV_PROXY+'?endpoint=csm_data',{headers:await dataHeaders()});
       if(!fr.ok)throw new Error('HTTP '+fr.status);
       const fj=await fr.json();
       const merged=fj.data||{profiles:{},version:1};
       merged.profiles=merged.profiles||{};
+      // The pocket rule is unchanged and still correct: our own pocket is
+      // ours, every other pocket comes from the server.
       if(P&&DATA.profiles[P.id])merged.profiles[P.id]=DATA.profiles[P.id];
-      merged.shared={...(merged.shared||{}),...(DATA.shared||{})};
+      const mg=mergeSharedDocument(_sharedBaseline,DATA.shared||{},merged.shared||{});
+      merged.shared=mg.shared;
+      conflicts=mg.conflicts;
       merged.lastSaved=new Date().toISOString();
       merged.lastSavedBy=P?P.name:'unknown';
       DATA=merged;_dataEtag=fj.etag;
       r=await _putData();
     }
+    if(r.status===409)throw new Error('busy');
     if(!r.ok)throw new Error('HTTP '+r.status);
     const j=await r.json();
     _dataEtag=j.etag;
-    setSyncStatus('ok','Saved · '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}));
-  }catch(e){setSyncStatus('err','Save failed');}
+    // We and the server now agree; this is the new baseline.
+    _sharedBaseline=_clone(DATA.shared||{});
+    if(conflicts.length){
+      // Both sides changed the same record. We kept THEIRS rather than
+      // inventing a winner, and we say which one so the person can look and
+      // redo their change deliberately. Everything else they did was saved.
+      setSyncStatus('err','Saved — '+conflicts.length+' item(s) changed elsewhere');
+      showToast('Someone else changed '+conflicts.slice(0,2).join(', ')+
+        (conflicts.length>2?' and '+(conflicts.length-2)+' more':'')+
+        ' while you were editing. Their version was kept and the rest of your changes were saved — reopen that item to redo yours.');
+    } else {
+      setSyncStatus('ok','Saved · '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}));
+    }
+  }catch(e){
+    setSyncStatus('err', e.message==='busy' ? 'Save busy — try again' : 'Save failed');
+    if(e.message==='busy')showToast('The shared file is being saved by several people at once. Your changes are still on screen — try again in a moment.');
+  }
 }
 
 function queueSave(){
@@ -5967,8 +6126,8 @@ function renderEmailDraft(){
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         <button class="btn btn-sm btn-o" onclick="ecLoadDraft(true)" title="Rewrite the summaries and refresh the schedule">↻ Regenerate</button>
         <button class="btn btn-sm btn-o" onclick="ecSaveDraft()">Save draft</button>
-        <button class="btn btn-sm btn-o" onclick="ecSend(true)" ${canMail?'':'disabled title="Sign in with Microsoft to send"'}>Send test to me</button>
-        <button class="btn btn-sm btn-p" onclick="ecSend(false)" ${canMail?'':'disabled title="Sign in with Microsoft to send"'}>Send from my Outlook →</button>
+        <button class="btn btn-sm btn-o" data-ec-send onclick="ecSend(true)" ${canMail?'':'disabled title="Sign in with Microsoft to send"'}>Send test to me</button>
+        <button class="btn btn-sm btn-p" data-ec-send onclick="ecSend(false)" ${canMail?'':'disabled title="Sign in with Microsoft to send"'}>Send from my Outlook →</button>
       </div>
     </div>
     <div id="ec-sendmsg" style="display:none;padding:8px 16px;font-size:12.5px;border-bottom:1px solid var(--line);"></div>
@@ -6099,8 +6258,29 @@ function ecSkipWeek(skip){
   DATA.shared.communities[_ecSel]=d;queueSave();const keep=_ecDraft?_ecCollect():null;renderEmailCommDetail();_ecDraft=keep;renderEmailDraft();showToast(skip?'This Friday\'s automatic email is skipped for '+_ecSel+'.':'Back in the Friday run.');
 }
 // Send from the signed-in person's own mailbox (delegated Mail.Send).
+// A send leaves Tribute, so it has to be impossible to do twice by accident.
+// Three separate things can fire this handler more than once: a double click,
+// a repeated handler binding after a re-render, and a retry after a request
+// that the server already accepted but whose response never arrived. The
+// in-flight flag and the disabled button handle the first two. The third is
+// handled by the key: the same draft + the same recipients + the same minute
+// is treated as the same send, and the second attempt is refused rather than
+// delivered. Cleared on failure so a genuine retry still works.
+let _ecSending=false;
+const _ecSentKeys=new Set();
+function _ecSendKey(test,to){
+  return [_ecSel,test?'test':'real',(to||[]).join(','),
+          (_ecDraft&&_ecDraft.subject)||'',new Date().toISOString().slice(0,16)].join('|');
+}
+function _ecSendBtns(disabled,label){
+  document.querySelectorAll('[data-ec-send]').forEach(b=>{
+    b.disabled=!!disabled;
+    if(label!==undefined){ if(!b.dataset.ecLabel)b.dataset.ecLabel=b.textContent; b.textContent=disabled?label:b.dataset.ecLabel; }
+  });
+}
 async function ecSend(test){
   if(!_ecSel||!_ecDraft)return;
+  if(_ecSending){ _ecMsg('Still sending \u2014 give it a moment.','#92580B'); return; }
   const e=((DATA.shared.communities||{})[_ecSel]||{}).email||{};
   const me=_ecMe();if(!me.username){_ecMsg('Sign in with Microsoft to send from your mailbox.','#92580B');return;}
   const split=_ecAddrs;
@@ -6108,6 +6288,9 @@ async function ecSend(test){
   const cc=test?[]:split(document.getElementById('ec-cc')?.value);
   if(!to.length){_ecMsg('Add the community leader\'s email above first.','#92580B');return;}
   if(!test&&!confirm('Send this email for '+_ecSel+' to '+to.join(', ')+' now, from your mailbox ('+me.username+')?'))return;
+  const _key=_ecSendKey(test,to);
+  if(_ecSentKeys.has(_key)){ _ecMsg('That exact email already went out a moment ago \u2014 not sending it twice.','#92580B'); return; }
+  _ecSending=true; _ecSendBtns(true,'Sending\u2026');
   _ecMsg('Preparing…','#8C857B');
   try{
     const p=_ecCollect();
@@ -6121,7 +6304,12 @@ async function ecSend(test){
     if(!test){p.sentAt=new Date().toISOString();p.sentTo=to;p.edited=true;p.editedAt=p.editedAt||p.sentAt;_ecDraft=p;await _ecPost('save=1',p).catch(()=>{});renderEmailDraft();}
     _ecMsg('✓ Sent from '+escHtml(me.username)+' to '+escHtml(to.join(', '))+(cc.length?' (cc '+escHtml(cc.join(', '))+')':'')+' — it\'s in your Sent Items.','#0F6E56');
     showToast(test?'Test sent to you.':'Sent to '+_ecSel+'.');
-  }catch(err){_ecMsg('Send failed — '+escHtml(err.message),'#B42318');}
+    _ecSentKeys.add(_key);          // only after Graph accepted it
+  }catch(err){
+    _ecMsg('Send failed — '+escHtml(err.message)+' Nothing was sent; you can try again.','#B42318');
+  }finally{
+    _ecSending=false; _ecSendBtns(false);
+  }
 }
 
 // ═══════════════════════ KPI ═══════════════════════

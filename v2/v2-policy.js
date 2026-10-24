@@ -223,7 +223,6 @@
       pilotFeedbackSubmissions: App.feedbackWrites || 0,
       policyLeaks: leaks.length,
       duplicatePrevented: duplicatePrevented,
-      sharedWritesSuppressed: App.__sharedWriteSuppressed || 0,
       failedWrites: bad.length,
       // Context for the panel
       writesEnabledOnServer: App.serverWrite.enabled && App.serverWrite.known,
@@ -329,7 +328,8 @@
     /* DATA.shared editors. The payload guard above already makes these
        harmless, but a change that quietly does nothing is worse than one
        that says why, so each is gated and explains itself. */
-    [['setMdCadence','Maryland visit cadence'],
+    [['saveCovNote','Coverage note'],
+     ['setMdCadence','Maryland visit cadence'],
      ['saveCommunity','Community directory entry'],
      ['ecSkipWeek','Skip this week\u2019s community email'],
      ['setFpStatus','Fill Priority status'],
@@ -440,18 +440,6 @@
       const method = String((opts && opts.method) || 'GET').toUpperCase();
       const prod = /azurewebsites\.net|graph\.microsoft\.com|tributehomecare\.com/i.test(u);
       if (!prod || method === 'GET' || method === 'HEAD') {
-        // Keep the server's own DATA.shared from every read of the document.
-        // It is what V2 will send back, untouched — see sanitiseCsmData.
-        if (prod && /endpoint=csm_data/.test(u) && method === 'GET') {
-          return real(url, opts).then(function (r) {
-            try {
-              r.clone().json().then(function (j) {
-                if (j && j.data && j.data.shared) App.__serverShared = j.data.shared;
-              }, function () {});
-            } catch (e) {}
-            return r;
-          });
-        }
         return real(url, opts);
       }
 
@@ -482,35 +470,13 @@
          V2 traffic without affecting V1, which sends neither header. The
          result is recorded: an approved write is a fact to be counted, not
          a silent pass-through. */
-      /* V2 must never write a DATA.shared key. Gating each function that
-         touches one is necessary for telling the user, but it is not
-         sufficient: several of them are lexical consts the wrapper cannot
-         reach, and any future one would be missed. So the payload itself is
-         made safe here — whatever the page did to DATA.shared in memory, the
-         bytes that leave carry the server's copy. Nothing another interface
-         wrote can be lost by a V2 save.
-
-         Returns the body to send, or null to leave it alone. */
-      function sanitiseCsmData(o) {
-        if (!o || typeof o.body !== 'string') return null;
-        let payload;
-        try { payload = JSON.parse(o.body); } catch (e) { return null; }
-        if (!payload || !payload.data) return null;
-        const serverShared = App.__serverShared;
-        if (!serverShared) {
-          // Never seen the server's copy, so we cannot prove ours is current.
-          // Send no shared block at all rather than a guess.
-          if (payload.data.shared) { delete payload.data.shared; o.body = JSON.stringify(payload); }
-          return o;
-        }
-        const mine = JSON.stringify(payload.data.shared || {});
-        if (mine === JSON.stringify(serverShared)) return null;   // identical, nothing to do
-        App.__sharedWriteSuppressed = (App.__sharedWriteSuppressed || 0) + 1;
-        payload.data.shared = serverShared;
-        o.body = JSON.stringify(payload);
-        try { console.warn('[V2] a DATA.shared change was not sent; V2 does not write shared keys'); } catch (e) {}
-        return o;
-      }
+      /* The payload guard that used to live here rewrote the outgoing
+         DATA.shared to the last copy the server had sent. It existed because
+         V1's 409 retry replaced shared keys wholesale. That retry is now a
+         three-way merge at record level (TD-30), so substituting a remembered
+         copy would itself discard whatever the merge had just reconciled.
+         Removed deliberately; the capability gates below still refuse the
+         shared-key editors, which is now about policy rather than safety. */
 
       const APPROVED = [
         { test: function () { return ep === 'csm_data'; },
@@ -532,7 +498,6 @@
         let o = Object.assign({}, opts || {});
         o.headers = Object.assign({}, (opts && opts.headers) || {},
           { 'X-Tribute-Surface': 'v2-preview', 'X-Tribute-Capability': a.capability });
-        if (ep === 'csm_data') o = sanitiseCsmData(o) || o;
         return real(url, o).then(function (r) {
           App.recordWrite({ capability: a.capability, endpoint: 'vivProxy?endpoint=' + ep,
             operation: method, recordType: a.recordType, ok: r.ok, status: r.status });

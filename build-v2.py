@@ -56,22 +56,11 @@ def main():
     html = _re.sub(r'\s*<script src="\./tribute-usage\.js[^"]*"></script>', '', html)
     assert not _re.search(r'<script[^>]*tribute-usage', html), 'usage telemetry still loaded'
 
-    # 2b. V1's 409 retry replaces every top-level key of DATA.shared with its
-    #     own copy, so a save that collides with someone else's discards that
-    #     person's coverage note, Fill Priority event or community edit. The
-    #     profile pocket is fine; only `shared` is affected. See
-    #     test/csm-data-concurrency.test.js and TECH-DEBT TD-30.
-    #
-    #     V2 must not be a second source of that loss. It writes no shared
-    #     keys at all, so on a conflict it keeps the server's shared block
-    #     rather than overwriting it. V1 is NOT changed by this: the patch is
-    #     applied to the copy that becomes /v2/index.html.
-    _merge_old = 'merged.shared={...(merged.shared||{}),...(DATA.shared||{})};'
-    _merge_new = ('merged.shared=merged.shared||{};'
-                  '/* V2: keep the server\'s shared keys. V2 never writes them, '
-                  'so another interface\'s edit cannot be lost here. */')
-    assert html.count(_merge_old) == 1, 'the 409 shared merge moved; re-check the concurrency patch'
-    html = html.replace(_merge_old, _merge_new, 1)
+    # 2b. (removed) V2 used to patch the 409 retry so it would not overwrite
+    #     another interface's DATA.shared. V1's retry is now a three-way merge
+    #     at record level (TD-30), which is strictly better than what the
+    #     patch did, and applies to both interfaces. Keeping a V2-only variant
+    #     would mean two different merge semantics against one document.
 
     # 3. The redesign layer + the V2 policy, before </body>.
     #    ORDER MATTERS: bridge.js assigns window.TributeApp, so v2-policy.js
