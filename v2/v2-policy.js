@@ -76,8 +76,8 @@
     // mailbox; a real send leaves Tribute and reaches a community. They are
     // the same code path with one argument different, which is exactly why
     // they must not share a switch.
-    community_send_test: false,
-    community_send_real: false,
+    community_send_test: true,   // to the signed-in person's own mailbox only
+    community_send_real: false,  // leaves Tribute: still off
     community_send: false,      // legacy name, kept so nothing silently un-gates
 
     ltc_action: false,          // approve / mark sent / confirm / reopen
