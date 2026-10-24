@@ -62,10 +62,15 @@
     // the same stored draft the Friday run reads and V1 edits.
     community_draft_save: true,
 
-    // BLOCKED — writes to DATA.shared.* (coverage notes, Fill Priority
-    // events and status, community settings, Maryland cadence). Same
-    // document, but the 409 retry can drop another person's edit.
-    csm_data_shared: false,
+    // The shared half of the document. TD-30 replaced the blanket 409 retry
+    // with a three-way merge at record level, so a save no longer discards a
+    // colleague's work. Each feature is named separately so one can be shut
+    // off without the others; the server sees the coarse csm_data_shared.
+    csm_data_shared: true,     // the transport
+    coverage_notes:  true,
+    fill_priority:   true,
+    community_settings: true,
+    md_cadence:      true,
 
     // BLOCKED — ecSend has no in-flight guard and no idempotency key, so a
     // double click sends two emails from the CSM's own mailbox. Brief §15:
@@ -75,8 +80,12 @@
     ltc_action: false,          // approve / mark sent / confirm / reopen
     ltc_send: false,            // send a submission packet to a carrier
     ltc_nudge: false,           // text a caregiver about missing notes
-    csm_visit: false,           // create or delete a visit in Viv
-    graph_calendar: false,      // create or delete an Outlook event
+    csm_visit_create: false,       // create a visit in Viv
+    csm_visit_remove: false,       // remove one — separate switch on purpose
+    csm_visit: false,              // legacy name, still read by the gate below
+    graph_calendar_add: false,     // create an Outlook event
+    graph_calendar_delete: false,  // delete one — separate switch on purpose
+    graph_calendar: false,         // legacy name, still read by the gate below
     graph_mail: false,          // send mail from the CSM's mailbox
     weekly_schedule: false,     // client_week is not implemented in production
     usage_telemetry: false,     // a pilot must not skew real usage stats
@@ -87,9 +96,19 @@
   };
 
   /* Which capabilities are business writes, for the diagnostics split. */
-  const BUSINESS = new Set(['csm_data_pocket','csm_data_shared','community_draft_save',
-    'community_send','ltc_action','ltc_send','ltc_nudge','csm_visit',
-    'graph_calendar','graph_mail','weekly_schedule']);
+  const BUSINESS = new Set(['csm_data_pocket','csm_data_shared','coverage_notes','fill_priority',
+    'community_settings','md_cadence','community_draft_save','community_send',
+    'ltc_action','ltc_send','ltc_nudge','csm_visit','csm_visit_create','csm_visit_remove',
+    'graph_calendar','graph_calendar_add','graph_calendar_delete','graph_mail','weekly_schedule']);
+  // Capabilities the server knows about. The finer ones are page-side only,
+  // so they must not be checked against the server's list or they would all
+  // read as disabled.
+  const SERVER_CAPS = new Set(['csm_data_pocket','csm_data_shared','community_draft_save',
+    'community_send','graph_calendar_add','graph_calendar_delete','csm_visit_create',
+    'csm_visit_remove','ltc_action','ltc_send','ltc_nudge','weekly_schedule']);
+  // A page-side capability still depends on the transport the server gates.
+  const NEEDS = { coverage_notes:'csm_data_shared', fill_priority:'csm_data_shared',
+                  community_settings:'csm_data_shared', md_cadence:'csm_data_shared' };
   App.isBusinessCapability = function (c) { return BUSINESS.has(c); };
 
   /* ── What the server will actually accept ──────────────────────────────
@@ -128,7 +147,10 @@
     if (!BUSINESS.has(capability)) return true;          // assist, render, feedback
     const sw = App.serverWrite;
     if (!sw.known || !sw.enabled || !sw.isPilotWriter) return false;
-    return sw.capabilities.indexOf(capability) !== -1;
+    // A page-side capability is allowed only if the transport it rides on is.
+    const gate = SERVER_CAPS.has(capability) ? capability : NEEDS[capability];
+    if (!gate) return true;
+    return sw.capabilities.indexOf(gate) !== -1;
   };
   // Why a capability is off, in words, for the UI and the diagnostics panel.
   App.writeBlockReason = function (capability) {
@@ -328,19 +350,19 @@
     /* DATA.shared editors. The payload guard above already makes these
        harmless, but a change that quietly does nothing is worse than one
        that says why, so each is gated and explains itself. */
-    [['saveCovNote','Coverage note'],
-     ['setMdCadence','Maryland visit cadence'],
-     ['saveCommunity','Community directory entry'],
-     ['ecSkipWeek','Skip this week\u2019s community email'],
-     ['setFpStatus','Fill Priority status'],
-     ['setFpOrder','Fill Priority order'],
-     ['createFpEvent','Fill Priority event'],
-     ['saveSettings','Hub settings']].forEach(function (pair) {
-      gate(pair[0], {
-        feature: pair[1], capability: 'csm_data_shared',
+    [['saveCovNote','Coverage note','coverage_notes'],
+     ['setMdCadence','Maryland visit cadence','md_cadence'],
+     ['saveCommunity','Community directory entry','community_settings'],
+     ['ecSkipWeek','Skip this week\u2019s community email','community_settings'],
+     ['setFpStatus','Fill Priority status','fill_priority'],
+     ['setFpOrder','Fill Priority order','fill_priority'],
+     ['createFpEvent','Fill Priority event','fill_priority'],
+     ['saveSettings','Hub settings','csm_data_shared']].forEach(function (t) {
+      gate(t[0], {
+        feature: t[1], capability: t[2],
         endpoint: 'vivProxy?endpoint=csm_data', operation: 'POST',
-        message: pair[1] + ' is shared across the whole team. V2 is not saving '
-               + 'those yet \u2014 use V1 for this one.'
+        message: t[1] + ' is not switched on in this version yet \u2014 '
+               + 'use the current Hub for this one.'
       });
     });
 
@@ -440,6 +462,14 @@
       const method = String((opts && opts.method) || 'GET').toUpperCase();
       const prod = /azurewebsites\.net|graph\.microsoft\.com|tributehomecare\.com/i.test(u);
       if (!prod || method === 'GET' || method === 'HEAD') {
+        if (prod && /endpoint=csm_data/.test(u) && method === 'GET') {
+          return real(url, opts).then(function (r) {
+            try { r.clone().json().then(function (j) {
+              if (j && j.data) App.__serverShared = j.data.shared || {};
+            }, function () {}); } catch (e) {}
+            return r;
+          });
+        }
         return real(url, opts);
       }
 
@@ -478,15 +508,30 @@
          Removed deliberately; the capability gates below still refuse the
          shared-key editors, which is now about policy rather than safety. */
 
+      // Which capability a csm_data save is claiming. Decided from the bytes
+      // going out, not from what the page thinks it did, so turning off
+      // csm_data_shared on the server genuinely stops shared writes.
+      function csmDataCapability(o) {
+        try {
+          const body = JSON.parse((o && o.body) || '{}');
+          const mine = JSON.stringify((body.data && body.data.shared) || {});
+          const theirs = JSON.stringify(App.__serverShared || {});
+          if (App.__serverShared && mine !== theirs) return 'csm_data_shared';
+        } catch (e) { return 'csm_data_shared'; }   // cannot tell: claim the stricter one
+        return 'csm_data_pocket';
+      }
+
       const APPROVED = [
         { test: function () { return ep === 'csm_data'; },
-          capability: 'csm_data_pocket', recordType: 'csm_data document' },
+          capability: 'csm_data_pocket', dynamic: csmDataCapability,
+          recordType: 'csm_data document' },
         { test: function () { return ep === 'community_email' && /save=1/.test(u) && !/send=1|test=1/.test(u); },
           capability: 'community_draft_save', recordType: 'community draft' }
       ];
       for (let i = 0; i < APPROVED.length; i++) {
         const a = APPROVED[i];
         if (!a.test()) continue;
+        if (a.dynamic) a.capability = a.dynamic(opts);
         if (!App.canWrite(a.capability)) {
           App.recordBlockedWrite({ feature: a.recordType, capability: a.capability,
             endpoint: u.split('?')[0] + '?endpoint=' + ep, operation: method });
