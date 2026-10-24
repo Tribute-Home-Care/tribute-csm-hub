@@ -82,7 +82,8 @@ window.GUIDE = (function () {
       first: ['Overview first. It is built to be read in a few seconds.', 'Then the area Overview points you at.'],
       can: ['Update client details', 'Log a touchpoint or care conversation', 'Review the visit log and schedule', 'Acknowledge a Pulse read'],
       saves: 'Everything in the workspace saves to the shared record as you go.',
-      v1: 'Adding or removing the actual visit in Viv is still done in the current Hub. Putting the visit on your own Outlook calendar, and taking it off again, works here.',
+      saves: 'Logging a visit writes it to Viv and, if you tick the box, to your own Outlook calendar. Both are the same records the current Hub uses.',
+      know: ['A visit is recorded in the client\u2019s own market time, not the time zone your laptop happens to be in. A Chicago visit is stored as Chicago time even if you book it from Boston.'],
       related: ['log-touchpoint', 'pulse-status', 'blocked-action']
     },
 
@@ -177,8 +178,9 @@ window.GUIDE = (function () {
       lede: 'Long-term care insurance submissions, per client.',
       what: 'The page exists to track long-term care insurance submissions and their supporting notes. It is built, and you can look at it.',
       first: ['Open a client record to see what has been recorded.'],
-      can: ['Review what is recorded'],
-      v1: 'Approving, marking sent, sending a packet to a carrier and nudging a caregiver are all done in the current Hub.',
+      can: ['Review what is recorded', 'Approve, unapprove, mark sent, confirm, skip and add a note'],
+      saves: 'Status changes save to the same LTC records the current Hub reads.',
+      v1: 'Sending a packet to a carrier, and texting a caregiver about missing notes, are still done in the current Hub. Both leave Tribute, and neither has been exercised against a real submission yet.',
       know: [
         'Being straight with you: this area has not been used operationally, so there is no real history to look at and nothing here has been checked against live submissions. Treat it as unproven and use the current Hub.'
       ]
