@@ -49,19 +49,28 @@
   /* ── The sidebar link ───────────────────────────────────────────────── */
   function mountSidebarLink() {
     if (document.getElementById('v2-guide-link')) return true;
-    const settings = document.getElementById('sb-settings') ||
-                     [...document.querySelectorAll('.nav-item, .rd-nav-item')]
-                       .find(e => /settings/i.test(e.textContent || ''));
-    const host = settings && settings.parentNode;
-    if (!host) return false;
+    // Sit it in the sidebar's own nav, styled exactly like the other items,
+    // in the last section. The Hub rebuilds this list, hence the re-mount.
+    const items = [...document.querySelectorAll('.sb-nav .nav-item')];
+    if (!items.length) return false;
+    const last = items[items.length - 1];
     const a = document.createElement('a');
     a.id = 'v2-guide-link';
-    a.className = settings.className;
+    a.className = last.className.replace(/\bactive\b/, '').trim();
     a.href = GUIDE;
     a.target = 'tribute-guide';
-    a.textContent = 'Guide';
     a.setAttribute('aria-label', 'Open the Hub guide in a new tab');
-    host.insertBefore(a, settings);
+    // Match the internal shape of a nav item so it inherits the layout
+    // rather than needing styles of its own.
+    const icon = last.querySelector('.nav-icon');
+    const label = last.querySelector('.nav-label');
+    if (icon && label) {
+      a.innerHTML = '<span class="nav-icon" aria-hidden="true">?</span>' +
+                    '<span class="nav-label">Guide</span>';
+    } else {
+      a.textContent = 'Guide';
+    }
+    last.parentNode.insertBefore(a, last.nextSibling);
     return true;
   }
 
