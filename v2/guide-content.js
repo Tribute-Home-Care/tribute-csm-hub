@@ -490,6 +490,35 @@ window.GUIDE = (function () {
     ]}
   ];
 
+  /* What people type, as opposed to what we wrote. Folded into the search
+     index only; never shown. Apostrophes appear in both forms because a
+     keyboard produces one and our copy produces the other. */
+  const ALIASES = {
+    'cant-save':       "why can't i save why cant i save can't save cannot save not saving save failed greyed out disabled blocked read only",
+    'cant-find-client':"can't find missing client where is lost client search not working no results",
+    'stale-data':      'old data out of date not updating refresh stale last built numbers wrong',
+    't0':              'broken wrong looks wrong error something is wrong incorrect',
+    't4':              'v1 v2 old hub new hub which hub should i use',
+    't5':              'lost work disappeared overwritten gone my changes vanished conflict'
+  };
+  const PAGE_ALIASES = {
+    home: 'dashboard landing first screen start morning',
+    tracker: 'client list caseload my clients find a client search',
+    workspace: 'client detail client record open a client tabs',
+    pulse: 'red amber green attention level status needs attention monitor status quo',
+    s30: 'onboarding new client first 30 days milestones success in 30',
+    coverage: 'time off vacation out of office handoff cover covering',
+    md: 'compliance regulation baltimore assessment overdue reassessment',
+    priority: 'open shifts unfilled visits gaps staffing fill',
+    emailcomm: 'community email weekly update senior living building newsletter',
+    ltc: 'long term care insurance submission carrier',
+    assistant: 'ai ask a question chatbot knowledge base templates',
+    kpi: 'quarterly numbers metrics targets',
+    team: 'manager director team overview everyone mine team all',
+    markets: 'market switch massachusetts chicago maryland central time timezone',
+    feedback: 'report a problem bug suggestion tell someone complain'
+  };
+
   /* ── Glossary ──────────────────────────────────────────────────────── */
   const glossary = [
     ['CSM', 'Client Solutions Manager. Owns a caseload of clients and the relationship with each family.'],
@@ -533,12 +562,13 @@ window.GUIDE = (function () {
       const rows = [];
       const push = (kind, id, title, text) => rows.push({ kind, id, title, text: (title + ' ' + text).toLowerCase() });
       Object.keys(pages).forEach(k => { const p = pages[k];
-        push('page', k, p.title, [p.lede, p.what, (p.first||[]).join(' '), (p.can||[]).join(' '), p.v1||'', (p.know||[]).join(' ')].join(' ')); });
+        push('page', k, p.title, [p.lede, p.what, (p.first||[]).join(' '), (p.can||[]).join(' '), p.v1||'', (p.know||[]).join(' '), PAGE_ALIASES[k]||''].join(' ')); });
       Object.keys(tasks).forEach(k => { const t = tasks[k];
         push('task', k, t.title, [t.lede, (t.steps||[]).map(s => s.t + ' ' + s.b).join(' '), (t.know||[]).join(' ')].join(' ')); });
       Object.keys(roles).forEach(k => { const r = roles[k];
         push('role', k, r.title, [r.lede, (r.sections||[]).map(s => s.h + ' ' + s.b).join(' ')].join(' ')); });
-      trouble.forEach((t, i) => push('trouble', t.id || ('t' + i), t.q, t.a.join(' ')));
+      trouble.forEach((t, i) => { const id = t.id || ('t' + i);
+        push('trouble', id, t.q, t.a.join(' ') + ' ' + (ALIASES[id] || '')); });
       glossary.forEach(g => push('term', 'glossary', g[0], g[1]));
       faq.forEach(f => push('faq', 'faq', f[0], f[1]));
       return rows;
