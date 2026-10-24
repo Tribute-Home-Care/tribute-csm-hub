@@ -8,35 +8,56 @@ The architecture rule is one line: **V2 writes through V1's own functions to
 V1's own endpoints.** There is no V2 store, no sync layer and no copy of
 business data. A Quick Note saved in V2 is the same bytes V1 reads.
 
-## The shared document, and why it is split in two
+## The shared document, and the TD-30 fix
 
 Almost every CSM edit funnels through `saveToFile` → `POST csm_data`, one
-JSON document with ETag concurrency. On a 409 V1 does this:
+JSON document with ETag concurrency. The 409 retry used to rebuild it as
+`merged.shared = {...server.shared, ...my.shared}`, replacing whole top-level
+keys with the saver's copy and discarding a colleague's work — even for a
+saver who had only typed a Quick Note, because the stale `shared` block rode
+along with every save.
 
-```js
-if (P && DATA.profiles[P.id]) merged.profiles[P.id] = DATA.profiles[P.id];
-merged.shared = { ...(merged.shared || {}), ...(DATA.shared || {}) };
-```
+**Fixed.** The retry is now a three-way merge at the level of a business
+record: `base` (what this session last agreed with the server), `mine`,
+`theirs`. If mine still equals base this session did not touch it and the
+server wins; if theirs still equals base nobody else touched it and mine
+wins; if both moved it is a conflict and is reported rather than resolved.
 
-Two different behaviours in two lines:
+### Merge strategy per shared key
 
-- **The profile pocket is safe.** Only the saver's own pocket is written back;
-  every other person's pocket is taken from the server.
-- **`DATA.shared` is not.** The spread replaces whole top-level keys with the
-  saver's copy. If a colleague added a coverage note, a Fill Priority event or
-  a community edit while this tab was open, the retry discards it — and it
-  discards it for a user who only typed a Quick Note, because the stale
-  `shared` block rides along with every save.
+| Key | Shape | Record key | Independent records | Nested merge | Same-record concurrency possible | Policy |
+|---|---|---|---|---|---|---|
+| `coverage` | array of notes | `clientId` + `csmId` | yes | per record | yes (two CSMs, one client) | three-way per record; conflict reported |
+| `communities` | map, keyed by community **name** | name, then field inside `email` | yes | 2 levels | yes | three-way per field; different fields both survive |
+| `fillEvents` | array | `id` | yes | per record | yes | three-way per record |
+| `fillStatus` | map `eventId` → `clientId` → record | event + client | yes | 2 levels | yes | three-way per record |
+| `ltc` | array | `id` | yes | per record | yes | three-way per record |
+| `mdCadence` | map `clientId` → days | clientId | yes | scalar | yes | three-way per client |
+| `settings` | map field → value | field | yes | scalar | rare | three-way per field |
+| `assistant` | `{kb, templates, scenarios}` | collection | partly | 1 level | rare | three-way per collection |
+| `comms` | generated cache | whole | no | none | no | later `generatedAt` wins, by rule |
+| `viv` | generated cache | whole | no | none | no | later `generatedAt` wins, by rule |
 
-Ten keys are exposed: `assistant, comms, communities, coverage, fillEvents,
-fillStatus, ltc, mdCadence, settings, viv`. Proved in
-`test/csm-data-concurrency.test.js`, which lifts the merge out of index.html
-and runs it rather than restating it.
+Production currently holds only `comms`, `communities` and `viv`; the other
+seven are created lazily on first use, and the merge handles an absent key
+without inventing one.
 
-This is a **pre-existing V1 defect** (TD-30). It is not caused by V2 and it
-happens today between two V1 users. V2's answer is not to add a second source
-of it: V2 writes no shared key at all, and its own 409 retry keeps the
-server's shared block. See *Kill switch and safety* below.
+### Same-record conflict policy
+
+No silent winner. When both sides changed the same field:
+
+- the **other** person's value is kept — refusing to overwrite someone else
+  is the safe direction;
+- the record and field are named to the user ("Someone else changed
+  communities.Goddard House.email.to while you were editing");
+- everything else in the save still lands, so their other work is not lost;
+- they are told to reopen that item and redo their change deliberately.
+
+Retries are bounded at two. Beyond that the save reports "Save busy — try
+again" and leaves their text on screen.
+
+The profile pocket rule is unchanged: the saver's own pocket is written back,
+every other pocket comes from the server.
 
 ## The matrix
 
@@ -52,11 +73,11 @@ server's shared block. See *Kill switch and safety* below.
 | Success in 30 | `set('s60')`, `set('s60_ms')` | pocket | same | own pocket | none | yes | **YES** | pocket is 409-safe |
 | Pulse acknowledgement | pocket field via `set` | pocket | same | own caseload | none | yes | **YES** | pocket is 409-safe |
 | Community Email **draft save** | `ecSaveDraft` → `POST community_email&save=1` | server-side draft blob | same | signed-in CSM | last write wins, no send | yes — same draft the Friday run reads | **YES** | not csm_data; single stored object |
-| Coverage notes | `setCov` → `DATA.shared.coverage` | csm_data **shared** | gated | — | — | yes | **NO** | 409 drops a colleague's note |
+| Coverage notes | `setCov` → `DATA.shared.coverage` | csm_data **shared** | gated | — | — | yes | **NO — next** | TD-30 fixed; awaiting the one-at-a-time validation in §12 |
 | Fill Priority events / status / order | `createFpEvent`, `setFpStatus`, `setFpOrder` → `DATA.shared.fill*` | csm_data **shared** | gated | — | — | yes | **NO** | same |
 | Community directory / email settings | `saveCommunity`, `saveEmailComm`, `ecSkipWeek` → `DATA.shared.communities` | csm_data **shared** | gated | — | — | yes | **NO** | same |
 | Maryland cadence | `setMdCadence` → `DATA.shared.mdCadence` | csm_data **shared** | gated | — | — | yes | **NO** | same |
-| Community Email **test send** | `ecSend(true)` → Graph `/me/sendMail` | the CSM's mailbox | gated | delegated Mail.Send | **HIGH** — no in-flight guard, no confirm on a test | Sent Items | **NO** | §15: no idempotency, no enablement |
+| Community Email **test send** | `ecSend(true)` → Graph `/me/sendMail` | the CSM's mailbox | gated | delegated Mail.Send | guard now built: in-flight flag, disabled buttons, idempotency key | Sent Items | **NO** | guard not yet exercised against a real send |
 | Community Email **real send** | `ecSend(false)` → Graph `/me/sendMail` | the CSM's mailbox + draft `sentAt` | gated | delegated Mail.Send | **HIGH** — only a `confirm()` stands between a double click and two emails | Sent Items | **NO** | same; needs a busy guard first |
 | Outlook calendar add | `_lpAddToOutlook` → Graph events | the CSM's calendar | gated | delegated Calendars.ReadWrite | no idempotency key | yes | **NO** | external, unvalidated |
 | Outlook calendar delete | `_deleteOutlookEvent` → Graph | the CSM's calendar | gated | delegated | destructive | yes | **NO** | external, destructive |
