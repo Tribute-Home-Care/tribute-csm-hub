@@ -77,19 +77,25 @@ every other pocket comes from the server.
 | Fill Priority events / status / order | `createFpEvent`, `setFpStatus`, `setFpOrder` → `DATA.shared.fill*` | csm_data **shared** | gated | — | — | yes | **NO** | same |
 | Community directory / email settings | `saveCommunity`, `saveEmailComm`, `ecSkipWeek` → `DATA.shared.communities` | csm_data **shared** | gated | — | — | yes | **NO** | same |
 | Maryland cadence | `setMdCadence` → `DATA.shared.mdCadence` | csm_data **shared** | gated | — | — | yes | **NO** | same |
-| Community Email **test send** | `ecSend(true)` → Graph `/me/sendMail` | the CSM's mailbox | gated | delegated Mail.Send | guard now built: in-flight flag, disabled buttons, idempotency key | Sent Items | **NO** | guard not yet exercised against a real send |
-| Community Email **real send** | `ecSend(false)` → Graph `/me/sendMail` | the CSM's mailbox + draft `sentAt` | gated | delegated Mail.Send | **HIGH** — only a `confirm()` stands between a double click and two emails | Sent Items | **NO** | same; needs a busy guard first |
+| Community Email **test send** | `ecSend(true)` → Graph `/me/sendMail` | the CSM's mailbox | gated | delegated Mail.Send | in-flight flag, disabled buttons, 15-min key in localStorage | Sent Items | **YES** (`community_send_test`) | goes only to the sender |
+| Community Email **real send** | `ecSend(false)` → Graph `/me/sendMail` | the CSM's mailbox + draft `sentAt` | gated | delegated Mail.Send | in-flight flag + 15-min key that survives a reload; no clock in the key | Sent Items | **YES, LIVE for the pilot** (`community_send_real` + `V2_LIVE_COMMUNITY_SEND_ENABLED`) | suppressed for Andrew/tuadmin walkthrough |
 | Outlook calendar add | `_lpAddToOutlook` → Graph events | the CSM's calendar | gated | delegated Calendars.ReadWrite | no idempotency key | yes | **NO** | external, unvalidated |
 | Outlook calendar delete | `_deleteOutlookEvent` → Graph | the CSM's calendar | gated | delegated | destructive | yes | **NO** | external, destructive |
 | Viv visit create / remove | `lpSaveVisit`, `removeLinkedVisit` | Viv | gated | Viv service account | creates real visits | yes | **NO** | external, unvalidated |
 | LTC approve / mark sent / reopen | `ltcAct` | LTC store | gated | — | — | yes | **NO** | §7: no operational record exists to validate against |
-| LTC send to carrier | `ltcSend` | carrier, outbound | gated | — | leaves Tribute | yes | **NO** | §7 |
-| LTC nudge | `ltcSendNudge` | caregiver SMS | gated | — | leaves Tribute | yes | **NO** | §7 |
+| LTC send to carrier | `ltcSend` | carrier, outbound | gated | — | server-side `_sendOnce` claim at the wire, 15-min window | yes | **WORKFLOW LIVE, delivery blocked** | `LTC_LIVE_CARRIERS` is empty, so V1's own gate refuses every live send. Test send works. |
+| LTC nudge | `ltcSendNudge` | caregiver SMS | gated | — | server-side `_sendOnce` claim at the wire, 15-min window | yes | **YES, LIVE for the pilot** (`ltc_nudge_caregiver` + `V2_LIVE_LTC_CAREGIVER_TEXT_ENABLED`) | suppressed for Andrew/tuadmin walkthrough |
 | Weekly client schedule email | `weekly_schedule` | — | gated | — | — | — | **NO** | §8: `client_week` is not implemented |
 | Active-time telemetry | `tribute-usage.js` | usage store | not loaded in V2 | — | — | — | **NO** | a pilot must not skew real usage stats |
 | HubSpot writes | none from the hub | — | — | — | — | — | **NO** | the hub does not write HubSpot; nothing to enable |
 
-Enabled: **`csm_data_pocket`**, **`community_draft_save`**. Everything else is
+> **Superseded in part, 25 Oct 2026.** The “enabled” column below was
+> accurate at Phase L. Fifteen capabilities are now enabled for the pilot and
+> three external channels can transmit. The current, authoritative statement is
+> [V2-PHASE-V-LIVE-DELIVERY.md](./V2-PHASE-V-LIVE-DELIVERY.md); the rows above
+> have been brought up to date, the historical notes below are left as written.
+
+Enabled at Phase L: **`csm_data_pocket`**, **`community_draft_save`**. Everything else was
 false.
 
 ## Permission model
