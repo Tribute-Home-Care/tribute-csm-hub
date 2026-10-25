@@ -89,6 +89,18 @@
     menu.setAttribute('aria-label', 'Menu');
     menu.addEventListener('click', toggleDrawer);
     var title = el('div', 'v2-tb-title', 'Home');
+    // Search comes with us: #rd-top is hidden on a phone, and losing search
+    // from a client-heavy app would be a real regression.
+    var find = el('button', 'v2-tb-btn',
+      svg('<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>'));
+    find.type = 'button';
+    find.setAttribute('aria-label', 'Search');
+    find.addEventListener('click', function () {
+      var b = document.querySelector('.rd-search-btn');
+      if (b) { b.click(); return; }
+      if (typeof window.openSearch === 'function') window.openSearch();
+    });
+
     var who = el('button', 'v2-tb-btn', '<span class="v2-tb-av" id="v2-tb-av"></span>');
     who.type = 'button';
     who.setAttribute('aria-label', 'Profile');
@@ -96,7 +108,8 @@
       if (typeof window.switchProfile === 'function') window.switchProfile();
       else openDrawer();
     });
-    top.appendChild(menu); top.appendChild(title); top.appendChild(who);
+    top.appendChild(menu); top.appendChild(title);
+    top.appendChild(find); top.appendChild(who);
 
     var main = document.querySelector('.main');
     if (main) main.insertBefore(top, main.firstChild);

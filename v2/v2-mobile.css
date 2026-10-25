@@ -74,6 +74,22 @@
   html:not(.v2-in-app) .main { padding-bottom: 20px; }
   html:not(.v2-in-app) #v2-fb-btn { bottom: 14px !important; }
 
+  /* The desktop top row is 61px of page title and a keyboard-shortcut search
+     chip, both of which the mobile top bar already covers. Two headers on a
+     phone is 113px of chrome before any content. Search moves into the top
+     bar so nothing is lost. */
+  #rd-top { display: none !important; }
+
+  /* The full-capability badge and any other fixed bottom-left affordance has
+     to clear the tab bar. */
+  .v2-fullcap, #v2-fullcap {
+    bottom: calc(var(--m-tabbar) + var(--m-bot) + 14px) !important;
+    left: 12px !important; right: auto !important;
+    max-width: calc(100vw - 24px);
+    font-size: 11px !important;
+  }
+  html:not(.v2-in-app) .v2-fullcap, html:not(.v2-in-app) #v2-fullcap { bottom: 14px !important; }
+
   /* ---- top bar ---------------------------------------------------------- */
   .v2-topbar {
     position: sticky; top: 0; z-index: 900;
