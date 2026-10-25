@@ -1079,14 +1079,23 @@
       quiet('No care plan is on file for this client in Viv.') +
       (c.carePlanDate ? quiet('The Hub records one on ' + fmtShort(c.carePlanDate) + '.') : ''));
 
+    // Selection and display are separate. The server orders an approved plan
+    // with no approval date by its document timestamp so it can still compete;
+    // the page must not then print that timestamp as if somebody approved on
+    // it. When Viv holds no approval date, say exactly that.
+    const dateKnown = p.approvalDateKnown !== false && !!p.date;
     const state = p.status === 'approved'
-      ? 'Approved' + (p.approvedBy ? ' by ' + p.approvedBy : '') + (p.date ? ' · ' + fmtShort(p.date) : '')
-      : p.status === 'submitted' ? 'Submitted, not yet approved' + (p.date ? ' · ' + fmtShort(p.date) : '')
-      : 'Draft' + (p.date ? ' · ' + fmtShort(p.date) : '');
+      ? 'Approved' + (p.approvedBy ? ' by ' + p.approvedBy : '') +
+        (dateKnown ? ' · ' + fmtShort(p.date) : ' · Approval date not recorded in Viv')
+      : p.status === 'submitted'
+        ? 'Not approved · submitted' + (p.docDate ? ' ' + fmtShort(p.docDate) : (p.date ? ' ' + fmtShort(p.date) : ''))
+        : 'Not approved · draft' + (p.docDate ? ' ' + fmtShort(p.docDate) : (p.date ? ' ' + fmtShort(p.date) : ''));
     let out = '<div class="rd-cp-head"><h4>' + esc(p.title || 'Care Plan') + '</h4>' +
       '<p class="rd-ws-quiet">' + esc(state) + '</p>' +
       (p.stale ? '<p class="rd-ws-warn">This plan is over six months old.</p>' : '') +
-      (p.status !== 'approved' ? '<p class="rd-ws-warn">This is not an approved plan.</p>' : '') +
+      (p.status !== 'approved'
+        ? '<p class="rd-ws-warn">This is not an approved plan. It is the newest care plan on file for this client; ' +
+          'an approved one would be shown instead.</p>' : '') +
       '</div>';
 
     const secs = cpSections(snap);

@@ -170,8 +170,9 @@ window.GUIDE = (function () {
         caption: 'The plan’s own sections, in the plan’s own words.' },
       body: [
         { h: 'Where it comes from', p: 'The Care Plan document on the client’s record in Viv, under Documents. ' +
-          'The Hub shows the most recent APPROVED plan, by approval date. ' +
-          'If a client has no approved plan at all, the Hub shows the newest one there is and says plainly that it is not approved.' },
+          'The Hub shows the latest APPROVED Tribute Care Plan on file — not simply the most recently edited one. ' +
+          'Abandoned drafts, plans someone has archived, and test documents are never treated as current. ' +
+          'If a client has no approved plan at all, the Hub shows the newest one there is and marks it Not approved.' },
         { h: 'How it is laid out', ul: [
           'The plan’s own section headings, in the plan’s own words. Nothing is renamed.',
           'Any section the plan itself marks IMPORTANT or PLEASE READ comes first.',
@@ -179,10 +180,12 @@ window.GUIDE = (function () {
           'Long sections are folded; tap the heading to open one.'
         ] },
         { h: 'The Hub is not the record', p: 'This is a reader. Changing a care plan happens in Viv, ' +
-          'and the link at the bottom opens the signed plan there.' }
+          'and the link at the bottom opens the signed plan there. If the plan here looks out of date, ' +
+          'the answer is almost always that a newer one has not been approved in Viv yet.' }
       ],
       know: [
         'The date and approver are shown at the top, and a plan over six months old is flagged as such.',
+        'If Viv holds no approval date for an approved plan, the Hub says “Approval date not recorded in Viv” rather than showing another date in its place.',
         'If a plan has no structured answers recorded, the Hub says so rather than showing an empty page.'
       ],
       related: ['overview', 'schedule']
@@ -606,9 +609,11 @@ window.GUIDE = (function () {
       'The zone is named at the bottom of the Schedule page.'
     ] },
     { id: 'old-care-plan', q: 'The care plan looks out of date', a: [
-      'The Hub shows the most recent APPROVED care plan from Viv, by approval date — not the most recently edited draft.',
+      'The Hub shows the latest APPROVED care plan from Viv — not the most recently edited draft.',
       'The date and approver are at the top of the page, and a plan over six months old is flagged.',
-      'If a newer plan has been written but not approved in Viv, approving it there is what brings it through.'
+      'If a newer plan has been written but not approved in Viv, approving it there is what brings it through.',
+      'An archived or test plan is never shown as current, however recent it is.',
+      'If no newer plan exists at all, the plan really is the latest one anybody has written.'
     ] },
     { id: 'stale-data', q: 'The data looks old', a: [
       'Some pages are assembled on a schedule rather than the instant you open them. Those pages tell you when they were last built.',
@@ -689,7 +694,7 @@ window.GUIDE = (function () {
   const faq = [
     ['Is my work saved automatically?', 'Yes. There is no save button. The sync indicator says Saving, then Saved with a time.'],
     ['Where does the client address and schedule come from?', 'Viv, read when you open the client. Nothing is copied or kept — close the tab and it is gone.'],
-    ['Which care plan does the Hub show?', 'The most recent approved Care Plan from the client’s documents in Viv, by approval date. The date and approver are shown at the top.'],
+    ['Which care plan does the Hub show?', 'The latest approved Tribute Care Plan from the client’s documents in Viv. Archived, abandoned and test plans are never treated as current. The date and approver are shown at the top.'],
     ['Why does a visit not say Confirmed?', 'Because Viv does not tell us whether a visit is confirmed. A visit is assigned to a caregiver, open, or cancelled, and the Hub says only what it knows.'],
     ['Is the Care Team a list somebody maintains?', 'No. Viv has no care-team list — the relationship is the booking. The Hub builds it from the client’s current fortnight of visits and says so on the page.'],
     ['Does Feedback send anything about my clients?', 'No. It attaches which page you were on, your role and market, and technical detail about the screen. No client, caregiver or family information, and never a screenshot.'],
