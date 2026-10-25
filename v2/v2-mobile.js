@@ -10,7 +10,10 @@
 (function () {
   'use strict';
 
-  var MOBILE = window.matchMedia('(max-width: 760px)');
+  // 900px, not 760: between those two widths the desktop rail used to turn
+  // into a horizontal scroller that hid destinations off the right edge. One
+  // navigation model now covers every width below the desk.
+  var MOBILE = window.matchMedia('(max-width: 900px)');
   var STANDALONE = window.matchMedia('(display-mode: standalone)').matches ||
                    window.navigator.standalone === true;
 
@@ -37,13 +40,20 @@
       icon: svg('<path d="M4 7h16M4 12h16M4 17h16"/>') }
   ];
 
+  // The same words the rail uses, so the two never disagree about what a
+  // place is called.
   var PAGE_TITLES = {
-    home: 'Home', clients: 'Client Tracker', s60: 'Success in 30',
-    coverage: 'Coverage Notes', emailcomm: 'Email Community',
-    ltc: 'LTC Submissions', md: 'Maryland Compliance', priority: 'Fill Priority',
-    assistant: 'Tribute Assistant', kpi: 'KPI Tracker',
-    pulse: 'Client Pulse', team: 'Team Overview', comms: 'Communications'
+    home: 'Home', clients: 'Clients', s60: 'Success in 30',
+    coverage: 'Coverage', emailcomm: 'Community Email',
+    ltc: 'LTC', md: 'Maryland Compliance', priority: 'Fill Priority',
+    assistant: 'Assistant', kpi: 'KPI Tracker',
+    pulse: 'Client Pulse', team: 'Team', comms: 'Communications'
   };
+
+  /* When a client is open the one title bar becomes THEIRS: their name, and a
+     way back to the list. A second bar under the first would be 92px of chrome
+     before any of the client appeared. */
+  var _client = null;
 
   function el(tag, cls, html) {
     var n = document.createElement(tag);
@@ -84,10 +94,14 @@
     document.body.appendChild(bar);
 
     var top = el('header', 'v2-topbar');
-    var menu = el('button', 'v2-tb-btn', svg('<path d="M4 7h16M4 12h16M4 17h16"/>'));
+    var menu = el('button', 'v2-tb-btn', ICO_MENU);
     menu.type = 'button';
+    menu.id = 'v2-tb-lead';
     menu.setAttribute('aria-label', 'Menu');
-    menu.addEventListener('click', toggleDrawer);
+    menu.addEventListener('click', function () {
+      if (_client && window.TributeRedesign) { TributeRedesign.deselect(); return; }
+      toggleDrawer();
+    });
     var title = el('div', 'v2-tb-title', 'Home');
     // Search comes with us: #rd-top is hidden on a phone, and losing search
     // from a client-heavy app would be a real regression.
@@ -115,10 +129,34 @@
     if (main) main.insertBefore(top, main.firstChild);
   }
 
+  var ICO_MENU = svg('<path d="M4 7h16M4 12h16M4 17h16"/>');
+  var ICO_BACK = svg('<path d="M20 12H5m6-6-6 6 6 6"/>');
+
   function setTitle(page) {
     var t = document.querySelector('.v2-tb-title');
-    if (t) t.textContent = PAGE_TITLES[page] || 'CSM Hub';
+    if (!t) return;
+    t.textContent = _client || PAGE_TITLES[page] || 'CSM Hub';
   }
+
+  function syncClientBar() {
+    var lead = document.getElementById('v2-tb-lead');
+    document.documentElement.classList.toggle('v2-client', !!_client);
+    if (lead) {
+      lead.innerHTML = _client ? ICO_BACK : ICO_MENU;
+      lead.setAttribute('aria-label', _client ? 'Back to clients' : 'Menu');
+    }
+    var t = document.querySelector('.v2-tb-title');
+    if (t && _client) t.textContent = _client;
+  }
+
+  window.addEventListener('tribute:client-selected', function (e) {
+    _client = (MOBILE.matches && e.detail && e.detail.name) || null;
+    syncClientBar();
+    if (!_client) {
+      var a = document.querySelector('.v2-tab[aria-current="page"]');
+      setTitle(a ? a.dataset.page : 'clients');
+    }
+  });
 
   function syncActive(page) {
     document.querySelectorAll('.v2-tab').forEach(function (b) {
@@ -197,7 +235,8 @@
   function apply() {
     if (!MOBILE.matches) {
       closeDrawer();
-      document.documentElement.classList.remove('v2-in-app');
+      _client = null;
+      document.documentElement.classList.remove('v2-in-app', 'v2-client');
       document.body.style.overflow = '';
       return;
     }
@@ -216,6 +255,7 @@
       var r = orig.apply(this, arguments);
       try {
         closeDrawer();
+        if (page !== 'clients') { _client = null; syncClientBar(); }
         syncShell();
         syncActive(page);
         if (MOBILE.matches) setTimeout(function () { cardify(document); }, 0);
@@ -234,7 +274,7 @@
     var n = 0;
     var t = setInterval(function () {
       if (++n > 20) return clearInterval(t);
-      if (MOBILE.matches) { syncShell(); syncAvatar(); cardify(document); }
+      if (MOBILE.matches) { syncShell(); syncAvatar(); cardify(document); syncClientBar(); }
       hookNavigation();
     }, 1500);
   }

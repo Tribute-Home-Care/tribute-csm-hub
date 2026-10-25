@@ -112,6 +112,14 @@ def main():
     for f in LAYER + ['redesign.css']:
         shutil.copyfile(os.path.join(RD, 'prototype', f), os.path.join(OUT, 'v2', f))
 
+    # The phone layer and the client reads are maintained HERE, in v2/, because
+    # they have no meaning in the local prototype's own right. They are mirrored
+    # back into the prototype so that previewing the redesign on synthetic data
+    # shows the same phone chrome and the same client workspace the pilot sees.
+    # v2/ is the source; the prototype copies are generated.
+    for f in ('v2-mobile.css', 'v2-mobile.js', 'v2-client.js'):
+        shutil.copyfile(os.path.join(OUT, 'v2', f), os.path.join(RD, 'prototype', f))
+
     tags = []
     tags.append('<link rel="stylesheet" href="%s">' % stamp('redesign.css'))
     tags.append('<link rel="stylesheet" href="%s">' % stamp('v2.css'))
@@ -123,6 +131,7 @@ def main():
     tags.append('<script src="%s"></script>' % stamp('v2-feedback.js'))
     tags.append('<script src="%s"></script>' % stamp('v2-help.js'))
     tags.append('<script src="%s"></script>' % stamp('v2-fullcap.js'))
+    tags.append('<script src="%s"></script>' % stamp('v2-client.js'))
     tags.append('<script src="%s"></script>' % stamp('v2-mobile.js'))
     block = '\n' + '\n'.join(tags) + '\n'
     # There are two '</body>' in the file: one inside a printable-HTML string
@@ -157,7 +166,7 @@ def main():
     # dead for two hours before a screenshot caught it. Assert every V2
     # script is actually referenced, so a rebuild can never drop one again.
     for _req in ('v2-policy.js', 'v2-chrome.js', 'v2-feedback.js', 'v2-help.js',
-                 'v2-fullcap.js', 'v2-mobile.js', 'v2-mobile.css',
+                 'v2-fullcap.js', 'v2-mobile.js', 'v2-mobile.css', 'v2-client.js',
                  'manifest.webmanifest', 'apple-touch-icon.png'):
         assert _req in out, 'built index.html does not load %s' % _req
     present = sorted(os.listdir(os.path.join(OUT, 'v2')))

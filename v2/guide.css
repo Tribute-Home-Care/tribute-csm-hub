@@ -261,6 +261,14 @@ details.faq p{margin:0 0 20px;color:var(--muted);max-width:76ch;font-size:16.5px
 @media (max-width:640px){
   :root{--gut:18px}
   body{font-size:16px}
+  /* A card-list row is a title beside a one-line description. On a phone the
+     title keeps its own line and the description wraps underneath, instead of
+     the pair being squeezed until the description's last word hangs 6px off
+     the right edge and takes the whole page into horizontal scroll. */
+  .cardlist a{flex-direction:column;align-items:flex-start;gap:2px;min-height:44px;justify-content:center}
+  .cardlist .t,.cardlist .d{flex:0 1 auto;min-width:0}
+  /* Reading links are still tap targets. */
+  .toc a,.gnav a,nav a{min-height:44px;display:flex;align-items:center}
   .g2,.g3,.g4{grid-template-columns:1fr}
   .hero p{font-size:18px}
   .shotwrap{padding:14px;border-radius:var(--r)}

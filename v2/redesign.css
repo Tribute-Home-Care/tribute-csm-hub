@@ -511,22 +511,14 @@ html.proto-on body { padding-bottom: 46px; }
   .rd-top-in, .page { padding-left: 22px; padding-right: 22px; }
 }
 @media (max-width: 900px) {
-  .sidebar {
-    position: static; width: 100%; height: auto;
-    flex-direction: column; border-right: none; border-bottom: 1px solid var(--line);
-  }
-  /* The prototype banner offset below is a desk-width rule only. Left applying
-     here it kept height:calc(100vh - 32px) on a now-static sidebar, which ate
-     the whole viewport and pushed the page off the bottom of the screen. */
+  /* The rail used to become a HORIZONTAL scroller here, on the theory that one
+     tap beat two on a tablet. In practice it hid destinations off the right
+     edge with nothing to say they were there, and the group headings — the
+     whole point of the structure — were switched off to make it fit. Below
+     900px the phone layer now owns navigation: a bottom bar for the three
+     places a CSM lives in, and a vertical drawer holding everything else,
+     grouped exactly as the desktop rail groups it. */
   html.proto-on .sidebar { top: auto; height: auto; }
-  .sb-nav {
-    display: flex; align-items: center;   /* without this the current pill
-                                             stretches to the rail's height */
-    overflow-x: auto; padding: 6px 8px; gap: 4px;
-  }
-  .sb-nav .nav-sec { display: none; }
-  .nav-item { margin: 0; white-space: nowrap; flex: none; }
-  .nav-item .nav-cnt { margin-left: 6px; }
   .main { margin-left: 0; }
   #app { flex-direction: column; }
   .g2, .g3, .g4 { grid-template-columns: 1fr; }
@@ -1128,7 +1120,7 @@ input[type="email"], select { min-height: var(--h-ctl); }
 #rd-compat { display: none !important; }
 
 /* ── Responsive: the split becomes a stack, the workspace takes over ───── */
-@media (max-width: 980px) {
+@media (max-width: 1180px) {
   #rd-split { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .rd-split-ws {
     position: static; max-height: none; overflow: visible;
@@ -1998,3 +1990,313 @@ input[type="email"], select { min-height: var(--h-ctl); }
 .mk-md .mk-egg path:first-child { fill: #DCE8E3; stroke: #6F9086; }
 .mk-md .mk-egg circle { stroke: #7F9E95; fill: none; }
 .hub-card:hover .mk-md .mk-egg path:first-child { fill: #CFE0DA; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   15. THE CLIENT, AS THE CENTRE OF THE PRODUCT
+   ═══════════════════════════════════════════════════════════════════════════
+   A CSM is responsible for clients; every other page is a tool for caring for
+   them. So opening a client opens a PLACE — person first, address under the
+   name, the few actions you take while standing there, and the day's schedule
+   above everything administrative.
+
+   Hierarchy is carried by type and space, not by boxing each idea in a card.
+   A card here means "these things belong together", not "this is a section".
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 15.1 SPACING ─────────────────────────────────────────────────────────
+   One rhythm, 4 / 8 / 12 / 16 / 24 / 32. Every new rule below uses these and
+   nothing between them, so the page has a beat instead of an accumulation of
+   one-off margins. */
+:root {
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s6: 24px; --s8: 32px;
+  --tap: 44px;
+}
+
+/* ── 15.2 HEADER ─────────────────────────────────────────────────────────*/
+.rd-cw-head { position: relative; padding-bottom: var(--s1); }
+.rd-cw-name {
+  font-size: 30px; font-weight: 600; letter-spacing: -.022em; color: var(--ink);
+  line-height: 1.12; margin: 0;
+}
+.rd-cw-meta {
+  margin-top: var(--s2); font-size: 13.5px; color: var(--ink-3);
+  letter-spacing: .005em;
+}
+.rd-cw-addr {
+  display: block; font-style: normal; margin-top: var(--s3);
+  font-size: 15px; line-height: 1.45; color: var(--ink-2);
+}
+.rd-cw-addr span { display: block; color: var(--ink-3); }
+.rd-cw-addr.skel {
+  width: 190px; height: 16px; border-radius: 4px;
+  background: var(--surface-2); animation: rd-pulse 1.4s ease-in-out infinite;
+}
+@keyframes rd-pulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
+
+/* Contextual actions. Four at most, icon over label, never a button grid. */
+.rd-cw-acts {
+  display: flex; align-items: stretch; gap: var(--s2);
+  margin-top: var(--s4); flex-wrap: wrap;
+}
+.rd-act {
+  appearance: none; -webkit-appearance: none; text-decoration: none;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 5px; min-width: 76px; min-height: var(--tap); padding: var(--s2) var(--s3);
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-sm);
+  font: inherit; font-size: 12px; color: var(--ink-2); cursor: pointer;
+  transition: background var(--t), border-color var(--t), color var(--t);
+}
+.rd-act:hover { background: var(--surface-2); color: var(--ink); }
+.rd-act .ti { width: 18px; height: 18px; }
+.rd-act .ti svg { stroke-width: 1.6; }
+/* The reserved entry point. It must look like something that will exist, and
+   unmistakably like something that does not yet. */
+.rd-act.soon { opacity: .6; cursor: default; }
+.rd-act.soon:hover { background: var(--surface); color: var(--ink-2); }
+/* The "coming soon" mark is a caption inside the tile, not a sticker hanging
+   off its corner: a corner badge clipped against the tile above it on a
+   393px screen, and a label that has to be read is not a decoration. */
+.rd-soon {
+  font-style: normal; font-size: 9.5px; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--ink-3); line-height: 1;
+}
+.rd-act span { line-height: 1.2; text-align: center; }
+
+/* The compact bar: strong orientation first, more room to work after. */
+.rd-cw-bar {
+  display: none; align-items: center; gap: var(--s3);
+  position: sticky; top: 0; z-index: 12;
+  margin: 0 0 var(--s3); padding: var(--s2) 0;
+  background: var(--canvas);
+}
+.rd-cw-bar-n {
+  font-size: 15px; font-weight: 600; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+}
+.rd-cw-head.compact .rd-cw-bar { display: flex; border-bottom: 1px solid var(--line); }
+.rd-cw-head.compact .rd-cw-name,
+.rd-cw-head.compact .rd-cw-meta,
+.rd-cw-head.compact .rd-cw-addr,
+.rd-cw-head.compact .rd-cw-acts { display: none; }
+.rd-cw-head.compact .rd-cw-rail { margin-top: 0; }
+
+/* Section chips + the overflow that keeps the rail from ever growing wide.
+   The rail used to be a grey pill tray, which is the right shape for a filter
+   and the wrong one for a place: a tray says "pick a lens on this", an
+   underline says "you are in this part of the client". Every tray property is
+   reset here rather than left to fight the underline. */
+.rd-cw-head .rd-cw-rail {
+  display: flex; align-items: center; flex-wrap: nowrap; gap: var(--s1);
+  margin: var(--s6) 0 0; padding: 0;
+  background: none; border-radius: 0;
+  border-bottom: 1px solid var(--line);
+}
+.rd-cw-head .rd-cw-rail button {
+  background: none; box-shadow: none !important; border-radius: 0;
+}
+.rd-cw-head .rd-cw-rail button[data-key] {
+  min-height: 38px; padding: 0 var(--s3) 10px;
+  font-size: 14px; color: var(--ink-3); background: none; border: none;
+  border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer;
+}
+.rd-cw-head .rd-cw-rail button[data-key]:hover { color: var(--ink); }
+.rd-cw-head .rd-cw-rail button[data-key][aria-selected="true"] {
+  color: var(--ink); font-weight: 600; border-bottom-color: var(--brand);
+}
+.rd-cw-moremenu { margin-left: auto; }
+/* Labelled, not three dots. A CSM should be able to see that the rest of the
+   client is behind this, not deduce it from a smudge. */
+.rd-cw-more {
+  appearance: none; background: none; border: none; cursor: pointer;
+  display: flex; align-items: center; gap: 3px;
+  min-height: 38px; padding: 0 var(--s2) 10px;
+  font: inherit; font-size: 14px; color: var(--ink-3);
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.rd-cw-more .ti { width: 14px; height: 14px; }
+.rd-cw-more:hover { color: var(--ink); }
+.rd-cw-more[aria-selected="true"] {
+  color: var(--ink); font-weight: 600; border-bottom-color: var(--brand);
+}
+.rd-cw-moremenu .rd-menu-list { top: calc(100% + 6px); bottom: auto; }
+.rd-ws-sub-h {
+  font-size: 19px; font-weight: 600; letter-spacing: -.012em;
+  color: var(--ink); margin: var(--s6) 0 0;
+}
+
+/* ── 15.3 ATTENTION ───────────────────────────────────────────────────────
+   Rendered only when something is genuinely wrong. There is no "all clear"
+   card: a reassurance shown every day is what teaches people to stop reading
+   the one day it matters. */
+.rd-attn-l { list-style: none; margin: 0; padding: 0; }
+.rd-attn-l li {
+  position: relative; padding: 10px 0 10px var(--s4);
+  font-size: 14.5px; color: var(--ink); line-height: 1.45;
+  border-top: 1px solid var(--line-soft);
+}
+.rd-attn-l li:first-child { border-top: none; }
+.rd-attn-l li::before {
+  content: ""; position: absolute; left: 2px; top: 18px;
+  width: 6px; height: 6px; border-radius: 50%; background: var(--none);
+}
+.rd-attn-l li.bad::before { background: var(--bad); }
+.rd-attn-l li.warn::before { background: var(--warn); }
+
+/* ── 15.4 VISITS ──────────────────────────────────────────────────────────
+   The most useful rows in the product on a phone: time first, because a CSM
+   reads down a column of times, then who, then what. Open visits are obvious
+   without the page becoming an alarm. */
+.rd-vzs { list-style: none; margin: var(--s2) 0 0; padding: 0; }
+/* Time, then who, then what — and "what" sits beside the name rather than at
+   the far edge of a wide column, where a service type read as a separate
+   piece of information instead of a detail of the row. Only the open-visit
+   status earns the right-hand edge, because that is the one a CSM scans a
+   column of days for. */
+.rd-vz {
+  display: grid; grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: "t t" "w m";
+  gap: 2px var(--s3);
+  padding: var(--s3) 0; border-top: 1px solid var(--line-soft);
+}
+.rd-vz:first-child { border-top: none; padding-top: var(--s2); }
+.rd-vz-t {
+  grid-area: t; font-size: 15px; font-weight: 600; color: var(--ink);
+  font-variant-numeric: tabular-nums; letter-spacing: -.005em;
+}
+.rd-vz-w { grid-area: w; font-size: 14px; color: var(--ink-2); min-width: 0; }
+.rd-vz-m {
+  grid-area: m; justify-self: start; align-self: center;
+  font-size: 12.5px; color: var(--ink-3); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; min-width: 0;
+}
+.rd-vz.open .rd-vz-m { justify-self: end; }
+.rd-vz.open .rd-vz-t { color: var(--warn); }
+.rd-vz.open .rd-vz-w { color: var(--warn); font-weight: 600; }
+.rd-vz.open .rd-vz-m { color: var(--warn); }
+.rd-past-d { margin-top: var(--s4); }
+.rd-past-d > span { font-size: 13px; color: var(--ink-3); }
+
+/* ── 15.5 CARE SNAPSHOT ───────────────────────────────────────────────── */
+.rd-snap { padding: var(--s3) 0; border-top: 1px solid var(--line-soft); }
+.rd-snap:first-child { border-top: none; padding-top: var(--s2); }
+.rd-snap-k {
+  display: block; font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--ink-3); margin-bottom: 3px;
+}
+.rd-snap p { margin: 0; font-size: 14.5px; color: var(--ink); line-height: 1.5; }
+
+/* ── 15.6 CARE TEAM ───────────────────────────────────────────────────── */
+.rd-team { list-style: none; margin: var(--s2) 0 0; padding: 0; }
+.rd-team li {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "n x" "s x"; align-items: center;
+  gap: 1px var(--s3); padding: var(--s3) 0; border-top: 1px solid var(--line-soft);
+}
+.rd-team li:first-child { border-top: none; padding-top: var(--s2); }
+.rd-team-n { grid-area: n; font-size: 15px; font-weight: 500; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rd-team-s { grid-area: s; font-size: 13px; color: var(--ink-3); }
+.rd-team-x { grid-area: x; font-size: 12.5px; color: var(--ink-3); white-space: nowrap; }
+.rd-team.big li { padding: var(--s4) 0; }
+
+/* ── 15.7 TIMELINE ────────────────────────────────────────────────────── */
+.rd-tl { list-style: none; margin: var(--s2) 0 0; padding: 0; }
+.rd-tl li {
+  display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: var(--s3);
+  padding: 10px 0; border-top: 1px solid var(--line-soft);
+}
+.rd-tl li:first-child { border-top: none; }
+.rd-tl-d { font-size: 12.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; padding-top: 2px; }
+.rd-tl-b { min-width: 0; }
+.rd-tl-k { display: block; font-size: 11px; letter-spacing: .055em; text-transform: uppercase; color: var(--ink-3); }
+.rd-tl-t { display: block; font-size: 14.5px; color: var(--ink); margin-top: 1px; }
+.rd-tl-m { display: block; font-size: 13px; color: var(--ink-3); margin-top: 2px; }
+
+/* ── 15.8 CARE PLAN ────────────────────────────────────────────────────
+   A care-plan viewer, not a form dump. The plan's own section titles are kept
+   verbatim; the only editorial act is the order and the folding. */
+.rd-cp-head { margin-bottom: var(--s6); }
+.rd-cp-head h4 { font-size: 17px; font-weight: 600; color: var(--ink); margin: 0 0 var(--s1); }
+.rd-cp-sec { margin-top: var(--s6); }
+.rd-cp-sec h5 {
+  font-size: 11.5px; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--ink-3); margin: 0 0 var(--s2); font-weight: 600;
+}
+.rd-cp-fold > summary {
+  list-style: none; cursor: pointer; display: flex; align-items: center;
+  gap: var(--s2); min-height: 32px;
+}
+.rd-cp-fold > summary::-webkit-details-marker { display: none; }
+.rd-cp-fold > summary h5 { margin: 0; }
+.rd-cp-fold > summary > span {
+  font-size: 11.5px; color: var(--ink-3); background: var(--surface-2);
+  border-radius: 999px; padding: 1px 8px;
+}
+.rd-cp-fold > summary::after {
+  content: ""; margin-left: auto; width: 7px; height: 7px;
+  border-right: 1.5px solid var(--ink-3); border-bottom: 1.5px solid var(--ink-3);
+  transform: rotate(45deg); transition: transform var(--t);
+}
+.rd-cp-fold[open] > summary::after { transform: rotate(-135deg); }
+.rd-cp-kvs .rd-kv { grid-template-columns: minmax(0, 200px) minmax(0, 1fr); align-items: start; }
+.rd-cp-kvs .rd-kv dd { line-height: 1.5; }
+
+/* ── 15.9 SHARED ──────────────────────────────────────────────────────── */
+.rd-sub { display: block; font-size: 13px; color: var(--ink-3); margin-top: 2px; }
+.rd-ws-plain .dot, .rd-ws-next .dot, .rd-cw-meta .dot { margin: 0 7px; color: var(--line-2); }
+.rd-ws-load { font-size: 14px; color: var(--ink-3); }
+.rd-ws-load::after {
+  content: ""; display: inline-block; width: 4px; height: 4px; margin-left: 6px;
+  border-radius: 50%; background: var(--ink-3); animation: rd-pulse 1s ease-in-out infinite;
+}
+.rd-kv dd a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--line-2); }
+.rd-kv dd a:hover { border-bottom-color: var(--brand); }
+
+/* A comfortable measure. Past about 80 characters the eye loses the start of
+   the next line, and a client workspace on a 27-inch screen will happily run
+   to 140 without being told not to. */
+@media (min-width: 1400px) {
+  .rd-ws-body, .rd-cw-acts, .rd-cw-addr, .rd-cw-meta { max-width: 760px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   16. NAVIGATION — VERTICAL, ALWAYS
+   ═══════════════════════════════════════════════════════════════════════════
+   The rail scrolls down and never sideways, at every width. A menu you have
+   to swipe horizontally hides destinations from the people who need them
+   most, and it hides them invisibly. */
+.sidebar { overflow-x: hidden; }
+.sb-nav {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+.nav-item { min-width: 0; }
+.nav-item .nav-label {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.nav-sec {
+  font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--muted-soft); font-weight: 600;
+}
+/* Primary work above, the machinery and the tools below it, separated by air
+   rather than by another line. */
+.sb-nav .nav-sec + .nav-item { margin-top: 2px; }
+.sb-nav .nav-item + .nav-sec { margin-top: var(--s4); }
+#v2-guide-link, #v2-nav-feedback { cursor: pointer; }
+
+
+/* ── 17. THE CLIENT BELOW THE SPLIT ───────────────────────────────────────
+   Appended last on purpose: section 15 sets the compact bar's resting state,
+   so the override that makes it permanent below the split has to come after
+   it or source order quietly wins. */
+@media (max-width: 1180px) {
+  /* Below the split the client IS the screen, so the way back out is always
+     on it — not only once you have scrolled far enough to collapse the title.
+     The large name still gives way to the compact one. */
+  .rd-cw-head .rd-cw-bar { display: flex; }
+  .rd-cw-head.compact .rd-cw-bar { border-bottom: 1px solid var(--line); }
+  .rd-cw-name { font-size: 26px; }
+  .rd-act { flex: 1 1 0; min-width: 0; }
+  .rd-cp-kvs .rd-kv, .rd-kv { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .rd-kv dt { font-size: 12.5px; }
+}

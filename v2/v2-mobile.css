@@ -25,7 +25,7 @@
 /* ===========================================================================
    PHONE
    =========================================================================== */
-@media (max-width: 760px) {
+@media (max-width: 900px) {
 
   html, body { overscroll-behavior-y: none; }
   body { -webkit-text-size-adjust: 100%; }
@@ -202,12 +202,16 @@
 
   /* ---- forms ------------------------------------------------------------ */
   /* 16px is the iOS auto-zoom threshold. Not 15.5. */
+  /* !important on the height too: several fields carry a 34px min-height from
+     an ID-scoped rule in the app's own stylesheet, which outranks this one.
+     Found on the Log Visit panel — the date field and the note field were
+     39px and 37px while everything beside them was 44. */
   input, select, textarea, .fc {
     font-size: 16px !important;
-    min-height: 44px;
+    min-height: 44px !important;
     border-radius: 10px;
   }
-  textarea, textarea.fc { min-height: 96px; line-height: 1.45; }
+  textarea, textarea.fc { min-height: 96px !important; line-height: 1.45; }
   .fg { margin-bottom: 14px; }
   .fl { font-size: 12.5px; margin-bottom: 5px; }
   .btn {
@@ -296,7 +300,7 @@ html.v2-standalone body { background: var(--canvas, #FAF8F4); }
 /* ===========================================================================
    Guide — readable on a phone
    =========================================================================== */
-@media (max-width: 760px) {
+@media (max-width: 900px) {
   .guide-shell, .guide-main, .guide-body { display: block !important; }
   .guide-nav, .guide-side, aside.guide-nav {
     position: static !important; width: auto !important;
@@ -321,7 +325,7 @@ html.v2-standalone body { background: var(--canvas, #FAF8F4); }
 /* ===========================================================================
    Feedback — one-handed, keyboard-safe
    =========================================================================== */
-@media (max-width: 760px) {
+@media (max-width: 900px) {
   #v2-fb-btn {
     bottom: calc(var(--m-tabbar) + var(--m-bot) + 14px) !important;
     right: 14px !important;
@@ -336,7 +340,7 @@ html.v2-standalone body { background: var(--canvas, #FAF8F4); }
     padding-bottom: calc(var(--m-bot) + 12px);
     overflow-y: auto; -webkit-overflow-scrolling: touch;
   }
-  #v2-fb textarea { font-size: 16px !important; min-height: 110px; }
+  #v2-fb textarea { font-size: 16px !important; min-height: 110px !important; }
 }
 
 /* ===========================================================================
@@ -352,4 +356,182 @@ html.v2-standalone body { background: var(--canvas, #FAF8F4); }
 /* Respect the system setting; the drawer and sheet are the only animations. */
 @media (prefers-reduced-motion: reduce) {
   nav.sidebar, .v2-scrim, .md { transition: none !important; animation: none !important; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE CLIENT ON A PHONE
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 900px) {
+
+  /* ---- the More drawer -------------------------------------------------
+     It is the real sidebar, so it carries the real groups: Work, Operations,
+     Tools, in one vertical scroll. There is no second list to keep in step
+     and nothing that only exists on one of the two. */
+  nav.sidebar .sb-nav { overflow-y: visible; }
+  nav.sidebar .nav-sec {
+    padding: 18px 20px 6px 20px; font-size: 10.5px; letter-spacing: .09em;
+  }
+  nav.sidebar .nav-item {
+    min-height: 44px; padding: 10px 12px; margin: 1px 12px; font-size: 15px;
+  }
+  nav.sidebar .nav-item .nav-label { font-size: 15px; }
+  nav.sidebar .sb-brand { padding-top: 4px; }
+
+  /* ---- the client workspace -------------------------------------------- */
+  .rd-cw-bar {
+    /* sits directly beneath the translucent top bar, never under it */
+    top: calc(var(--m-topbar) + var(--m-top));
+    margin-left: calc(-1 * max(16px, var(--m-left)));
+    margin-right: calc(-1 * max(16px, var(--m-right)));
+    padding-left: max(16px, var(--m-left));
+    padding-right: max(16px, var(--m-right));
+  }
+  .rd-cw-name { font-size: 27px; }
+  .rd-cw-acts { margin-top: 16px; }
+  .rd-act { min-height: 56px; font-size: 11.5px; }
+
+  /* Section chips: four fit a phone, the fifth is the overflow. Nothing here
+     scrolls sideways. */
+  .rd-cw-head .rd-cw-rail { gap: 0; margin-top: 20px; }
+  .rd-cw-head .rd-cw-rail button[data-key] {
+    flex: 1 1 0; min-width: 0; padding: 0 2px 10px; font-size: 13px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .rd-cw-moremenu { flex: 0 0 auto; }
+
+  /* Time first and big; who and what underneath. */
+  .rd-vz { padding: 14px 0; }
+  .rd-vz-t { font-size: 16px; }
+  .rd-vz-w { font-size: 15px; }
+
+  .rd-tl li { grid-template-columns: 52px minmax(0, 1fr); }
+  .rd-team li { padding: 14px 0; }
+  .rd-ws-block { margin-top: 28px; }
+  .rd-ws-sub-h { margin-top: 20px; }
+
+  /* The footer actions sit above the tab bar, not under it. */
+  .rd-ws-actions { margin-bottom: 8px; }
+
+  /* The client list is the screen when nothing is selected. */
+  #rd-split { gap: 0; }
+  .rd-cl-open { padding: 13px 10px; min-height: 44px; }
+  .rd-cl-name { font-size: 16px; }
+
+  /* A table inside a client workspace is never the right answer on a phone;
+     the workspace renders lists. Belt and braces so a contributed block
+     cannot reintroduce one. */
+  .rd-split-ws table { font-size: 14px; }
+}
+
+/* Short, wide phones: the action row would otherwise eat the fold. */
+@media (max-width: 900px) and (max-height: 460px) and (orientation: landscape) {
+  .rd-cw-acts { display: none; }
+  .rd-cw-name { font-size: 20px; }
+}
+
+/* One bar, not two: the top bar IS the client's bar while a client is open,
+   so the in-page bar never appears and the large header never has to collapse
+   to make room for it. Orientation is permanent and costs 52px once. */
+@media (max-width: 900px) {
+  html.v2-client .rd-cw-bar { display: none !important; }
+  html.v2-client .rd-cw-head.compact .rd-cw-name { display: block; }
+  html.v2-client .rd-cw-head.compact .rd-cw-meta { display: block; }
+  html.v2-client .rd-cw-head.compact .rd-cw-addr { display: block; }
+  html.v2-client .rd-cw-head.compact .rd-cw-acts { display: flex; }
+}
+
+/* Home, on a phone: what needs me, what is happening today, what I owe
+   somebody — and only then the numbers. Same sections as the desk, ordered
+   for a screen you hold in one hand. */
+@media (max-width: 900px) {
+  /* .active, deliberately: `#page-home` alone is an ID selector and outranks
+     the app's own `.page{display:none}`, so Home stayed on screen underneath
+     every other page. Caught at 393px, invisible on a desk. */
+  #page-home.active { display: flex; flex-direction: column; }
+  #page-home > .ph      { order: 0; }
+  #page-home > #rd-s-attn  { order: 1; }
+  #page-home > #rd-s-next  { order: 2; }
+  #page-home > #rd-s-tools { order: 3; }
+  #page-home > #rd-s-case  { order: 4; }
+  #page-home > *        { order: 5; }
+  .rd-sec-h h3 { font-size: 15px; }
+}
+
+/* The Client Tracker's own title, search box and filters belong to the list.
+   While a client fills the screen they are controls for something that is not
+   on it, so they step aside and come back the moment you do. */
+@media (max-width: 900px) {
+  html.v2-client #page-clients > .rd-list-chrome { display: none !important; }
+}
+
+/* Touch targets. The section chips and the in-flow links are navigation, not
+   decoration, so they get a thumb's worth of height on a phone even though
+   their type stays the same size. */
+@media (max-width: 900px) {
+  .rd-cw-head .rd-cw-rail button[data-key],
+  .rd-cw-head .rd-cw-more { min-height: 44px; padding-bottom: 12px; }
+  .rd-ws-body .rd-link,
+  .rd-ws-block .rd-link,
+  .rd-attn-l .rd-link {
+    display: inline-flex; align-items: center; min-height: 44px;
+  }
+  .rd-kv dd a { display: inline-flex; align-items: center; min-height: 44px; }
+}
+
+/* Disclosure summaries and inline link-buttons contributed by other layers
+   are tap targets too. */
+@media (max-width: 900px) {
+  .rd-more > summary,
+  .rd-cp-fold > summary { min-height: 44px; display: flex; align-items: center; }
+  .rd-linkbtn, .rd-ws-block .rd-linkbtn {
+    display: inline-flex; align-items: center; min-height: 44px;
+  }
+}
+
+/* Filter chips and tab strips across the app. They are small by design on a
+   desk, where a mouse can hit 29px; a thumb cannot. The type stays the same
+   size — only the target grows. */
+@media (max-width: 900px) {
+  .mfb-btn, .rd-view, .rd-seg-b, .tabs .tab, .rd-cl-view {
+    min-height: 44px; display: inline-flex; align-items: center;
+  }
+  .tabs { display: flex; flex-wrap: wrap; overflow-x: visible; }
+  .tabs .tab { flex: 0 0 auto; }
+}
+
+/* The cadence legend on Communications is a non-wrapping flex row written for
+   a desk; at 393px its last chip hangs 12px off the right edge and takes the
+   whole page into horizontal scroll. */
+@media (max-width: 900px) {
+  #comms-due > div { flex-wrap: wrap; row-gap: 6px; }
+  #cm-legend { flex-wrap: wrap; row-gap: 6px; }
+}
+
+/* The close control on every modal. 30px with a mouse, 44 with a thumb. */
+@media (max-width: 900px) {
+  .mc, .md .mc, button.mc {
+    min-width: 44px; min-height: 44px;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TOUCH TARGETS ON ANY TOUCH DEVICE
+   ═══════════════════════════════════════════════════════════════════════════
+   The phone layer stops at 900px, which is right for LAYOUT — an iPad in
+   landscape should get the two-column client workspace, not a bottom tab bar.
+   It is wrong for TARGETS: the same thumb is doing the tapping at 1194px as at
+   393px. Size is decided by the pointer, not by the width. */
+@media (pointer: coarse) {
+  .btn, .btn.btn-sm, .tab, .rd-view, .mfb-btn, .rd-seg-b, .rd-link, .rd-linkbtn,
+  .nav-item, .rd-search-btn, .mc, .rd-cw-more,
+  .rd-cw-head .rd-cw-rail button[data-key] {
+    min-height: 44px;
+  }
+  .btn, .tab, .rd-view, .mfb-btn, .rd-seg-b, .rd-link, .rd-linkbtn,
+  .rd-search-btn, .mc, .rd-cw-more { display: inline-flex; align-items: center; }
+  .nav-item { display: flex; align-items: center; }
+  .mc { min-width: 44px; justify-content: center; }
+  input, select, textarea, .fc { min-height: 44px !important; font-size: 16px !important; }
+  .rd-more > summary, .rd-cp-fold > summary { min-height: 44px; display: flex; align-items: center; }
 }

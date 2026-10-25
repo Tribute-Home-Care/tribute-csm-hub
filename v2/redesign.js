@@ -65,14 +65,32 @@
       }
     });
   }
+  /* Three groups, because a CSM is responsible for CLIENTS and everything
+     else is a tool for caring for them. Work is the day. Operations is the
+     machinery behind it. Tools are what you reach for. Six headings over ten
+     destinations was the rail describing itself; three is the rail getting
+     out of the way. Visibility is still decided by the application's own
+     role rules — nothing here grants or hides a capability. */
   const GROUPS = [
-    ['Today', [['home', 'Home'], ['priority', 'Fill Priority']]],
-    ['Clients', [['clients', 'Client Tracker'], ['pulse', 'Client Pulse'], ['s60', 'Success in 30']]],
-    ['Operations', [['ltc', 'LTC Submissions'], ['md', 'Maryland Compliance']]],
-    ['Relationships', [['coverage', 'Coverage & Communities'], ['emailcomm', 'Email Community']]],
-    ['Knowledge', [['assistant', 'Tribute Assistant'], ['expectations', 'Role Expectations'], ['kpi', 'KPI Tracker']]],
-    ['Team', [['team', 'Team Overview']]]
+    ['Work', [['home', 'Home'], ['clients', 'Clients'], ['coverage', 'Coverage'],
+              ['s60', 'Success in 30'], ['priority', 'Fill Priority'], ['pulse', 'Client Pulse']]],
+    ['Operations', [['md', 'Maryland Compliance'], ['ltc', 'LTC'],
+                    ['emailcomm', 'Community Email'], ['team', 'Team']]],
+    ['Tools', [['assistant', 'Assistant'], ['kpi', 'KPI Tracker'],
+               ['expectations', 'Role Expectations'],
+               ['__guide', 'Guide'], ['__feedback', 'Feedback']]]
   ];
+  /* Two rail entries that are not pages. They open the capability the Hub
+     already has — one Guide, one Feedback sheet — rather than a second
+     implementation of either. */
+  const NAV_EXTRA = {
+    __guide: { icon: 'book', id: 'v2-guide-link', ok: function () { return !!window.TributeGuide; },
+               go: function () { window.TributeGuide.open(); } },
+    __feedback: { icon: 'conversation', id: 'v2-nav-feedback',
+                  ok: function () { return !!(window.TributeApp && window.TributeApp.feedback); },
+                  go: function () { window.TributeApp.feedback.open(); } }
+  };
+
   const NAV_ID = { pulse: 'nav-pulse', team: 'nav-team', md: 'nav-md' };
 
   function rebuildNav() {
@@ -83,19 +101,39 @@
       const m = /showPage\('([a-z0-9]+)'/.exec(el.getAttribute('onclick') || '');
       if (m) original[m[1]] = el;
     });
-    const mgrSec = $('#mgr-sec', navEl);
     const frag = document.createDocumentFragment();
 
     GROUPS.forEach(function (g) {
       const title = g[0], items = g[1];
-      const present = items.filter(function (it) { return original[it[0]] || it[0] === 'expectations'; });
+      const present = items.filter(function (it) {
+        const x = NAV_EXTRA[it[0]];
+        if (x) return x.ok();
+        return original[it[0]] || it[0] === 'expectations';
+      });
       if (!present.length) return;
-      if (title === 'Team' && mgrSec) { mgrSec.textContent = 'Team'; frag.appendChild(mgrSec); }
-      else { const h = document.createElement('div'); h.className = 'nav-sec'; h.textContent = title; frag.appendChild(h); }
+      const h = document.createElement('div'); h.className = 'nav-sec'; h.textContent = title; frag.appendChild(h);
 
       present.forEach(function (it) {
         const key = it[0], label = it[1];
+        const extra = NAV_EXTRA[key];
         let el = original[key];
+        if (extra) {
+          el = document.createElement('div');
+          el.className = 'nav-item';
+          el.id = extra.id;
+          el.setAttribute('role', 'button');
+          el.setAttribute('tabindex', '0');
+          el.addEventListener('click', function () { try { extra.go(); } catch (e) {} });
+          el.addEventListener('keydown', function (ev) {
+            if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); try { extra.go(); } catch (e) {} }
+          });
+          const ic = document.createElement('span'); ic.className = 'nav-icon';
+          ic.innerHTML = I(extra.icon); el.appendChild(ic);
+          const lb = document.createElement('span'); lb.className = 'nav-label'; lb.textContent = label;
+          el.appendChild(lb);
+          frag.appendChild(el);
+          return;
+        }
         if (!el) {
           // Role Expectations: page, renderer and showPage route all exist in
           // production with nothing pointing at them. Restored, not invented.
@@ -139,9 +177,35 @@
      A director, who can see Maryland Compliance and Team Overview, keeps
      every group — the structure earns itself there, and nothing is
      hard-coded per role. */
+  /* The rail is built once. Guide and Feedback come from layers that are only
+     present in the deployed build, and if either of them finished loading
+     after that one build the entry would be missing for the whole session
+     with nothing to say why. Cheap to check, so it is checked. */
+  function ensureNavExtras() {
+    const navEl = $('.sb-nav');
+    if (!navEl || !navEl.dataset.rd) return;
+    Object.keys(NAV_EXTRA).forEach(function (key) {
+      const x = NAV_EXTRA[key];
+      if (!x.ok() || document.getElementById(x.id)) return;
+      const label = (GROUPS.reduce(function (a, g) { return a.concat(g[1]); }, [])
+        .find(function (it) { return it[0] === key; }) || [key, key])[1];
+      const el = document.createElement('div');
+      el.className = 'nav-item'; el.id = x.id;
+      el.setAttribute('role', 'button'); el.setAttribute('tabindex', '0');
+      el.addEventListener('click', function () { try { x.go(); } catch (e) {} });
+      el.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); try { x.go(); } catch (e) {} }
+      });
+      el.innerHTML = '<span class="nav-icon">' + I(x.icon) + '</span>' +
+                     '<span class="nav-label">' + esc(label) + '</span>';
+      navEl.appendChild(el);
+    });
+  }
+
   function tidyNav() {
     const navEl = $('.sb-nav');
     if (!navEl || !navEl.dataset.rd) return;
+    ensureNavExtras();
     const kids = Array.from(navEl.children);
     const groups = [];
     kids.forEach(function (el) {
@@ -160,12 +224,12 @@
       const live = g.items.filter(shown);
       g.head.style.display = '';
       if (!live.length) { g.head.style.display = 'none'; return; }
-      // "Team" is exempt. It is not an organising convenience, it is a
-      // permission boundary — the one group a CSM cannot see — and folding
-      // "Team Overview" up under "Knowledge" would read as a knowledge
-      // article rather than as somebody else's caseload.
-      const exempt = /^team$/i.test((g.head.textContent || '').trim());
-      if (live.length === 1 && prev && !exempt) { g.head.style.display = 'none'; }
+      // Three groups all survive for every role now: the thinnest caseload
+      // still sees Home / Clients / Coverage / Success in 30 / Fill Priority
+      // under Work and at least LTC and Community Email under Operations. The
+      // rule is kept anyway, because a future permission change could empty
+      // one and a heading over a single item is noise.
+      if (live.length === 1 && prev) { g.head.style.display = 'none'; }
       else prev = g;
     });
   }
@@ -495,6 +559,7 @@
       b.setAttribute('aria-selected', String(on));
     });
     renderWorkspace();
+    announceSelection(cid);
     const sp = $('#rd-split'); if (sp) sp.classList.add('has-sel');
     if (window.TributeRouter) TributeRouter.push({ page: 'clients', client: cid, section: null, layer: null });
     if (window.innerWidth <= 980) {
@@ -511,19 +576,74 @@
     $$('.rd-cl-open').forEach(function (b) { b.classList.remove('sel'); b.setAttribute('aria-selected', 'false'); });
     const sp = $('#rd-split'); if (sp) sp.classList.remove('has-sel');
     renderWorkspace();
+    announceSelection(null);
   }
 
-  /* ── The workspace ────────────────────────────────────────────────────── */
-  const WS_AREAS = [['overview', 'Overview'], ['care', 'Care'], ['schedule', 'Schedule'],
-    ['communication', 'Communication'], ['more', 'More']];
+  /* The page's own chrome belongs to the LIST, not to the client. On a desk
+     it sits above both columns and is unobtrusive; on a phone, where the list
+     gives way to the client entirely, it was 300px of title, search box, two
+     filters and two buttons stacked on top of the person — the top half of the
+     screen spent on controls for a list that is no longer on screen. Marked
+     here, hidden by the phone layer only. */
+  function markListChrome() {
+    const page = $('#page-clients');
+    if (!page) return;
+    const mark = function (el) { if (el && el.parentElement === page) el.classList.add('rd-list-chrome'); };
+    mark($('.ph', page));
+    mark($('#cm-legend', page));
+    const search = $('#cm-search', page);
+    if (search) { let n = search; while (n && n.parentElement !== page) n = n.parentElement; mark(n); }
+  }
+
+  /* One event, so a phone's single title bar can become the client's without
+     this file knowing anything about phones. */
+  function announceSelection(cid) {
+    markListChrome();
+    const c = cid ? (A().fn.get('clients') || []).find(function (x) { return x.id === cid; }) : null;
+    try {
+      window.dispatchEvent(new CustomEvent('tribute:client-selected',
+        { detail: { cid: cid || null, name: c ? c.name : null } }));
+    } catch (e) {}
+  }
+
+  /* ── The client workspace ─────────────────────────────────────────────────
+     A client is the centre of this application, so opening one opens a place,
+     not another dashboard. Four sections earn a permanent chip — Overview,
+     Care Plan, Schedule, Activity — and the rest of what a CSM occasionally
+     needs is one tap away behind More rather than permanently in the way.
+
+     Everything factual here comes from Viv through two READS (v2-client.js).
+     Nothing is stored, copied or synchronised, and a read that fails says so
+     instead of rendering as an empty day. */
+  const WS_AREAS = [['overview', 'Overview'], ['careplan', 'Care Plan'],
+                    ['schedule', 'Schedule'], ['activity', 'Activity']];
+  const WS_MORE = [['team', 'Care Team'], ['info', 'Client Information'],
+                   ['communication', 'Communication'], ['care', 'Pulse & Care'],
+                   ['admin', 'LTC & Other']];
+  const WS_TITLE = {};
+  WS_AREAS.concat(WS_MORE).forEach(function (a) { WS_TITLE[a[0]] = a[1]; });
+
+  /* Live reads. Absent in the local prototype, which has no endpoint to call —
+     the workspace then shows what the roster knows and says the rest is
+     unavailable here, rather than inventing it. */
+  function CD(c) {
+    const S = window.TributeClientData;
+    if (!S || !c || !c.vivId) return { state: 'none', data: null, error: null };
+    return S.client(c.vivId);
+  }
+  function CP(c) {
+    const S = window.TributeClientData;
+    if (!S || !c || !c.vivId) return { state: 'none', data: null, error: null };
+    return S.careplan(c.vivId);
+  }
 
   function pulseFor(c) {
     const p = A().pulse;
     return (p && c.vivId && p.byCid) ? p.byCid[c.vivId] : null;
   }
-  function kv(label, value) {
+  function kv(label, value, extra) {
     if (!value) return '';
-    return '<div class="rd-kv"><dt>' + esc(label) + '</dt><dd>' + esc(value) + '</dd></div>';
+    return '<div class="rd-kv"><dt>' + esc(label) + '</dt><dd>' + (extra ? value : esc(value)) + '</dd></div>';
   }
   function block(title, body, quiet) {
     if (!body) return '';
@@ -534,6 +654,164 @@
     return '<div class="rd-ev"><span class="d">' + fmtShort(date) + '</span>' +
       '<span class="t">' + esc(text) + '</span>' +
       (meta ? '<span class="m">' + esc(meta) + '</span>' : '') + '</div>';
+  }
+  function quiet(t) { return '<p class="rd-ws-quiet">' + esc(t) + '</p>'; }
+  /* A read that did not answer and a day with nothing in it look identical on
+     screen and mean opposite things, so they never share a rendering. */
+  function unread(snap, what) {
+    if (snap.state === 'loading') return '<p class="rd-ws-load">Reading ' + esc(what) + ' from Viv…</p>';
+    if (snap.state === 'error') return '<p class="rd-ws-warn">' + esc(snap.error || 'Viv did not answer.') +
+      ' <button type="button" class="rd-link" data-act="reload">Try again</button></p>';
+    if (snap.state === 'none') return '<p class="rd-ws-quiet">' + esc(what) +
+      ' comes from Viv and is not available in this build.</p>';
+    return null;
+  }
+
+  /* ── schedule shaping ───────────────────────────────────────────────────
+     The server already formatted each visit's start and end in the CLIENT's
+     own market timezone and told us which date that was. Nothing here re-reads
+     a clock, because the browser's timezone is not the client's. */
+  function localDay(off) {
+    const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + (off || 0));
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function dayLabel(iso) {
+    if (iso === localDay(0)) return 'Today';
+    if (iso === localDay(1)) return 'Tomorrow';
+    return new Date(iso + 'T12:00:00').toLocaleDateString('en-US',
+      { weekday: 'long', month: 'long', day: 'numeric' });
+  }
+  function visitsOn(snap, iso) {
+    const v = (snap.data && snap.data.schedule && snap.data.schedule.visits) || [];
+    return v.filter(function (x) { return x.date === iso && !x.canceled; });
+  }
+  function visitRow(v) {
+    const who = v.open ? 'Open visit' : (v.caregiver || 'Caregiver');
+    const note = v.open ? 'Needs coverage' : (v.supervisory ? (v.type || 'CSM visit') : (v.type || ''));
+    return '<li class="rd-vz' + (v.open ? ' open' : '') + '">' +
+      '<span class="rd-vz-t">' + esc(v.start) + ' – ' + esc(v.end) + '</span>' +
+      '<span class="rd-vz-w">' + esc(who) + '</span>' +
+      (note ? '<span class="rd-vz-m">' + esc(note) + '</span>' : '') + '</li>';
+  }
+  function visitList(list) { return '<ul class="rd-vzs">' + list.map(visitRow).join('') + '</ul>'; }
+
+  /* ── care plan shaping ──────────────────────────────────────────────────
+     The form's own section titles are used verbatim. Nothing is renamed and no
+     category is invented; the only editorial act is the order, so that what a
+     CSM needs standing in a hallway comes before what the office needs. */
+  const CP_ORDER = [/personal care|adl/i, /mobilit/i, /transfer/i, /medication/i,
+    /meal|nutrition|diet/i, /cognit|memory|dementia/i, /safety|fall|emergenc/i,
+    /behaviou?r/i, /housekeep|home|laundr/i, /companion|social/i,
+    /preference|routine|likes/i, /restrict|precaution/i, /instruction/i];
+  function cpRank(title) {
+    for (let i = 0; i < CP_ORDER.length; i++) if (CP_ORDER[i].test(title || '')) return i;
+    return CP_ORDER.length + 1;
+  }
+  function cpSections(snap) {
+    const p = snap.data && snap.data.careplan;
+    const s = (p && p.sections) || [];
+    return s.slice().sort(function (a, b) { return cpRank(a.title) - cpRank(b.title); });
+  }
+
+  /* ── activity ───────────────────────────────────────────────────────────
+     Operational events only: what somebody did with this client, in order.
+     No technical logs. */
+  function activityFor(c, snap) {
+    const out = [];
+    rowsFor('visits', c.id).forEach(function (v) {
+      out.push({ date: v.date, kind: 'Visit', text: v.type || 'Visit', meta: v.by || '' }); });
+    rowsFor('touchpoints', c.id).forEach(function (t) {
+      out.push({ date: t.date, kind: 'Touchpoint', text: t.type || 'Touchpoint',
+                 meta: String(t.note || t.notes || '').slice(0, 60) }); });
+    rowsFor('checkins', c.id).forEach(function (x) {
+      out.push({ date: x.date, kind: 'Care conversation',
+                 text: 'Satisfaction ' + (x.satisfaction || '—') + '/5',
+                 meta: String(x.working || '').slice(0, 60) }); });
+    rowsFor('s60', c.id).forEach(function (m) {
+      out.push({ date: m.date, kind: 'Success in 30', text: m.type || m.milestone || 'Milestone', meta: '' }); });
+    try {
+      const comms = ((A().data.shared || {}).comms || {}).byClient || {};
+      ((comms[c.vivId] || comms[c.id] || {}).events || []).forEach(function (e) {
+        out.push({ date: String(e.date || e.day || '').slice(0, 10), kind: 'Communication',
+                   text: e.kind || e.type || 'Contact', meta: String(e.subject || e.with || '').slice(0, 60) });
+      });
+    } catch (e) {}
+    const pp = pulseFor(c);
+    if (pp && pp.generatedAt) out.push({ date: String(pp.generatedAt).slice(0, 10), kind: 'Pulse',
+      text: (pp.level === 'red' ? 'Needs attention' : pp.level === 'amber' ? 'Watch' : 'Stable'),
+      meta: String(pp.headline || '').split('. ')[0] });
+    // Completed caregiver visits from Viv, which the Hub's own log does not hold.
+    const sv = (snap.data && snap.data.schedule && snap.data.schedule.visits) || [];
+    const today = localDay(0);
+    sv.filter(function (v) { return v.date < today && !v.canceled && v.caregiver && !v.supervisory; })
+      .forEach(function (v) {
+        out.push({ date: v.date, kind: 'Care visit',
+                   text: v.caregiver, meta: v.start + ' – ' + v.end }); });
+    return out.filter(function (x) { return x.date; })
+      .sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
+  }
+  function activityLines(items) {
+    return '<ol class="rd-tl">' + items.map(function (x) {
+      return '<li><span class="rd-tl-d">' + esc(fmtShort(x.date)) + '</span>' +
+        '<span class="rd-tl-b"><span class="rd-tl-k">' + esc(x.kind) + '</span>' +
+        '<span class="rd-tl-t">' + esc(x.text) + '</span>' +
+        (x.meta ? '<span class="rd-tl-m">' + esc(x.meta) + '</span>' : '') + '</span></li>';
+    }).join('') + '</ol>';
+  }
+
+  /* ── the header ─────────────────────────────────────────────────────────
+     Person first, in the spirit of a contact card rather than a record page:
+     the name, where they live, and the few actions you take while standing
+     there. Everything administrative is a section away. */
+  function wsHeader(c, snap) {
+    const d = snap.data || {};
+    const ct = d.contact || {};
+    // The roster already carries Viv's formatted address, so it is on screen
+    // the instant the client opens rather than after a round trip. The live
+    // read replaces it when it lands.
+    const addr = ct.address || c.address || '';
+    const street = addr ? addr.split(',')[0] : '';
+    const rest = addr ? addr.split(',').slice(1).join(',').trim().replace(/,\s*(United States|USA)$/i, '') : '';
+    const status = (c.vivStatus && String(c.vivStatus).toLowerCase() !== 'active')
+      ? c.vivStatus : (d.service && d.service.status) || 'Active';
+    const meta = [c.market || (d.market || ''), status].filter(Boolean).join(' · ');
+
+    const acts = [];
+    const phone = ct.phone || (d.primaryContact && d.primaryContact.phone) || '';
+    if (phone) acts.push('<a class="rd-act" href="tel:' + esc(phone.replace(/[^\d+]/g, '')) + '">' +
+      I('phone') + '<span>Call</span></a>');
+    if (addr) acts.push('<a class="rd-act" target="_blank" rel="noreferrer"' +
+      ' href="https://maps.apple.com/?q=' + encodeURIComponent(addr) + '">' +
+      I('pin') + '<span>Directions</span></a>');
+    acts.push('<button type="button" class="rd-act" data-act="log-tp">' + I('conversation') + '<span>Log contact</span></button>');
+    // Reserved for the next phase. Disabled, and honest about why.
+    acts.push('<button type="button" class="rd-act soon" disabled aria-disabled="true"' +
+      ' title="Coming soon">' + I('mic') + '<span>Record Visit</span>' +
+      '<em class="rd-soon">Soon</em></button>');
+
+    return '<header class="rd-cw-head">' +
+      '<div class="rd-cw-bar"><button type="button" class="rd-ws-back">' + I('arrowLeft') +
+      '<span>Clients</span></button><span class="rd-cw-bar-n">' + esc(c.name) + '</span></div>' +
+      '<h2 class="rd-cw-name">' + esc(c.name) + '</h2>' +
+      '<p class="rd-cw-meta">' + esc(meta) + '</p>' +
+      (addr
+        ? '<address class="rd-cw-addr">' + esc(street) + (ct.unit ? ' · ' + esc(ct.unit) : '') +
+          (rest ? '<span>' + esc(rest) + '</span>' : '') + '</address>'
+        : (c.loc || c.city ? '<address class="rd-cw-addr"><span>' +
+            esc([c.loc, c.city].filter(Boolean).join(', ')) + '</span></address>'
+          : (snap.state === 'loading' ? '<address class="rd-cw-addr skel">&nbsp;</address>' : ''))) +
+      '<div class="rd-cw-acts">' + acts.join('') + '</div>' +
+      '<nav class="rd-cw-rail" role="tablist">' +
+      WS_AREAS.map(function (a) {
+        return '<button type="button" role="tab" data-key="' + a[0] + '" aria-selected="' +
+          (_section === a[0]) + '">' + esc(a[1]) + '</button>';
+      }).join('') +
+      '<div class="rd-menu rd-cw-moremenu"><button type="button" class="rd-cw-more" data-menu="ws"' +
+      ' aria-haspopup="true" aria-selected="' + (WS_AREAS.every(function (a) { return a[0] !== _section; })) + '">' +
+      '<span>More</span>' + I('chevronDown') + '</button><div class="rd-menu-list right" data-for="ws">' +
+      WS_MORE.map(function (a) {
+        return '<button type="button" data-go="' + a[0] + '">' + esc(a[1]) + '</button>';
+      }).join('') + '</div></div></nav></header>';
   }
 
   function renderWorkspace() {
@@ -546,29 +824,27 @@
         '<p>Choose a client to see how they are doing.</p></div>';
       return;
     }
+    const snap = CD(c);
     const ex = exceptionFor(c);
     const pp = pulseFor(c);
 
-    const head =
-      '<header class="rd-ws-head">' +
-      '<button type="button" class="rd-ws-back">' + I('arrowLeft') + 'All clients</button>' +
-      '<h2>' + esc(c.name) + '</h2>' +
-      '<p class="rd-ws-sub">' + esc([c.loc, c.city].filter(Boolean).join(', ') || 'Private residence') +
-      (c.type ? '<span class="dot">·</span>' + esc(c.type) : '') + '</p>' +
-      '<nav class="rd-cw-rail" role="tablist">' + WS_AREAS.map(function (a) {
-        return '<button type="button" role="tab" data-key="' + a[0] + '" aria-selected="' + (_section === a[0]) + '">' + esc(a[1]) + '</button>';
-      }).join('') + '</nav></header>';
-
     let body = '';
-    if (_section === 'overview') body = wsOverview(c, ex, pp);
-    else if (_section === 'care') body = wsCare(c, pp);
-    else if (_section === 'schedule') body = wsSchedule(c);
+    if (_section === 'overview') body = wsOverview(c, ex, pp, snap);
+    else if (_section === 'careplan') body = wsCarePlan(c);
+    else if (_section === 'schedule') body = wsSchedule(c, snap);
+    else if (_section === 'activity') body = wsActivity(c, snap);
+    else if (_section === 'team') body = wsTeam(c, snap);
+    else if (_section === 'info') body = wsInfo(c, snap);
     else if (_section === 'communication') body = wsCommunication(c);
+    else if (_section === 'care') body = wsCare(c, pp);
     else body = wsMore(c);
 
-    ws.innerHTML = head + '<div class="rd-ws-body">' + body + '</div>' + wsActions(c);
+    const sub = WS_AREAS.every(function (a) { return a[0] !== _section; })
+      ? '<h3 class="rd-ws-sub-h">' + esc(WS_TITLE[_section] || '') + '</h3>' : '';
 
-    $$('.rd-cw-rail button', ws).forEach(function (b) {
+    ws.innerHTML = wsHeader(c, snap) + '<div class="rd-ws-body">' + sub + body + '</div>' + wsActions(c);
+
+    $$('.rd-cw-rail button[data-key]', ws).forEach(function (b) {
       b.addEventListener('click', function () {
         _section = b.dataset.key;
         renderWorkspace();
@@ -579,41 +855,327 @@
     if (back) back.addEventListener('click', function () { deselectClient(); if (window.TributeRouter) TributeRouter.push({ page: 'clients', client: null }); });
     wireWsActions(ws, c);
     swapIcons(ws);
+    watchHeadCollapse(ws);
   }
 
-  // OVERVIEW — a summary, not a dump. Everything administrative is behind
-  // "View full details".
-  function wsOverview(c, ex, pp) {
+  /* §19 — a strong title to orient by, which gets out of the way once you are
+     working. The compact bar is the same back button and the same name, so
+     nothing is lost when the large one goes. */
+  function watchHeadCollapse(ws) {
+    const head = $('.rd-cw-head', ws), name = $('.rd-cw-name', ws);
+    if (!head || !name) return;
+    const scroller = (function (n) {
+      for (let p = n.parentElement; p; p = p.parentElement) {
+        const o = getComputedStyle(p).overflowY;
+        if (o === 'auto' || o === 'scroll') return p;
+      }
+      return window;
+    })(ws);
+    const on = function () {
+      const top = scroller === window ? window.scrollY : scroller.scrollTop;
+      const trip = name.offsetTop + name.offsetHeight - (scroller === window ? head.getBoundingClientRect().top + window.scrollY : 0);
+      head.classList.toggle('compact', top > Math.max(40, trip));
+    };
+    if (ws.__collapse) (ws.__sc || window).removeEventListener('scroll', ws.__collapse);
+    ws.__collapse = on; ws.__sc = scroller;
+    scroller.addEventListener('scroll', on, { passive: true });
+    on();
+  }
+
+  /* ── OVERVIEW — what do I need to know about this client right now? ───── */
+  function wsOverview(c, ex, pp, snap) {
     let out = '';
-    if (ex) out += block('Needs attention',
-      '<p class="rd-ws-ex ' + ex.tone + '">' + esc(ex.text) + '</p>');
-    // One compact Pulse signal, not a bordered box with three buttons.
-    if (pp && pp.level && pp.level !== 'green' && !c.pulseAck) {
-      out += block('', '<div class="rd-signal ' + (pp.level === 'red' ? 'bad' : 'warn') + '">' +
-        '<span class="k">' + (pp.level === 'red' ? 'Needs attention' : 'Watch') + '</span>' +
-        '<p>' + esc(String(pp.headline || '').split('. ')[0] + '.') + '</p>' +
-        '<button type="button" class="rd-link" data-go="care">Review</button></div>');
+
+    /* Attention. Rendered only when something is actually wrong: an empty
+       "all clear" card every day teaches people to stop reading the one that
+       matters. */
+    const attn = [];
+    if (ex) attn.push({ tone: ex.tone, text: ex.text });
+    if (pp && pp.level && pp.level !== 'green' && !c.pulseAck)
+      attn.push({ tone: pp.level === 'red' ? 'bad' : 'warn',
+                  text: String(pp.headline || '').split('. ')[0] + '.', go: 'care' });
+    const openToday = visitsOn(snap, localDay(0)).filter(function (v) { return v.open; });
+    if (openToday.length) attn.push({ tone: 'bad',
+      text: openToday.length === 1 ? 'An open visit today needs coverage'
+                                   : openToday.length + ' open visits today need coverage', go: 'schedule' });
+    if (snap.state === 'error') attn.push({ tone: 'warn', text: snap.error });
+    if (attn.length) out += block('Needs attention', '<ul class="rd-attn-l">' + attn.map(function (a) {
+      return '<li class="' + a.tone + '">' + esc(a.text) +
+        (a.go ? ' <button type="button" class="rd-link" data-go="' + a.go + '">Open</button>' : '') + '</li>';
+    }).join('') + '</ul>');
+
+    /* Today — the single most useful thing on a phone. */
+    const today = visitsOn(snap, localDay(0));
+    const todayBody = unread(snap, 'today’s schedule') ||
+      (today.length ? visitList(today) : quiet('No visits scheduled today.'));
+    out += block('Today', todayBody);
+
+    /* Next visit — only once today is done with, so it is never a duplicate. */
+    const sv = (snap.data && snap.data.schedule && snap.data.schedule.visits) || [];
+    const nowCut = localDay(0);
+    const next = sv.filter(function (v) { return !v.canceled && v.date > nowCut; })[0];
+    if (next) out += block('Next visit',
+      '<p class="rd-ws-next"><strong>' + esc(dayLabel(next.date)) + '</strong>' +
+      '<span class="dot">·</span>' + esc(next.start) + ' – ' + esc(next.end) + '</p>' +
+      '<p class="rd-ws-plain">' + esc(next.open ? 'Open visit · needs coverage' : (next.caregiver || 'Caregiver')) +
+      (next.type && !next.open ? '<span class="dot">·</span>' + esc(next.type) : '') + '</p>');
+    else if (!today.length && snap.state === 'ready')
+      out += block('Next visit', quiet('Nothing scheduled in the next two weeks.'));
+
+    /* Care snapshot — the few things you would want in your head walking in.
+       Drawn from the approved care plan's own sections, never written here. */
+    out += wsSnapshot(c);
+
+    /* Care team preview. */
+    const team = (snap.data && snap.data.careTeam) || [];
+    if (team.length) out += block('Care team',
+      '<ul class="rd-team">' + team.slice(0, 3).map(teamRow).join('') + '</ul>' +
+      (team.length > 3 ? '<button type="button" class="rd-link" data-go="team">All ' +
+        team.length + ' caregivers →</button>' : ''));
+
+    /* Recent activity. */
+    const acts = activityFor(c, snap);
+    if (acts.length) out += block('Recent', activityLines(acts.slice(0, 4)) +
+      '<button type="button" class="rd-link" data-go="activity">View all activity →</button>');
+
+    return out;
+  }
+
+  function wsSnapshot(c) {
+    const snap = CP(c);
+    const miss = unread(snap, 'the care plan');
+    if (miss) return block('Care snapshot', miss);
+    const p = snap.data && snap.data.careplan;
+    if (!p) return block('Care snapshot', quiet('No care plan on file in Viv yet.'));
+    const secs = cpSections(snap);
+    if (!secs.length) return block('Care snapshot',
+      quiet('The care plan is on file but has no structured answers to summarise.') +
+      '<button type="button" class="rd-link" data-go="careplan">Open the care plan →</button>');
+    const pick = secs.filter(function (s) { return cpRank(s.title) < CP_ORDER.length; }).slice(0, 4);
+    const show = (pick.length ? pick : secs.slice(0, 3));
+    return block('Care snapshot',
+      show.map(function (s) {
+        return '<div class="rd-snap"><span class="rd-snap-k">' + esc(s.title) + '</span>' +
+          '<p>' + esc(s.items.slice(0, 2).map(function (i) { return i.a; }).join(' · ')) + '</p></div>';
+      }).join('') +
+      '<button type="button" class="rd-link" data-go="careplan">Full care plan →</button>');
+  }
+
+  // Blocks contributed by another prototype layer, so a capability can live
+  // in a client area without this file knowing what it is.
+  function extraBlocks(area, c) {
+    const list = (window.TributeRedesign && window.TributeRedesign.areaBlocks &&
+                  window.TributeRedesign.areaBlocks[area]) || [];
+    return list.map(function (f) {
+      try { const r = f(c); return r ? block(r.title, r.html, r.quiet) : ''; } catch (e) { return ''; }
+    }).join('');
+  }
+
+  /* Days read in week order whatever order they arrive in: "Mon · Wed · Fri"
+     is a pattern, "Tue · Sat · Mon" is a list. */
+  const DOW_ORDER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  function orderDays(d) {
+    return (d || []).slice().sort(function (a, b) {
+      return DOW_ORDER.indexOf(a) - DOW_ORDER.indexOf(b);
+    });
+  }
+  function teamRow(t) {
+    const bits = [];
+    if (t.days && t.days.length) bits.push(orderDays(t.days).join(' · '));
+    if (t.hours) bits.push(t.hours + 'h');
+    return '<li><span class="rd-team-n">' + esc(t.name) + '</span>' +
+      (bits.length ? '<span class="rd-team-s">' + esc(bits.join('  ·  ')) + '</span>' : '') +
+      (t.next ? '<span class="rd-team-x">Next ' +
+        esc(new Date(t.next).toLocaleDateString('en-US', { weekday: 'short' })) + '</span>' : '') + '</li>';
+  }
+
+  /* ── CARE PLAN ──────────────────────────────────────────────────────────
+     The real approved plan, in the form's own sections, readable standing in
+     someone's living room. Long sections collapse; nothing is truncated away. */
+  function wsCarePlan(c) {
+    const snap = CP(c);
+    const miss = unread(snap, 'the care plan');
+    if (miss) return block('', miss);
+    const p = snap.data && snap.data.careplan;
+    if (!p) return block('Care plan',
+      quiet('No care plan is on file for this client in Viv.') +
+      (c.carePlanDate ? quiet('The Hub records one on ' + fmtShort(c.carePlanDate) + '.') : ''));
+
+    const state = p.status === 'approved'
+      ? 'Approved' + (p.approvedBy ? ' by ' + p.approvedBy : '') + (p.date ? ' · ' + fmtShort(p.date) : '')
+      : p.status === 'submitted' ? 'Submitted, not yet approved' + (p.date ? ' · ' + fmtShort(p.date) : '')
+      : 'Draft' + (p.date ? ' · ' + fmtShort(p.date) : '');
+    let out = '<div class="rd-cp-head"><h4>' + esc(p.title || 'Care Plan') + '</h4>' +
+      '<p class="rd-ws-quiet">' + esc(state) + '</p>' +
+      (p.stale ? '<p class="rd-ws-warn">This plan is over six months old.</p>' : '') +
+      (p.status !== 'approved' ? '<p class="rd-ws-warn">This is not an approved plan.</p>' : '') +
+      '</div>';
+
+    const secs = cpSections(snap);
+    if (!secs.length) {
+      out += quiet('This plan has no structured answers recorded.');
+    } else {
+      out += secs.map(function (s, i) {
+        const long = s.items.length > 4;
+        const items = '<dl class="rd-kvs rd-cp-kvs">' + s.items.map(function (it) {
+          return '<div class="rd-kv"><dt>' + esc(it.q) + '</dt><dd>' + esc(it.a) + '</dd></div>';
+        }).join('') + '</dl>';
+        if (!long) return '<section class="rd-cp-sec"><h5>' + esc(s.title) + '</h5>' + items + '</section>';
+        return '<details class="rd-cp-sec rd-cp-fold"' + (i < 2 ? ' open' : '') + '>' +
+          '<summary><h5>' + esc(s.title) + '</h5><span>' + s.items.length + '</span></summary>' +
+          items + '</details>';
+      }).join('');
     }
+    if (p.viewUrl) out += '<p class="rd-ws-quiet"><a class="rd-link" target="_blank" rel="noreferrer" href="' +
+      esc(p.viewUrl) + '">Open the signed plan in Viv →</a></p>';
+    return out;
+  }
+
+  /* ── SCHEDULE — who is coming, and when ─────────────────────────────── */
+  function wsSchedule(c, snap) {
+    const miss = unread(snap, 'the schedule');
+    if (miss) return block('', miss);
+    const sch = (snap.data && snap.data.schedule) || {};
+    const all = (sch.visits || []).filter(function (v) { return !v.supervisory; });
+    const today = localDay(0);
+    const upcoming = all.filter(function (v) { return v.date >= today; });
+
+    let out = '';
+    if (sch.note) out += '<p class="rd-ws-warn">' + esc(sch.note) + '</p>';
+    if (!upcoming.length) {
+      out += block('Upcoming', quiet('Nothing is scheduled for this client in the next two weeks.'));
+    } else {
+      const byDay = {};
+      upcoming.forEach(function (v) { (byDay[v.date] = byDay[v.date] || []).push(v); });
+      out += Object.keys(byDay).sort().map(function (d) {
+        return '<section class="rd-ws-block"><h4>' + esc(dayLabel(d)) + '</h4>' +
+          visitList(byDay[d]) + '</section>';
+      }).join('');
+    }
+    if (sch.tzLabel) out += '<p class="rd-ws-quiet">Times are ' + esc(sch.tzLabel) + ', the client’s own.</p>';
+
+    const past = all.filter(function (v) { return v.date < today; })
+      .sort(function (a, b) { return b.date < a.date ? -1 : 1; });
+    if (past.length) out += '<details class="rd-more"><summary>Earlier this fortnight</summary>' +
+      Object.keys(past.reduce(function (m, v) { m[v.date] = 1; return m; }, {})).sort().reverse()
+        .map(function (d) {
+          return '<div class="rd-past-d"><span>' + esc(dayLabel(d)) + '</span>' +
+            visitList(past.filter(function (v) { return v.date === d; })) + '</div>';
+        }).join('') + '</details>';
+
+    /* The CSM's own visit cadence is Hub judgment, not Viv's schedule, so it
+       is named separately rather than mixed into the caregiver week. */
     const nv = nextVisit(c);
-    if (nv) out += block('Next', '<p class="rd-ws-next">Visit<span class="dot">·</span>' + fmtShort(nv) + '</p>');
-    if (c.contact) out += block('Family contact', '<p class="rd-ws-plain">' + esc(c.contact) + '</p>');
+    out += block('Your next visit', nv ? '<p class="rd-ws-next">' + fmtShort(nv) + '</p>'
+      : quiet(c.freq === 'NA' ? 'No visit cadence set.' : 'Not scheduled.'), true);
+    out += extraBlocks('schedule', c);
+    return out;
+  }
 
-    const recent = rowsFor('touchpoints', c.id).slice(0, 2).concat(rowsFor('visits', c.id).slice(0, 1))
-      .sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); }).slice(0, 2);
-    if (recent.length) out += block('Recent', recent.map(function (r) {
-      return eventLine(r.date, r.type || 'Contact', '');
-    }).join(''));
+  /* ── CARE TEAM ──────────────────────────────────────────────────────── */
+  function wsTeam(c, snap) {
+    const miss = unread(snap, 'the care team');
+    if (miss) return block('', miss);
+    const team = (snap.data && snap.data.careTeam) || [];
+    let out = '';
+    if (!team.length) out += quiet('No caregiver is scheduled with this client in this fortnight.');
+    else out += '<ul class="rd-team big">' + team.map(function (t) {
+      const bits = [];
+      if (t.days && t.days.length) bits.push(orderDays(t.days).join(' · '));
+      bits.push(plural(t.visits, 'visit'));
+      if (t.hours) bits.push(t.hours + ' hours');
+      return '<li><span class="rd-team-n">' + esc(t.name) + '</span>' +
+        '<span class="rd-team-s">' + esc(bits.join('  ·  ')) + '</span>' +
+        '<span class="rd-team-x">' + (t.next
+          ? 'Next ' + esc(new Date(t.next).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }))
+          : t.last ? 'Last ' + esc(new Date(t.last).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })) : '') +
+        '</span></li>';
+    }).join('') + '</ul>';
+    /* Honest about provenance: Viv holds no care-team roster, so this IS the
+       schedule, grouped. The CSM's own note is kept beside it, not merged. */
+    out += '<p class="rd-ws-quiet">From the schedule for ' +
+      esc((snap.data && snap.data.schedule && snap.data.schedule.from) || '') + ' to ' +
+      esc((snap.data && snap.data.schedule && snap.data.schedule.to) || '') +
+      '. Viv does not keep a separate care-team list.</p>';
+    if (c.caregivers) out += block('Your note', '<p class="rd-ws-plain">' + esc(c.caregivers) + '</p>', true);
+    return out;
+  }
 
-    // Administrative fields, folded away.
-    out += '<details class="rd-more"' + (_showAdmin ? ' open' : '') + '><summary>View full details</summary>' +
+  /* ── CLIENT INFORMATION ─────────────────────────────────────────────── */
+  function wsInfo(c, snap) {
+    const d = snap.data || {};
+    const ct = d.contact || {};
+    const miss = unread(snap, 'contact details');
+    let out = '';
+
+    const tel = function (p) { return p ? '<a href="tel:' + esc(p.replace(/[^\d+]/g, '')) + '">' + esc(p) + '</a>' : ''; };
+    const mail = function (e) { return e ? '<a href="mailto:' + esc(e) + '">' + esc(e) + '</a>' : ''; };
+
+    if (miss && !ct.address) out += block('Contact', miss);
+    else out += block('Contact',
       '<dl class="rd-kvs">' +
-      kv('Type', c.type) + kv('Start of care', c.startDate ? fmtShort(c.startDate) : '') +
+      kv('Address', ct.address ? esc(ct.address) + (ct.unit ? '<span class="rd-sub">' + esc(ct.unit) + '</span>' : '') +
+        '<span class="rd-sub"><a class="rd-link" target="_blank" rel="noreferrer" href="https://maps.apple.com/?q=' +
+        encodeURIComponent(ct.address) + '">Directions</a></span>' : '', true) +
+      kv('Phone', tel(ct.phone), true) +
+      kv('Other phone', tel(ct.otherPhone), true) +
+      kv('Email', mail(ct.email), true) +
+      '</dl>');
+
+    const pc = d.primaryContact;
+    if (pc) out += block('Primary contact',
+      '<dl class="rd-kvs">' +
+      kv('Name', pc.name) + kv('Relationship', pc.relationship) +
+      kv('Phone', tel(pc.phone), true) + kv('Email', mail(pc.email), true) + '</dl>' +
+      (d.primaryContactSource === 'familyDetails'
+        ? quiet('No primary contact is set in Viv, so this is the first family contact on file.') : ''));
+    else if (!miss) out += block('Primary contact', quiet('No family contact is on file in Viv.'));
+
+    const others = (d.contacts || []).filter(function (x) { return !pc || x.name !== pc.name; });
+    if (others.length) out += '<details class="rd-more"><summary>Other contacts (' + others.length + ')</summary>' +
+      '<dl class="rd-kvs">' + others.map(function (x) {
+        return '<div class="rd-kv"><dt>' + esc(x.name) + (x.relationship ? ' · ' + esc(x.relationship) : '') + '</dt>' +
+          '<dd>' + [tel(x.phone), mail(x.email)].filter(Boolean).join('<span class="rd-sub"></span>') +
+          (x.emergency ? '<span class="rd-sub">Emergency contact</span>' : '') + '</dd></div>';
+      }).join('') + '</dl></details>';
+
+    const sv = d.service || {};
+    out += block('Care and service', '<dl class="rd-kvs">' +
+      kv('Start of care', (sv.careStarted || c.startDate) ? fmtShort(sv.careStarted || c.startDate) : '') +
+      kv('Market', c.market || d.market) +
+      kv('Service type', sv.caseType || c.type) +
+      kv('Community', sv.community || c.loc) +
+      kv('Status', sv.status || c.vivStatus) +
+      kv('CSM', sv.csm || c.csm) +
+      kv('Scheduling partner', sv.admin) +
+      kv('Client number', sv.clientNum || c.vivNum) +
+      kv('Tribute Secure', sv.tributeSecure || c.tributeSecure ? 'Yes' : '') +
+      '</dl>');
+
+    out += '<details class="rd-more"' + (_showAdmin ? ' open' : '') + '><summary>Hub details</summary>' +
+      '<dl class="rd-kvs">' +
       kv('Tier', c.tier) + kv('Visit cadence', c.freq === 'NA' ? 'None' : (c.freq || 90) + ' days') +
-      kv('Weekly hours', c.weeklyHours) + kv('CSM', c.csm) +
-      kv('Contact email', c.contactEmail) + kv('Birthday', c.birthday ? fmtShort(c.birthday) : '') +
-      kv('Caregivers', c.caregivers) + kv('Care plan', c.carePlanDate ? fmtShort(c.carePlanDate) : '') +
+      kv('Weekly hours', c.weeklyHours) + kv('Birthday', c.birthday ? fmtShort(c.birthday) : '') +
+      kv('Communication preferences', c.comm) +
+      kv('Rates', c.rateHistory) + kv('Notes', c.notes) +
       '</dl></details>';
     return out;
+  }
+
+  /* ── ACTIVITY ───────────────────────────────────────────────────────── */
+  function wsActivity(c, snap) {
+    const items = activityFor(c, snap);
+    if (!items.length) return block('', quiet('Nothing has been logged for this client yet.'));
+    const byMonth = {};
+    items.forEach(function (x) {
+      const k = String(x.date).slice(0, 7);
+      (byMonth[k] = byMonth[k] || []).push(x);
+    });
+    return Object.keys(byMonth).sort().reverse().slice(0, 6).map(function (k) {
+      const label = new Date(k + '-01T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      return '<section class="rd-ws-block"><h4>' + esc(label) + '</h4>' +
+        activityLines(byMonth[k]) + '</section>';
+    }).join('');
   }
 
   function wsCare(c, pp) {
@@ -633,46 +1195,15 @@
             '<button type="button" class="rd-link" data-act="ack" data-state="aware_none">Nothing needed</button>' +
             '<button type="button" class="rd-link" data-act="ack" data-state="aware_working">Working on it</button>' +
             '<button type="button" class="rd-link" data-act="ack" data-state="aware_1to1">Raising in 1:1</button></div>'));
-    }
+    } else out += block('Pulse', quiet('No Pulse read for this client yet.'));
     if (c.baselineNarrative) out += block('Baseline', '<p class="rd-ws-plain">' + esc(c.baselineNarrative) + '</p>');
     const cis = rowsFor('checkins', c.id);
     out += block('Care conversations',
       cis.length ? cis.slice(0, 4).map(function (x) {
         return eventLine(x.date, 'Satisfaction ' + (x.satisfaction || '—') + '/5', x.working ? String(x.working).slice(0, 48) : '');
-      }).join('') : '<p class="rd-ws-quiet">Nothing logged yet.</p>');
-    if (c.carePlanDate) out += block('Care plan', '<p class="rd-ws-plain">Last updated ' + fmtShort(c.carePlanDate) + '</p>', true);
+      }).join('') : quiet('Nothing logged yet.'));
+    out += extraBlocks('care', c);
     return out;
-  }
-
-  function wsSchedule(c) {
-    let out = '';
-    const nv = nextVisit(c);
-    out += block('Next visit', nv ? '<p class="rd-ws-next">' + fmtShort(nv) + '</p>'
-      : '<p class="rd-ws-quiet">' + (c.freq === 'NA' ? 'No visit cadence set.' : 'Not scheduled.') + '</p>');
-    const vs = rowsFor('visits', c.id);
-    out += block('Recent visits', vs.length
-      ? vs.slice(0, 5).map(function (v) { return eventLine(v.date, v.type || 'Visit', v.by || ''); }).join('')
-      : '<p class="rd-ws-quiet">Nothing logged yet.</p>');
-    try {
-      const ov = (((A().data.profiles || {})[A().profile.id] || {}).vivOpenVisits || [])
-        .filter(function (o) { return o.clientId === c.id; });
-      if (ov.length) out += block('Open visits', ov.slice(0, 5).map(function (o) {
-        return eventLine(o.day, (o.type || 'Visit') + ' unfilled', o.hours ? o.hours + 'h' : '');
-      }).join(''));
-    } catch (e) {}
-    if (c.vacation) out += block('Coverage', '<p class="rd-ws-plain">' + esc(c.vacation) + '</p>', true);
-    out += extraBlocks('schedule', c);
-    return out;
-  }
-
-  // Blocks contributed by another prototype layer, so a capability can live
-  // in a client area without this file knowing what it is.
-  function extraBlocks(area, c) {
-    const list = (window.TributeRedesign && window.TributeRedesign.areaBlocks &&
-                  window.TributeRedesign.areaBlocks[area]) || [];
-    return list.map(function (f) {
-      try { const r = f(c); return r ? block(r.title, r.html, r.quiet) : ''; } catch (e) { return ''; }
-    }).join('');
   }
 
   function wsCommunication(c) {
@@ -680,9 +1211,7 @@
     const tps = rowsFor('touchpoints', c.id);
     out += block('Recent touchpoints', tps.length
       ? tps.slice(0, 6).map(function (t) { return eventLine(t.date, t.type || 'Touchpoint', String(t.note || t.notes || '').slice(0, 44)); }).join('')
-      : '<p class="rd-ws-quiet">Nothing logged yet.</p>');
-    const contact = [c.contact, c.contactEmail].filter(Boolean).join(' · ');
-    if (contact) out += block('Family contact', '<p class="rd-ws-plain">' + esc(contact) + '</p>');
+      : quiet('Nothing logged yet.'));
     if (c.comm) out += block('Preferences', '<p class="rd-ws-plain">' + esc(c.comm) + '</p>', true);
     out += extraBlocks('communication', c);
     return out;
@@ -690,13 +1219,11 @@
 
   function wsMore(c) {
     let out = '';
-    // Community: the name and one contact. The directory lives in the
-    // Community entity rather than being copied into every client record.
     if (c.loc) {
       let cm = {};
       try { cm = ((A().data.shared || {}).communities || {})[c.loc] || {}; } catch (e) {}
       out += block('Community', '<p class="rd-ws-plain">' + esc(c.loc) + '</p>' +
-        (cm.mainContact ? '<p class="rd-ws-quiet">' + esc(cm.mainContact) + '</p>' : '') +
+        (cm.mainContact ? quiet(cm.mainContact) : '') +
         '<button type="button" class="rd-link" data-act="community">View community</button>');
     }
     // Identity, not a name match. prototype/workflows.js joins on the
@@ -728,14 +1255,13 @@
           (ambiguous.length > 1 ? 'they have' : 'it has') + ' not been attached to anyone. Open LTC Records and link ' +
           (ambiguous.length > 1 ? 'them' : 'it') + ' to the right client.</p>'
         : '');
-    out += block('LTC insurance', ltcBody || '<p class="rd-ws-quiet">No record on file.</p>');
+    out += block('LTC insurance', ltcBody || quiet('No record on file.'));
     const mdNav = $('#nav-md');
     if (mdNav && mdNav.style.display !== 'none' && /maryland|baltimore|annapolis|bethesda/i.test(c.market || '')) {
       out += block('Compliance', '<button type="button" class="rd-link" data-act="compliance">Open the Maryland board for this client</button>');
     }
     out += block('Fill priority', '<button type="button" class="rd-link" data-act="fill">Open fill priority</button>', true);
-    if (c.notes) out += block('Notes', '<p class="rd-ws-plain">' + esc(c.notes) + '</p>', true);
-    if (c.rateHistory) out += block('Rates', '<p class="rd-ws-plain">' + esc(c.rateHistory) + '</p>', true);
+    out += extraBlocks('more', c);
     return out;
   }
 
@@ -771,6 +1297,16 @@
     });
     document.addEventListener('click', function () { $$('.rd-menu-list').forEach(function (l) { l.classList.remove('open'); }); }, { once: true });
 
+    $$('[data-go]', ws).forEach(function (b) {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        $$('.rd-menu-list', ws).forEach(function (l) { l.classList.remove('open'); });
+        _section = b.dataset.go;
+        renderWorkspace();
+        if (window.TributeRouter) TributeRouter.push({ page: 'clients', client: c.id, section: _section });
+      });
+    });
+
     $$('[data-act]', ws).forEach(function (b) {
       b.addEventListener('click', async function (e) {
         e.stopPropagation();
@@ -783,6 +1319,7 @@
           'draft': function () { const g = call('openDraft'); if (g) g(c.id); },
           'fill': function () { const g = call('openFillPriority'); if (g) g(c.id); },
           'ltc-add': function () { const g = call('openLTCFromClient'); if (g) g(c.id, c.name); },
+          'reload': function () { if (window.TributeClientData) TributeClientData.reload(c.vivId); renderWorkspace(); },
           'community': function () {
             const nv = $('.nav-item[data-page="coverage"]'); if (nv) nv.click();
             setTimeout(function () { const g = call('selectCommunity'); if (g) g(c.loc); }, 120);
@@ -809,15 +1346,17 @@
           renderWorkspace();
           return;
         }
-        if (b.dataset.go) { _section = b.dataset.go; renderWorkspace(); }
       });
-    });
-    $$('[data-go]', ws).forEach(function (b) {
-      b.addEventListener('click', function () { _section = b.dataset.go; renderWorkspace(); });
     });
     const det = $('.rd-more', ws);
     if (det) det.addEventListener('toggle', function () { _showAdmin = det.open; });
   }
+
+  /* A read landing is the only reason the workspace redraws by itself. */
+  window.addEventListener('tribute:client-data', function () {
+    if (_selected) renderWorkspace();
+  });
+
 
   function emptyState(total) {
     if (!total) return illustration('welcome', 'Your caseload is on its way',
@@ -902,9 +1441,12 @@
     };
     const sAttn = sec('rd-s-attn', 'Needs attention');
     sAttn.insertAdjacentHTML('beforeend', '<div id="rd-attn"></div>');
-    const sNext = sec('rd-s-next', 'Coming up', 'Next two weeks');
+    // Today first, because the question a CSM opens the Hub with is "what is
+    // happening today", not "how is my caseload trending". The numbers still
+    // come, under Caseload health, where they inform rather than greet.
+    const sNext = sec('rd-s-next', 'Today', 'And the next two weeks');
     const sCase = sec('rd-s-case', 'Caseload health');
-    const sTools = sec('rd-s-tools', 'Working notes');
+    const sTools = sec('rd-s-tools', 'Your work');
     sTools.className = 'rd-sec quiet';
     if (ph && ph.nextSibling) page.insertBefore(sAttn, ph.nextSibling); else page.appendChild(sAttn);
     sAttn.after(sNext); sNext.after(sCase); sCase.after(sTools);
@@ -1135,7 +1677,12 @@
   function paletteItems() {
     const app = A();
     const items = [];
-    const add = function (grp, label, sub, run, icon) { items.push({ grp: grp, label: label, sub: sub, run: run, icon: icon }); };
+    // `match` is searched but never shown: a CSM who only remembers the street
+    // or the community should still find the person, without the row turning
+    // into a paragraph. (§20)
+    const add = function (grp, label, sub, run, icon, match) {
+      items.push({ grp: grp, label: label, sub: sub, run: run, icon: icon, match: match || '' });
+    };
 
     $$('.nav-item').forEach(function (n) {
       if (n.style.display === 'none') return;
@@ -1149,7 +1696,9 @@
       const pushClient = function (c) {
         if (!c || seen[c.id || c.name]) return;
         seen[c.id || c.name] = 1;
-        add('Clients', c.name, [c.loc, c.csm].filter(Boolean).join(' · '), function () { openClient(c.id); }, 'person');
+        add('Clients', c.name, [c.loc, c.city].filter(Boolean).join(' · '),
+          function () { openClient(c.id); }, 'person',
+          [c.address, c.city, c.loc, c.csm, c.vivNum].filter(Boolean).join(' '));
       };
       if (p.isManager) {
         (app.profiles || []).forEach(function (pr) { (((app.data.profiles || {})[pr.id] || {}).clients || []).forEach(pushClient); });
@@ -1202,7 +1751,7 @@
     const q = ($('#rd-pal-input').value || '').toLowerCase().trim();
     const all = paletteItems();
     const order = { Clients: 0, Communities: 1, Pages: 2, People: 3, Guidance: 4 };
-    palRows = (q ? all.filter(function (i) { return (i.label + ' ' + (i.sub || '')).toLowerCase().indexOf(q) > -1; })
+    palRows = (q ? all.filter(function (i) { return (i.label + ' ' + (i.sub || '') + ' ' + (i.match || '')).toLowerCase().indexOf(q) > -1; })
       : all.filter(function (i) { return i.grp === 'Pages'; }))
       .sort(function (a, b) { return (order[a.grp] - order[b.grp]) || String(a.label).localeCompare(String(b.label)); })
       .slice(0, 40);
@@ -1555,7 +2104,8 @@
     // Extension points for prototype/workflows.js: a Home signal source and
     // extra blocks inside a client workspace area.
     signalSources: [],
-    areaBlocks: { schedule: [], communication: [], care: [], overview: [], more: [] },
+    areaBlocks: { schedule: [], communication: [], care: [], overview: [], more: [],
+                  careplan: [], activity: [], team: [], info: [] },
     exceptionFor: exceptionFor,
     trackerRows: trackerRows,
     tick: tick
