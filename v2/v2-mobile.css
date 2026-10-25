@@ -214,7 +214,7 @@
     min-height: 44px; padding: 11px 16px;
     font-size: 15px; border-radius: 11px;
   }
-  .btn.btn-sm { min-height: 38px; padding: 8px 12px; font-size: 13.5px; }
+  .btn.btn-sm { min-height: 44px; padding: 10px 14px; font-size: 14px; }
   /* A row of buttons wraps instead of overflowing. */
   .v2-actions, .card > .btn + .btn { }
   .v2-actions { display: flex; flex-wrap: wrap; gap: 8px; }
