@@ -612,6 +612,12 @@
      this file knowing anything about phones. */
   function announceSelection(cid) {
     markListChrome();
+    // Ask Scribe what it has for this client; the workspace redraws when the
+    // answer lands, the same way the Viv read does.
+    try {
+      const c = cid ? (A().fn.get('clients') || []).find(function (x) { return x.id === cid; }) : null;
+      if (c && c.vivId && window.TributeScribeReview) TributeScribeReview.listFor(c);
+    } catch (e) {}
     const c = cid ? (A().fn.get('clients') || []).find(function (x) { return x.id === cid; }) : null;
     try {
       window.dispatchEvent(new CustomEvent('tribute:client-selected',
@@ -807,6 +813,21 @@
                    text: e.kind || e.type || 'Contact', meta: String(e.subject || e.with || '').slice(0, 60) });
       });
     } catch (e) {}
+    // Reviewed Scribe encounters are real operational history: somebody
+    // documented this client on this day. Model logs are not, and none appear.
+    try {
+      const sc = window.TributeScribeReview && TributeScribeReview.cached(c.vivId);
+      (sc || []).forEach(function (e) {
+        const n = (e.counts || {});
+        const bits = [];
+        if (n.carePlan) bits.push(plural(n.carePlan, 'care plan change') + ' proposed');
+        if (n.clarifications) bits.push(plural(n.clarifications, 'question'));
+        out.push({ date: String(e.occurredAt || '').slice(0, 10),
+          kind: TributeScribeReview.sourceLabel(e.sourceType),
+          text: e.reviewStatus === 'finalized' ? 'Documentation reviewed' : 'Documentation drafted',
+          meta: bits.join(' · ') });
+      });
+    } catch (e) {}
     const pp = pulseFor(c);
     if (pp && pp.generatedAt) out.push({ date: String(pp.generatedAt).slice(0, 10), kind: 'Pulse',
       text: (pp.level === 'red' ? 'Needs attention' : pp.level === 'amber' ? 'Watch' : 'Stable'),
@@ -855,10 +876,16 @@
       ' href="https://maps.apple.com/?q=' + encodeURIComponent(addr) + '">' +
       I('pin') + '<span>Directions</span></a>');
     acts.push('<button type="button" class="rd-act" data-act="log-tp">' + I('conversation') + '<span>Log contact</span></button>');
-    // Reserved for the next phase. Disabled, and honest about why.
-    acts.push('<button type="button" class="rd-act soon" disabled aria-disabled="true"' +
-      ' title="Coming soon">' + I('mic') + '<span>Record Visit</span>' +
-      '<em class="rd-soon">Soon</em></button>');
+    // Scribe. The reserved placeholder is now the real thing: one tap from
+    // the client, because that is where a CSM is standing when they need it.
+    if (window.TributeScribe && c.vivId) {
+      acts.push('<button type="button" class="rd-act scribe" data-act="scribe">' +
+        I('mic') + '<span>Scribe</span></button>');
+    } else {
+      acts.push('<button type="button" class="rd-act soon" disabled aria-disabled="true"' +
+        ' title="Coming soon">' + I('mic') + '<span>Record Visit</span>' +
+        '<em class="rd-soon">Soon</em></button>');
+    }
 
     return '<header class="rd-cw-head">' +
       '<div class="rd-cw-bar"><button type="button" class="rd-ws-back">' + I('arrowLeft') +
@@ -1007,6 +1034,21 @@
       '<ul class="rd-team">' + team.slice(0, 3).map(teamRow).join('') + '</ul>' +
       (team.length > 3 ? '<button type="button" class="rd-link" data-go="team">All ' +
         team.length + ' caregivers →</button>' : ''));
+
+    /* Anything Scribe has waiting. Only when there is something: a CSM with
+       no drafts should see no mention of Scribe here at all. */
+    try {
+      const sc = (window.TributeScribeReview && TributeScribeReview.cached(c.vivId)) || [];
+      const open = sc.filter(function (e) { return e.status === 'ready' || e.status === 'review_in_progress'; });
+      if (open.length) out += block('Scribe', '<ul class="rd-scribe-l">' + open.slice(0, 3).map(function (e) {
+        const n = e.counts || {};
+        return '<li><button type="button" class="rd-link" data-act="scribe-open" data-enc="' + esc(e.id) + '">' +
+          esc(TributeScribeReview.sourceLabel(e.sourceType)) + ' · ' + fmtShort(e.occurredAt) +
+          '</button><span>' + esc([n.carePlan ? plural(n.carePlan, 'proposed change') : '',
+            n.clarifications ? plural(n.clarifications, 'question') : ''].filter(Boolean).join(' · ') ||
+            'draft ready to review') + '</span></li>';
+      }).join('') + '</ul>');
+    } catch (e) {}
 
     /* Recent activity. */
     const acts = activityFor(c, snap);
@@ -1407,6 +1449,9 @@
           'fill': function () { const g = call('openFillPriority'); if (g) g(c.id); },
           'ltc-add': function () { const g = call('openLTCFromClient'); if (g) g(c.id, c.name); },
           'reload': function () { if (window.TributeClientData) TributeClientData.reload(c.vivId); renderWorkspace(); },
+          'scribe': function () { if (window.TributeScribe) TributeScribe.open(c); },
+          'scribe-open': function () {
+            if (window.TributeScribeReview) TributeScribeReview.open(c, b.dataset.enc); },
           'community': function () {
             const nv = $('.nav-item[data-page="coverage"]'); if (nv) nv.click();
             setTimeout(function () { const g = call('selectCommunity'); if (g) g(c.loc); }, 120);
@@ -1441,6 +1486,9 @@
 
   /* A read landing is the only reason the workspace redraws by itself. */
   window.addEventListener('tribute:client-data', function () {
+    if (_selected) renderWorkspace();
+  });
+  window.addEventListener('tribute:scribe-list', function () {
     if (_selected) renderWorkspace();
   });
 

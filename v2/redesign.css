@@ -2325,3 +2325,14 @@ input[type="email"], select { min-height: var(--h-ctl); }
    needs air above it and none of the page-level negative margin. */
 #v2-help-section { margin: var(--s6) 0 0; }
 @media (max-width: 900px) { .v2-help-link { min-height: 44px; } }
+
+/* ── 19. SCRIBE, inside the client ────────────────────────────────────── */
+.rd-act.scribe { color: var(--ink); }
+.rd-act.scribe .ti svg { stroke-width: 1.7; }
+.rd-scribe-l { list-style: none; margin: var(--s2) 0 0; padding: 0; }
+.rd-scribe-l li {
+  display: flex; flex-direction: column; gap: 1px;
+  padding: var(--s3) 0; border-top: 1px solid var(--line-soft);
+}
+.rd-scribe-l li:first-child { border-top: none; padding-top: var(--s2); }
+.rd-scribe-l span { font-size: 13px; color: var(--ink-3); }
