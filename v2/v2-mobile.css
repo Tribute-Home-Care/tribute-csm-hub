@@ -64,6 +64,16 @@
     padding-right: max(16px, var(--m-right));
   }
 
+  /* ---- chrome is gated on the app shell --------------------------------- */
+  /* The market and profile pickers are full-screen chooser states with no
+     page context. A tab bar over them points at nothing. */
+  .v2-topbar, .v2-tabbar, .v2-scrim { display: none; }
+  html.v2-in-app .v2-topbar { display: flex; }
+  html.v2-in-app .v2-tabbar { display: grid; }
+  html.v2-in-app .v2-scrim { display: block; }
+  html:not(.v2-in-app) .main { padding-bottom: 20px; }
+  html:not(.v2-in-app) #v2-fb-btn { bottom: 14px !important; }
+
   /* ---- top bar ---------------------------------------------------------- */
   .v2-topbar {
     position: sticky; top: 0; z-index: 900;
@@ -119,7 +129,9 @@
     font: 500 10.5px/1 Inter, system-ui, sans-serif; letter-spacing: .01em;
     -webkit-tap-highlight-color: transparent;
   }
-  .v2-tab .v2-tab-ico { font-size: 19px; line-height: 1; }
+  .v2-tab .v2-tab-ico { display: flex; align-items: center; justify-content: center; height: 21px; }
+  .v2-tab .v2-tab-ico svg { display: block; }
+  .v2-tb-btn svg { display: block; }
   .v2-tab[aria-current="page"] { color: var(--orange-dark, #E25309); font-weight: 700; }
   .v2-tab[aria-current="page"] .v2-tab-ico { transform: translateY(-1px); }
   .v2-tab:active { background: var(--line-soft, #F1EEE8); }
@@ -295,12 +307,12 @@ html.v2-standalone body { background: var(--canvas, #FAF8F4); }
    Feedback — one-handed, keyboard-safe
    =========================================================================== */
 @media (max-width: 760px) {
-  #v2-feedback-btn, .v2-feedback-btn {
+  #v2-fb-btn {
     bottom: calc(var(--m-tabbar) + var(--m-bot) + 14px) !important;
     right: 14px !important;
     min-width: 44px; min-height: 44px;
   }
-  #v2-feedback-panel, .v2-feedback-panel {
+  #v2-fb {
     position: fixed !important;
     left: 0 !important; right: 0 !important; bottom: 0 !important;
     top: auto !important; width: 100% !important; max-width: 100% !important;
@@ -309,7 +321,7 @@ html.v2-standalone body { background: var(--canvas, #FAF8F4); }
     padding-bottom: calc(var(--m-bot) + 12px);
     overflow-y: auto; -webkit-overflow-scrolling: touch;
   }
-  #v2-feedback-panel textarea { font-size: 16px !important; min-height: 110px; }
+  #v2-fb textarea { font-size: 16px !important; min-height: 110px; }
 }
 
 /* ===========================================================================

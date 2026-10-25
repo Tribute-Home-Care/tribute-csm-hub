@@ -21,11 +21,20 @@
      is the shared/handoff surface. Everything else lives behind More, which
      opens the full sidebar rather than a reduced copy of it — so nothing is
      unreachable and there is one source of truth for the menu. */
+  function svg(d) {
+    return '<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" ' +
+      'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      d + '</svg>';
+  }
   var TABS = [
-    { page: 'home',     label: 'Home',     icon: '⌂' },
-    { page: 'clients',  label: 'Clients',  icon: '◎' },
-    { page: 'coverage', label: 'Coverage', icon: '◴' },
-    { page: null,       label: 'More',     icon: '≡' }
+    { page: 'home',     label: 'Home',
+      icon: svg('<path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V20h13V9.5"/>') },
+    { page: 'clients',  label: 'Clients',
+      icon: svg('<circle cx="9" cy="8.5" r="3.2"/><path d="M3.2 19.5c.5-3.2 3-5.1 5.8-5.1s5.3 1.9 5.8 5.1"/><path d="M16.5 7.2a3 3 0 0 1 0 5.6"/><path d="M18 19.5c-.2-1.7-.8-3-1.7-3.9"/>') },
+    { page: 'coverage', label: 'Coverage',
+      icon: svg('<rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M8 3.5v3M16 3.5v3M3.5 10h17"/>') },
+    { page: null,       label: 'More',
+      icon: svg('<path d="M4 7h16M4 12h16M4 17h16"/>') }
   ];
 
   var PAGE_TITLES = {
@@ -60,7 +69,7 @@
     bar.setAttribute('aria-label', 'Primary');
     TABS.forEach(function (t) {
       var b = el('button', 'v2-tab',
-        '<span class="v2-tab-ico" aria-hidden="true">' + t.icon + '</span><span>' + t.label + '</span>');
+        '<span class="v2-tab-ico">' + t.icon + '</span><span>' + t.label + '</span>');
       b.type = 'button';
       b.dataset.page = t.page || '';
       b.addEventListener('click', function () {
@@ -75,7 +84,7 @@
     document.body.appendChild(bar);
 
     var top = el('header', 'v2-topbar');
-    var menu = el('button', 'v2-tb-btn', '≡');
+    var menu = el('button', 'v2-tb-btn', svg('<path d="M4 7h16M4 12h16M4 17h16"/>'));
     menu.type = 'button';
     menu.setAttribute('aria-label', 'Menu');
     menu.addEventListener('click', toggleDrawer);
@@ -161,13 +170,26 @@
   }
 
   /* ---- wiring ----------------------------------------------------------- */
+  // The chrome belongs to the app shell. On the market and profile pickers
+  // #app is hidden, and a tab bar floating over a chooser is just confusing.
+  function inApp() {
+    var app = document.getElementById('app');
+    if (!app) return false;
+    if (getComputedStyle(app).display === 'none') return false;
+    return app.getBoundingClientRect().height > 0;
+  }
+  function syncShell() {
+    document.documentElement.classList.toggle('v2-in-app', MOBILE.matches && inApp());
+  }
   function apply() {
     if (!MOBILE.matches) {
       closeDrawer();
+      document.documentElement.classList.remove('v2-in-app');
       document.body.style.overflow = '';
       return;
     }
     buildChrome();
+    syncShell();
     syncAvatar();
     cardify(document);
   }
@@ -181,6 +203,7 @@
       var r = orig.apply(this, arguments);
       try {
         closeDrawer();
+        syncShell();
         syncActive(page);
         if (MOBILE.matches) setTimeout(function () { cardify(document); }, 0);
       } catch (e) {}
@@ -198,7 +221,7 @@
     var n = 0;
     var t = setInterval(function () {
       if (++n > 20) return clearInterval(t);
-      if (MOBILE.matches) { syncAvatar(); cardify(document); }
+      if (MOBILE.matches) { syncShell(); syncAvatar(); cardify(document); }
       hookNavigation();
     }, 1500);
   }
