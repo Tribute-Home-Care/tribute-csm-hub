@@ -70,6 +70,31 @@ def main():
     html = html.replace("+'! \U0001F44B'", "+'!'")
     assert '\U0001F44B' not in html, 'the waving hand survived the build strip'
 
+    # 2d. Phone / Home Screen metadata. viewport-fit=cover is what lets
+    #     env(safe-area-inset-*) report real numbers on a notched iPhone;
+    #     without it the insets are all 0 and the tab bar sits under the home
+    #     indicator. apple-mobile-web-app-* is still required on iOS, which
+    #     does not read the manifest for standalone display or status bar.
+    head = (
+      '\n<link rel="manifest" href="./manifest.webmanifest">'
+      '\n<meta name="theme-color" content="#FAF8F4">'
+      '\n<meta name="apple-mobile-web-app-capable" content="yes">'
+      '\n<meta name="apple-mobile-web-app-status-bar-style" content="default">'
+      '\n<meta name="apple-mobile-web-app-title" content="CSM Hub">'
+      '\n<meta name="mobile-web-app-capable" content="yes">'
+      '\n<meta name="format-detection" content="telephone=no">'
+      '\n<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">'
+      '\n<link rel="icon" type="image/png" sizes="32x32" href="./icons/icon-32.png">'
+      '\n<link rel="icon" type="image/png" sizes="16x16" href="./icons/icon-16.png">'
+      '\n'
+    )
+    html = html.replace('</head>', head + '</head>', 1)
+    html = html.replace(
+      '<meta name="viewport" content="width=device-width, initial-scale=1.0">',
+      '<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">', 1)
+    assert 'viewport-fit=cover' in html, 'viewport meta not rewritten'
+    assert 'manifest.webmanifest' in html, 'manifest link not added'
+
     # 3. The redesign layer + the V2 policy, before </body>.
     #    ORDER MATTERS: bridge.js assigns window.TributeApp, so v2-policy.js
     #    must come after it or the capability surface is overwritten.
@@ -90,6 +115,7 @@ def main():
     tags = []
     tags.append('<link rel="stylesheet" href="%s">' % stamp('redesign.css'))
     tags.append('<link rel="stylesheet" href="%s">' % stamp('v2.css'))
+    tags.append('<link rel="stylesheet" href="%s">' % stamp('v2-mobile.css'))
     for f in LAYER:
         tags.append('<script src="%s"></script>' % stamp(f))
     tags.append('<script src="%s"></script>' % stamp('v2-policy.js'))
@@ -97,6 +123,7 @@ def main():
     tags.append('<script src="%s"></script>' % stamp('v2-feedback.js'))
     tags.append('<script src="%s"></script>' % stamp('v2-help.js'))
     tags.append('<script src="%s"></script>' % stamp('v2-fullcap.js'))
+    tags.append('<script src="%s"></script>' % stamp('v2-mobile.js'))
     block = '\n' + '\n'.join(tags) + '\n'
     # There are two '</body>' in the file: one inside a printable-HTML string
     # the LTC packet builds, and the real one at the end. Anchor on the LAST.
@@ -129,7 +156,9 @@ def main():
     # regenerated the page without it and the pilot's Feedback button was
     # dead for two hours before a screenshot caught it. Assert every V2
     # script is actually referenced, so a rebuild can never drop one again.
-    for _req in ('v2-policy.js', 'v2-chrome.js', 'v2-feedback.js', 'v2-help.js', 'v2-fullcap.js'):
+    for _req in ('v2-policy.js', 'v2-chrome.js', 'v2-feedback.js', 'v2-help.js',
+                 'v2-fullcap.js', 'v2-mobile.js', 'v2-mobile.css',
+                 'manifest.webmanifest', 'apple-touch-icon.png'):
         assert _req in out, 'built index.html does not load %s' % _req
     present = sorted(os.listdir(os.path.join(OUT, 'v2')))
     problems = []
