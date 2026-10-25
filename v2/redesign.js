@@ -661,7 +661,8 @@
   function unread(snap, what) {
     if (snap.state === 'loading') return '<p class="rd-ws-load">Reading ' + esc(what) + ' from Viv…</p>';
     if (snap.state === 'error') return '<p class="rd-ws-warn">' + esc(snap.error || 'Viv did not answer.') +
-      ' <button type="button" class="rd-link" data-act="reload">Try again</button></p>';
+      (snap.retryable === false ? ''
+        : ' <button type="button" class="rd-link" data-act="reload">Try again</button>') + '</p>';
     if (snap.state === 'none') return '<p class="rd-ws-quiet">' + esc(what) +
       ' comes from Viv and is not available in this build.</p>';
     return null;
@@ -898,7 +899,11 @@
     if (openToday.length) attn.push({ tone: 'bad',
       text: openToday.length === 1 ? 'An open visit today needs coverage'
                                    : openToday.length + ' open visits today need coverage', go: 'schedule' });
-    if (snap.state === 'error') attn.push({ tone: 'warn', text: snap.error });
+    // A read that failed and might work on a retry is worth a CSM's attention.
+    // A capability the server does not have yet is not — it would say the same
+    // thing on every client, every day, and the section below already says it.
+    if (snap.state === 'error' && snap.retryable !== false)
+      attn.push({ tone: 'warn', text: snap.error });
     if (attn.length) out += block('Needs attention', '<ul class="rd-attn-l">' + attn.map(function (a) {
       return '<li class="' + a.tone + '">' + esc(a.text) +
         (a.go ? ' <button type="button" class="rd-link" data-go="' + a.go + '">Open</button>' : '') + '</li>';

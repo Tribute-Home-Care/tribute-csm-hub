@@ -69,10 +69,23 @@
       try {
         var r = await fetch(base + KIND[kind](cid), { headers: await headers() });
         if (!r.ok) {
-          var why = r.status === 404 ? 'Viv has no record for this client.'
-                  : r.status === 401 ? 'Your session has expired. Reload the Hub to sign in again.'
-                  : 'Viv did not answer (' + r.status + ').';
-          throw new Error(why);
+          // A 404 means two different things and they send a CSM to two
+          // different places. "Viv has no record for this client" sends them
+          // hunting through Viv; "the server does not have this yet" sends
+          // them to us. Read what the server actually said before deciding.
+          var said = null;
+          try { said = (await r.json()).error || null; } catch (e) {}
+          var missingOnServer = /unknown endpoint/i.test(said || '');
+          var why = missingOnServer
+                      ? 'This part of the Hub is not available on the server yet.'
+                  : r.status === 401 || r.status === 403
+                      ? 'Your session has expired. Reload the Hub to sign in again.'
+                  : r.status === 404
+                      ? (said || 'Viv has no record for this client.')
+                  : (said || 'Viv did not answer (' + r.status + ').');
+          var err = new Error(why);
+          err.retryable = !missingOnServer;
+          throw err;
         }
         var j = await r.json();
         e.data = j; e.state = 'ready'; e.at = Date.now(); e.error = null;
@@ -83,6 +96,7 @@
         // identical on screen and mean opposite things.
         e.state = 'error';
         e.error = (err && err.message) || 'Could not reach Viv.';
+        e.retryable = !err || err.retryable !== false;
         e.data = null;
         return null;
       } finally {
@@ -96,7 +110,7 @@
   function snapshot(cid, kind) {
     var e = entry(cid, kind);
     if (e.state === 'idle' || (e.state === 'ready' && Date.now() - e.at > TTL)) load(cid, kind);
-    return { state: e.state, data: e.data, error: e.error };
+    return { state: e.state, data: e.data, error: e.error, retryable: e.retryable !== false };
   }
 
   window.TributeClientData = {
