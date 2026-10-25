@@ -2300,3 +2300,28 @@ input[type="email"], select { min-height: var(--h-ctl); }
   .rd-cp-kvs .rd-kv, .rd-kv { grid-template-columns: minmax(0, 1fr); gap: 2px; }
   .rd-kv dt { font-size: 12.5px; }
 }
+
+/* ── 18. CONTEXTUAL HELP ──────────────────────────────────────────────────
+   Quiet by default. It should read as an offer, not an instruction, and it
+   must never compete with the operational content above it. On brand tokens
+   rather than hard-coded hexes, so it cannot drift away from the product it
+   sits inside. */
+.v2-help-link {
+  display: inline-flex; align-items: center;
+  margin: -2px 0 var(--s3); font-size: 13px; color: var(--ink-3);
+  text-decoration: none; border-bottom: 1px dashed var(--line-2);
+  padding-bottom: 1px; cursor: pointer;
+}
+.v2-help-link:hover, .v2-help-link:focus-visible {
+  color: var(--brand-ink); border-bottom-color: var(--brand-ink);
+}
+.v2-help-link::before {
+  content: '?'; display: inline-block;
+  width: 14px; height: 14px; line-height: 13px; text-align: center;
+  border: 1px solid currentColor; border-radius: 50%;
+  font-size: 10px; margin-right: 6px;
+}
+/* Inside a client it closes the section rather than opening the page, so it
+   needs air above it and none of the page-level negative margin. */
+#v2-help-section { margin: var(--s6) 0 0; }
+@media (max-width: 900px) { .v2-help-link { min-height: 44px; } }

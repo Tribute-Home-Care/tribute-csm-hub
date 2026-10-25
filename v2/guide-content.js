@@ -1,552 +1,664 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    TRIBUTE CSM HUB — GUIDE CONTENT
    ═══════════════════════════════════════════════════════════════════════════
-   All guide copy lives here, in one place, so wording can be changed without
-   touching the renderer and a screenshot can be swapped by editing one line.
+   All the words, in one place, so changing wording never means touching
+   markup. The renderer (guide-views.js) turns this into pages, and the same
+   content is used by the Guide inside the Hub and by the standalone page.
 
-   Shape of a guide page:
-     { id, title, lede, shot?, shots?, what, first, can, saves?, v1?,
-       know?, steps?, related? }
+   The shape follows the product rather than the database: a CSM is
+   responsible for CLIENTS, and everything else is a tool for caring for them.
+   So "Working with a client" comes before the module-by-module material, and
+   nothing here describes a capability that does not exist yet.
 
-   `shot`  : { src, alt, caption?, callouts?: [{n, x, y, title, body}] }
-             x/y are PERCENTAGES of the image box, so annotations survive
-             responsive scaling instead of drifting off the element.
+   Screenshots are taken from the Hub running on SYNTHETIC data. No real
+   client, family or caregiver appears in any image in this guide.
    ═══════════════════════════════════════════════════════════════════════════ */
 window.GUIDE = (function () {
   'use strict';
 
   const UPDATED = 'October 2026';
-  const BUILD_NOTE = 'Screenshots taken from the V2 Hub, October 2026.';
+  const BUILD_NOTE = 'Screenshots are of the current Hub, taken against synthetic data.';
 
-  /* ── Pages ─────────────────────────────────────────────────────────── */
-  const pages = {
+  /* ── The shelf ─────────────────────────────────────────────────────── */
+  const TOPICS = [
+    { id: 'start',   title: 'Start here',
+      lede: 'What the Hub is for, how it is laid out, and how to get help.',
+      entries: ['what-it-is', 'how-organised', 'find-client', 'getting-help'] },
+    { id: 'client',  title: 'Working with a client',
+      lede: 'The client is the centre of the Hub. This is everything inside one.',
+      entries: ['overview', 'care-plan', 'schedule', 'activity', 'care-team',
+                'client-information', 'communication', 'pulse-care', 'ltc-other', 'record-visit'] },
+    { id: 'work',    title: 'Managing your work',
+      lede: 'Your day, your caseload and the things with a clock on them.',
+      entries: ['home', 'coverage', 's30', 'priority', 'pulse'] },
+    { id: 'ops',     title: 'Operations',
+      lede: 'The machinery behind the caseload.',
+      entries: ['md', 'ltc', 'emailcomm', 'team'] },
+    { id: 'tools',   title: 'Tools',
+      lede: 'What you reach for.',
+      entries: ['assistant', 'kpi', 'expectations', 'feedback'] },
+    { id: 'mobile',  title: 'On your phone',
+      lede: 'The Hub installs on an iPhone and is built to be used standing up.',
+      entries: ['install', 'mobile-nav', 'mobile-field', 'mobile-forms', 'mobile-login'] }
+  ];
 
+  /* ── Articles ──────────────────────────────────────────────────────── */
+  const A = {
+
+    /* ─ Start here ─ */
+    'what-it-is': {
+      title: 'What CSM Hub is',
+      lede: 'One place for your caseload, instead of several trackers and a memory.',
+      body: [
+        { p: 'CSM Hub pulls your clients, their visits and their open shifts straight out of Viv, ' +
+             'and keeps your own judgment — tiers, notes, touchpoints, care conversations, coverage — ' +
+             'alongside them. Viv stays the record. The Hub is where you work.' },
+        { h: 'What it does for you', ul: [
+          'Shows you what needs you today, before anything else.',
+          'Opens a client and tells you who they are, who is with them and what is happening.',
+          'Keeps the cadence — visits, touchpoints, care conversations — so you are not tracking dates in your head.',
+          'Shares coverage notes with the people who cover for you.',
+          'Carries the operational work: Maryland compliance, LTC submissions, community emails.'
+        ] },
+        { h: 'What it does not do', ul: [
+          'It does not replace Viv. Client records, care plans and the schedule live there.',
+          'It does not schedule caregivers. It shows you where coverage is open.',
+          'It does not store anything about a client on your phone.'
+        ] }
+      ],
+      related: ['how-organised', 'overview', 'install']
+    },
+
+    'how-organised': {
+      title: 'How the Hub is organised',
+      lede: 'Three groups on the left, four on a phone. Everything else is inside a client.',
+      shot: { src: 'guide-shots/guide-nav.png',
+        alt: 'The Hub sidebar showing three groups: Work, Operations and Tools.',
+        caption: 'The rail on a desk. You only see what your role allows.' },
+      body: [
+        { h: 'Work', p: 'Home, Clients, Coverage, Success in 30, Fill Priority and Client Pulse. This is the day.' },
+        { h: 'Operations', p: 'Maryland Compliance, LTC, Community Email and Team. The machinery behind the caseload.' },
+        { h: 'Tools', p: 'Assistant, KPI Tracker, Role Expectations, Guide and Feedback.' },
+        { h: 'On a phone', p: 'Four destinations along the bottom — Home, Clients, Coverage and More. ' +
+          'More opens the same list, in the same three groups, scrolling down. Nothing is hidden sideways ' +
+          'and nothing is reachable on a desk but not on a phone.' },
+        { h: 'Your role decides what you see', p: 'A CSM, a CSC and a director do not see the same rail. ' +
+          'Nothing in the Hub lets you reach a page your role does not have — including a link somebody sends you.' }
+      ],
+      know: ['The market you are in is shown in the Hub chrome and scopes everything: clients, coverage, communities and times.'],
+      related: ['find-client', 'mobile-nav', 'home']
+    },
+
+    'find-client': {
+      title: 'Find a client',
+      lede: 'Three ways in, depending on what you remember.',
+      shot: { src: 'guide-shots/guide-clients.png',
+        alt: 'The Clients page with the caseload list on the left and a client open on the right.',
+        caption: 'Clients: your caseload, worst first, with the client open beside it.' },
+      body: [
+        { steps: [
+          { t: 'Open Clients', b: 'Your caseload, ordered so anything out of cadence is at the top.' },
+          { t: 'Search', b: 'The box above the list, or the magnifying glass in the top bar on a phone. ' +
+            'Search matches the name, the community, the town, the street and the client number — so part of an address finds the person.' },
+          { t: 'Or press ⌘K', b: 'Anywhere in the Hub. Start typing a name and go straight there.' }
+        ] },
+        { h: 'If you cannot find someone', ul: [
+          'Check the market first. It is almost always the market.',
+          'If you are a manager, check whether you are looking at Mine rather than Team or All.',
+          'Discharged clients drop off the Hub. Look them up in Viv.'
+        ] }
+      ],
+      related: ['overview', 'how-organised']
+    },
+
+    'getting-help': {
+      title: 'Where to get help',
+      lede: 'This guide, the question mark on a page, and Feedback.',
+      body: [
+        { ul: [
+          'Most pages carry a “What is this page for?” link that opens this guide at the right part.',
+          'Guide sits under Tools in the rail, and under More on a phone.',
+          'Feedback goes to the people building the Hub. Say what you were doing and what the screen did.'
+        ] },
+        { h: 'What Feedback sends', p: 'Which page you were on, your role and market, and technical detail about the screen. ' +
+          'No client, caregiver or family information, and never a screenshot.' }
+      ],
+      related: ['feedback', 'trouble']
+    },
+
+    /* ─ Working with a client ─ */
+    overview: {
+      title: 'Client Overview',
+      lede: 'What you need to know about this client right now, in the order you need it.',
+      shot: { src: 'guide-shots/guide-client-overview.png',
+        alt: 'A client profile showing the name, market and status, the address, four actions, and the Overview section.',
+        caption: 'The client, not a dashboard about the client.',
+        callouts: [
+          { n: 1, x: 4,  y: 5,  title: 'Who, and where',
+            b: 'Name, market and status, then the address. Straight from Viv.' },
+          { n: 2, x: 4,  y: 20, title: 'What you do standing there',
+            b: 'Call, Directions, Log contact. Record Visit is reserved for later and is switched off.' },
+          { n: 3, x: 4,  y: 40, title: 'Needs attention',
+            b: 'Only appears when something is actually wrong. No news is good news.' },
+          { n: 4, x: 4,  y: 53, title: 'Today',
+            b: 'Today’s real caregiver schedule, in the client’s own time.' }
+        ] },
+      body: [
+        { h: 'The header', p: 'The client’s name, their market and current status, and their address as Viv holds it. ' +
+          'Call dials the number on file. Directions opens the address in Maps.' },
+        { h: 'Needs attention', p: 'Shown only when there is something: a visit or touchpoint out of cadence, ' +
+          'an unacknowledged Pulse read, an open visit today. If this section is not on screen, nothing is flagged. ' +
+          'There is deliberately no “all clear” card — a reassurance shown every day is what stops people reading the one that matters.' },
+        { h: 'Today and Next visit', p: 'Today’s caregiver visits with start and end times, then the next one after today. ' +
+          'An open visit is marked “Needs coverage”.' },
+        { h: 'Care snapshot', p: 'A short read of the care plan — the sections the plan itself flags as important. ' +
+          'Full care plan is one tap away.' },
+        { h: 'Care team and Recent', p: 'Who is currently visiting, and the last few things anyone did with this client.' }
+      ],
+      know: [
+        'If the Hub cannot reach Viv it says so and offers Try again. It never shows an empty day instead.',
+        'Four sections sit along the top — Overview, Care Plan, Schedule, Activity — and More holds Care Team, Client Information, Communication, Pulse & Care, and LTC & Other.'
+      ],
+      related: ['care-plan', 'schedule', 'care-team', 'client-information']
+    },
+
+    'care-plan': {
+      title: 'Care Plan',
+      lede: 'The client’s approved Care Plan from Viv, laid out to be read standing up.',
+      shot: { src: 'guide-shots/guide-care-plan.png',
+        alt: 'A client care plan grouped into sections with questions and answers.',
+        caption: 'The plan’s own sections, in the plan’s own words.' },
+      body: [
+        { h: 'Where it comes from', p: 'The Care Plan document on the client’s record in Viv, under Documents. ' +
+          'The Hub shows the most recent APPROVED plan, by approval date. ' +
+          'If a client has no approved plan at all, the Hub shows the newest one there is and says plainly that it is not approved.' },
+        { h: 'How it is laid out', ul: [
+          'The plan’s own section headings, in the plan’s own words. Nothing is renamed.',
+          'Any section the plan itself marks IMPORTANT or PLEASE READ comes first.',
+          'Demographics go last — the name and address are already in the header.',
+          'Long sections are folded; tap the heading to open one.'
+        ] },
+        { h: 'The Hub is not the record', p: 'This is a reader. Changing a care plan happens in Viv, ' +
+          'and the link at the bottom opens the signed plan there.' }
+      ],
+      know: [
+        'The date and approver are shown at the top, and a plan over six months old is flagged as such.',
+        'If a plan has no structured answers recorded, the Hub says so rather than showing an empty page.'
+      ],
+      related: ['overview', 'schedule']
+    },
+
+    schedule: {
+      title: 'Schedule',
+      lede: 'Who is coming, and when.',
+      shot: { src: 'guide-shots/guide-schedule.png',
+        alt: 'A client schedule grouped by day, each visit showing times and the caregiver.',
+        caption: 'Today, Tomorrow, then each day by name.' },
+      body: [
+        { h: 'How it reads', p: 'Today first, then Tomorrow, then each day by name for the next two weeks. ' +
+          'Each visit shows the start and end time and who is coming.' },
+        { h: 'The three states', ul: [
+          'A caregiver’s name means the visit is assigned to them.',
+          'Open visit means nobody is assigned yet. It is marked “Needs coverage”.',
+          'Cancelled visits are shown as cancelled rather than quietly removed.'
+        ] },
+        { h: 'Times are the client’s, not yours', p: 'Every time on this page is in the client’s own market time. ' +
+          'A Chicago visit at 2:30pm shows as 2:30pm whether you are reading it in Boston or Baltimore. ' +
+          'The line at the bottom of the page names the zone.' },
+        { h: 'Earlier in the fortnight', p: 'The days just gone are folded away at the bottom.' }
+      ],
+      know: [
+        'Viv does not tell the Hub whether a visit is confirmed, so the Hub does not claim it is. A visit is assigned, open, or cancelled.',
+        'Your own next CSM visit is listed separately from the caregiver week, because that is your cadence rather than theirs.'
+      ],
+      related: ['care-team', 'priority', 'overview']
+    },
+
+    'care-team': {
+      title: 'Care Team',
+      lede: 'Who is actually involved with this client at the moment.',
+      shot: { src: 'guide-shots/guide-care-team.png',
+        alt: 'A care team list showing caregivers with their days, visit counts and next visit.',
+        caption: 'Each caregiver with the days they come and when they are next in.' },
+      body: [
+        { h: 'Where it comes from', p: 'Viv does not keep a separate care-team list. The relationship between a caregiver ' +
+          'and a client is the booking. So the Hub builds this from the client’s current fortnight of visits and says so ' +
+          'on the page: each caregiver who is actually scheduled, the days they come, how many visits and how many hours, ' +
+          'and when they are next in.' },
+        { h: 'What that means in practice', ul: [
+          'Somebody who stopped visiting a month ago is not here. That is deliberate.',
+          'Somebody covering a single visit this week is here, because they are genuinely coming.',
+          'Your own written note about the caregivers is kept beside it, not merged into it.'
+        ] }
+      ],
+      know: ['If nobody is scheduled in the fortnight the page says so, rather than showing an empty list that looks like a loading failure.'],
+      related: ['schedule', 'overview']
+    },
+
+    'client-information': {
+      title: 'Client Information',
+      lede: 'The administrative detail you need while you are actually working with the client.',
+      shot: { src: 'guide-shots/guide-client-information.png',
+        alt: 'The Client Information section showing contact details, primary contact and service information.',
+        caption: 'Contact, primary contact, and the service facts.' },
+      body: [
+        { h: 'Contact', p: 'The full address, with Directions, and the client’s own phone and email where Viv has them. ' +
+          'Phone numbers dial, email addresses open Mail.' },
+        { h: 'Primary contact', p: 'The family member to call: their name, relationship, phone and email. ' +
+          'Where Viv has several family contacts, the others are folded underneath.' },
+        { h: 'Care and service', p: 'Start of care, market, service type, community, status, the CSM and the scheduling partner, ' +
+          'client number, and whether the client is on Tribute Secure.' },
+        { h: 'Hub details', p: 'Tier, visit cadence, weekly hours, birthday, communication preferences, rates and your notes — ' +
+          'the things the Hub holds rather than Viv — folded away at the bottom.' }
+      ],
+      know: ['A field Viv does not hold for this client is left out rather than shown as an empty row.'],
+      related: ['overview', 'communication']
+    },
+
+    activity: {
+      title: 'Activity',
+      lede: 'What has actually happened with this client, newest first.',
+      body: [
+        { p: 'Visits, touchpoints, care conversations, Success in 30 milestones, communications, Pulse reads and ' +
+             'completed caregiver visits, grouped by month.' },
+        { h: 'What it is for', p: 'Picking a client back up. Somebody asks what has been going on and you can answer ' +
+          'without opening four pages.' },
+        { h: 'What is not in it', p: 'Nothing technical. No sync records, no saves, no page loads — only things a person did.' }
+      ],
+      related: ['communication', 'overview']
+    },
+
+    communication: {
+      title: 'Communication',
+      lede: 'Recent touchpoints and how this family prefers to be contacted.',
+      body: [
+        { p: 'The last several touchpoints with dates and types, and the client’s stated communication preferences.' },
+        { h: 'Logging one', p: 'Log contact in the client header, or Log activity at the bottom of the client, ' +
+          'which also covers visits and care conversations.' }
+      ],
+      know: ['Touchpoint cadence follows tier: High every 14 days, Medium 30, Low 60. Overdue shows on Overview.'],
+      related: ['activity', 'overview']
+    },
+
+    'pulse-care': {
+      title: 'Pulse & Care',
+      lede: 'The Pulse read for this client, and the care conversations behind it.',
+      body: [
+        { h: 'Pulse', p: 'A read on how the client is doing, drawn from caregiver visit notes, changes of condition, ' +
+          'incidents and recent communication. Needs attention, Monitor, or Status quo.' },
+        { h: 'Acknowledging', p: 'Three ways to say you have seen it: nothing needed, working on it, or raising it in your 1:1. ' +
+          'Acknowledging clears it from Needs attention on Overview.' },
+        { h: 'Care conversations', p: 'The longer structured conversation, with satisfaction scores and what is working.' }
+      ],
+      know: ['Pulse is a pointer, not a verdict. Open the evidence before acting on it.'],
+      related: ['pulse', 'overview']
+    },
+
+    'ltc-other': {
+      title: 'LTC & Other',
+      lede: 'This client’s long-term care insurance, their community, and the odds and ends.',
+      body: [
+        { p: 'Any LTC insurance records attached to this client, the community they live in with its main contact, ' +
+             'and a link into the Maryland compliance board where that applies.' },
+        { h: 'How records are matched', p: 'By the client’s stable id, not their name. A record that only matches by name ' +
+          'is labelled as such, and if two clients share a name the Hub refuses to guess and tells you to link it properly.' }
+      ],
+      related: ['ltc', 'client-information']
+    },
+
+    'record-visit': {
+      title: 'Record Visit',
+      lede: 'Coming soon.',
+      body: [
+        { p: 'There is a Record Visit action in the client header. It is switched off and marked Soon. ' +
+             'It does nothing at all today: no microphone, no recording, nothing sent anywhere. ' +
+             'It is there so the place it will live is settled before it is built.' }
+      ],
+      related: ['overview']
+    },
+
+    /* ─ Managing your work ─ */
     home: {
       title: 'Home',
-      lede: 'The first thing you see, and the shortest route to what needs you today.',
-      shot: {
-        src: 'guide-shots/guide-home-overview.png',
-        alt: 'The Hub Home screen, showing the attention panel, counts for the caseload, and upcoming visits.',
-        callouts: [
-          { n: 1, x: 19, y: 22, title: 'Needs attention', body: 'Everything the Hub thinks you should look at today, most pressing first.' },
-          { n: 2, x: 17, y: 55, title: 'Caseload health', body: 'Where your caseload stands: how many clients, how many high need, visits done against visits due.' },
-          { n: 3, x: 26, y: 81, title: 'Working notes', body: 'Your to-dos and 1:1 notes. Saved for real, and the same list appears in either version of the Hub.' }
-        ]
-      },
-      what: 'Home answers one question: what needs me right now? It gathers overdue visits, clients whose Pulse has moved, open visits in the next few days, and anything you flagged yourself.',
-      first: [
-        'Read the attention panel top to bottom. It is ordered, not alphabetical.',
-        'If a source could not be loaded, Home says so. It will not tell you everything is fine when it does not know.',
-        'Your to-dos sit underneath. Add one from here if something comes up mid-review.'
+      lede: 'What needs you, what is happening today, and what you owe somebody.',
+      shot: { src: 'guide-shots/guide-home.png',
+        alt: 'The Home page showing a greeting, a Needs attention row of counts, and the day ahead.',
+        caption: 'Needs attention first, then today, then your work, then the numbers.' },
+      body: [
+        { h: 'Needs attention', p: 'Counts that are each a real thing to do — clients out of cadence, open visits, ' +
+          'overdue tasks, changes of condition. A category with nothing in it produces no card at all.' },
+        { h: 'Today', p: 'Your visits and the fortnight ahead.' },
+        { h: 'Your work', p: 'To-dos and quick notes. Both save as you type.' },
+        { h: 'Caseload health', p: 'The numbers, last — where they inform rather than greet you.' }
       ],
-      can: ['Add, complete and remove to-dos', 'Write in Quick Notes', 'Jump to any client from the attention list'],
-      saves: 'To-dos and Quick Notes save to the same shared record the current Hub uses. Anyone who looks at your profile in either version sees the same thing.',
-      know: [
-        'An empty attention panel is good news, but check for the line about sources that could not be loaded. "Nothing to show" and "we could not look" are different, and the Hub distinguishes them.'
-      ],
-      related: ['find-client', 'add-todo', 'review-attention']
+      related: ['find-client', 'coverage', 'priority']
     },
 
-    tracker: {
-      title: 'Client Tracker',
-      lede: 'Every client you own, in one list, with a workspace behind each one.',
-      shot: {
-        src: 'guide-shots/guide-client-tracker.png',
-        alt: 'The Client Tracker, showing a searchable list of clients on the left and a selected client workspace on the right.',
-        callouts: [
-          { n: 1, x: 27, y: 15, title: 'Search', body: 'Type any part of a name. Fastest way to anyone in your caseload.' },
-          { n: 2, x: 21, y: 34, title: 'The list, already triaged', body: 'Needs attention, Due soon, All clients, Onboarding, Coverage. It opens on the ones that need you.' },
-          { n: 3, x: 50, y: 27, title: 'The workspace', body: 'The client opens beside the list, so you keep your place while working through several.' }
-        ]
-      },
-      what: 'The Tracker is the list; the workspace is where the work happens. They sit side by side so you can move through several clients without losing your position.',
-      first: ['Search if you know who you want. Scan the list if you do not.', 'Tier and status badges tell you how closely a client is being watched.'],
-      can: ['Open any client in your caseload', 'Search and filter', 'Edit client details, log touchpoints, record care conversations'],
-      saves: 'Client details, touchpoints and care conversations save to the shared record immediately. There is no separate publish step.',
-      related: ['find-client', 'log-touchpoint', 'workspace']
-    },
-
-    workspace: {
-      title: 'Client workspace',
-      lede: 'One client, five areas, in the order you usually need them.',
-      shot: {
-        src: 'guide-shots/guide-client-workspace.png',
-        alt: 'A client workspace with Overview, Care, Schedule, Communication and More tabs.',
-        callouts: [
-          { n: 1, x: 27, y: 21, title: 'The five areas', body: 'Overview, Care, Schedule, Communication, More. Overview summarises; the others go deep.' },
-          { n: 2, x: 12, y: 37, title: 'What needs attention', body: 'The one thing about this client that is outstanding, stated plainly.' },
-          { n: 3, x: 11, y: 90, title: 'One primary action', body: 'Log activity is the thing you do most. Everything rarer sits under the … beside it.' }
-        ]
-      },
-      what: 'Overview is a summary, not a dumping ground: it tells you the state of the client and points at the area that needs you. Care, Schedule, Communication and More hold the detail.',
-      first: ['Overview first. It is built to be read in a few seconds.', 'Then the area Overview points you at.'],
-      can: ['Update client details', 'Log a touchpoint or care conversation', 'Review the visit log and schedule', 'Acknowledge a Pulse read'],
-      saves: 'Everything in the workspace saves to the shared record as you go.',
-      saves: 'Logging a visit writes it to Viv and, if you tick the box, to your own Outlook calendar. Both are the same records the current Hub uses.',
-      know: ['A visit is recorded in the client\u2019s own market time, not the time zone your laptop happens to be in. A Chicago visit is stored as Chicago time even if you book it from Boston.'],
-      related: ['log-touchpoint', 'pulse-status', 'blocked-action']
-    },
-
-    pulse: {
-      title: 'Client Pulse',
-      lede: 'A read on how each client is actually doing, drawn from what caregivers wrote.',
-      what: 'Pulse reads caregiver visit notes, changes of condition, incidents and recent communication, and summarises where each client stands. It is a prompt to look, not a verdict.',
-      first: ['Start at the top. Needs attention is ordered first.', 'Open a row before acting. The summary is a pointer; the evidence is the substance.'],
-      can: ['Review your caseload', 'Open the evidence behind a read', 'Acknowledge that you have seen it'],
-      saves: 'Acknowledging a Pulse read saves to the shared record.',
-      know: [
-        'Pulse is rebuilt on a schedule, not the instant a note is written. If a row looks out of date, the page tells you when it was built.',
-        'Managers and CSCs see their market; a CSM sees their own caseload.'
+    coverage: {
+      title: 'Coverage',
+      lede: 'What a colleague needs to know about your clients while you are out.',
+      shot: { src: 'guide-shots/guide-coverage.png',
+        alt: 'The Coverage page showing coverage notes, team coverage, handoffs and communities.',
+        caption: 'My clients, team coverage, handoffs and the community directory.' },
+      body: [
+        { h: 'My clients', p: 'What you write. One note per client, for whoever covers you.' },
+        { h: 'Team coverage', p: 'What everyone else wrote.' },
+        { h: 'Handoffs', p: 'Hand your caseload to a covering CSM for a period. They get your clients and a banner on their Home.' },
+        { h: 'Communities', p: 'The shared directory: main contact and who to call, per community.' }
       ],
-      related: ['pulse-status', 'review-attention']
+      know: ['Coverage notes are shared with the whole team by design. If two people edit the same note at the same moment, the Hub keeps the other person’s version, tells you which, and saves the rest of your work.'],
+      related: ['ltc-other']
     },
 
     s30: {
       title: 'Success in 30',
-      lede: 'The first thirty days of a new client, as a checklist you can see at a glance.',
-      shot: { src: 'guide-shots/guide-success-in-30.png', alt: 'The Success in 30 page showing onboarding milestones for recently started clients.' },
-      what: 'A new client has a known set of early milestones: the assessment, the caregiver prep call, a second in-person visit inside fourteen days, the week-one caregiver check-in, weekly family contact. This page tracks them.',
-      first: ['Anything overdue is surfaced first.', 'A milestone with no date has not happened yet — it is not a data gap.'],
-      can: ['Mark milestones complete', 'Log the touchpoints that go with them'],
-      saves: 'Milestones and touchpoints save to the shared record.',
-      related: ['log-touchpoint']
-    },
-
-    coverage: {
-      title: 'Coverage Notes',
-      lede: 'What a covering colleague needs to know, plus handoffs and the community directory.',
-      shot: { src: 'guide-shots/guide-coverage.png',
-        alt: 'The Coverage Notes page with tabs for My Clients, Team Coverage, Handoffs and Communities, and a readiness list.',
-        caption: 'The link under the heading goes straight to this guide \u2014 every page has one.' },
-      what: 'Coverage notes are written for somebody else: the person picking up your caseload while you are out. Handoffs assign that cover. Communities is the shared directory of who to call at each building.',
-      first: ['My Clients is what you write. Team Coverage is what everyone else wrote.'],
-      can: ['Write and update coverage notes', 'Read team coverage and handoffs', 'Edit the community directory'],
-      saves: 'Coverage notes save to the same shared record the current Hub reads. Everyone covering sees the same note, in either version.',
-      know: ['Coverage notes are shared across the whole team by design. If two people edit the same note at the same moment, the Hub keeps the other person\u2019s version, tells you which one, and saves the rest of your work so you can redo just that bit.'],
-      related: ['blocked-action']
-    },
-
-    md: {
-      title: 'Maryland Compliance',
-      lede: 'The seven Baltimore regulations, per client, with what is outstanding.',
-      shot: {
-        src: 'guide-shots/guide-md-compliance.png',
-        alt: 'The Maryland Compliance board listing clients against regulatory requirements.',
-        callouts: [
-          { n: 1, x: 23, y: 26, title: 'How current this is', body: 'The board is assembled on a schedule, and says so rather than letting you assume it is live.' },
-          { n: 2, x: 16, y: 40, title: 'The four counts', body: 'Assessments overdue, reassessments owed, documentation gaps, and initial 48-hour visits missed.' },
-          { n: 3, x: 10, y: 63, title: 'What is outstanding', body: 'Overdue first, with how many days, and the CSM who owns it.' }
-        ]
-      },
-      what: 'A per-client view of Maryland regulatory requirements — assessments, care plans, supervisory visits and the rest — showing what is complete, what is due and what has passed its date.',
-      first: ['Overdue first, then due soon.', 'Check the freshness line at the top. The board is built on a schedule and says when it last ran.'],
-      can: ['Review compliance by client', 'Open the client to act on what you find'],
-
-      know: [
-        'If the board is still assembling you will see that plainly. A board that is loading is not a board that says you are compliant.'
+      lede: 'The first thirty days of a new client, as a checklist that knows the dates.',
+      body: [
+        { p: 'Assessment, the caregiver prep call, the second in-person visit inside fourteen days, the week-one caregiver ' +
+             'check-in, weekly family contact, and Viv updated. Anything overdue is surfaced first.' },
+        { h: 'A milestone with no date', p: 'has not happened yet. It is not a gap in the data.' }
       ],
-      related: ['md-issue', 'stale-data']
+      related: ['home', 'communication']
     },
 
     priority: {
       title: 'Fill Priority',
-      lede: 'Which open visits matter most, and where your caseload is exposed.',
+      lede: 'Which open visit matters most.',
       shot: { src: 'guide-shots/guide-fill-priority.png',
-        alt: 'The Fill Priority page showing ranked clients with scores during a coverage event.' },
-      what: 'Open visits on your caseload, ranked, alongside any coverage events a manager has created. It answers "if I can only solve one gap today, which one?"',
-      first: ['High-rank items first.', 'An open visit in the next 48 hours is called out separately.'],
-      can: ['Review open visits and their ranking', 'Change the ranking', 'Record a fill status', 'Create a coverage event if you are a manager'],
-      saves: 'Rankings, fill statuses and coverage events save to the shared record and appear in the current Hub immediately.',
-      related: ['blocked-action']
+        alt: 'The Fill Priority page showing ranked events and the open visits on the caseload.' },
+      body: [
+        { p: 'Open visits on your caseload, ranked, plus the events managers create and order by hand. ' +
+             'The point is to solve the gap with the biggest consequence first, not the one you saw first.' }
+      ],
+      related: ['schedule', 'home']
+    },
+
+    pulse: {
+      title: 'Client Pulse',
+      lede: 'Your whole caseload, read for attention.',
+      body: [
+        { p: 'The same read as Pulse & Care inside a client, across everyone at once, ordered with Needs attention first.' },
+        { h: 'Use it', ul: [
+          'Start at the top.',
+          'Open a row before acting — the summary is a pointer, the evidence is the substance.',
+          'Acknowledge when you have seen it, so the next person knows.'
+        ] }
+      ],
+      related: ['pulse-care']
+    },
+
+    /* ─ Operations ─ */
+    md: {
+      title: 'Maryland Compliance',
+      lede: 'The seven Baltimore regulations, per client, with the clock showing.',
+      shot: { src: 'guide-shots/guide-md-compliance.png',
+        alt: 'The Maryland Compliance board showing clients against the regulatory requirements.' },
+      body: [
+        { p: 'Each Maryland client against each requirement, with what is done, what is due and what is late. ' +
+             'The board is assembled on a schedule and tells you when it was last built.' }
+      ],
+      related: ['ltc-other']
+    },
+
+    ltc: {
+      title: 'LTC',
+      lede: 'Long-term care insurance submissions, and why one is not ready.',
+      shot: { src: 'guide-shots/guide-ltc.png',
+        alt: 'The LTC page showing submission records grouped by readiness.' },
+      body: [
+        { h: 'The states', ul: [
+          'Blocked — something is missing. The row says what.',
+          'Ready to send — everything a carrier needs is attached.',
+          'Not sent yet — ready, but nobody has sent it.',
+          'Sent — with the date.'
+        ] },
+        { h: 'Why a packet is blocked', ul: [
+          'No QuickBooks invoice for that week. A packet with care notes and no invoice is care documentation with nothing to reimburse against, and carriers return those.',
+          'Visit notes are incomplete or blank.',
+          'The carrier requires proof of payment and none is attached.',
+          'The insurer on the record is not a carrier the Hub recognises.'
+        ] },
+        { h: 'John Hancock', p: 'takes uploads through their portal only. The Hub prepares the documents; a person uploads them.' }
+      ],
+      know: ['A blocked packet looks blocked. The Hub will not send one by accident, and a repeated click cannot send the same packet twice.'],
+      related: ['ltc-other']
     },
 
     emailcomm: {
-      title: 'Email Community',
-      lede: 'The weekly update that goes to a senior living community.',
+      title: 'Community Email',
+      lede: 'The weekly schedule a senior living community gets from us.',
       shot: { src: 'guide-shots/guide-email-community.png',
-        alt: 'The Email Community page listing communities with client counts and the CSMs who own them.',
-        caption: 'The list view. Opening a community loads that week\u2019s draft.' },
-      what: 'For communities where Tribute has clients, the Hub assembles a weekly update and holds it as a draft. You can read it, edit it, save it, and send a test copy to yourself.',
-      first: ['Pick a community on the left; its current draft loads on the right.',
-              'Read it before you do anything else. It is assembled from the week\u2019s schedule and recent notes.'],
-      can: ['Read and edit the generated draft', 'Save the draft the Friday run will use',
-            'Edit a community\u2019s recipients and settings', 'Send a test copy to yourself',
-            'Send the real email to the community'],
-      saves: 'Draft edits and community settings save to the same records the Friday run and the current Hub read.',
-      know: ['A test send goes only to you, never to the community. It is the safe way to see exactly what would arrive.',
-             'The real send goes to the community\u2019s actual recipients, through the same mailbox the current Hub uses. Read the draft first.',
-             'If you send the same email twice, the second one is refused rather than delivered. The Hub tells you when it went out the first time.'],
-      related: ['blocked-action', 'coverage']
-    },
-    ltc: {
-      title: 'LTC Submissions',
-      lede: 'Long-term care insurance submissions, per client.',
-      what: 'Tracks long-term care insurance submissions and the notes behind them. You can review a submission and move it through its states here.',
-      first: ['Open a client record to see what has been recorded, and what state it is in.'],
-      can: ['Review what is recorded', 'Approve, unapprove, mark sent, confirm, skip and add a note',
-            'Send a test packet to your own address', 'Send the packet to the carrier',
-            'Text a caregiver about a missing note'],
-      saves: 'Status changes save to the same LTC records the current Hub reads.',
-      know: [
-        'Being straight with you: this area has had very little operational use, so there is not much history to look at. The status actions save properly; it is the real-world workflow around them that is thin. If something looks wrong, say so through Feedback rather than working around it.',
-        'A live carrier send only works for carriers that have been switched on for live submission. That list is the same one the current Hub uses, and it is empty today, so a live send will refuse and say so. A test send to yourself works either way.',
-        'John Hancock takes uploads, not email. The Hub will tell you to download the documents instead.',
-        'Sending the same packet, or the same caregiver text, twice in a row is refused rather than delivered. The Hub tells you when the first one went.'
-      ]
-    },
-
-    assistant: {
-      title: 'Tribute Assistant',
-      lede: 'Ask a question and get an answer from Tribute\'s own material.',
-      what: 'The Assistant answers from the Hub\'s knowledge base, scenario guides and email templates — Tribute\'s own documented practice, not the open internet. It will tell you when it does not have an answer.',
-      first: ['Ask in your own words. You do not need to phrase it as a search.'],
-      can: ['Ask questions', 'Use the knowledge base, templates and scenario guides directly', 'Draft a client update from the workspace'],
-      know: ['A drafted update is a starting point. Read it before you send it anywhere.']
-    },
-
-    kpi: {
-      title: 'KPI Tracker',
-      lede: 'Your quarterly numbers, entered and kept.',
-      what: 'Where you record quarterly KPI entries and read back what you recorded before.',
-      first: ['The current quarter is first; history is behind the second tab.'],
-      can: ['Add a KPI entry', 'Review previous quarters'],
-      saves: 'KPI entries save to the shared record.'
+        alt: 'The Email Community page showing the drafted weekly schedule for a community.' },
+      body: [
+        { p: 'A week of visits for the clients in one community, drafted for their team. ' +
+             'Review it before sending — you are the last person who sees it.' },
+        { h: 'Times', p: 'Every time in the email is the community’s own local time, not yours.' }
+      ],
+      know: ['Nothing client-identifying beyond what the community already holds goes into these emails, and no internal status, Pulse or staffing information appears in one.'],
+      related: ['coverage']
     },
 
     team: {
-      title: 'Team Overview',
-      lede: 'For managers: the whole team in one view, with a route down to the client.',
+      title: 'Team',
+      lede: 'Everyone’s caseload at once. Managers and directors only.',
       shot: { src: 'guide-shots/guide-team.png',
-        alt: 'The Manager Hub showing cross-market totals and one summary card per CSM.',
-        callouts: [
-          { n: 1, x: 24, y: 37, title: 'The market totals', body: 'Clients, touchpoints, high need and overdue visits across every market, or one at a time.' },
-          { n: 2, x: 24, y: 85, title: 'One card per CSM', body: 'Caseload, touches, overdue and onboarding. You are looking for the card that does not match the others.' }
-        ] },
-      what: 'A cross-CSM summary so a manager can see where attention is needed without opening each caseload in turn.',
-      first: ['Scan for the outliers, not the averages.'],
-      can: ['Review the team', 'Open an individual CSM, then an individual client'],
-      know: [
-        'Mine, Team and All are scopes, not filters on the same data. Mine is your own caseload. Team is the people who report to you. All is everyone in the market you are currently in.'
-      ],
-      related: ['manager-views', 'mine-team-all']
+        alt: 'The Team overview showing each CSM with their caseload summary.' },
+      body: [{ p: 'Per-CSM caseload, cadence and visit summary across the market, for 1:1s and for spotting a caseload under strain.' }],
+      related: ['kpi']
     },
 
-    markets: {
-      title: 'Choosing a market',
-      lede: 'Massachusetts, Chicago or Maryland — and how to tell which one you are in.',
-      shot: {
-        src: 'guide-shots/guide-market-select.png',
-        alt: 'The market selection screen showing Massachusetts, Chicago and Maryland cards.',
-        callouts: [
-          { n: 1, x: 17, y: 67, title: 'Pick a market', body: 'Everything after this is scoped to it — clients, search, attention, compliance.' }
-        ]
-      },
-      what: 'The Hub is organised by market. Choosing one sets the context for everything that follows. If you work in a single market you will usually go straight in without seeing this screen.',
-      first: ['If you work in more than one market, this screen comes first.', 'The market you are in is always shown in the Hub chrome. If you are unsure, look there before you act.'],
-      can: ['Choose a market', 'Switch markets at any time'],
-      know: [
-        'Chicago runs on Central time. Times shown for a Chicago client are Chicago\'s local times, not Eastern.',
-        'Switching markets changes which clients you see. It does not change who you are or what you are allowed to do.'
+    /* ─ Tools ─ */
+    assistant: {
+      title: 'Assistant',
+      lede: 'Ask a question and get an answer from Tribute’s own material.',
+      body: [
+        { p: 'The knowledge base, email templates, scenario guides and the decision framework, plus a question box. ' +
+             'It answers from Tribute content only — it does not invent policy.' },
+        { h: 'Draft update', p: 'Inside a client, Draft update writes a family update from that client’s recent record. ' +
+          'Read it before you send it.' }
       ],
-      related: ['switch-market']
+      related: ['getting-help']
     },
+
+    kpi: { title: 'KPI Tracker', lede: 'Your quarterly numbers.',
+      body: [{ p: 'Quarterly KPI entry and history, against the targets in Role Expectations.' }],
+      related: ['expectations', 'team'] },
+
+    expectations: { title: 'Role Expectations', lede: 'What the CSM role is measured on.',
+      body: [{ p: 'The expectations for the role, including the KPI targets: dissatisfaction terminations under 1%, NPS 70 or better, lead closure 55% or better, and documentation and visit compliance.' }],
+      related: ['kpi'] },
 
     feedback: {
       title: 'Feedback',
-      lede: 'Tell us the moment something is wrong. It takes about fifteen seconds.',
-      shots: [
-        { src: 'guide-shots/guide-feedback-button.png', alt: 'The Feedback button fixed in the lower-right corner of the Hub.', caption: 'Always there, lower right, on every page.' },
-        { src: 'guide-shots/guide-feedback-panel.png', alt: 'The feedback panel asking for type, what happened, what you expected and impact.', caption: 'Four short questions. You stay on the page you were on.' }
+      lede: 'Tell us what the Hub did. It goes straight to the people building it.',
+      shot: { src: 'guide-shots/guide-feedback.png',
+        alt: 'The feedback panel open over the Hub, with type, description and impact fields.' },
+      body: [
+        { p: 'Feedback is in the rail under Tools, and as a small control at the bottom of every page.' },
+        { h: 'Worth saying', ul: [
+          'What you were doing.',
+          'What you expected.',
+          'What the screen actually did.'
+        ] },
+        { h: 'What it sends', p: 'Which page you were on, your role and market, and technical detail about the screen. ' +
+          'No client, caregiver or family information, no notes, no email contents, and never a screenshot.' },
+        { h: 'If it fails to send', p: 'Your text stays on screen and the Hub says plainly that it was not submitted, with a Retry. ' +
+          'It is never quietly dropped.' }
       ],
-      what: 'A way to report something without leaving what you were doing and without writing an email.',
-      first: ['Use it when something is broken, confusing, missing, looks wrong, or sparks an idea.', 'Send it in the moment. A report written three days later loses the detail that makes it fixable.'],
-      can: ['Pick a type, say what happened and what you expected, and set how much it slowed you down'],
-      saves: 'Your note is sent straight away and you get a confirmation. If it cannot be sent, the panel keeps every word you typed and offers to try again — it will never tell you it sent when it did not.',
-      know: [
-        'The Hub attaches which page you were on, your role and market, and some technical detail about the state of the screen. It does not attach any client, caregiver or family information, and it never takes a screenshot.',
-        'You do not need to describe the client. Say what the screen did.'
-      ],
-      related: ['leave-feedback']
-    }
-  };
+      related: ['getting-help']
+    },
 
-  /* ── Tasks ─────────────────────────────────────────────────────────── */
-  const tasks = {
-    'find-client': {
-      title: 'Find a client',
-      lede: 'Two ways, depending on whether you know who you are looking for.',
-      steps: [
-        { t: 'Open Client Tracker', b: 'From the sidebar. Your caseload loads as a list.' },
-        { t: 'Type any part of the name', b: 'The search box is at the top of the list. Partial names work.' },
-        { t: 'Select the client', b: 'The workspace opens beside the list, so you keep your place if you are working through several.' }
+    /* ─ Mobile ─ */
+    install: {
+      title: 'Install CSM Hub on your iPhone',
+      lede: 'Six taps. It then opens like an app.',
+      body: [
+        { steps: [
+          { t: 'Open the Hub in Safari', b: 'It has to be Safari for this. Chrome on iPhone cannot add to the Home Screen.' },
+          { t: 'Tap Share', b: 'The square with the arrow, at the bottom of the screen.' },
+          { t: 'Tap Add to Home Screen', b: 'Scroll down the share sheet if you do not see it.' },
+          { t: 'Confirm the name', b: 'It should read CSM Hub. Tap Add.' },
+          { t: 'Launch it from the Home Screen', b: 'No address bar, no Safari tabs — it fills the screen.' },
+          { t: 'Sign in as normal', b: 'Your Tribute Microsoft account, the same as on a desk.' }
+        ] },
+        { h: 'What installing changes', ul: [
+          'It runs full screen, in its own window.',
+          'It is the same Hub, with the same sign-in and the same data.',
+          'Nothing about a client is stored on the phone. Close it and there is nothing left behind.'
+        ] }
       ],
-      know: ['If someone is missing, check the market you are in first. The Tracker only shows the market you are currently working in.'],
-      related: ['tracker', 'cant-find-client']
+      related: ['mobile-nav', 'mobile-login']
     },
-    'review-attention': {
-      title: 'Review what needs attention',
-      lede: 'The morning pass, in about two minutes.',
-      steps: [
-        { t: 'Start on Home', b: 'The attention panel is ordered by how pressing something is, not alphabetically.' },
-        { t: 'Read the whole panel before acting', b: 'The order is the recommendation. Acting on the first item you recognise is how the fourth one gets missed.' },
-        { t: 'Check for a loading note', b: 'If a source could not be loaded, Home says so rather than implying all is well.' },
-        { t: 'Open what needs you', b: 'Each row takes you to the client or the page that can resolve it.' }
-      ],
-      related: ['home', 'pulse']
-    },
-    'add-todo': {
-      title: 'Add and complete a to-do',
-      lede: 'Your own list, saved for real.',
-      steps: [
-        { t: 'Open Home', b: 'Your to-dos sit below the attention panel.' },
-        { t: 'Type the task and add it', b: 'Keep it short enough to recognise tomorrow.' },
-        { t: 'Tick it off when done', b: 'Completed items move out of the way.' }
-      ],
-      know: ['To-dos save to the same record the current Hub reads, so you will see the same list in either version.'],
-      related: ['home']
-    },
-    'quick-notes': {
-      title: 'Use Quick Notes',
-      lede: 'A scratchpad that is actually saved.',
-      steps: [
-        { t: 'Open Home', b: 'Quick Notes sits alongside your to-dos.' },
-        { t: 'Type', b: 'It saves on its own a moment after you stop. There is no save button.' },
-        { t: 'Watch the status', b: 'The sync indicator says Saved with a time once it has gone through.' }
-      ],
-      know: ['Because it saves automatically, avoid having the same notes open in both versions of the Hub at once — the second one to save wins.'],
-      related: ['home', 'did-it-save']
-    },
-    'log-touchpoint': {
-      title: 'Log a touchpoint or care conversation',
-      lede: 'The record of contact that everything else is measured against.',
-      steps: [
-        { t: 'Open the client', b: 'Client Tracker, then the client.' },
-        { t: 'Go to Communication', b: 'Touchpoints and care conversations both live here.' },
-        { t: 'Record it', b: 'Pick the type, add what was discussed, save.' }
-      ],
-      know: [
-        'Touchpoint cadence follows the client tier: High every fourteen days, Medium every thirty, Low every sixty.',
-        'A care conversation is the longer structured one — High every ninety days, Medium and Low every one hundred and eighty.'
-      ],
-      related: ['workspace', 'tracker']
-    },
-    'pulse-status': {
-      title: 'Understand a Pulse status',
-      lede: 'What the three levels mean, and what they do not.',
-      steps: [
-        { t: 'Needs attention', b: 'Something in the recent record suggests this client should be looked at now.' },
-        { t: 'Monitor', b: 'Worth keeping an eye on. Not urgent.' },
-        { t: 'Status quo', b: 'Nothing in the recent record stands out.' },
-        { t: 'Always open the evidence', b: 'The level is a pointer. The notes behind it are what you act on.' }
-      ],
-      know: ['Pulse is a prompt to look, not a judgement about the client or the caregiver.'],
-      related: ['pulse']
-    },
-    'md-issue': {
-      title: 'Work a Maryland compliance issue',
-      lede: 'From the board to the client, without losing the thread.',
-      steps: [
-        { t: 'Open Maryland Compliance', b: 'Outstanding items are first.' },
-        { t: 'Check how current the board is', b: 'It is assembled on a schedule and tells you when it last ran.' },
-        { t: 'Open the client', b: 'Act in the client workspace, where the detail is.' }
-      ],
 
-      related: ['md', 'stale-data']
+    'mobile-nav': {
+      title: 'Getting around on a phone',
+      lede: 'Four along the bottom, everything else behind More.',
+      shot: { src: 'guide-shots/guide-more.png',
+        alt: 'The More drawer on a phone showing the Work, Operations and Tools groups.',
+        caption: 'More opens the same rail as the desk, scrolling down.' },
+      body: [
+        { h: 'The bottom bar', p: 'Home, Clients, Coverage and More. These are the three places a CSM lives in, plus everything else.' },
+        { h: 'More', p: 'Opens the same navigation as the desk, in the same three groups, scrolling vertically. ' +
+          'Nothing is reachable on a desk but not here, and nothing requires swiping a menu sideways.' },
+        { h: 'The top bar', p: 'The page name, search, and your profile. Open a client and the bar becomes theirs: ' +
+          'their name, with a back arrow where the menu button was.' }
+      ],
+      related: ['install', 'mobile-field']
     },
-    'switch-market': {
-      title: 'Switch markets',
-      lede: 'For anyone who works across more than one.',
-      steps: [
-        { t: 'Use the market control in the Hub chrome', b: 'It always shows the market you are in.' },
-        { t: 'Pick the other market', b: 'Clients, search, attention and compliance all re-scope to it.' },
-        { t: 'Check the chrome before you act', b: 'One glance confirms where you are. Worth the half second.' }
-      ],
-      know: ['Chicago is Central time. A Chicago client\'s times are Chicago\'s local times.'],
-      related: ['markets']
-    },
-    'manager-views': {
-      title: 'Work from team level down to a client',
-      lede: 'For managers and directors.',
-      steps: [
-        { t: 'Open Team Overview', b: 'One row per CSM.' },
-        { t: 'Find the outlier', b: 'You are looking for the row that does not match the others.' },
-        { t: 'Open the CSM, then the client', b: 'The path from a team signal to the actual person is two clicks.' }
-      ],
-      related: ['team', 'mine-team-all']
-    },
-    'mine-team-all': {
-      title: 'Mine, Team and All',
-      lede: 'Three scopes, not three filters.',
-      steps: [
-        { t: 'Mine', b: 'The clients you personally own.' },
-        { t: 'Team', b: 'The caseloads of the people who report to you.' },
-        { t: 'All', b: 'Everyone in the market you are currently in.' }
-      ],
-      know: ['If a count looks wrong, check which scope you are in before anything else. It is the most common explanation.'],
-      related: ['team']
-    },
-    'leave-feedback': {
-      title: 'Leave feedback',
-      lede: 'Fifteen seconds, without leaving the page.',
-      steps: [
-        { t: 'Click Feedback, lower right', b: 'It is on every page.' },
-        { t: 'Pick a type', b: 'Broken, confusing, cannot find it, data looks wrong, or an idea.' },
-        { t: 'Say what happened', b: 'What you were doing and what the Hub did. What you expected is optional but useful.' },
-        { t: 'Send', b: 'You stay exactly where you were.' }
-      ],
-      know: ['No client or caregiver information is attached, and no screenshot is taken. Describe the screen, not the client.'],
-      related: ['feedback']
-    },
-    'blocked-action': {
-      title: 'When V2 says an action is not available',
-      lede: 'What it means and what to do.',
-      shot: {
-        src: 'guide-shots/guide-blocked-action.png',
-        alt: 'A message in the Hub explaining that a shared action is not saved in the new version and to use the current Hub.',
-        caption: 'The Hub names the action and tells you where to do it.'
-      },
-      steps: [
-        { t: 'Read the message', b: 'It names the action and says to use the current Hub for it.' },
-        { t: 'Do that action in the current Hub', b: 'Same link you have always used. Nothing is lost by switching.' },
-        { t: 'Come back', b: 'Everything else carries on as normal.' }
-      ],
-      know: [
-        'A blocked action is a deliberate decision, not a bug. Those actions are shared across the whole team, and they are being switched on carefully, one at a time.',
-        'Nothing you did was half-saved. A blocked action does not write anything at all.'
-      ],
-      related: ['v2-status', 'coverage', 'priority']
-    },
-    'did-it-save': {
-      title: 'Did that save?',
-      lede: 'How to tell, without guessing.',
-      steps: [
-        { t: 'Look at the sync indicator', b: 'It reads Saving while it works, then Saved with a time.' },
-        { t: 'If it says Save failed', b: 'Your text is still on screen. Try again in a moment.' },
-        { t: 'If the Hub said the action is not available', b: 'Nothing was written. Do it in the current Hub.' }
-      ],
-      related: ['blocked-action', 'quick-notes']
-    }
-  };
 
-  /* ── Roles ─────────────────────────────────────────────────────────── */
-  const roles = {
-    csm: {
-      title: 'For CSMs',
-      lede: 'The Hub as a daily instrument: what to check, what to update, what still lives in the current Hub.',
-      journeyTitle: 'Your day in the Hub',
-      sections: [
-        { h: 'Every day', b: 'Start on Home and read the attention panel in order. Work what it gives you. Add a to-do for anything you cannot do immediately.' },
-        { h: 'Through the week', b: 'Client Tracker is where you work a client properly. Log touchpoints and care conversations as they happen rather than reconstructing them later. Check Success in 30 for anyone new.' },
-        { h: 'What you can update here', b: 'Almost everything. Quick Notes, to-dos, 1:1 notes, KPI entries, client details, touchpoints and care conversations, the visit log, Success in 30, Pulse acknowledgement, coverage notes, Fill Priority, community settings, Maryland cadence, community email drafts, your Outlook calendar, and adding or cancelling a visit in Viv. All of it writes to the same records the current Hub reads.' },
-        { h: 'What still belongs in the current Hub', b: 'Sending a community email to a community, sending an LTC packet to a carrier, and texting a caregiver about LTC notes. Each one leaves Tribute, so each is being switched on separately. The Hub tells you on screen, by name, if you try one.' }
+    'mobile-field': {
+      title: 'Working with a client from the field',
+      lede: 'What the phone is actually for.',
+      shot: { src: 'guide-shots/guide-mobile-client.png',
+        alt: 'A client profile on a phone showing the name, address, four actions and the Overview.',
+        caption: 'Standing outside the door: who, where, and what is happening today.' },
+      body: [
+        { p: 'Open the client before you go in. The top of the screen gives you the name, the address and the four things ' +
+             'you do there: Call, Directions, Log contact, and Record Visit when it arrives.' },
+        { h: 'While you are there', ul: [
+          'Today tells you who else is coming and when.',
+          'Care Plan is readable standing up, with the important sections first.',
+          'Care Team tells you who has actually been in this fortnight.',
+          'Log contact before you leave the drive. It takes a few seconds and it is the thing everyone forgets.'
+        ] }
       ],
-      start: ['home', 'tracker', 'pulse'],
-      related: ['review-attention', 'find-client', 'log-touchpoint', 'blocked-action']
+      related: ['overview', 'mobile-forms']
     },
-    csc: {
-      title: 'For CSCs',
-      lede: 'Where your work differs from a CSM\'s.',
-      journeyTitle: 'How your day differs',
-      sections: [
-        { h: 'Scope', b: 'You see across the market rather than a single caseload, so the Tracker and Pulse cover more ground. Search matters more to you than scrolling does.' },
-        { h: 'Day to day', b: 'Pulse and Home are the fastest way to find where attention is needed across the market. From there the route is the same as anyone else\'s: open the client, read the evidence, act.' },
-        { h: 'LTC', b: 'You can review a submission and move it through its states here. Sending a packet to a carrier and texting a caregiver are still done in the current Hub. The page has had little operational use, so treat what you see with some care and report anything odd through Feedback.' },
-        { h: 'What you can update here', b: 'The same set as a CSM, including the team-wide items: coverage notes, Fill Priority and community settings all save here now.' }
+
+    'mobile-forms': {
+      title: 'Forms and actions on a phone',
+      lede: 'Built for thumbs.',
+      body: [
+        { ul: [
+          'Every field is large enough that iOS does not zoom when you tap it.',
+          'Every control is a thumb’s width, on a phone and on a tablet.',
+          'Panels slide up from the bottom and scroll; Save and Cancel stay reachable with the keyboard up.',
+          'Nothing saves halfway. If something does not save, the Hub says so and keeps your text.'
+        ] }
       ],
-      start: ['pulse', 'tracker', 'ltc'],
-      related: ['find-client', 'blocked-action']
+      related: ['mobile-field']
     },
-    manager: {
-      title: 'For Managers and Directors',
-      lede: 'Seeing across the team, and getting from a signal to a person.',
-      journeyTitle: 'From the team to the client',
-      sections: [
-        { h: 'Start at team level', b: 'Team Overview puts one row per CSM in front of you. You are looking for the row that does not match the others, not for an average.' },
-        { h: 'Mine, Team and All', b: 'Three scopes. Mine is your own caseload, Team is the people who report to you, All is everyone in the market you are currently in. If a number surprises you, check the scope before anything else.' },
-        { h: 'Drilling down', b: 'From a team row to the CSM, from the CSM to the client. Two clicks, and the client workspace is the same one the CSM uses.' },
-        { h: 'What this is not for', b: 'It is not a performance dashboard and it is not where staffing decisions get made. It is for finding where attention is needed.' }
+
+    'mobile-login': {
+      title: 'Signing in on a phone',
+      lede: 'And what to do if it behaves oddly.',
+      body: [
+        { ul: [
+          'Launching from the Home Screen sends you to Microsoft and brings you back into the app.',
+          'Force-quitting and reopening should keep you signed in.',
+          'If a session expires, the Hub asks you to sign in again rather than showing an empty page.',
+          'If sign-in drops you into Safari instead of the app, close both, reopen from the Home Screen, and report it through Feedback.'
+        ] }
       ],
-      start: ['team', 'pulse', 'tracker'],
-      related: ['manager-views', 'mine-team-all']
-    },
-    multimarket: {
-      title: 'Working in more than one market',
-      lede: 'Massachusetts and Chicago, without losing track of which is which.',
-      journeyTitle: 'Working across two markets',
-      sections: [
-        { h: 'Choosing', b: 'You pick a market when you come in, and you can switch whenever you like. The market you are in is always shown in the Hub chrome.' },
-        { h: 'What changes', b: 'Clients, search results, attention signals and compliance all re-scope to the market you are in.' },
-        { h: 'What does not', b: 'Who you are, what you are allowed to do, and your own notes and to-dos. Those follow you.' },
-        { h: 'Chicago and time', b: 'Chicago runs on Central time. Times shown for a Chicago client are Chicago\'s local times, not Eastern. If a time looks an hour out, check which market you are in.' }
-      ],
-      start: ['markets'],
-      related: ['switch-market']
+      related: ['install', 'trouble']
     }
   };
 
   /* ── Troubleshooting ───────────────────────────────────────────────── */
   const trouble = [
-    { q: 'Something looks wrong', a: [
+    { id: 'looks-wrong', q: 'Something looks wrong', a: [
       'Refresh the page once.',
       'Check which market you are in — it is shown in the Hub chrome.',
       'Check you are on the client you think you are on.',
       'Look for a line saying the page is still loading or that a source could not be reached. The Hub says so rather than guessing.',
       'If it still looks wrong, use Feedback. Say what you were doing and what the screen showed.'
-    ]},
-    { q: 'I cannot save something', a: [
-      'If the Hub said the action is not available here, nothing was written. Do that one in the current Hub — the message names it.',
+    ] },
+    { id: 'cant-save', q: 'I cannot save something', a: [
       'If the status says Save failed, your text is still on screen. Try again in a moment.',
-      'If it says Saved with a time, it saved. The current Hub will show the same thing.'
-    ], id: 'cant-save' },
-    { q: 'I cannot find a client', a: [
+      'If it says Saved with a time, it saved.',
+      'If the Hub says an action is not available, nothing was written — the message names where to do it instead.'
+    ] },
+    { id: 'cant-find-client', q: 'I cannot find a client', a: [
       'Check the market first. This is the usual reason.',
-      'Search on any part of the name rather than scrolling.',
+      'Search on any part of the name, the community or the street rather than scrolling.',
       'If you are a manager, check whether you are looking at Mine rather than Team or All.',
-      'If the client is genuinely missing, use Feedback.'
-    ], id: 'cant-find-client' },
-    { q: 'The data looks old', a: [
-      'Some pages are assembled on a schedule rather than the instant you open them, because building them takes real work. Those pages tell you when they were last built.',
+      'Discharged clients drop off the Hub by design. Look them up in Viv.'
+    ] },
+    { id: 'no-client-data', q: 'A client shows no schedule, contact or care team', a: [
+      'Those come from Viv when you open the client. If Viv did not answer, the Hub says so and offers Try again.',
+      'Try again once. The read is quick.',
+      'If it says this part of the Hub is not available on the server yet, that is us, not you — report it through Feedback.',
+      'An empty Today with no message genuinely means nothing is scheduled today.'
+    ] },
+    { id: 'wrong-time', q: 'A visit time looks an hour out', a: [
+      'Check the market. Chicago runs on Central time.',
+      'Client schedule times are always shown in the client’s own market time, not your laptop’s. A Chicago visit reads the same from Boston as it does from Chicago.',
+      'The zone is named at the bottom of the Schedule page.'
+    ] },
+    { id: 'old-care-plan', q: 'The care plan looks out of date', a: [
+      'The Hub shows the most recent APPROVED care plan from Viv, by approval date — not the most recently edited draft.',
+      'The date and approver are at the top of the page, and a plan over six months old is flagged.',
+      'If a newer plan has been written but not approved in Viv, approving it there is what brings it through.'
+    ] },
+    { id: 'stale-data', q: 'The data looks old', a: [
+      'Some pages are assembled on a schedule rather than the instant you open them. Those pages tell you when they were last built.',
       'If a page is mid-build it says so. A page that is loading is not a page telling you everything is fine.',
       'Refresh once. If the time shown does not move and the number still looks wrong, use Feedback.'
-    ], id: 'stale-data' },
-    { q: 'Should I use the current Hub or the new one?', a: [
-      'Use the new one as your main Hub. It will tell you when an action belongs in the current Hub.',
-      'Avoid having the same thing open and being edited in both at once — the second save wins.'
-    ]},
-    { q: 'I think I have lost something I typed', a: [
+    ] },
+    { id: 'lost-work', q: 'I think I have lost something I typed', a: [
       'Do not retype it yet. Check the sync indicator and refresh once.',
-      'If two people edited the same item at the same time, the Hub keeps the other person\'s version and tells you which item it was, so you can redo yours deliberately.',
+      'If two people edited the same item at the same moment, the Hub keeps the other person’s version and tells you which item, so you can redo yours deliberately.',
       'Report it through Feedback either way. We would rather know.'
-    ]}
+    ] },
+    { id: 'which-hub', q: 'Should I use this Hub or the previous one?', a: [
+      'Use this one. Both read and write the same records.',
+      'Avoid having the same thing open and being edited in both at once — the second save wins.'
+    ] }
   ];
 
-  /* What people type, as opposed to what we wrote. Folded into the search
-     index only; never shown. Apostrophes appear in both forms because a
-     keyboard produces one and our copy produces the other. */
   const ALIASES = {
-    'cant-save':       "why can't i save why cant i save can't save cannot save not saving save failed greyed out disabled blocked read only",
-    'cant-find-client':"can't find missing client where is lost client search not working no results",
-    'stale-data':      'old data out of date not updating refresh stale last built numbers wrong',
-    't0':              'broken wrong looks wrong error something is wrong incorrect',
-    't4':              'v1 v2 old hub new hub which hub should i use',
-    't5':              'lost work disappeared overwritten gone my changes vanished conflict'
+    'cant-save': "why can't i save why cant i save cannot save not saving save failed greyed out disabled blocked read only",
+    'cant-find-client': "can't find missing client where is lost client search not working no results",
+    'no-client-data': 'blank empty no schedule no address no contact not loading viv did not answer try again',
+    'wrong-time': 'timezone time zone an hour out central eastern chicago wrong time',
+    'old-care-plan': 'care plan old stale not updating newest latest approved draft',
+    'stale-data': 'old data out of date not updating refresh stale last built numbers wrong',
+    'lost-work': 'lost work disappeared overwritten gone my changes vanished conflict',
+    'looks-wrong': 'broken wrong looks wrong error something is wrong incorrect'
   };
   const PAGE_ALIASES = {
     home: 'dashboard landing first screen start morning',
-    tracker: 'client list caseload my clients find a client search',
-    workspace: 'client detail client record open a client tabs',
-    pulse: 'red amber green attention level status needs attention monitor status quo',
+    'find-client': 'client list caseload my clients find a client search tracker',
+    overview: 'client detail client record open a client profile workspace',
+    'care-plan': 'careplan plan of care adls care needs',
+    schedule: 'visits shifts who is coming rota calendar',
+    'care-team': 'caregivers who is caring aides',
+    'client-information': 'address phone contact details demographics',
+    activity: 'history timeline what happened recent',
+    'record-visit': 'recording dictate transcribe microphone soon',
+    pulse: 'red amber green attention level needs attention monitor status quo',
     s30: 'onboarding new client first 30 days milestones success in 30',
-    coverage: 'time off vacation out of office handoff cover covering',
-    md: 'compliance regulation baltimore assessment overdue reassessment',
+    coverage: 'time off vacation out of office handoff cover covering communities',
+    md: 'compliance regulation baltimore assessment overdue reassessment maryland',
     priority: 'open shifts unfilled visits gaps staffing fill',
-    emailcomm: 'community email weekly update senior living building newsletter',
-    ltc: 'long term care insurance submission carrier',
+    emailcomm: 'community email weekly update senior living building',
+    ltc: 'long term care insurance submission carrier invoice blocked',
     assistant: 'ai ask a question chatbot knowledge base templates',
     kpi: 'quarterly numbers metrics targets',
     team: 'manager director team overview everyone mine team all',
-    markets: 'market switch massachusetts chicago maryland central time timezone',
-    feedback: 'report a problem bug suggestion tell someone complain'
+    install: 'iphone home screen pwa install app add to home screen safari standalone',
+    'mobile-nav': 'phone mobile bottom bar more drawer menu',
+    feedback: 'report a problem bug suggestion tell someone'
   };
 
   /* ── Glossary ──────────────────────────────────────────────────────── */
@@ -557,51 +669,58 @@ window.GUIDE = (function () {
     ['Needs attention', 'The most pressing Pulse level. Something in the recent record suggests looking now.'],
     ['Touchpoint', 'A recorded contact with a client or family. Cadence follows tier: High every 14 days, Medium 30, Low 60.'],
     ['Care Conversation', 'The longer structured conversation — satisfaction, caregiver fit, unmet needs, care plan accuracy. High every 90 days, Medium and Low every 180.'],
+    ['Care Plan', 'The client’s plan of care. The signed document lives in Viv; the Hub shows the most recent approved one.'],
+    ['Care Team', 'The caregivers currently scheduled with a client. Built from the schedule, because Viv keeps no separate list.'],
+    ['Open visit', 'A booked visit with no caregiver assigned yet.'],
     ['Success in 30', 'The first thirty days of a new client, tracked as a set of known milestones.'],
     ['Coverage note', 'What a covering colleague needs to know about a client while you are out.'],
     ['Handoff', 'Assigning your caseload to a covering CSM for a period.'],
     ['Fill Priority', 'The ranking of open visits, so the most consequential gap gets solved first.'],
     ['Community', 'A senior living building where Tribute has clients.'],
-    ['Market', 'Massachusetts, Chicago or Maryland. Sets the scope of everything you see.'],
+    ['Market', 'Massachusetts, Chicago or Maryland. Sets the scope of everything you see, including times.'],
     ['Mine / Team / All', 'Three scopes. Your own caseload; the caseloads of people who report to you; everyone in the current market.'],
     ['Tier', 'How closely a client is watched — High, Medium or Low. Drives touchpoint and care conversation cadence.'],
+    ['LTC', 'Long-term care insurance. A packet of visit documentation and an invoice, sent to a carrier for reimbursement.'],
     ['Stale', 'A page built on a schedule that has not rebuilt recently. The page says when it was last built rather than hiding it.'],
-    ['The current Hub', 'The version of the Hub everyone has been using. Still available, still works, and still the place for a few actions.'],
-    ['The new Hub', 'The redesigned Hub being introduced. Same data, same records; a few actions are not switched on yet.']
+    ['Standalone', 'The Hub launched from the iPhone Home Screen, running full screen in its own window.']
   ];
 
   /* ── FAQ ───────────────────────────────────────────────────────────── */
   const faq = [
-    ['Is my work saved automatically?', 'Yes, for everything the new Hub handles. There is no save button. The sync indicator says Saving, then Saved with a time.'],
-    ['Will people using the current Hub see my changes?', 'Yes. Both versions read and write the same records. A note you write in one appears in the other.'],
-    ['Why is an action unavailable in the new Hub?', 'Those actions are shared across the whole team, so they are being switched on carefully, one at a time. Nothing is half-saved — a blocked action writes nothing. The message names the action and tells you where to do it.'],
-    ['Can I keep using the current Hub?', 'Yes. It is unchanged and stays available. Just avoid editing the same thing in both at the same moment.'],
-    ['Why does a page say when it was built?', 'Some pages take real work to assemble, so they are built on a schedule. Showing the time is how you can judge whether a number is current.'],
+    ['Is my work saved automatically?', 'Yes. There is no save button. The sync indicator says Saving, then Saved with a time.'],
+    ['Where does the client address and schedule come from?', 'Viv, read when you open the client. Nothing is copied or kept — close the tab and it is gone.'],
+    ['Which care plan does the Hub show?', 'The most recent approved Care Plan from the client’s documents in Viv, by approval date. The date and approver are shown at the top.'],
+    ['Why does a visit not say Confirmed?', 'Because Viv does not tell us whether a visit is confirmed. A visit is assigned to a caregiver, open, or cancelled, and the Hub says only what it knows.'],
+    ['Is the Care Team a list somebody maintains?', 'No. Viv has no care-team list — the relationship is the booking. The Hub builds it from the client’s current fortnight of visits and says so on the page.'],
     ['Does Feedback send anything about my clients?', 'No. It attaches which page you were on, your role and market, and technical detail about the screen. No client, caregiver or family information, and never a screenshot.'],
+    ['Does the iPhone version store client information on my phone?', 'No. There is no offline copy of anything.'],
     ['Why can I see more clients than my own?', 'You are in a scope wider than Mine — Team or All — or your role covers the whole market.'],
-    ['A time looks an hour out.', 'Check which market you are in. Chicago runs on Central time and shows Chicago local times.']
+    ['A time looks an hour out.', 'Client schedule times are shown in the client’s own market time. Chicago runs on Central.'],
+    ['What is Record Visit?', 'A reserved place for visit documentation that has not been built yet. It is switched off and does nothing.']
   ];
 
-  return {
-    updated: UPDATED, buildNote: BUILD_NOTE,
-    pages, tasks, roles, trouble, glossary, faq,
+  /* Flat index for search. Built from the content above, so it can never
+     drift out of step with what is actually in the guide. */
+  const index = (function () {
+    const rows = [];
+    const push = (kind, id, title, text) =>
+      rows.push({ kind: kind, id: id, title: title, text: (title + ' ' + text).toLowerCase() });
+    const flat = b => (b || []).map(x =>
+      [x.h || '', x.p || '', (x.ul || []).join(' '),
+       (x.steps || []).map(s => s.t + ' ' + s.b).join(' ')].join(' ')).join(' ');
+    Object.keys(A).forEach(k => {
+      const a = A[k];
+      push('article', k, a.title,
+        [a.lede, flat(a.body), (a.know || []).join(' '), PAGE_ALIASES[k] || ''].join(' '));
+    });
+    TOPICS.forEach(t => push('topic', t.id, t.title, t.lede));
+    trouble.forEach(t => push('trouble', t.id, t.q, t.a.join(' ') + ' ' + (ALIASES[t.id] || '')));
+    glossary.forEach(g => push('term', 'words', g[0], g[1]));
+    faq.forEach(f => push('faq', 'faq', f[0], f[1]));
+    return rows;
+  })();
 
-    /* Flat index for search. Built once, from the content above, so it can
-       never drift out of step with what is actually in the guide. */
-    index: (function () {
-      const rows = [];
-      const push = (kind, id, title, text) => rows.push({ kind, id, title, text: (title + ' ' + text).toLowerCase() });
-      Object.keys(pages).forEach(k => { const p = pages[k];
-        push('page', k, p.title, [p.lede, p.what, (p.first||[]).join(' '), (p.can||[]).join(' '), p.v1||'', (p.know||[]).join(' '), PAGE_ALIASES[k]||''].join(' ')); });
-      Object.keys(tasks).forEach(k => { const t = tasks[k];
-        push('task', k, t.title, [t.lede, (t.steps||[]).map(s => s.t + ' ' + s.b).join(' '), (t.know||[]).join(' ')].join(' ')); });
-      Object.keys(roles).forEach(k => { const r = roles[k];
-        push('role', k, r.title, [r.lede, (r.sections||[]).map(s => s.h + ' ' + s.b).join(' ')].join(' ')); });
-      trouble.forEach((t, i) => { const id = t.id || ('t' + i);
-        push('trouble', id, t.q, t.a.join(' ') + ' ' + (ALIASES[id] || '')); });
-      glossary.forEach(g => push('term', 'glossary', g[0], g[1]));
-      faq.forEach(f => push('faq', 'faq', f[0], f[1]));
-      return rows;
-    })()
-  };
+  return { updated: UPDATED, buildNote: BUILD_NOTE,
+           topics: TOPICS, articles: A, trouble: trouble,
+           glossary: glossary, faq: faq, index: index };
 })();

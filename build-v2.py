@@ -117,18 +117,27 @@ def main():
     # back into the prototype so that previewing the redesign on synthetic data
     # shows the same phone chrome and the same client workspace the pilot sees.
     # v2/ is the source; the prototype copies are generated.
-    for f in ('v2-mobile.css', 'v2-mobile.js', 'v2-client.js'):
+    for f in ('v2-mobile.css', 'v2-mobile.js', 'v2-client.js',
+              'v2-guide.js', 'guide-views.js', 'guide-content.js', 'guide.css',
+              'v2-help.js', 'v2-feedback.js', 'v2.css'):
         shutil.copyfile(os.path.join(OUT, 'v2', f), os.path.join(RD, 'prototype', f))
 
     tags = []
     tags.append('<link rel="stylesheet" href="%s">' % stamp('redesign.css'))
     tags.append('<link rel="stylesheet" href="%s">' % stamp('v2.css'))
     tags.append('<link rel="stylesheet" href="%s">' % stamp('v2-mobile.css'))
+    # The guide is a Hub destination, so its stylesheet ships with the Hub.
+    # Every rule in it is scoped under .gdoc and it defines no tokens of its
+    # own, so it cannot reach the application around it.
+    tags.append('<link rel="stylesheet" href="%s">' % stamp('guide.css'))
     for f in LAYER:
         tags.append('<script src="%s"></script>' % stamp(f))
     tags.append('<script src="%s"></script>' % stamp('v2-policy.js'))
     tags.append('<script src="%s"></script>' % stamp('v2-chrome.js'))
     tags.append('<script src="%s"></script>' % stamp('v2-feedback.js'))
+    tags.append('<script src="%s"></script>' % stamp('guide-content.js'))
+    tags.append('<script src="%s"></script>' % stamp('guide-views.js'))
+    tags.append('<script src="%s"></script>' % stamp('v2-guide.js'))
     tags.append('<script src="%s"></script>' % stamp('v2-help.js'))
     tags.append('<script src="%s"></script>' % stamp('v2-fullcap.js'))
     tags.append('<script src="%s"></script>' % stamp('v2-client.js'))
@@ -151,7 +160,7 @@ def main():
     gpath = os.path.join(OUT, 'v2', 'guide.html')
     if os.path.exists(gpath):
         g = read(gpath)
-        for asset in ('guide-content.js', 'guide-art.js', 'guide.css'):
+        for asset in ('guide-content.js', 'guide-views.js', 'guide.css'):
             h = hashlib.sha1(io.open(os.path.join(OUT, 'v2', asset), 'rb').read()).hexdigest()[:8]
             g = re.sub(r'\./' + re.escape(asset) + r'(\?v=[0-9a-f]+)?',
                        './' + asset + '?v=' + h, g)
@@ -167,6 +176,7 @@ def main():
     # script is actually referenced, so a rebuild can never drop one again.
     for _req in ('v2-policy.js', 'v2-chrome.js', 'v2-feedback.js', 'v2-help.js',
                  'v2-fullcap.js', 'v2-mobile.js', 'v2-mobile.css', 'v2-client.js',
+                 'v2-guide.js', 'guide-views.js', 'guide-content.js', 'guide.css',
                  'manifest.webmanifest', 'apple-touch-icon.png'):
         assert _req in out, 'built index.html does not load %s' % _req
     present = sorted(os.listdir(os.path.join(OUT, 'v2')))

@@ -84,8 +84,11 @@
      already has — one Guide, one Feedback sheet — rather than a second
      implementation of either. */
   const NAV_EXTRA = {
-    __guide: { icon: 'book', id: 'v2-guide-link', ok: function () { return !!window.TributeGuide; },
-               go: function () { window.TributeGuide.open(); } },
+    // The Guide is a Hub destination now, not a second browser tab, so it is
+    // built as an ordinary nav item: the router's permission model works by
+    // routing THROUGH the rail, and it needs a real onclick to route through.
+    __guide: { icon: 'book', id: 'v2-guide-link', page: 'guide',
+               ok: function () { return !!window.TributeGuide; } },
     __feedback: { icon: 'conversation', id: 'v2-nav-feedback',
                   ok: function () { return !!(window.TributeApp && window.TributeApp.feedback); },
                   go: function () { window.TributeApp.feedback.open(); } }
@@ -121,12 +124,17 @@
           el = document.createElement('div');
           el.className = 'nav-item';
           el.id = extra.id;
-          el.setAttribute('role', 'button');
-          el.setAttribute('tabindex', '0');
-          el.addEventListener('click', function () { try { extra.go(); } catch (e) {} });
-          el.addEventListener('keydown', function (ev) {
-            if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); try { extra.go(); } catch (e) {} }
-          });
+          if (extra.page) {
+            el.setAttribute('onclick', "showPage('" + extra.page + "',this)");
+            el.dataset.page = extra.page;
+          } else {
+            el.setAttribute('role', 'button');
+            el.setAttribute('tabindex', '0');
+            el.addEventListener('click', function () { try { extra.go(); } catch (e) {} });
+            el.addEventListener('keydown', function (ev) {
+              if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); try { extra.go(); } catch (e) {} }
+            });
+          }
           const ic = document.createElement('span'); ic.className = 'nav-icon';
           ic.innerHTML = I(extra.icon); el.appendChild(ic);
           const lb = document.createElement('span'); lb.className = 'nav-label'; lb.textContent = label;
@@ -191,11 +199,16 @@
         .find(function (it) { return it[0] === key; }) || [key, key])[1];
       const el = document.createElement('div');
       el.className = 'nav-item'; el.id = x.id;
-      el.setAttribute('role', 'button'); el.setAttribute('tabindex', '0');
-      el.addEventListener('click', function () { try { x.go(); } catch (e) {} });
-      el.addEventListener('keydown', function (ev) {
-        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); try { x.go(); } catch (e) {} }
-      });
+      if (x.page) {
+        el.setAttribute('onclick', "showPage('" + x.page + "',this)");
+        el.dataset.page = x.page;
+      } else {
+        el.setAttribute('role', 'button'); el.setAttribute('tabindex', '0');
+        el.addEventListener('click', function () { try { x.go(); } catch (e) {} });
+        el.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); try { x.go(); } catch (e) {} }
+        });
+      }
       el.innerHTML = '<span class="nav-icon">' + I(x.icon) + '</span>' +
                      '<span class="nav-label">' + esc(label) + '</span>';
       navEl.appendChild(el);

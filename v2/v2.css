@@ -136,13 +136,10 @@
 /* ── Contextual help ─────────────────────────────────────────────────────
    Quiet by default. It should read as an offer, not an instruction, and it
    must never compete with the operational content above it. */
-.v2-help-link{
-  display:inline-block;margin:-2px 0 14px;font-size:13px;color:#8C857B;
-  text-decoration:none;border-bottom:1px dashed #D8D2CC;padding-bottom:1px;
-}
-.v2-help-link:hover,.v2-help-link:focus-visible{color:#E25309;border-bottom-color:#E25309}
-.v2-help-link::before{content:'?';display:inline-block;width:14px;height:14px;line-height:14px;
-  text-align:center;border:1px solid currentColor;border-radius:50%;font-size:10px;margin-right:6px;vertical-align:1px}
+/* Moved to redesign.css, where the rest of the Hub's visual language lives.
+   The colours here were hard-coded hexes that no longer matched the Hub's
+   own brand token, which is the kind of drift that makes two parts of one
+   product look like two products. */
 #v2-guide-link{cursor:pointer;text-decoration:none}
 
 /* ── Full-capability test mode ───────────────────────────────────────────

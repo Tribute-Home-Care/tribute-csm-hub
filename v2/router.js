@@ -39,7 +39,8 @@
 
   const A = () => window.TributeApp;
   const PAGES = ['home', 'clients', 's60', 'pulse', 'coverage', 'emailcomm',
-    'ltc', 'md', 'priority', 'assistant', 'expectations', 'kpi', 'team', 'comms'];
+    'ltc', 'md', 'priority', 'assistant', 'expectations', 'kpi', 'team', 'comms',
+    'guide'];
 
   const R = {
     enabled: false,
@@ -60,6 +61,8 @@
     // An unknown route resolves to Home AND rewrites the address, so the bar
     // never shows a location the application is not actually at.
     const out = { page: page, client: null, section: null, layer: null, unknown: !known };
+    // Everything after #guide/ belongs to the guide's own router.
+    if (page === 'guide') { out.section = p.slice(1).join('/'); return out; }
     if (page === 'clients' && p[1]) {
       out.client = decodeURIComponent(p[1]);
       if (p[2] === 'edit' || p[2] === 'log') out.layer = p[2];
@@ -71,6 +74,7 @@
 
   function build(s) {
     let h = '#' + (s.page || 'home');
+    if (s.page === 'guide') return h + (s.section ? '/' + s.section : '');
     if (s.page === 'clients' && s.client) {
       h += '/' + encodeURIComponent(s.client);
       if (s.section) h += '/' + s.section;
@@ -153,13 +157,33 @@
           // No section in the route means Overview. Without this, stepping
           // back from #clients/<id>/schedule to #clients/<id> left the
           // workspace on Schedule while the address said otherwise.
+          // Both header class names, deliberately: the workspace header was
+          // renamed .rd-ws-head -> .rd-cw-head and this selector was not,
+          // which left every deep link to a section landing on Overview with
+          // the address bar claiming otherwise.
           const want = s.section || 'overview';
-          const cur = document.querySelector('.rd-ws-head .rd-cw-rail button[aria-selected="true"]');
+          const RAIL = '.rd-cw-head .rd-cw-rail, .rd-ws-head .rd-cw-rail';
+          const cur = document.querySelector(RAIL.split(', ').map(x => x + ' button[aria-selected="true"]').join(', '));
           if (!cur || cur.dataset.key !== want) {
-            const btn = document.querySelector('.rd-ws-head .rd-cw-rail button[data-key="' + want + '"]');
+            const btn = document.querySelector(RAIL.split(', ').map(x => x + ' button[data-key="' + want + '"]').join(', '));
             if (btn) btn.click();
+            else {
+              // A section that lives behind More has no chip to click.
+              const more = document.querySelector('.rd-cw-more');
+              if (more) {
+                more.click();
+                const alt = document.querySelector('.rd-menu-list[data-for="ws"] button[data-go="' + want + '"]');
+                if (alt) alt.click(); else more.click();
+              }
+            }
           }
         }
+      }
+
+      // 3b. The guide's own route, applied without pushing history back at
+      //     the router that is already applying it.
+      if (s.page === 'guide' && window.TributeGuide && window.TributeGuide.show) {
+        window.TributeGuide.show(s.section || '');
       }
 
       // 4. Layer.

@@ -1,293 +1,233 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    TRIBUTE CSM HUB — GUIDE
    ═══════════════════════════════════════════════════════════════════════════
-   The guide belongs to the product, so it uses the product's tokens: warm
-   stone canvas, white surfaces, graphite ink, orange reserved for brand and
-   for the single thing you should look at.
+   The guide is part of the Hub, so it has no palette of its own.
 
-   The composition is built outward from the screenshots rather than around a
-   column of prose. A page guide is a large picture of the real screen with
-   its explanation arranged beside it; the writing supports the image, not
-   the other way round.
+   It used to define its own :root — a different orange, a different canvas,
+   a different corner radius — which is exactly why it read as somebody else's
+   website even though the words were ours. Every value below now comes from
+   the Hub's own tokens (redesign.css). If the Hub's brand changes, this
+   changes with it, because there is nothing here to change separately.
+
+   Everything is scoped under .gdoc so the guide can be dropped inside the Hub
+   shell without a single rule reaching the application around it.
    ═══════════════════════════════════════════════════════════════════════════ */
-:root{
-  --canvas:#FAF8F4; --surface:#FFFFFF; --line:#EAE6DF; --line-soft:#F1EEE8;
-  --ink:#1C1A17; --ink-2:#3D3833; --muted:#7D766C; --muted-soft:#ADA69B;
-  --brand:#FF671F; --brand-dark:#D4480E; --brand-soft:#FDF0E6; --brand-line:#F6CBAA;
-  --ok:#0F6E56; --ok-bg:#EAF4F0; --ok-line:#BCDCD0;
-  --warn:#8A5207; --warn-bg:#FBF2E2; --warn-line:#EBD7AE;
-  --r:16px; --r-lg:22px; --r-sm:11px;
-  --sh:0 1px 2px rgba(28,26,23,.04), 0 10px 30px rgba(28,26,23,.055);
-  --sh-lg:0 2px 4px rgba(28,26,23,.04), 0 26px 60px rgba(28,26,23,.09);
-  --t:.2s cubic-bezier(.4,0,.2,1);
-  --gut:40px; --max:1480px;
+
+.gdoc {
+  --g-gut: 32px;
+  --g-max: 1120px;
+  --g-measure: 68ch;
+  color: var(--ink);
+  font-size: 15.5px;
+  line-height: 1.6;
 }
-/* A very wide monitor should get composition, not margins. Prose still caps
-   at 72ch wherever it sits, so lines never get harder to read. */
-@media (min-width:1700px){ :root{ --max:1680px; --gut:56px; } }
-@media (min-width:2100px){ :root{ --max:1860px; } }
-*{box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{
-  margin:0;background:var(--canvas);color:var(--ink);
-  font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  font-size:16.5px;line-height:1.65;letter-spacing:-.006em;
-  -webkit-font-smoothing:antialiased;
+.gdoc *, .gdoc *::before, .gdoc *::after { box-sizing: border-box; }
+.gdoc-in { max-width: var(--g-max); margin: 0 auto; padding: 0 0 72px; }
+/* The view is focused after each navigation so a screen reader lands on the
+   new content. It is tabindex="-1", so that focus is programmatic and must
+   not draw the focus ring — which otherwise outlined the entire guide in
+   orange on every page change. */
+.gdoc-in:focus, .gdoc-in:focus-visible { outline: none; box-shadow: none; }
+
+/* ── type ────────────────────────────────────────────────────────────────
+   The Hub's ramp, one step larger: this is the one place in the product that
+   is actually read rather than scanned. */
+.gdoc h1 {
+  font-size: 34px; font-weight: 600; letter-spacing: -.022em; line-height: 1.12;
+  color: var(--ink); margin: 0;
 }
-h1,h2,h3,h4,.dsp{font-family:"Space Grotesk",Inter,sans-serif;letter-spacing:-.025em;line-height:1.14;margin:0}
-a{color:var(--brand-dark);text-decoration:none}
-a:hover{text-decoration:underline}
-:focus-visible{outline:2.5px solid var(--brand);outline-offset:3px;border-radius:6px}
-img{max-width:100%}
+.gdoc h2 {
+  font-size: 20px; font-weight: 600; letter-spacing: -.012em;
+  color: var(--ink); margin: 0 0 var(--s3);
+}
+.gdoc h2 a { color: inherit; text-decoration: none; }
+.gdoc h2 a:hover { color: var(--brand-ink); }
+.gdoc h3 {
+  font-size: 12px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--ink-3); margin: var(--s6) 0 var(--s2);
+}
+.gdoc p { margin: 0 0 var(--s3); max-width: var(--g-measure); color: var(--ink-2); }
+.gdoc .g-lede { font-size: 16.5px; color: var(--ink-2); max-width: var(--g-measure); }
+.gdoc a { color: var(--brand-ink); text-decoration: none; }
+.gdoc a:hover { text-decoration: underline; }
 
-/* ── Chrome ──────────────────────────────────────────────────────────── */
-.gtop{position:sticky;top:0;z-index:40;background:rgba(250,248,244,.82);
-  backdrop-filter:saturate(1.7) blur(14px);border-bottom:1px solid var(--line)}
-.gtop-in{max-width:var(--max);margin:0 auto;padding:14px var(--gut);display:flex;align-items:center;gap:22px}
-.gbrand{display:flex;align-items:baseline;gap:9px;font-family:"Space Grotesk",sans-serif;font-weight:600;font-size:19px;color:var(--ink)}
-.gbrand .dot{width:7px;height:7px;border-radius:50%;background:var(--brand);display:inline-block}
-.gbrand small{font-weight:500;color:var(--muted);font-size:14px;letter-spacing:0}
-.gtop nav{margin-left:auto;display:flex;gap:3px;flex-wrap:wrap}
-.gtop nav a{padding:8px 15px;border-radius:999px;color:var(--ink-2);font-size:14.5px;font-weight:500;
-  transition:background var(--t),color var(--t)}
-.gtop nav a:hover{background:var(--line-soft);text-decoration:none}
-.gtop nav a[aria-current="page"]{background:var(--ink);color:#fff}
-.gback{display:inline-flex;align-items:center;gap:7px;font-size:14.5px;color:var(--muted);margin-bottom:26px;font-weight:500}
-.gback:hover{color:var(--brand-dark)}
+/* ── the front door ──────────────────────────────────────────────────── */
+.gdoc .g-hero { padding: var(--s4) 0 var(--s8); }
+.gdoc .g-hero h1 { font-size: 38px; }
+.gdoc .g-hero p { font-size: 17px; margin-top: var(--s3); }
+.gdoc .g-head { padding: var(--s2) 0 var(--s6); }
+.gdoc .g-head .g-lede { margin-top: var(--s3); }
 
-/* ── Layout ──────────────────────────────────────────────────────────── */
-.wrap{max-width:var(--max);margin:0 auto;padding:0 var(--gut) 120px}
-.narrow{max-width:72ch}          /* prose never stretches, whatever the canvas */
-section{margin-top:76px}
-.sechead{margin-bottom:26px;max-width:62ch}
-.sechead h2{font-size:34px}
-.sechead p{color:var(--muted);font-size:17.5px;margin:9px 0 0}
+.gdoc .g-back {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13.5px; color: var(--ink-3); margin: var(--s2) 0 var(--s4);
+}
+.gdoc .g-back:hover { color: var(--ink); text-decoration: none; }
 
-/* ── Hero ────────────────────────────────────────────────────────────── */
-.hero{padding:88px 0 10px;max-width:900px}
-.hero h1{font-size:clamp(38px,5.1vw,68px);letter-spacing:-.034em;margin:0 0 22px}
-.hero p{font-size:21px;line-height:1.52;color:var(--ink-2);margin:0 0 30px;max-width:60ch}
-.eyebrow{display:inline-block;font-size:12px;font-weight:650;letter-spacing:.12em;text-transform:uppercase;
-  color:var(--brand-dark);background:var(--brand-soft);border:1px solid var(--brand-line);
-  padding:6px 13px;border-radius:999px;margin-bottom:24px}
-.hero-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:60px;align-items:center;padding:78px 0 0}
-.hero-split .hero{padding:0;max-width:none}
+/* ── search ──────────────────────────────────────────────────────────── */
+.gdoc .g-search { position: relative; max-width: 460px; margin-top: var(--s6); }
+.gdoc .g-search input {
+  width: 100%; min-height: 44px; padding: 10px 14px;
+  font: inherit; font-size: 15px; color: var(--ink);
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-sm);
+}
+.gdoc .g-search input:focus { outline: none; border-color: var(--line-2); box-shadow: var(--ring); }
+.gdoc .g-res {
+  position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 6px);
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--r-sm); box-shadow: var(--e2); overflow: hidden;
+}
+.gdoc .g-res a {
+  display: flex; align-items: baseline; gap: var(--s3);
+  padding: 11px 14px; color: var(--ink); border-top: 1px solid var(--line-soft);
+}
+.gdoc .g-res a:first-child { border-top: none; }
+.gdoc .g-res a:hover, .gdoc .g-res a.on { background: var(--surface-2); text-decoration: none; }
+.gdoc .g-res .t { font-weight: 500; }
+.gdoc .g-res .d { font-size: 12.5px; color: var(--ink-3); margin-left: auto; }
+.gdoc .g-res-none { padding: 12px 14px; margin: 0; font-size: 14px; color: var(--ink-3); }
 
-/* The product collage: three real screenshots, stacked. Nothing invented. */
-.collage{position:relative;height:430px}
-.collage figure{position:absolute;margin:0;border-radius:var(--r);overflow:hidden;
-  border:1px solid var(--line);background:var(--surface);box-shadow:var(--sh-lg);line-height:0}
-.collage img{display:block;width:100%}
-/* Home is the subject; the other two are supporting. The feedback panel is
-   a tall image, so it is kept small or it takes over the composition. */
-.collage .c1{width:80%;left:0;top:6px;z-index:3}
-.collage .c2{width:54%;right:0;top:168px;z-index:4}
-.collage .c3{width:27%;left:3%;bottom:0;z-index:5}
-@media (prefers-reduced-motion:no-preference){
-  .collage figure{transition:transform var(--t)}
-  .collage:hover .c1{transform:translateY(-4px)}
-  .collage:hover .c2{transform:translateY(-7px)}
-  .collage:hover .c3{transform:translateY(-10px)}
+/* ── blocks and cards ────────────────────────────────────────────────── */
+.gdoc .g-block { margin-top: var(--s8); }
+.gdoc .g-block > .g-lede { margin: calc(-1 * var(--s1)) 0 var(--s3); font-size: 14.5px; }
+.gdoc .g-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s2); }
+.gdoc .g-cards a {
+  display: flex; flex-direction: column; gap: 2px;
+  min-height: 44px; justify-content: center;
+  padding: 13px 16px; border-radius: var(--r-sm);
+  background: var(--surface); border: 1px solid var(--line); color: var(--ink);
+  transition: border-color var(--t), box-shadow var(--t);
+}
+.gdoc .g-cards a:hover { border-color: var(--line-2); box-shadow: var(--e1); text-decoration: none; }
+.gdoc .g-cards .t { font-weight: 600; font-size: 15px; }
+.gdoc .g-cards .d { font-size: 13.5px; color: var(--ink-3); }
+
+/* ── prose ───────────────────────────────────────────────────────────── */
+.gdoc .g-prose { max-width: var(--g-measure); }
+.gdoc .g-prose h3:first-child { margin-top: var(--s4); }
+.gdoc .g-ul { margin: 0 0 var(--s3); padding: 0; list-style: none; max-width: var(--g-measure); }
+.gdoc .g-ul li { position: relative; padding: 4px 0 4px var(--s4); color: var(--ink-2); }
+.gdoc .g-ul li::before {
+  content: ""; position: absolute; left: 3px; top: 13px;
+  width: 5px; height: 5px; border-radius: 50%; background: var(--line-2);
+}
+.gdoc .g-steps { margin: var(--s2) 0 var(--s4); padding: 0; list-style: none; counter-reset: s; }
+.gdoc .g-steps li {
+  display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: var(--s3);
+  padding: 9px 0; border-top: 1px solid var(--line-soft);
+}
+.gdoc .g-steps li:first-child { border-top: none; }
+.gdoc .g-steps .n {
+  display: flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--surface-2); color: var(--ink-3);
+  font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+.gdoc .g-steps .t { display: block; font-weight: 600; color: var(--ink); }
+.gdoc .g-steps .b { display: block; color: var(--ink-2); margin-top: 1px; }
+.gdoc .g-steps.plain { }
+.gdoc .g-steps.plain li { grid-template-columns: minmax(0, 1fr); }
+
+.gdoc .g-note {
+  margin-top: var(--s8); padding: var(--s4) var(--s4) var(--s2);
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r);
+}
+.gdoc .g-note h2 {
+  font-size: 12px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--ink-3); margin-bottom: var(--s2);
 }
 
-/* ── Search ──────────────────────────────────────────────────────────── */
-.gsearch{position:relative;max-width:580px}
-.gsearch input{width:100%;padding:17px 18px 17px 50px;border:1px solid var(--line);border-radius:var(--r);
-  background:var(--surface);font:inherit;font-size:16.5px;color:var(--ink);box-shadow:var(--sh);
-  transition:border-color var(--t),box-shadow var(--t)}
-.gsearch input:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 4px var(--brand-soft)}
-.gsearch svg{position:absolute;left:18px;top:50%;transform:translateY(-50%);color:var(--muted-soft)}
-.gres{position:absolute;top:calc(100% + 10px);left:0;right:0;background:var(--surface);
-  border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh-lg);
-  max-height:420px;overflow:auto;z-index:30;padding:8px}
-.gres[hidden]{display:none}
-.gres a{display:block;padding:12px 14px;border-radius:var(--r-sm);color:var(--ink)}
-.gres a:hover,.gres a.on{background:var(--line-soft);text-decoration:none}
-.gres .k{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted-soft);font-weight:650}
-.gres .t{font-weight:550;font-size:15.5px}
-.gres .none{padding:16px 14px;color:var(--muted);font-size:15px}
-
-/* ── Grids & cards ───────────────────────────────────────────────────── */
-.grid{display:grid;gap:20px}
-.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
-.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
-.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:26px;
-  transition:border-color var(--t),transform var(--t),box-shadow var(--t)}
-a.card{display:block;color:inherit}
-a.card:hover{border-color:var(--brand-line);transform:translateY(-3px);box-shadow:var(--sh-lg);text-decoration:none}
-.card h3{font-size:19px;margin:0 0 7px}
-.card p{margin:0;color:var(--muted);font-size:15px;line-height:1.58}
-.card .go{display:inline-block;margin-top:16px;font-size:14.5px;font-weight:600;color:var(--brand-dark)}
-
-/* Role card: illustration on top, in the market-card language. */
-.rolecard .art{background:var(--line-soft);border-radius:var(--r-sm);padding:14px 10px;margin:-6px -6px 18px}
-.g-art{width:100%;height:auto;display:block}
-.g-art path,.g-art rect,.g-art circle{fill:none;stroke-linecap:round;stroke-linejoin:round}
-.g-art .a-1 path{stroke:#6F6459;stroke-width:1.7}
-.g-art .a-2 path{stroke:#A3968A;stroke-width:1.35;fill:#FAF5ED}
-.g-art .a-ctx path,.g-art .a-ctx circle{stroke:#CFC4B6;stroke-width:1.1}
-.g-art .a-fill{fill:#EFE0D0;stroke:none}
-.g-art .a-lit rect{fill:#FAD9BC;stroke:var(--brand);stroke-width:1.5}
-a.card:hover .g-art .a-lit rect{fill:#F7C79E}
-
-/* Compact link rows */
-.cardlist{display:flex;flex-direction:column;gap:3px}
-.cardlist a{display:flex;align-items:baseline;gap:12px;padding:14px 16px;border-radius:var(--r-sm);color:var(--ink);
-  border:1px solid transparent;transition:background var(--t),border-color var(--t)}
-.cardlist a:hover{background:var(--surface);border-color:var(--line);text-decoration:none}
-.cardlist .t{font-weight:600;font-size:15.5px;flex:0 0 auto}
-.cardlist .d{color:var(--muted);font-size:14.5px}
-
-/* ── Screenshots ─────────────────────────────────────────────────────── */
-.shotwrap{background:var(--line-soft);border-radius:var(--r-lg);padding:26px}
-figure{margin:0}
-.shot{position:relative;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;
-  background:var(--surface);box-shadow:var(--sh-lg);line-height:0}
-.shot img{width:100%;height:auto;display:block}
-.shot .cm{position:absolute;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;
-  background:var(--brand);color:#fff;font-size:15px;font-weight:700;line-height:30px;text-align:center;
-  box-shadow:0 0 0 4px rgba(255,255,255,.95),0 3px 10px rgba(28,26,23,.3);font-family:Inter,sans-serif}
-figcaption{font-size:14.5px;color:var(--muted);margin-top:14px}
-/* The key. Carries the meaning on its own, so the dots are never load-bearing. */
-.cmlist{list-style:none;margin:0;padding:0;display:grid;gap:18px}
-.cmlist li{display:flex;gap:15px;align-items:flex-start}
-.cmlist .n{flex:0 0 auto;width:28px;height:28px;border-radius:50%;background:var(--brand);color:#fff;
-  font-size:14px;font-weight:700;line-height:28px;text-align:center}
-.cmlist .t{font-weight:650;font-size:16.5px;display:block;margin-bottom:2px}
-.cmlist .b{color:var(--muted);font-size:15.5px;line-height:1.55}
-/* Screenshot left, key right, on a wide screen. */
-.shotkey{display:grid;grid-template-columns:minmax(0,1.95fr) minmax(320px,.9fr);gap:52px;align-items:start}
-
-/* ── Page-guide blocks ───────────────────────────────────────────────── */
-.block{margin-top:52px}
-.block > h2{font-size:13px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);
-  font-family:Inter,sans-serif;font-weight:700;margin-bottom:16px}
-.block > p{margin:0;font-size:17.5px;line-height:1.6;max-width:72ch}
-ul.clean{margin:0;padding-left:22px;max-width:72ch}
-ul.clean li{margin-bottom:10px}
-/* "What you can do" as compact capability chips rather than a bullet list */
-.caps{display:flex;flex-wrap:wrap;gap:10px}
-.caps span{background:var(--surface);border:1px solid var(--line);border-radius:999px;
-  padding:9px 16px;font-size:15px;font-weight:500}
-.note{border-left:3px solid var(--brand);background:var(--brand-soft);padding:18px 22px;
-  border-radius:0 var(--r-sm) var(--r-sm) 0;font-size:16.5px;color:var(--ink-2);max-width:80ch}
-.note.v1{border-left-color:var(--warn);background:var(--warn-bg)}
-.note.ok{border-left-color:var(--ok);background:var(--ok-bg)}
-.note b{color:var(--ink)}
-
-/* ── Steps / journeys ────────────────────────────────────────────────── */
-.steps{counter-reset:s;list-style:none;margin:0;padding:0;display:grid;gap:4px}
-.steps li{counter-increment:s;display:flex;gap:20px;align-items:flex-start;
-  padding:20px 0;border-top:1px solid var(--line)}
-.steps li:first-child{border-top:0;padding-top:4px}
-.steps li::before{content:counter(s);flex:0 0 auto;width:36px;height:36px;border-radius:50%;
-  background:var(--ink);color:#fff;font-size:16px;font-weight:650;line-height:36px;text-align:center;
-  font-family:"Space Grotesk",sans-serif}
-.steps .t{font-weight:650;display:block;font-size:18px;margin-bottom:3px}
-.steps .b{color:var(--muted);font-size:16px;line-height:1.55}
-/* The journey: a role's day, as a sequence you can scan */
-.journey{display:grid;gap:18px}
-.jstep{display:grid;grid-template-columns:76px minmax(0,1fr);gap:22px;align-items:start;
-  background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:26px 28px}
-.jstep .num{font-family:"Space Grotesk",sans-serif;font-size:40px;font-weight:600;color:var(--brand);
-  line-height:1;letter-spacing:-.04em}
-.jstep h3{font-size:21px;margin-bottom:7px}
-.jstep p{margin:0;color:var(--muted);font-size:16.5px;line-height:1.58;max-width:70ch}
-
-/* ── The V1/V2 boundary: two panels, read in about two seconds ───────── */
-.boundary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
-.panel{border-radius:var(--r-lg);padding:30px 32px;border:1px solid}
-.panel.live{background:var(--ok-bg);border-color:var(--ok-line)}
-.panel.v1{background:var(--warn-bg);border-color:var(--warn-line)}
-.panel h3{font-size:23px;margin-bottom:6px}
-.panel.live h3{color:var(--ok)} .panel.v1 h3{color:var(--warn)}
-.panel .lede{font-size:15.5px;margin:0 0 20px;color:var(--ink-2)}
-.panel ul{list-style:none;margin:0;padding:0;display:grid;gap:11px}
-.panel li{display:flex;gap:11px;align-items:flex-start;font-size:16px;font-weight:500}
-/* The mark is a SHAPE as well as a colour, so the two panels stay
-   distinguishable without colour vision. */
-.panel .mk{flex:0 0 auto;width:21px;height:21px;border-radius:50%;display:inline-block;
-  font-size:12px;line-height:21px;text-align:center;font-weight:800;color:#fff;margin-top:2px}
-.panel.live .mk{background:var(--ok)}
-.panel.v1 .mk{background:var(--warn);border-radius:4px}
-
-/* ── Troubleshooting decision cards ──────────────────────────────────── */
-.tcards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:start}
-details.tcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
-  padding:4px 28px 6px;transition:border-color var(--t),box-shadow var(--t)}
-details.tcard[open]{border-color:var(--brand-line);box-shadow:var(--sh)}
-details.tcard summary{cursor:pointer;list-style:none;padding:24px 0;display:flex;gap:16px;
-  align-items:center;justify-content:space-between;font-family:"Space Grotesk",sans-serif;
-  font-size:20px;font-weight:600;letter-spacing:-.02em}
-details.tcard summary::-webkit-details-marker{display:none}
-details.tcard summary::after{content:'';flex:0 0 auto;width:26px;height:26px;border-radius:50%;
-  background:var(--line-soft);background-image:linear-gradient(currentColor,currentColor),linear-gradient(currentColor,currentColor);
-  background-size:11px 1.6px,1.6px 11px;background-position:center,center;background-repeat:no-repeat;
-  color:var(--muted);transition:transform var(--t)}
-details.tcard[open] summary::after{background-size:11px 1.6px,0 0;transform:rotate(180deg)}
-details.tcard .in{padding:0 0 22px}
-
-/* ── Glossary & FAQ ──────────────────────────────────────────────────── */
-dl.gl{margin:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 48px}
-dl.gl > div{padding:20px 0;border-bottom:1px solid var(--line)}
-dl.gl dt{font-weight:700;font-size:16.5px}
-dl.gl dd{margin:4px 0 0;color:var(--muted);font-size:15.5px;line-height:1.56}
-details.faq{border-bottom:1px solid var(--line)}
-details.faq summary{cursor:pointer;padding:19px 0;font-weight:550;font-size:17.5px;list-style:none;
-  display:flex;justify-content:space-between;gap:18px;align-items:center}
-details.faq summary::-webkit-details-marker{display:none}
-details.faq summary::after{content:'+';color:var(--muted);font-size:21px;font-weight:300}
-details.faq[open] summary::after{content:'\2212'}
-details.faq p{margin:0 0 20px;color:var(--muted);max-width:76ch;font-size:16.5px}
-
-.foot{margin-top:96px;padding-top:26px;border-top:1px solid var(--line);color:var(--muted-soft);
-  font-size:14px;display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap}
-
-/* ── Responsive ──────────────────────────────────────────────────────── */
-@media (max-width:1180px){
-  .shotkey{grid-template-columns:1fr;gap:30px}
-  .hero-split{grid-template-columns:1fr;gap:44px}
-  .collage{height:360px}
-  .g4{grid-template-columns:repeat(2,minmax(0,1fr))}
+/* ── screenshots ──────────────────────────────────────────────────────
+   The picture is the explanation; the words support it. A guide about an
+   interface that does not show the interface is a memo. */
+.gdoc .g-shotwrap { margin: var(--s6) 0 var(--s8); }
+.gdoc .g-shotkey { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: var(--s8); align-items: start; }
+.gdoc .g-fig { margin: 0; }
+.gdoc .g-shot {
+  position: relative; border-radius: var(--r); overflow: hidden;
+  background: var(--surface); border: 1px solid var(--line); box-shadow: var(--e2);
 }
-@media (max-width:900px){
-  :root{--gut:28px}
-  .g3{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .boundary,.tcards,dl.gl{grid-template-columns:1fr}
-  .hero{padding-top:56px}
-  .sechead h2{font-size:28px}
+.gdoc .g-shot img { display: block; width: 100%; height: auto; }
+.gdoc .g-fig figcaption { margin-top: var(--s2); font-size: 13px; color: var(--ink-3); }
+.gdoc .g-cm {
+  position: absolute; transform: translate(-50%, -50%);
+  min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--brand); color: #fff; font-size: 12px; font-weight: 600;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, .9);
 }
-@media (max-width:640px){
-  :root{--gut:18px}
-  body{font-size:16px}
-  /* A card-list row is a title beside a one-line description. On a phone the
-     title keeps its own line and the description wraps underneath, instead of
-     the pair being squeezed until the description's last word hangs 6px off
-     the right edge and takes the whole page into horizontal scroll. */
-  .cardlist a{flex-direction:column;align-items:flex-start;gap:2px;min-height:44px;justify-content:center}
-  .cardlist .t,.cardlist .d{flex:0 1 auto;min-width:0}
-  /* Reading links are still tap targets. */
-  .toc a,.gnav a,nav a{min-height:44px;display:flex;align-items:center}
-  .g2,.g3,.g4{grid-template-columns:1fr}
-  .hero p{font-size:18px}
-  .shotwrap{padding:14px;border-radius:var(--r)}
-  .jstep{grid-template-columns:1fr;gap:10px;padding:22px}
-  .jstep .num{font-size:32px}
-  .collage{height:250px}
+.gdoc .g-key h3 { margin-top: 0; }
+.gdoc .g-key ol { margin: 0; padding: 0; list-style: none; }
+.gdoc .g-key li {
+  display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: var(--s3);
+  padding: 10px 0; border-top: 1px solid var(--line-soft);
+}
+.gdoc .g-key li:first-child { border-top: none; }
+.gdoc .g-key .n {
+  display: flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 999px;
+  background: var(--brand-soft); color: var(--brand-ink);
+  font-size: 12px; font-weight: 600;
+}
+.gdoc .g-key .t { display: block; font-weight: 600; color: var(--ink); }
+.gdoc .g-key .b { display: block; color: var(--ink-2); font-size: 14px; margin-top: 1px; }
+
+/* ── troubleshooting and glossary ────────────────────────────────────── */
+.gdoc .g-tcard {
+  margin-top: var(--s4); padding: var(--s4);
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r);
+  scroll-margin-top: 88px;
+}
+.gdoc .g-tcard h2 { font-size: 17px; margin-bottom: var(--s2); }
+.gdoc .g-gl { margin: 0; }
+.gdoc .g-gl > div {
+  display: grid; grid-template-columns: minmax(0, 240px) minmax(0, 1fr); gap: var(--s4);
+  padding: 12px 0; border-top: 1px solid var(--line-soft);
+}
+.gdoc .g-gl > div:first-child { border-top: none; }
+.gdoc .g-gl dt { font-weight: 600; color: var(--ink); }
+.gdoc .g-gl dd { margin: 0; color: var(--ink-2); }
+
+.gdoc .g-foot { margin-top: var(--s8); font-size: 13px; color: var(--ink-3); }
+
+/* ── narrow ───────────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .gdoc { font-size: 16px; }
+  .gdoc h1 { font-size: 28px; }
+  .gdoc .g-hero h1 { font-size: 30px; }
+  .gdoc .g-cards { grid-template-columns: minmax(0, 1fr); }
+  .gdoc .g-shotkey { grid-template-columns: minmax(0, 1fr); gap: var(--s4); }
+  .gdoc .g-gl > div { grid-template-columns: minmax(0, 1fr); gap: 2px; }
   /* A numbered dot on a phone-width screenshot points at nothing legible,
      so the key below carries the meaning by itself. */
-  .shot .cm{display:none}
-  details.tcard{padding:4px 20px 6px}
-  details.tcard summary{font-size:18px}
-}
-@media (prefers-reduced-motion:reduce){
-  *{transition:none!important;scroll-behavior:auto!important}
-  a.card:hover{transform:none}
-  .collage figure{transition:none}
+  .gdoc .g-cm { display: none; }
+  .gdoc .g-block { margin-top: var(--s6); }
+  .gdoc .g-search { max-width: none; }
+  .gdoc .g-back, .gdoc .g-cards a, .gdoc .g-res a { min-height: 44px; }
+  /* A section heading that is also a link is a tap target. */
+  .gdoc h2 a { display: inline-flex; align-items: center; min-height: 44px; }
+  .gdoc .g-back { align-items: center; }
 }
 
-/* The key's own heading, inside the screenshot tray. */
-.shotkey .kh{font-size:13px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);
-  font-family:Inter,sans-serif;font-weight:700;margin:0 0 18px}
-@media (max-width:1180px){ .shotkey .kh{margin-top:4px} }
+/* ── the standalone page ──────────────────────────────────────────────
+   guide.html loads redesign.css first, so it already has the Hub's tokens
+   and type. These few rules are only the page frame the Hub itself provides
+   when the guide is shown inside it. */
+.gpage { background: var(--canvas); min-height: 100vh; }
+.gpage .gtop {
+  position: sticky; top: 0; z-index: 40;
+  background: color-mix(in srgb, var(--canvas) 88%, transparent);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+  backdrop-filter: saturate(180%) blur(12px);
+  border-bottom: 1px solid var(--line);
+}
+.gpage .gtop-in {
+  max-width: 1120px; margin: 0 auto; padding: 12px var(--s6);
+  display: flex; align-items: center; gap: var(--s3);
+}
+.gpage .gbrand { display: flex; align-items: baseline; gap: 6px; color: var(--ink); font-weight: 600; }
+.gpage .gbrand .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--brand); align-self: center; }
+.gpage .gbrand small { font-weight: 500; color: var(--ink-3); }
+.gpage .gtop-in .back-to-hub { margin-left: auto; font-size: 13.5px; }
+.gpage .gdoc { padding: var(--s6) var(--s6) 0; }
+@media (max-width: 900px) { .gpage .gtop-in, .gpage .gdoc { padding-left: 18px; padding-right: 18px; } }
