@@ -704,14 +704,43 @@
     /meal|nutrition|diet/i, /cognit|memory|dementia/i, /safety|fall|emergenc/i,
     /behaviou?r/i, /housekeep|home|laundr/i, /companion|social/i,
     /preference|routine|likes/i, /restrict|precaution/i, /instruction/i];
+  /* The real Tribute care plan shouts at you in its own section titles —
+     "IMPORTANT: Overview of Care **PLEASE READ**". Whoever wrote the form
+     already decided what matters most for that client, and that decision
+     beats a generic ordering built from guesses about category names. */
+  const CP_FLAGGED = /\bimportant\b|please read/i;
+  /* Demographics are the name, the date of birth and the address. They are
+     already in the header and in Client Information, and they are not what
+     anyone opens a care plan for. Kept, because it is a real section of the
+     real document, but last. */
+  const CP_ADMIN = /demographic/i;
+  function cpTitle(t) {
+    // The form stores emphasis as markdown. The Hub is not a markdown reader,
+    // so the asterisks were rendering as asterisks.
+    return String(t || '').replace(/\*\*(.*?)\*\*/g, '$1').replace(/[*_]{2,}/g, '')
+      .replace(/\s{2,}/g, ' ').trim();
+  }
   function cpRank(title) {
     for (let i = 0; i < CP_ORDER.length; i++) if (CP_ORDER[i].test(title || '')) return i;
     return CP_ORDER.length + 1;
   }
+  function cpBand(title) {
+    if (CP_ADMIN.test(title || '')) return 2;      // administrative, last
+    if (CP_FLAGGED.test(title || '')) return 0;    // the form's own emphasis, first
+    return 1;
+  }
   function cpSections(snap) {
     const p = snap.data && snap.data.careplan;
-    const s = (p && p.sections) || [];
-    return s.slice().sort(function (a, b) { return cpRank(a.title) - cpRank(b.title); });
+    const s = ((p && p.sections) || []).map(function (x, i) {
+      return { title: cpTitle(x.title), items: x.items, _i: i };
+    });
+    // Band first, then the category order, then the form's own order. Stable,
+    // so two sections the rules cannot tell apart stay as the plan wrote them.
+    return s.sort(function (a, b) {
+      return cpBand(a.title) - cpBand(b.title)
+          || cpRank(a.title) - cpRank(b.title)
+          || a._i - b._i;
+    });
   }
 
   /* ── activity ───────────────────────────────────────────────────────────
@@ -956,8 +985,11 @@
     if (!secs.length) return block('Care snapshot',
       quiet('The care plan is on file but has no structured answers to summarise.') +
       '<button type="button" class="rd-link" data-go="careplan">Open the care plan →</button>');
-    const pick = secs.filter(function (s) { return cpRank(s.title) < CP_ORDER.length; }).slice(0, 4);
-    const show = (pick.length ? pick : secs.slice(0, 3));
+    const pick = secs.filter(function (s) {
+      return cpBand(s.title) === 0 || cpRank(s.title) < CP_ORDER.length;
+    }).slice(0, 4);
+    const show = (pick.length ? pick : secs.filter(function (s) {
+      return cpBand(s.title) !== 2; }).slice(0, 3));
     return block('Care snapshot',
       show.map(function (s) {
         return '<div class="rd-snap"><span class="rd-snap-k">' + esc(s.title) + '</span>' +
