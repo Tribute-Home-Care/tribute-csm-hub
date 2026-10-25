@@ -170,10 +170,12 @@ window.GUIDE = (function () {
       first: ['Pick a community on the left; its current draft loads on the right.',
               'Read it before you do anything else. It is assembled from the week\u2019s schedule and recent notes.'],
       can: ['Read and edit the generated draft', 'Save the draft the Friday run will use',
-            'Edit a community\u2019s recipients and settings', 'Send a test copy to yourself'],
+            'Edit a community\u2019s recipients and settings', 'Send a test copy to yourself',
+            'Send the real email to the community'],
       saves: 'Draft edits and community settings save to the same records the Friday run and the current Hub read.',
-      v1: 'Sending the real email to a community is still done in the current Hub.',
-      know: ['A test send goes only to you, never to the community. It is the safe way to see exactly what would arrive.'],
+      know: ['A test send goes only to you, never to the community. It is the safe way to see exactly what would arrive.',
+             'The real send goes to the community\u2019s actual recipients, through the same mailbox the current Hub uses. Read the draft first.',
+             'If you send the same email twice, the second one is refused rather than delivered. The Hub tells you when it went out the first time.'],
       related: ['blocked-action', 'coverage']
     },
     ltc: {
@@ -181,11 +183,15 @@ window.GUIDE = (function () {
       lede: 'Long-term care insurance submissions, per client.',
       what: 'Tracks long-term care insurance submissions and the notes behind them. You can review a submission and move it through its states here.',
       first: ['Open a client record to see what has been recorded, and what state it is in.'],
-      can: ['Review what is recorded', 'Approve, unapprove, mark sent, confirm, skip and add a note'],
+      can: ['Review what is recorded', 'Approve, unapprove, mark sent, confirm, skip and add a note',
+            'Send a test packet to your own address', 'Send the packet to the carrier',
+            'Text a caregiver about a missing note'],
       saves: 'Status changes save to the same LTC records the current Hub reads.',
-      v1: 'Sending a packet to a carrier, and texting a caregiver about missing notes, are still done in the current Hub. Both leave Tribute, and neither has been exercised against a real submission yet.',
       know: [
-        'Being straight with you: this area has had very little operational use, so there is not much history to look at and none of it has been exercised against a live carrier submission. The status actions save properly; it is the real-world workflow around them that is untested. If something looks wrong, say so through Feedback rather than working around it.'
+        'Being straight with you: this area has had very little operational use, so there is not much history to look at. The status actions save properly; it is the real-world workflow around them that is thin. If something looks wrong, say so through Feedback rather than working around it.',
+        'A live carrier send only works for carriers that have been switched on for live submission. That list is the same one the current Hub uses, and it is empty today, so a live send will refuse and say so. A test send to yourself works either way.',
+        'John Hancock takes uploads, not email. The Hub will tell you to download the documents instead.',
+        'Sending the same packet, or the same caregiver text, twice in a row is refused rather than delivered. The Hub tells you when the first one went.'
       ]
     },
 

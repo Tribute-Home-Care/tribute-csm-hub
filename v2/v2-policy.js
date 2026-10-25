@@ -142,8 +142,14 @@
                       capabilityMap: null, fullCapability: false, suppressConsequential: false,
                       liveDelivery: { community: false, ltcCarrier: false, ltcCaregiver: false } };
 
-  /* Is a real external send suppressed right now? The page asks before it
-     transmits; the server enforces the same thing independently. */
+  /* Is a real external send suppressed right now?
+
+     The LTC carrier packet and the caregiver text go out THROUGH the server,
+     so the server makes the same decision again and a forged request cannot
+     get past it. The community email does not: the page calls Graph itself,
+     which is V1's own path and is not being replaced here. For that one this
+     check is the only place the decision is made, so it is made from the
+     server's answer rather than from anything the page decided locally. */
   App.suppressCommunitySend = function () {
     const d = App.serverWrite.liveDelivery || {};
     return d.community !== true;

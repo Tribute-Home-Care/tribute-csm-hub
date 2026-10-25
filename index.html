@@ -6296,10 +6296,27 @@ function ecSkipWeek(skip){
 // is treated as the same send, and the second attempt is refused rather than
 // delivered. Cleared on failure so a genuine retry still works.
 let _ecSending=false;
-const _ecSentKeys=new Set();
+// The record of what already went out survives a reload. An in-memory Set
+// does not, and a reload right after a send that LOOKED like it failed is
+// exactly when somebody sends the same email twice. Fifteen minutes, which
+// is the same window the server applies to the LTC sends.
+const _EC_SENT_MS=15*60*1000;
+function _ecSentMap(){
+  let m={}; try{ m=JSON.parse(localStorage.getItem('tribute_ec_sent')||'{}')||{}; }catch(e){}
+  const now=Date.now(), out={};
+  for(const k in m) if(now-m[k]<_EC_SENT_MS) out[k]=m[k];
+  return out;
+}
+function _ecSentAt(key){ const m=_ecSentMap(); return m[key]||0; }
+function _ecMarkSent(key){
+  const m=_ecSentMap(); m[key]=Date.now();
+  try{ localStorage.setItem('tribute_ec_sent',JSON.stringify(m)); }catch(e){}
+}
+// No clock in the key: two attempts either side of a minute boundary are the
+// same send, and used to get through because the minute had ticked over.
 function _ecSendKey(test,to){
   return [_ecSel,test?'test':'real',(to||[]).join(','),
-          (_ecDraft&&_ecDraft.subject)||'',new Date().toISOString().slice(0,16)].join('|');
+          (_ecDraft&&_ecDraft.subject)||''].join('|');
 }
 function _ecSendBtns(disabled,label){
   document.querySelectorAll('[data-ec-send]').forEach(b=>{
@@ -6318,7 +6335,11 @@ async function ecSend(test){
   if(!to.length){_ecMsg('Add the community leader\'s email above first.','#92580B');return;}
   if(!test&&!confirm('Send this email for '+_ecSel+' to '+to.join(', ')+' now, from your mailbox ('+me.username+')?'))return;
   const _key=_ecSendKey(test,to);
-  if(_ecSentKeys.has(_key)){ _ecMsg('That exact email already went out a moment ago \u2014 not sending it twice.','#92580B'); return; }
+  const _sentAt=_ecSentAt(_key);
+  if(_sentAt){
+    const mins=Math.max(1,Math.round((Date.now()-_sentAt)/60000));
+    _ecMsg('That exact email already went out '+mins+' minute'+(mins===1?'':'s')
+      +' ago \u2014 not sending it twice. Nothing was sent.','#92580B'); return; }
   _ecSending=true; _ecSendBtns(true,'Sending\u2026');
   _ecMsg('Preparing…','#8C857B');
   try{
@@ -6347,7 +6368,7 @@ async function ecSend(test){
     if(!test){p.sentAt=new Date().toISOString();p.sentTo=to;p.edited=true;p.editedAt=p.editedAt||p.sentAt;_ecDraft=p;await _ecPost('save=1',p).catch(()=>{});renderEmailDraft();}
     _ecMsg('✓ Sent from '+escHtml(me.username)+' to '+escHtml(to.join(', '))+(cc.length?' (cc '+escHtml(cc.join(', '))+')':'')+' — it\'s in your Sent Items.','#0F6E56');
     showToast(test?'Test sent to you.':'Sent to '+_ecSel+'.');
-    _ecSentKeys.add(_key);          // only after Graph accepted it
+    _ecMarkSent(_key);              // only after Graph accepted it
   }catch(err){
     _ecMsg('Send failed — '+escHtml(err.message)+' Nothing was sent; you can try again.','#B42318');
   }finally{
