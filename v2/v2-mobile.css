@@ -67,10 +67,9 @@
   /* ---- chrome is gated on the app shell --------------------------------- */
   /* The market and profile pickers are full-screen chooser states with no
      page context. A tab bar over them points at nothing. */
-  .v2-topbar, .v2-tabbar, .v2-scrim { display: none; }
-  html.v2-in-app .v2-topbar { display: flex; }
-  html.v2-in-app .v2-tabbar { display: grid; }
-  html.v2-in-app .v2-scrim { display: block; }
+  html:not(.v2-in-app) .v2-topbar,
+  html:not(.v2-in-app) .v2-tabbar,
+  html:not(.v2-in-app) .v2-scrim { display: none !important; }
   html:not(.v2-in-app) .main { padding-bottom: 20px; }
   html:not(.v2-in-app) #v2-fb-btn { bottom: 14px !important; }
 
