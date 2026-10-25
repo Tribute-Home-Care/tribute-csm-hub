@@ -714,11 +714,34 @@
      anyone opens a care plan for. Kept, because it is a real section of the
      real document, but last. */
   const CP_ADMIN = /demographic/i;
+  /* Viv's care-plan answers are rich text. They arrive as HTML — <p>, <strong>,
+     <u>, <li>, <br> — and the Hub escapes everything it renders, which is the
+     right instinct and the wrong result: a CSM was reading "<p><strong><u>"
+     out loud off a care plan. Tags are converted to plain text with its line
+     breaks intact and the result is still escaped, so nothing from Viv is ever
+     injected into the page. Markdown emphasis goes the same way. */
+  function cpText(v) {
+    let t = String(v == null ? '' : v);
+    if (/<[a-z!/][^>]*>/i.test(t)) {
+      t = t
+        .replace(/<\s*(br|hr)\s*\/?>/gi, '\n')
+        .replace(/<\s*\/\s*(p|div|tr|h[1-6])\s*>/gi, '\n')
+        .replace(/<\s*li[^>]*>/gi, '\n• ')
+        .replace(/<\s*\/\s*(li|ul|ol)\s*>/gi, '\n')
+        .replace(/<[^>]*>/g, '');
+    }
+    return t
+      .replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<').replace(/&gt;/gi, '>')
+      .replace(/&quot;/gi, '"').replace(/&#0?39;|&apos;/gi, "'")
+      .replace(/\*\*(.*?)\*\*/g, '$1').replace(/__(.*?)__/g, '$1')
+      .replace(/[ \t]{2,}/g, ' ')
+      .replace(/\n{3,}/g, '\n\n')
+      .split('\n').map(function (l) { return l.trim(); }).join('\n')
+      .trim();
+  }
   function cpTitle(t) {
-    // The form stores emphasis as markdown. The Hub is not a markdown reader,
-    // so the asterisks were rendering as asterisks.
-    return String(t || '').replace(/\*\*(.*?)\*\*/g, '$1').replace(/[*_]{2,}/g, '')
-      .replace(/\s{2,}/g, ' ').trim();
+    return cpText(t).replace(/\s*\n\s*/g, ' ').replace(/[*_]{2,}/g, '').trim();
   }
   function cpRank(title) {
     for (let i = 0; i < CP_ORDER.length; i++) if (CP_ORDER[i].test(title || '')) return i;
@@ -732,8 +755,13 @@
   function cpSections(snap) {
     const p = snap.data && snap.data.careplan;
     const s = ((p && p.sections) || []).map(function (x, i) {
-      return { title: cpTitle(x.title), items: x.items, _i: i };
-    });
+      return {
+        title: cpTitle(x.title), _i: i,
+        items: (x.items || []).map(function (it) {
+          return { q: cpTitle(it.q), a: cpText(it.a) };
+        }).filter(function (it) { return it.a; })
+      };
+    }).filter(function (x) { return x.items.length; });
     // Band first, then the category order, then the form's own order. Stable,
     // so two sections the rules cannot tell apart stay as the plan wrote them.
     return s.sort(function (a, b) {

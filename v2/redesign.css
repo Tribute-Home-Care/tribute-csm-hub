@@ -2239,7 +2239,7 @@ input[type="email"], select { min-height: var(--h-ctl); }
 }
 .rd-cp-fold[open] > summary::after { transform: rotate(-135deg); }
 .rd-cp-kvs .rd-kv { grid-template-columns: minmax(0, 200px) minmax(0, 1fr); align-items: start; }
-.rd-cp-kvs .rd-kv dd { line-height: 1.5; }
+.rd-cp-kvs .rd-kv dd { line-height: 1.5; white-space: pre-line; }
 
 /* ── 15.9 SHARED ──────────────────────────────────────────────────────── */
 .rd-sub { display: block; font-size: 13px; color: var(--ink-3); margin-top: 2px; }
