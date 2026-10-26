@@ -2336,3 +2336,12 @@ input[type="email"], select { min-height: var(--h-ctl); }
 }
 .rd-scribe-l li:first-child { border-top: none; padding-top: var(--s2); }
 .rd-scribe-l span { font-size: 13px; color: var(--ink-3); }
+
+/* Pulse headline points stack; they are separate observations, not a
+   sentence, and ran together on one line before. */
+.rd-pulse-head{margin:6px 0 0}
+.rd-pulse-head li{padding:3px 0 3px 2px}
+/* LTC board: the discharged-clients notice */
+.rd-ltc-disch{margin:0 0 10px;font-size:13px;color:var(--muted)}
+.rd-ltc-disch button{background:none;border:0;padding:0;font:inherit;color:var(--orange);
+  text-decoration:underline;cursor:pointer}

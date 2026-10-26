@@ -693,6 +693,24 @@
     return S.careplan(c.vivId);
   }
 
+  /* The Pulse headline is an ARRAY of points, not a sentence. Passed through
+     esc() it became "a, b, c" on one line - a CSM asked for the bullets to
+     sit one above the other, and she was describing a rendering bug rather
+     than a preference. Handles a plain string too, because older cached
+     reads carry one. */
+  function pulseHeadline(h) {
+    const list = Array.isArray(h) ? h.filter(Boolean) : (h ? [h] : []);
+    if (!list.length) return '';
+    if (list.length === 1) return '<p>' + esc(String(list[0])) + '</p>';
+    return '<ul class="rd-ul rd-pulse-head">' +
+      list.map(function (x) { return '<li>' + esc(String(x)) + '</li>'; }).join('') + '</ul>';
+  }
+  /* The first point only, for a one-line summary elsewhere. */
+  function pulseFirst(h) {
+    const list = Array.isArray(h) ? h.filter(Boolean) : (h ? [h] : []);
+    return list.length ? String(list[0]).split('. ')[0] : '';
+  }
+
   function pulseFor(c) {
     const p = A().pulse;
     return (p && c.vivId && p.byCid) ? p.byCid[c.vivId] : null;
@@ -868,7 +886,7 @@
     const pp = pulseFor(c);
     if (pp && pp.generatedAt) out.push({ date: String(pp.generatedAt).slice(0, 10), kind: 'Pulse',
       text: (pp.level === 'red' ? 'Needs attention' : pp.level === 'amber' ? 'Watch' : 'Stable'),
-      meta: String(pp.headline || '').split('. ')[0] });
+      meta: pulseFirst(pp.headline) });
     // Completed caregiver visits from Viv, which the Hub's own log does not hold.
     const sv = (snap.data && snap.data.schedule && snap.data.schedule.visits) || [];
     const today = localDay(0);
@@ -1028,7 +1046,7 @@
     if (ex) attn.push({ tone: ex.tone, text: ex.text });
     if (pp && pp.level && pp.level !== 'green' && !c.pulseAck)
       attn.push({ tone: pp.level === 'red' ? 'bad' : 'warn',
-                  text: String(pp.headline || '').split('. ')[0] + '.', go: 'care' });
+                  text: pulseFirst(pp.headline) + '.', go: 'care' });
     const openToday = visitsOn(snap, localDay(0)).filter(function (v) { return v.open; });
     if (openToday.length) attn.push({ tone: 'bad',
       text: openToday.length === 1 ? 'An open visit today needs coverage'
@@ -1351,7 +1369,7 @@
       out += block('Pulse',
         '<div class="rd-signal ' + tone + '">' +
         '<span class="k">' + (pp.level === 'red' ? 'Needs attention' : pp.level === 'amber' ? 'Watch' : 'Stable') + '</span>' +
-        '<p>' + esc(pp.headline || '') + '</p></div>' +
+        pulseHeadline(pp.headline) + '</div>' +
         ((pp.aiWatch && pp.aiWatch.length) ? '<ul class="rd-ul">' + pp.aiWatch.map(function (w) { return '<li>' + esc(w) + '</li>'; }).join('') + '</ul>' : '') +
         (c.pulseAck
           ? '<p class="rd-ws-quiet">Acknowledged by ' + esc(c.pulseAck.by || '') + ' · ' +
@@ -1593,6 +1611,82 @@
     wrapped.__rd = true;
     wrapped.original = _origRenderClientMaster;
     window.renderClientMaster = wrapped;
+    wrapLtc();
+  }
+
+  /* ── LTC board: people we no longer serve ──────────────────────────────
+     An LTC insurance record outlives the client's discharge, because the
+     billing tail does. But a board of people you stopped serving months ago
+     makes the whole surface feel wrong, and a CSM said so on pilot day.
+
+     They are hidden rather than deleted, with a count and a way back: a
+     record can still matter after discharge, so losing it would be worse
+     than showing it.
+
+     The board only. A discharged client's own LTC panel is untouched, which
+     is where you would go if you were actually winding one down. */
+  let _ltcShowDischarged = false;
+
+  function dischargedNames() {
+    const app = A();
+    const out = new Set();
+    try {
+      (app.fn.get('clients') || []).forEach(function (c) {
+        const st = String(c.vivStatus || '').toLowerCase();
+        if (c.vivDischarged || st === 'discharged' || st === 'inactive') {
+          if (c.name) out.add(String(c.name).toLowerCase().trim());
+        }
+      });
+    } catch (e) {}
+    return out;
+  }
+
+  function wrapLtc() {
+    if (typeof window.renderLTC !== 'function' || window.renderLTC.__rd) return;
+    const orig = window.renderLTC;
+    const wrapped = function () {
+      orig.apply(this, arguments);
+      let hidden = 0;
+      try {
+        const gone = dischargedNames();
+        if (gone.size) {
+          const el = document.getElementById('ltc-table');
+          if (el) {
+            // The original renders a card per record and the client's name is
+            // the first bold line in each, so the rows are matched the same
+            // way the client detail already matches LTC records: by name.
+            [].forEach.call(el.children, function (card) {
+              const nm = card.querySelector('div[style*="font-weight:700"]');
+              const n = nm ? nm.textContent.toLowerCase().trim() : '';
+              if (n && gone.has(n)) {
+                if (_ltcShowDischarged) { card.style.opacity = '.55'; }
+                else { card.style.display = 'none'; hidden++; }
+              } else { card.style.opacity = ''; }
+            });
+          }
+        }
+      } catch (e) {}
+      try {
+        const el = document.getElementById('ltc-table');
+        const old = document.getElementById('rd-ltc-disch'); if (old) old.remove();
+        if (el && (hidden || _ltcShowDischarged)) {
+          const n = document.createElement('p');
+          n.id = 'rd-ltc-disch';
+          n.className = 'rd-ltc-disch';
+          n.innerHTML = _ltcShowDischarged
+            ? 'Showing discharged clients. <button type="button" id="rd-ltc-t">Hide them</button>'
+            : hidden + ' discharged client' + (hidden === 1 ? '' : 's') +
+              ' hidden. <button type="button" id="rd-ltc-t">Show anyway</button>';
+          el.parentNode.insertBefore(n, el);
+          const b = document.getElementById('rd-ltc-t');
+          if (b) b.addEventListener('click', function () {
+            _ltcShowDischarged = !_ltcShowDischarged; window.renderLTC();
+          });
+        }
+      } catch (e) {}
+    };
+    wrapped.__rd = true; wrapped.original = orig;
+    window.renderLTC = wrapped;
   }
 
   /* ── 5. (the workspace replaces the old inline rail) ───────────────────── */
@@ -1643,6 +1737,17 @@
     const bad = exc.filter(function (r) { return r.ex.tone === 'bad'; });
     const warn = exc.filter(function (r) { return r.ex.tone === 'warn'; });
 
+    /* CHANGE OF CONDITION FIRST. Everything else on this row is a cadence
+       falling behind; this one is a person whose health has altered, and it
+       is the only item here that can be clinically time-critical. It used to
+       sit third, below two counts about scheduling. Asked for by a CSM on
+       pilot day, and she was plainly right. */
+    try {
+      if (typeof window._myCocTasks === 'function') {
+        const coc = _myCocTasks().filter(function (t) { return t.open; });
+        if (coc.length) out.push({ n: coc.length, label: coc.length === 1 ? 'Change of condition' : 'Changes of condition', sub: 'Open in Viv', tone: 'bad', go: 'clients' });
+      }
+    } catch (e) {}
     if (bad.length) out.push({
       n: bad.length, label: bad.length === 1 ? 'Client needs action' : 'Clients need action',
       sub: bad.slice(0, 2).map(function (r) { return String(r.c.name).split(' ')[0]; }).join(', ') +
@@ -1650,12 +1755,6 @@
       tone: 'bad', go: 'clients', view: 'attention'
     });
     if (warn.length) out.push({ n: warn.length, label: 'Due soon', sub: 'Within two weeks', tone: 'warn', go: 'clients', view: 'soon' });
-    try {
-      if (typeof window._myCocTasks === 'function') {
-        const coc = _myCocTasks().filter(function (t) { return t.open; });
-        if (coc.length) out.push({ n: coc.length, label: coc.length === 1 ? 'Change of condition' : 'Changes of condition', sub: 'Open in Viv', tone: 'bad', go: 'clients' });
-      }
-    } catch (e) {}
     const t = todayISO();
     const ovTodo = todos.filter(function (x) { return !x.done && x.due && x.due < t; });
     if (ovTodo.length) out.push({ n: ovTodo.length, label: 'Tasks past due', sub: String(ovTodo[0].text || '').slice(0, 44), tone: 'warn', go: 'home' });
