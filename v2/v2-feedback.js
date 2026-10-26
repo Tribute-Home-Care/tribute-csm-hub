@@ -289,11 +289,17 @@
     if (!j.count) { body.innerHTML = '<p class="v2-fb-sub">Nothing submitted yet.</p>'; return; }
     body.innerHTML = '<p class="v2-fb-sub">' + j.count + ' submission' + (j.count === 1 ? '' : 's') +
       ', newest first.</p>' + j.items.map(function (it) {
+      /* Field names read off the stored records, not guessed. The first
+         version rendered it.kind and it.submittedBy, which the store does
+         not have, so every row said "feedback" from "unknown". */
+      var who = it.displayName || it.user || 'unknown';
+      var kind = String(it.category || 'feedback').replace(/_/g, ' ');
       return '<div class="v2-fbx-item" data-id="' + esc(it.id || '') + '">' +
-        '<div class="v2-fbx-top"><b>' + esc(it.kind || 'feedback') + '</b>' +
-        '<span>' + esc(it.submittedBy || 'unknown') + ' · ' + esc(WHEN(it.submittedAt)) + '</span></div>' +
+        '<div class="v2-fbx-top"><b>' + esc(kind) + '</b>' +
+        '<span>' + esc(who) + (it.market ? ' \u00b7 ' + esc(it.market) : '') +
+        ' \u00b7 ' + esc(WHEN(it.submittedAt)) + '</span></div>' +
         (it.route ? '<div class="v2-fbx-where">' + esc(it.route) + '</div>' : '') +
-        '<p class="v2-fbx-text">' + esc(it.text || it.message || '') + '</p>' +
+        '<p class="v2-fbx-text">' + esc(it.message || it.text || '') + '</p>' +
         (it.expected ? '<p class="v2-fbx-exp"><em>Expected:</em> ' + esc(it.expected) + '</p>' : '') +
         (it.impact ? '<div class="v2-fbx-where">Impact: ' + esc(it.impact) + '</div>' : '') +
         '<div class="v2-fbx-acts">' + STATUSES.map(function (st) {
