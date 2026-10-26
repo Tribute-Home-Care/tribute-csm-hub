@@ -407,7 +407,22 @@
     let clients = app.fn.get('clients') || [];
     const p = app.profile;
     if (p && p.dualMarket && app.juliaMarket !== 'all') {
-      clients = clients.filter(function (c) { return (c.market || 'Massachusetts') === app.juliaMarket; });
+      /* A client's market is Viv's gcity, which is CITY level: Boston,
+         MetroWest Boston, North of Boston, South of Boston. Nothing in
+         production carries the literal 'Massachusetts', so comparing against
+         it matched only clients with a blank market and the Massachusetts
+         filter returned nothing at all. Chicago worked by coincidence,
+         because there the city and the state filter share a name.
+         Reported by a CSM on pilot day. */
+      const MARKETS_IN = {
+        Massachusetts: ['Massachusetts', 'Boston', 'MetroWest Boston', 'North of Boston', 'South of Boston'],
+        Chicago: ['Chicago', 'Illinois'],
+      };
+      const want = MARKETS_IN[app.juliaMarket] || [app.juliaMarket];
+      clients = clients.filter(function (c) {
+        // A blank market still falls to Massachusetts, as it did before.
+        return want.indexOf(c.market || 'Massachusetts') > -1;
+      });
     }
     const qEl = $('#cm-search'), tEl = $('#cm-tier'), sEl = $('#cm-status');
     const q = (qEl ? qEl.value : '').toLowerCase().trim();
@@ -526,6 +541,14 @@
     $$('.rd-view', viewBar).forEach(function (b) {
       b.addEventListener('click', function () { _view = b.dataset.view; renderTrackerList(); });
     });
+
+    /* A client the filter has just excluded must not stay open beside the
+       list. Switching market used to leave the previous client selected and
+       rendered in the workspace, so Massachusetts could show an empty list
+       next to an open Chicago client. Reported by a CSM on pilot day. */
+    if (_selected && !rows.some(function (r) { return r.c.id === _selected; })) {
+      _selected = null;
+    }
 
     if (!rows.length) { el.innerHTML = emptyState(all.length); renderWorkspace(); return; }
 
