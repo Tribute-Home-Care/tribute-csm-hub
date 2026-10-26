@@ -268,3 +268,34 @@
   background: var(--warn-bg); color: var(--warn); font-size: 13.5px; line-height: 1.5;
 }
 .sr-card.done { opacity: .72; }
+
+/* ── Filing to Viv ──────────────────────────────────────────────────────
+   Set apart from the review actions, because it is a different kind of act:
+   everything above changes a draft, this one changes the client's record.
+   Still calm - a bordered block, not a warning. */
+.sr-file{
+  margin-top: var(--s4);
+  padding: var(--s4);
+  border: 1px solid var(--line);
+  border-radius: var(--r2);
+  background: var(--canvas);
+}
+.sr-file h4{ margin: 0 0 4px; font-size: 14px; letter-spacing: -0.01em; }
+.sr-file > p{ margin: 0 0 var(--s3); color: var(--muted); font-size: 13px; }
+/* The preview is the literal text Viv would store, so it is shown as text:
+   monospaced, wrapped, scrollable, and never styled to look like prose the
+   product wrote. */
+.sr-pre{
+  margin: var(--s3) 0 0;
+  padding: var(--s3);
+  max-height: 260px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r1);
+}
+.sr-err{ color: var(--hi); font-size: 13px; margin: var(--s2) 0 0; }

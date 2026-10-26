@@ -113,7 +113,10 @@
     assist: true,               // POST, but a question — mutates nothing
     community_render: true,     // POST, but returns HTML — persists nothing
     v2_feedback: true,          // counted separately; never a business write
-    scribe_draft: true          // Scribe's own drafts; same — never a business write
+    scribe_draft: true,         // Scribe's own drafts; same — never a business write
+    // Filing documentation into Viv. This one IS a business write, and is
+    // counted as one, because it lands in the clinical record.
+    scribe_viv_write: true
   };
 
   /* Which capabilities are business writes, for the diagnostics split. */
@@ -122,11 +125,13 @@
     'community_send_test','community_send_real',
     'ltc_action','ltc_send','ltc_nudge','csm_visit','viv_visit_create','viv_visit_cancel',
     'ltc_approve','ltc_mark_sent','ltc_confirm','ltc_note','ltc_send_carrier','ltc_nudge_caregiver',
-    'graph_calendar','graph_calendar_add','graph_calendar_delete','graph_mail','weekly_schedule']);
+    'graph_calendar','graph_calendar_add','graph_calendar_delete','graph_mail','weekly_schedule',
+    'scribe_viv_write']);
   // Capabilities the server knows about. The finer ones are page-side only,
   // so they must not be checked against the server's list or they would all
   // read as disabled.
-  const SERVER_CAPS = new Set(['csm_data_pocket','csm_data_shared','community_draft_save',
+  const SERVER_CAPS = new Set(['scribe_viv_write',
+    'csm_data_pocket','csm_data_shared','community_draft_save',
     'community_send','community_send_test','community_send_real','graph_calendar_add','graph_calendar_delete',
     'viv_visit_create','viv_visit_cancel','ltc_approve','ltc_mark_sent','ltc_confirm','ltc_note',
     'ltc_send_carrier','ltc_nudge_caregiver','weekly_schedule']);
@@ -586,11 +591,35 @@
          so it is tallied on its own line and the business total stays 0.
          The two headers go with it so the server can still refuse an account
          that is not in the pilot. */
-      if (ep === 'scribe' && App.canWrite('scribe_draft')) {
-        App.scribeWrites = (App.scribeWrites || 0) + 1;
+      if (ep === 'scribe') {
+        /* Two very different writes share this endpoint. A draft stays inside
+           Scribe; a live commit files a note into the client's clinical
+           record. They must not ride on the same capability, or the gentler
+           one would carry the graver one through. */
+        let sOp = null, sMode = null;
+        try { const b = JSON.parse((opts && opts.body) || '{}'); sOp = b.op; sMode = b.mode; } catch (e) {}
+        const isCommit = sOp === 'commit' && sMode === 'live';
+        const cap = isCommit ? 'scribe_viv_write' : 'scribe_draft';
+        if (!App.canWrite(cap)) {
+          App.recordBlockedWrite({ feature: isCommit ? 'File documentation to Viv' : 'Scribe draft',
+            capability: cap, endpoint: u.split('?')[0] + '?endpoint=scribe', operation: method });
+          App.previewToast('Not filed — ' + (App.writeBlockReason(cap) || 'not permitted') + '.');
+          return Promise.resolve(new Response(JSON.stringify(
+            { error: 'v2: ' + (App.writeBlockReason(cap) || 'not permitted'), v2Blocked: true }),
+            { status: 403, headers: { 'Content-Type': 'application/json' } }));
+        }
         let so = Object.assign({}, opts || {});
         so.headers = Object.assign({}, (opts && opts.headers) || {},
-          { 'X-Tribute-Surface': 'v2-preview', 'X-Tribute-Capability': 'scribe_draft' });
+          { 'X-Tribute-Surface': 'v2-preview', 'X-Tribute-Capability': cap });
+        if (isCommit) {
+          // A real business write. Counted as one, because it is one.
+          return real(url, so).then(function (r) {
+            App.recordWrite({ capability: cap, endpoint: 'vivProxy?endpoint=scribe',
+              operation: method, recordType: 'Viv client note', ok: r.ok, status: r.status });
+            return r;
+          });
+        }
+        App.scribeWrites = (App.scribeWrites || 0) + 1;
         return real(url, so);
       }
       // usage_time is a known write and is named rather than reported as a

@@ -18,8 +18,13 @@ ok('scribe_draft is a declared capability', /scribe_draft:\s*true/.test(P));
 ok('the scribe endpoint is handled before the catch-all',
    P.indexOf("ep === 'scribe'") > 0 &&
    P.indexOf("ep === 'scribe'") < P.indexOf("feature: 'UNGATED WRITE PATH'"));
+// The capability is now chosen per call (draft vs Viv commit), so this
+// asserts the headers go and that the chosen capability is what rides on
+// them, rather than pinning one literal.
 ok('it sends the surface and capability headers so the server can still refuse',
-   /ep === 'scribe'[\s\S]{0,700}X-Tribute-Surface[\s\S]{0,200}scribe_draft/.test(P));
+   /ep === 'scribe'[\s\S]{0,1600}X-Tribute-Surface[\s\S]{0,120}X-Tribute-Capability': cap/.test(P));
+ok('and the capability is scribe_draft unless it is a live commit',
+   /isCommit \? 'scribe_viv_write' : 'scribe_draft'/.test(P));
 
 console.log('\n--- but it is not a business write ---');
 const BUS=(P.match(/const BUSINESS = new Set\(\[([\s\S]*?)\]\)/)||[])[1]||'';

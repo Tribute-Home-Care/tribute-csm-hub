@@ -278,19 +278,91 @@
       }).join('') + '</section>' + finishRow();
   }
 
+  /* Filing into Viv. Only appears for an account the server would actually
+     accept, so nobody is offered a button whose write would be refused, and
+     a CSM on the pilot never sees it at all. */
+  function canFile() {
+    var A = window.TributeApp;
+    return !!(A && A.canWrite && A.canWrite('scribe_viv_write'));
+  }
+  function filedRow(enc) {
+    var c = (enc.committed || {}).visitNote;
+    if (!c) return '';
+    return '<p class="sr-done">Filed to this client\u2019s Service Delivery notes in Viv on ' +
+      esc(String(c.at).slice(0, 10)) + '. Filing again would not write a second note.</p>';
+  }
+  function fileRow(enc) {
+    if (!canFile()) return '';
+    if ((enc.committed || {}).visitNote) return filedRow(enc);
+    var approved = ((enc.result && enc.result.visitNote && enc.result.visitNote.fields) || [])
+      .filter(function (f) { return f.reviewStatus === 'approved'; }).length;
+    if (!approved) return '<p class="sr-note">Approve at least one Visit Note field before it can be filed.</p>';
+    return '<div class="sr-file">' +
+      '<h4>File to Viv</h4>' +
+      '<p>' + approved + ' approved field' + (approved === 1 ? '' : 's') +
+      ' would be written to this client\u2019s Service Delivery notes, in your wording.</p>' +
+      '<div class="sr-acts">' +
+      '<button type="button" class="btn btn-o btn-sm" data-a="file-preview">Show exactly what would be filed</button>' +
+      '<button type="button" class="btn btn-p btn-sm" data-a="file-live">File to Viv</button>' +
+      '</div>' +
+      '<div id="sr-file-out"></div></div>';
+  }
+
   function finishRow() {
     var enc = R.enc || {}, done = enc.reviewStatus === 'finalized';
+    var filed = !!(enc.committed || {}).visitNote;
     return '<footer class="sr-finish">' +
-      (done ? '<p class="sr-done">Marked ready. Nothing has been written to Viv.</p>'
+      (done ? '<p class="sr-done">Marked ready' + (filed ? '.' : '. Nothing has been written to Viv.') + '</p>'
         : '<button type="button" class="btn btn-p" data-a="finalize">Mark ready for Viv</button>' +
           '<button type="button" class="btn btn-o" data-a="close">Finish later</button>') +
-      '<p class="sr-note">Scribe never writes to Viv. A person puts this into the record.</p></footer>';
+      fileRow(enc) +
+      // The standing promise, and it is still true for everyone who is not
+      // explicitly permitted to file. It changes wording rather than quietly
+      // disappearing, because a CSM who read it once should not find it gone.
+      '<p class="sr-note">' + (canFile()
+        ? 'Filing writes a note only. No Care Plan in Viv is changed by Scribe.'
+        : 'Scribe never writes to Viv. A person puts this into the record.') + '</p></footer>';
   }
 
   /* ── decisions ─────────────────────────────────────────────────────── */
   async function action(e) {
     var n = e.currentTarget, a = n.dataset.a;
     if (a === 'close') return close();
+
+    /* Preview and file. The two words never swap: a preview says what WOULD
+       happen and shows the text; filing is the only thing that reports a
+       note in Viv. */
+    if (a === 'file-preview' || a === 'file-live') {
+      if (R.busy) return;
+      var live = a === 'file-live';
+      var out = document.getElementById('sr-file-out');
+      if (live && !window.confirm('File this visit note to ' + (R.client.name || 'this client') +
+          '\u2019s record in Viv? It cannot be unsent from here.')) return;
+      R.busy = true;
+      if (out) out.innerHTML = '<p class="sr-note">' + (live ? 'Filing\u2026' : 'Building the preview\u2026') + '</p>';
+      try {
+        var j = await post({ op: 'commit', clientVivId: R.client.vivId, encounterId: R.enc.id,
+          target: 'visitNote', mode: live ? 'live' : 'dryRun',
+          csmName: ((window.TributeApp && TributeApp.profile) || {}).name || null });
+        if (!live) {
+          out.innerHTML = '<p class="sr-note">Nothing was written. This is the exact text that would be filed:</p>' +
+            '<pre class="sr-pre">' + esc((j.wouldWrite || {}).comment || '') + '</pre>' +
+            '<p class="sr-note">Destination: this client\u2019s Service Delivery notes.</p>';
+        } else if (j.alreadyCommitted) {
+          out.innerHTML = '<p class="sr-done">Already filed. Nothing was written a second time.</p>';
+        } else {
+          out.innerHTML = '<p class="sr-done">Filed to Viv.</p>';
+          R.enc.committed = R.enc.committed || {};
+          R.enc.committed.visitNote = { at: j.filedAt, by: 'you', vivId: j.vivId };
+          render();
+        }
+      } catch (ex) {
+        out.innerHTML = '<p class="sr-err">' + esc(ex.message || 'That did not go through.') +
+          ' Nothing was filed.</p>';
+      }
+      R.busy = false;
+      return;
+    }
     if (R.busy) return;
     R.busy = true;
     try {
