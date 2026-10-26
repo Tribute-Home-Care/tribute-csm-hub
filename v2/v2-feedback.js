@@ -304,8 +304,14 @@
           const h = (typeof window.dataHeaders === 'function') ? await window.dataHeaders(true) : {};
           h['Content-Type'] = 'application/json';
           try {
-            const r = await fetch(proxy + '?endpoint=v2_feedback', { method: 'PATCH', headers: h,
-              body: JSON.stringify({ id: row.dataset.id, status: b.dataset.st }) });
+            /* POST, not PATCH. The function route is GET/POST/OPTIONS, so a
+               PATCH never reaches the handler at all - it fails at the edge,
+               which looks like the button doing nothing. The server takes the
+               status change as {op:'status'} over POST and has done all
+               along; the first version of this inbox shipped with the wrong
+               verb and the triage buttons were dead. */
+            const r = await fetch(proxy + '?endpoint=v2_feedback', { method: 'POST', headers: h,
+              body: JSON.stringify({ op: 'status', id: row.dataset.id, status: b.dataset.st }) });
             if (!r.ok) throw new Error('HTTP ' + r.status);
             [].forEach.call(row.querySelectorAll('[data-st]'), x => x.classList.remove('on'));
             b.classList.add('on');
