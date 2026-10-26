@@ -259,3 +259,12 @@
 @media (prefers-reduced-motion: reduce) {
   .sc-rec-dot, .sc-bar-dot, .sc-spin { animation: none; }
 }
+
+/* A proposal held back by something Scribe could not substantiate. Stated,
+   not shouted — the same register as Needs clarification, because this is a
+   thing to look at rather than a finding. */
+.sr-blocked {
+  margin: 0 0 var(--s3); padding: 9px 12px; border-radius: var(--r-sm);
+  background: var(--warn-bg); color: var(--warn); font-size: 13.5px; line-height: 1.5;
+}
+.sr-card.done { opacity: .72; }

@@ -123,9 +123,12 @@
 
   function summaryCounts() {
     var r = (R.enc && R.enc.result) || {};
+    // `review` is counted apart from `conf`. A possible inconsistency is not a
+    // conflict and must never be totalled as one.
     return { plan: (r.carePlan && r.carePlan.sections || []).length,
       note: (r.visitNote && r.visitNote.fields || []).length,
       clar: (r.missingInformation || []).length, conf: (r.conflicts || []).length,
+      review: (r.reviewItems || []).filter(function (x) { return x.status === 'needs_review'; }).length,
       fu: (r.followUps || []).length };
   }
 
@@ -145,6 +148,7 @@
       (c.plan ? '<li>' + c.plan + ' proposed Care Plan change' + (c.plan === 1 ? '' : 's') + '</li>' : '<li>No Care Plan change proposed</li>') +
       (c.note ? '<li>Visit Note drafted</li>' : '') +
       (c.conf ? '<li>' + c.conf + ' conflict' + (c.conf === 1 ? '' : 's') + ' to resolve</li>' : '') +
+      (c.review ? '<li>' + c.review + ' possible inconsistenc' + (c.review === 1 ? 'y' : 'ies') + ' to review</li>' : '') +
       (c.clar ? '<li>' + c.clar + ' question' + (c.clar === 1 ? '' : 's') + ' for you</li>' : '') +
       '</ul></section>';
 
@@ -160,6 +164,38 @@
           '<div class="sr-row"><input class="fc" placeholder="How you want this recorded" value="' +
           esc(cf.resolution || '') + '" data-cf="' + esc(cf.id) + '">' +
           '<button type="button" class="btn btn-o btn-sm" data-a="conflict" data-id="' + esc(cf.id) + '">Save</button></div></div>';
+      }).join('') + '</section>';
+
+    /* Possible inconsistency. Calm, not clinical red — it is a thing to look
+       at, not a finding. Deliberately worded so it cannot be read as an
+       established disagreement, because Scribe could not establish one. */
+    var ri = (r.reviewItems || []).filter(function (x) { return x.status !== 'dismissed'; });
+    if (ri.length) out += '<section class="sr-sec"><h3>Needs review</h3>' +
+      ri.map(function (x) {
+        var facts = factsFor(enc, x.relatedFactIds);
+        /* Two kinds live in this section. They read differently because they
+           mean different things: one is a disagreement Scribe could not stand
+           up, the other is wording Scribe refused to write. Neither is an
+           alarm, so both keep the same calm card. */
+        var clinical = x.type === 'unsupported_clinical_language';
+        var head = clinical ? 'Wording removed' : 'Possible inconsistency';
+        return '<div class="sr-card' + (x.status === 'clarified' ? ' done' : '') + '">' +
+          '<h4>' + head + (x.about && x.about.length
+            ? ' <span class="sr-sec-name">' + esc(x.about.join(', ').replace(/_/g, ' ')) + '</span>' : '') + '</h4>' +
+          '<p>' + esc(x.message) + '</p>' +
+          (x.reason ? '<p class="sr-note">' + (clinical ? 'Scribe left it out because '
+             : 'Scribe could not substantiate it because ') + esc(x.reason) + '.</p>' : '') +
+          /* No invalid source references: a removed clinical phrase has no
+             surviving fact, and inventing a passage to point at would be the
+             same mistake in a different place. */
+          (facts.length ? sourceBlock(facts)
+            : (clinical ? '' : '<p class="sr-note">No source passage survived checking.</p>')) +
+          (x.status === 'clarified'
+            ? '<p class="sr-answered">' + esc(x.note || '') + '<span class="sr-prov">Your clarification</span></p>'
+            : '<div class="sr-row"><input class="fc" placeholder="Add a clarification (optional)" data-ri="' + esc(x.id) + '">' +
+              '<button type="button" class="btn btn-o btn-sm" data-a="review-clarify" data-id="' + esc(x.id) + '">Save</button>' +
+              '<button type="button" class="btn btn-o btn-sm" data-a="review-dismiss" data-id="' + esc(x.id) + '">Dismiss</button></div>') +
+          '</div>';
       }).join('') + '</section>';
 
     if ((r.missingInformation || []).length) out += '<section class="sr-sec"><h3>Needs clarification</h3>' +
@@ -203,6 +239,9 @@
       '<div class="sr-diff new"><span class="k">Proposed</span>' +
       '<textarea class="fc sr-edit" data-i="' + i + '" rows="3">' + esc(s.csmText || s.proposedText) + '</textarea></div>' +
       (s.rationale ? '<p class="sr-why"><span class="k">Why</span> ' + esc(s.rationale) + '</p>' : '') +
+      (s.blockedBy === 'possible_inconsistency'
+        ? '<p class="sr-blocked">' + esc(s.blockedNote ||
+            'This rests on information Scribe could not fully substantiate. Review the source first.') + '</p>' : '') +
       sourceBlock(facts) +
       '<div class="sr-acts">' +
       '<button type="button" class="btn btn-p btn-sm" data-a="plan" data-i="' + i + '" data-s="approved">Approve change</button>' +
@@ -269,6 +308,12 @@
         var mi = $('[data-mi="' + n.dataset.id + '"]');
         await post(Object.assign(base, { decision: { kind: 'clarification', id: n.dataset.id,
           answer: mi ? mi.value : '' } }));
+      } else if (a === 'review-clarify' || a === 'review-dismiss') {
+        var ri2 = $('[data-ri="' + n.dataset.id + '"]');
+        var note = ri2 ? ri2.value.trim() : '';
+        await post(Object.assign(base, { decision: { kind: 'reviewItem', id: n.dataset.id,
+          status: (a === 'review-dismiss' || !note) ? (a === 'review-dismiss' ? 'dismissed' : 'needs_review') : 'clarified',
+          note: note } }));
       } else if (a === 'conflict') {
         var cf = $('[data-cf="' + n.dataset.id + '"]');
         await post(Object.assign(base, { decision: { kind: 'conflict', id: n.dataset.id,
