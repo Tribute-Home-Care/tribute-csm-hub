@@ -112,7 +112,8 @@
 
     assist: true,               // POST, but a question — mutates nothing
     community_render: true,     // POST, but returns HTML — persists nothing
-    v2_feedback: true           // counted separately; never a business write
+    v2_feedback: true,          // counted separately; never a business write
+    scribe_draft: true          // Scribe's own drafts; same — never a business write
   };
 
   /* Which capabilities are business writes, for the diagnostics split. */
@@ -311,6 +312,7 @@
       blockedBusinessWrites: attempts.filter(function (a) {
         return App.isBusinessCapability(a.capability); }).length,
       pilotFeedbackSubmissions: App.feedbackWrites || 0,
+      scribeDrafts: App.scribeWrites || 0,
       policyLeaks: leaks.length,
       duplicatePrevented: duplicatePrevented,
       fullCapabilityTester: App.serverWrite.fullCapability === true,
@@ -575,6 +577,21 @@
       if (ep === 'v2_feedback' && App.canWrite('v2_feedback')) {
         App.feedbackWrites = (App.feedbackWrites || 0) + 1;
         return real(url, opts);
+      }
+      /* Scribe drafts. This endpoint was reaching the catch-all below, which
+         returned a synthetic 403 and logged an UNGATED WRITE PATH leak - so
+         Scribe could not record anything at all, and every attempt quietly
+         inflated policyLeaks. It is an authorised write, but not a business
+         one: it goes to Scribe's own store and never to a system of record,
+         so it is tallied on its own line and the business total stays 0.
+         The two headers go with it so the server can still refuse an account
+         that is not in the pilot. */
+      if (ep === 'scribe' && App.canWrite('scribe_draft')) {
+        App.scribeWrites = (App.scribeWrites || 0) + 1;
+        let so = Object.assign({}, opts || {});
+        so.headers = Object.assign({}, (opts && opts.headers) || {},
+          { 'X-Tribute-Surface': 'v2-preview', 'X-Tribute-Capability': 'scribe_draft' });
+        return real(url, so);
       }
       // usage_time is a known write and is named rather than reported as a
       // missed path, so a genuine leak stays visible in policyLeaks.
