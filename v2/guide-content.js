@@ -137,7 +137,7 @@ window.GUIDE = (function () {
           { n: 1, x: 4,  y: 5,  title: 'Who, and where',
             b: 'Name, market and status, then the address. Straight from Viv.' },
           { n: 2, x: 4,  y: 20, title: 'What you do standing there',
-            b: 'Call, Directions, Log contact. Record Visit is reserved for later and is switched off.' },
+            b: 'Call, Directions, Log contact, and Scribe to document the visit.' },
           { n: 3, x: 4,  y: 40, title: 'Needs attention',
             b: 'Only appears when something is actually wrong. No news is good news.' },
           { n: 4, x: 4,  y: 53, title: 'Today',
@@ -309,15 +309,49 @@ window.GUIDE = (function () {
       related: ['ltc', 'client-information']
     },
 
+    /* Key kept as record-visit so older deep links still land. */
     'record-visit': {
-      title: 'Record Visit',
-      lede: 'Coming soon.',
+      title: 'Scribe',
+      lede: 'Stay present. We\u2019ll help you remember the details.',
       body: [
-        { p: 'There is a Record Visit action in the client header. It is switched off and marked Soon. ' +
-             'It does nothing at all today: no microphone, no recording, nothing sent anywhere. ' +
-             'It is there so the place it will live is settled before it is built.' }
+        { p: 'Scribe turns what happened into draft documentation so you are not writing notes while someone ' +
+             'is still talking to you. It drafts. You review. Nothing Scribe produces is saved anywhere ' +
+             'until you say so, and nothing goes into Viv at all yet.' },
+        { h: 'Three ways in', ul: [
+          'Live Scribe \u2014 record the visit while it happens. Needs consent first.',
+          'Quick Recap \u2014 say or type what happened afterwards, in your own words. Just as good a source.',
+          'Call Scribe \u2014 the same thing for a phone call rather than a home visit.' ] },
+        { p: 'All three make the same thing: an encounter. The way you captured it is recorded on it, ' +
+             'because a recap you gave from memory and a recording of the room are not equally certain ' +
+             'and the documentation should not pretend otherwise.' },
+        { h: 'Consent comes first', p: 'Live Scribe will not start until you have asked and recorded the answer. ' +
+          'There is a short script on screen to read out. If the answer is no, say so on the screen \u2014 ' +
+          'that is a normal outcome, not a failure, and Quick Recap afterwards works perfectly well.' },
+        { h: 'You can always see that it is recording', p: 'A bar stays on screen the whole time. ' +
+          'Leaving the page while a recording is running will warn you. When you are done, the button says ' +
+          'Finish & Create Documentation, because that is what it does.' },
+        { h: 'What happens to the audio', p: 'It is transcribed and not kept.' },
+        { h: 'Reviewing the draft', p: 'Three tabs. Summary is the orientation. Care Plan holds proposed changes ' +
+          'to specific fields, each showing the current text beside the proposal. Visit Note holds the note itself. ' +
+          'Every proposal cites the facts it rests on, and View source shows you the passage it came from. ' +
+          'A proposal with nothing behind it does not get made.' },
+        { h: 'Needs review', p: 'Two things land here, and they are not alarms. ' +
+          '\u201cPossible inconsistency\u201d means Scribe noticed a disagreement but could only trace one side of it ' +
+          'to the source \u2014 so it is telling you rather than quietly dropping it, and it will not let an ' +
+          'unsubstantiated claim become standing instruction for caregivers on its own. ' +
+          '\u201cWording removed\u201d means Scribe refused to write a clinical condition the source never stated.' },
+        { h: 'Scribe does not diagnose', p: '\u201cA bit muddled about what day it is\u201d is what the daughter said. ' +
+          'It is not cognitive impairment, and Scribe will not turn it into one. It keeps an observation an ' +
+          'observation and a family report a family report. If a condition is genuinely established \u2014 the source ' +
+          'says it, or the approved care plan already records it \u2014 the words are kept, with who said them. ' +
+          'Where Scribe takes wording out it tells you, names it, and leaves the sentence to you.' },
+        { h: 'What it will not do', ul: [
+          'Write anything to Viv.',
+          'Create tasks or change the schedule.',
+          'Notify the care team or send anything to anybody.',
+          'Approve its own work.' ] }
       ],
-      related: ['overview']
+      related: ['overview', 'care-plan', 'client-workspace']
     },
 
     /* ─ Managing your work ─ */
@@ -537,7 +571,7 @@ window.GUIDE = (function () {
         caption: 'Standing outside the door: who, where, and what is happening today.' },
       body: [
         { p: 'Open the client before you go in. The top of the screen gives you the name, the address and the four things ' +
-             'you do there: Call, Directions, Log contact, and Record Visit when it arrives.' },
+             'you do there: Call, Directions, Log contact, and Scribe.' },
         { h: 'While you are there', ul: [
           'Today tells you who else is coming and when.',
           'Care Plan is readable standing up, with the important sections first.',
@@ -650,7 +684,7 @@ window.GUIDE = (function () {
     'care-team': 'caregivers who is caring aides',
     'client-information': 'address phone contact details demographics',
     activity: 'history timeline what happened recent',
-    'record-visit': 'recording dictate transcribe microphone soon',
+    'record-visit': 'scribe recording record visit dictate transcribe microphone consent recap call scribe documentation visit note draft encounter',
     pulse: 'red amber green attention level needs attention monitor status quo',
     s30: 'onboarding new client first 30 days milestones success in 30',
     coverage: 'time off vacation out of office handoff cover covering communities',
@@ -701,7 +735,11 @@ window.GUIDE = (function () {
     ['Does the iPhone version store client information on my phone?', 'No. There is no offline copy of anything.'],
     ['Why can I see more clients than my own?', 'You are in a scope wider than Mine — Team or All — or your role covers the whole market.'],
     ['A time looks an hour out.', 'Client schedule times are shown in the client’s own market time. Chicago runs on Central.'],
-    ['What is Record Visit?', 'A reserved place for visit documentation that has not been built yet. It is switched off and does nothing.']
+    ['What is Scribe?', 'Documentation help. Record the visit, or give a recap afterwards, and Scribe drafts the visit note and any care plan changes for you to review. It drafts, you decide.'],
+    ['Does Scribe record without asking?', 'No. Live recording will not start until you have asked for consent and recorded the answer, and a bar stays on screen the whole time it is running.'],
+    ['Is the audio kept?', 'No. It is transcribed and then not retained.'],
+    ['Does Scribe write to Viv?', 'No. Nothing Scribe produces reaches Viv, and it creates no tasks, sends no messages and changes no schedules.'],
+    ['Scribe said it removed some wording. Why?', 'It was about to state a medical condition that neither the source nor the approved care plan actually establishes. It will not do that. The terms are named in Needs review so you can write it yourself if it belongs.']
   ];
 
   /* Flat index for search. Built from the content above, so it can never
