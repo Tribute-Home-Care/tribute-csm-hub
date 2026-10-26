@@ -115,6 +115,18 @@ window.GUIDE = (function () {
       title: 'Where to get help',
       lede: 'This guide, the question mark on a page, and Feedback.',
       body: [
+        { h: 'Three steps, in order', steps: [
+          { t: 'Look it up here', b: 'Most pages carry a "What is this page for?" link that opens the guide at the right part. Guide is under Tools in the rail, and under More on a phone.' },
+          { t: 'If it still does not make sense, use Feedback', b: 'It goes to the people building the Hub. Say what you were doing and what the screen did.' },
+          { t: 'If you are blocked from working, contact Andrew directly', b: 'Do not sit on it. Feedback is for improving the Hub; being stuck is a phone call.' }
+        ] },
+        { shot: { src: 'guide-shots/guide-getting-help.png',
+            alt: 'The More drawer on a phone, showing Guide and Feedback together under a Tools heading.',
+            caption: 'On a phone both live under More, at the bottom of the list.' } },
+        { h: 'Confusing guide content is itself feedback',
+          p: 'If you came here for an answer and did not find one, or found one that did not match what you saw ' +
+             'on screen, that is worth reporting. A guide that does not answer the question is a defect in the ' +
+             'same way a broken button is, and during the pilot it is one of the more useful things you can tell us.' },
         { ul: [
           'Most pages carry a “What is this page for?” link that opens this guide at the right part.',
           'Guide sits under Tools in the rail, and under More on a phone.',
@@ -266,9 +278,22 @@ window.GUIDE = (function () {
              'completed caregiver visits, grouped by month.' },
         { h: 'What it is for', p: 'Picking a client back up. Somebody asks what has been going on and you can answer ' +
           'without opening four pages.' },
-        { h: 'What is not in it', p: 'Nothing technical. No sync records, no saves, no page loads — only things a person did.' }
+        { shot: { src: 'guide-shots/guide-activity.png',
+            alt: 'The Activity tab on a phone, with a Home visit entry reading Documentation drafted above several Care visit entries.',
+            caption: 'Newest first. The Scribe entry sits in the same stream as the visits it came from.' } },
+        { h: 'The kinds of entry', ul: [
+          'Operational activity \u2014 touchpoints, care conversations, Success in 30 milestones, communications and Pulse reads. Things a person did.',
+          'Care visits \u2014 completed caregiver visits, with who and when.',
+          'Scribe encounters \u2014 a visit or call you documented with Scribe, showing what it drafted.',
+          'Care Plan events \u2014 when the plan itself changed.'
+        ] },
+        { h: 'A Scribe entry is a draft, not a filing',
+          p: 'When Activity says documentation was drafted, that means Scribe produced something for you to review. ' +
+             'It has not been written to Viv, because nothing writes documentation to Viv yet. The care plan and the ' +
+             'visit note in Viv are unchanged until somebody puts them there.' },
+        { h: 'What is not in it', p: 'Nothing technical. No sync records, no saves, no page loads \u2014 only things a person did.' }
       ],
-      related: ['communication', 'overview']
+      related: ['communication', 'overview', 'record-visit']
     },
 
     communication: {
@@ -367,6 +392,12 @@ window.GUIDE = (function () {
           'observation and a family report a family report. If a condition is genuinely established \u2014 the source ' +
           'says it, or the approved care plan already records it \u2014 the words are kept, with who said them. ' +
           'Where Scribe takes wording out it tells you, names it, and leaves the sentence to you.' },
+        { h: 'If something goes wrong', ul: [
+          'The microphone is blocked: Scribe says so and points you at Quick Recap. It will not pretend to record.',
+          'The recording will not send: it is held on the device and you get a Try sending again button. Nothing is thrown away because the signal dropped.',
+          'You tap Finish later on a recap: what you typed stays until you close the Hub, and the browser warns you before a reload would lose it. Nothing is saved to the client until you tap Create Documentation.',
+          'Anything fails: you are told what happened and what is still there. Scribe never reports success it did not have.'
+        ] },
         { h: 'What it will not do', ul: [
           'Write anything to Viv.',
           'Create tasks or change the schedule.',
@@ -550,23 +581,32 @@ window.GUIDE = (function () {
     /* ─ Mobile ─ */
     install: {
       title: 'Install CSM Hub on your iPhone',
-      lede: 'Six taps. It then opens like an app.',
+      lede: 'Seven taps. It then opens like an app.',
       body: [
+        { h: 'The address', p: 'Open this in Safari on your iPhone. Safari specifically — Chrome on iPhone ' +
+          'cannot add anything to the Home Screen.' },
+        { ul: ['https://tribute-home-care.github.io/tribute-csm-hub/v2/#home'] },
         { steps: [
-          { t: 'Open the Hub in Safari', b: 'It has to be Safari for this. Chrome on iPhone cannot add to the Home Screen.' },
-          { t: 'Tap Share', b: 'The square with the arrow, at the bottom of the screen.' },
-          { t: 'Tap Add to Home Screen', b: 'Scroll down the share sheet if you do not see it.' },
-          { t: 'Confirm the name', b: 'It should read CSM Hub. Tap Add.' },
-          { t: 'Launch it from the Home Screen', b: 'No address bar, no Safari tabs — it fills the screen.' },
-          { t: 'Sign in as normal', b: 'Your Tribute Microsoft account, the same as on a desk.' }
+          { t: 'Open CSM Hub in Safari', b: 'Type or paste the address above. Let the page finish loading.' },
+          { t: 'Tap Share', b: 'The square with an arrow coming out of it, in the bar at the bottom.' },
+          { t: 'Scroll to Add to Home Screen', b: 'It is below the row of apps. Keep scrolling the grey list.' },
+          { t: 'Check the name says CSM Hub', b: 'Edit it if it says something else.' },
+          { t: 'Tap Add', b: 'Top right of that screen.' },
+          { t: 'Open CSM Hub from the new Home Screen icon', b: 'Not from Safari — from the icon itself.' },
+          { t: 'Sign in as normal', b: 'Your Tribute Microsoft account, the same one as on a desk.' }
         ] },
+        { shot: { src: 'guide-shots/guide-mobile-home.png',
+            alt: 'CSM Hub running on a phone: a Home header, Needs attention cards, Today, and a Home / Clients / Coverage / More bar along the bottom.',
+            caption: 'What you should see once it is installed — no address bar, and the tab bar under your thumb.' } },
         { h: 'What installing changes', ul: [
           'It runs full screen, in its own window.',
           'It is the same Hub, with the same sign-in and the same data.',
           'Nothing about a client is stored on the phone. Close it and there is nothing left behind.'
-        ] }
+        ] },
+        { h: 'If you have trouble installing it', p: 'Contact Andrew rather than spending time trying to ' +
+          'troubleshoot it yourself. It takes him a couple of minutes and it is not a good use of yours.' }
       ],
-      related: ['mobile-nav', 'mobile-login']
+      related: ['mobile-nav', 'mobile-login', 'getting-help']
     },
 
     'mobile-nav': {
@@ -614,22 +654,40 @@ window.GUIDE = (function () {
           'Panels slide up from the bottom and scroll; Save and Cancel stay reachable with the keyboard up.',
           'Nothing saves halfway. If something does not save, the Hub says so and keeps your text.'
         ] }
+        ,{ h: 'Scribe Review on a phone',
+          p: 'The review opens as a full-screen sheet with its three tabs along the top. Proposed wording sits in ' +
+             'an editable box, so you can change it before you accept it, and the three choices are full-width ' +
+             'buttons rather than small links. Scroll the sheet; the tabs stay put.',
+          shot: { src: 'guide-shots/guide-mobile-review.png',
+            alt: 'Scribe Review on a phone showing the Care Plan tab, current text above proposed text in an editable box, and Approve change, Save my wording and Keep current as full-width buttons.',
+            caption: 'Current above, proposed below, three full-width choices. The proposal is editable before you accept it.' } },
+        { h: 'Not while you are driving', p: 'Quick Recap is made to be spoken, but documentation is not a driving ' +
+          'task. Park first. If you are between visits and short of time, a three-sentence recap now is worth more ' +
+          'than a perfect one that never gets written.' }
       ],
       related: ['mobile-field']
     },
 
     'mobile-login': {
       title: 'Signing in on a phone',
-      lede: 'And what to do if it behaves oddly.',
+      lede: 'What to expect, and what to do if it behaves oddly.',
       body: [
-        { ul: [
-          'Launching from the Home Screen sends you to Microsoft and brings you back into the app.',
-          'Force-quitting and reopening should keep you signed in.',
-          'If a session expires, the Hub asks you to sign in again rather than showing an empty page.',
-          'If sign-in drops you into Safari instead of the app, close both, reopen from the Home Screen, and report it through Feedback.'
-        ] }
+        { h: 'What normally happens', ul: [
+          'Open CSM Hub from the Home Screen icon.',
+          'It sends you to the Microsoft sign-in page \u2014 the same Tribute account you use on a desk.',
+          'Microsoft hands you back and the Hub opens on Home.',
+          'Force-quitting and reopening should keep you signed in; you will not be asked every time.',
+          'If your session expires, the Hub asks you to sign in again rather than showing an empty page.'
+        ] },
+        { h: 'If it does not go that way', ul: [
+          'Signing in leaves you in Safari instead of the app: close both, then reopen from the Home Screen icon, not from Safari.',
+          'It loops back to sign-in without landing on Home: close the app fully and open it again from the icon.',
+          'You reach the Hub but it says your account is not linked to a profile: that is a permissions matter, not a phone one.'
+        ] },
+        { h: 'When to stop and ask', p: 'If two attempts from the Home Screen icon do not get you in, contact Andrew. ' +
+          'Do not keep retrying or reinstalling \u2014 a sign-in that fails twice is something at our end, not yours.' }
       ],
-      related: ['install', 'trouble']
+      related: ['install', 'getting-help', 'trouble']
     }
   };
 

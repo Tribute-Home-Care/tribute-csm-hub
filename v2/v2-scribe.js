@@ -163,11 +163,33 @@
     return head('Quick Recap', 'Tell Scribe what happened.') + err() +
       '<p class="sc-p">Mention anything that changed about the client’s condition, concerns raised, ' +
       'care needs, schedule changes, or follow-up needed.</p>' +
-      '<textarea id="sc-recap" class="fc" rows="8" placeholder="Tap the microphone on your keyboard and just talk."></textarea>' +
+      '<textarea id="sc-recap" class="fc" rows="8" placeholder="Tap the microphone on your keyboard and just talk.">' +
+        esc(S.recapText || '') + '</textarea>' +
       '<div class="sc-acts">' +
       '<button type="button" class="btn btn-p" data-act="recap-done">Create Documentation</button>' +
-      '<button type="button" class="btn btn-o" data-act="close">Save for later</button></div>' +
-      '<p class="sc-foot">Scribe records this as your recollection after the visit, not as the conversation itself.</p>';
+      // NOT "Save for later". Nothing is saved: no encounter exists until
+      // Create Documentation is tapped, so this only closes the panel. The
+      // text is held in this tab and restored if you reopen Scribe, and the
+      // browser warns before a reload would lose it - but a button that
+      // promises a save that does not happen is worse than no button.
+      '<button type="button" class="btn btn-o" data-act="close">Finish later</button></div>' +
+      '<p class="sc-foot">Scribe records this as your recollection after the visit, not as the conversation itself. ' +
+      'Finish later keeps what you have typed until you close the Hub; nothing is saved to the client until you tap Create Documentation.</p>';
+  }
+
+  /* Honest about what happened, and it does not throw the recording away.
+     "Could not be sent" is the truth; "could not be used" was not, because
+     the audio is still sitting right here. */
+  function viewRecFail() {
+    var mins = S.dur ? Math.max(1, Math.round(S.dur / 60)) : null;
+    return head('That did not send', 'Your recording is safe.') + err() +
+      '<p class="sc-p">Scribe could not send ' + (mins ? ('your ' + mins + '-minute recording') : 'the recording') +
+      ' for transcription. It is still held on this device. Try again when you have a better signal, ' +
+      'or type a recap instead and the recording will be discarded.</p>' +
+      '<div class="sc-acts">' +
+      '<button type="button" class="btn btn-p" data-act="retry-audio">Try sending again</button>' +
+      '<button type="button" class="btn btn-o" data-act="recap">Type a recap instead</button></div>' +
+      '<p class="sc-foot">Closing Scribe now will lose the recording. Nothing has been documented yet.</p>';
   }
 
   function viewBusy(msg) {
@@ -197,6 +219,7 @@
           : S.step === 'consent' ? viewConsent()
           : S.step === 'declined' ? viewDeclined()
           : S.step === 'recording' ? viewRecording()
+          : S.step === 'recfail' ? viewRecFail()
           : S.step === 'recap' ? viewRecap()
           : S.step === 'transcribing' ? viewBusy('Writing down what was said')
           : S.step === 'processing' ? viewBusy('Scribe is reading the conversation')
@@ -216,7 +239,8 @@
       if (a === 'close') return close();
       if (a === 'live') { S.sourceType = 'home_visit_live'; S.step = 'consent'; return render(); }
       if (a === 'declined') { S.step = 'declined'; return render(); }
-      if (a === 'recap') { S.sourceType = 'home_visit_recap'; S.step = 'recap'; return render(); }
+      if (a === 'recap') { S.sourceType = 'home_visit_recap'; S.blob = null; S.step = 'recap'; S.error = null; return render(); }
+      if (a === 'retry-audio') return sendAudio();
       if (a === 'agreed') return startLive();
       if (a === 'pause') return pause();
       if (a === 'finish') return finish();
@@ -241,7 +265,14 @@
       if (!navigator.mediaDevices || !window.MediaRecorder)
         throw new Error('This browser cannot record audio. Use Quick Recap instead.');
       var stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      await startEncounter('home_visit_live', 'agreed');
+      // If the encounter cannot be created, release the microphone. Without
+      // this the iOS recording indicator stays lit with nothing recording,
+      // which is both alarming and a lie about what is happening.
+      try { await startEncounter('home_visit_live', 'agreed'); }
+      catch (e) {
+        try { (stream.getTracks() || []).forEach(function (t) { t.stop(); }); } catch (e2) {}
+        throw e;
+      }
       S.chunks = [];
       S.rec = new MediaRecorder(stream);
       S.rec.ondataavailable = function (ev) { if (ev.data && ev.data.size) S.chunks.push(ev.data); };
@@ -306,15 +337,28 @@
     var dur = Math.round((Date.now() - S.startedAt) / 1000);
     var blob = new Blob(S.chunks, { type: (S.rec.mimeType || 'audio/webm') });
     S.rec = null; S.chunks = []; bar();
+    // HOLD THE AUDIO. It used to be dropped the moment the upload was
+    // attempted, so one flaky minute of signal threw away a whole visit and
+    // the only way forward was to retype it from memory. It stays in memory
+    // until the transcript is safely on the server.
+    S.blob = blob; S.dur = dur;
+    await sendAudio();
+  }
+
+  /* Upload and transcribe whatever is in S.blob. Separate so the failure
+     state can offer a real retry rather than only a retype. */
+  async function sendAudio() {
+    S.busy = true; S.error = null; S.step = 'transcribing'; render();
     try {
-      var b64 = await toBase64(blob);
+      var b64 = await toBase64(S.blob);
       await call({ op: 'transcribe', clientVivId: S.client.vivId, encounterId: S.encounterId,
-        audioBase64: b64, mimeType: blob.type, durationSec: dur });
+        audioBase64: b64, mimeType: S.blob.type, durationSec: S.dur });
+      S.blob = null;            // the transcript is saved; the audio is not kept
       await process();
     } catch (ex) {
-      S.busy = false; S.error = ex.message; S.step = 'recap';
-      S.error += ' Your recording could not be used — you can type or dictate a recap instead.';
-      render();
+      S.busy = false;
+      S.error = ex.message + ' Nothing has been lost — your recording is still here.';
+      S.step = 'recfail'; render();
     }
   }
   function toBase64(blob) {
@@ -328,6 +372,10 @@
 
   async function recapDone() {
     var t = ($('#sc-recap') || {}).value || '';
+    // Remember it before anything can fail. A dictated recap is the CSM's
+    // own words and the only copy there is; re-rendering this view used to
+    // hand back an empty box.
+    S.recapText = t;
     if (!t.trim()) { S.error = 'Tell Scribe what happened first.'; return render(); }
     S.busy = true; S.step = 'processing'; render();
     try {
@@ -340,7 +388,9 @@
   async function process() {
     S.step = 'processing'; render();
     var j = await call({ op: 'process', clientVivId: S.client.vivId, encounterId: S.encounterId });
-    S.counts = j.counts; S.busy = false; S.step = 'done'; render();
+    S.counts = j.counts; S.busy = false; S.step = 'done';
+    S.recapText = null; S.blob = null;     // safely on the server now
+    render();
     if (window.TributeScribeReview) window.TributeScribeReview.invalidate();
   }
 
@@ -350,7 +400,11 @@
 
   /* Leaving the page mid-recording would lose it silently. */
   window.addEventListener('beforeunload', function (e) {
-    if (S.rec && S.rec.state !== 'inactive') { e.preventDefault(); e.returnValue = ''; }
+    // Also guard an unsent recording and an untyped recap. Both live only in
+    // this tab, so a reload is the one way left to lose them.
+    var holding = (S.rec && S.rec.state !== 'inactive') || !!S.blob ||
+                  !!(S.recapText && S.recapText.trim());
+    if (holding) { e.preventDefault(); e.returnValue = ''; }
   });
 
   window.TributeScribe = {

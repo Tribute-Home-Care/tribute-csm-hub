@@ -307,6 +307,13 @@
         'Duplicates prevented: <b>' + (wr.duplicatePrevented || 0) + '</b>. ' +
         'Policy leaks: <b class="' + (wr.policyLeaks ? 'bad' : '') + '">' + (wr.policyLeaks || 0) + '</b>.' +
       '</p>' +
+      // Named precisely. These are Scribe's own drafts in Scribe's own store.
+      // No Care Plan or Visit Note has been written back to Viv by anything,
+      // and there is no code path that could.
+      '<p class="v2-lead">' +
+        'Scribe draft writes: <b>' + (wr.scribeDrafts || 0) + '</b> ' +
+        '<span class="v2-dim">(Scribe\u2019s own drafts only \u2014 no Viv Care Plan or Visit Note write-back exists)</span>.' +
+      '</p>' +
       '<p class="v2-lead">' + (
         !App.serverWrite.known
           ? 'Still checking what the server will accept.'
