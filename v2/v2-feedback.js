@@ -277,8 +277,13 @@
     try { j = await loadInbox(); }
     catch (e) { body.innerHTML = '<p class="v2-fbx-err">' + esc(e.message) + '</p>'; return; }
     if (j.forbidden) {
-      body.innerHTML = '<p class="v2-fb-sub">Pilot feedback is readable by the people running the pilot. ' +
-        'Your own submissions are recorded and have been received.</p>';
+      /* Admin in the page is not the same list as reviewer on the server:
+         ADMIN_UPNS is wider than V2_FEEDBACK_REVIEWERS. Someone in the first
+         and not the second would otherwise click Feedback and get a panel
+         telling them they may not read it, having lost the form they
+         actually wanted. Hand them the form. */
+      el.classList.remove('open');
+      open();
       return;
     }
     if (!j.count) { body.innerHTML = '<p class="v2-fb-sub">Nothing submitted yet.</p>'; return; }
