@@ -177,3 +177,23 @@
 .v2-capinsp .m.supp{background:#FBF2E2;color:#8A5207}
 .v2-capinsp .m.unbuilt{background:#F1EEE8;color:#7D766C}
 .v2-capinsp .m.off{background:#F8E5E2;color:#A4271E}
+
+/* ── Pilot feedback inbox ───────────────────────────────────────────────
+   Reviewer-only, and deliberately plain: it is a list of what people told
+   us, not a dashboard. */
+#v2-fbx{position:fixed;inset:0;background:rgba(28,26,23,.34);display:none;z-index:9000;
+  align-items:flex-start;justify-content:center;padding:48px 16px;overflow:auto}
+#v2-fbx.open{display:flex}
+.v2-fbx-panel{background:var(--surface);border-radius:14px;max-width:720px;width:100%;
+  padding:24px;box-shadow:0 18px 50px rgba(28,26,23,.22);position:relative}
+.v2-fbx-panel h3{margin:0 0 4px;font-size:18px;letter-spacing:-.01em}
+.v2-fbx-item{border:1px solid var(--line);border-radius:10px;padding:14px;margin-top:12px;background:var(--canvas)}
+.v2-fbx-top{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:4px}
+.v2-fbx-top b{font-size:14px;text-transform:capitalize}
+.v2-fbx-top span{color:var(--muted);font-size:12px;white-space:nowrap}
+.v2-fbx-where{font:11px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);margin-bottom:6px}
+.v2-fbx-text{margin:6px 0;white-space:pre-wrap}
+.v2-fbx-exp{margin:4px 0;color:var(--muted);font-size:13px}
+.v2-fbx-acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.v2-fbx-err{color:var(--hi)}
+@media (max-width:700px){ .v2-fbx-panel{padding:18px} #v2-fbx{padding:16px} }

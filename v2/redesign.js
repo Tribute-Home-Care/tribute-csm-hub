@@ -91,7 +91,21 @@
                ok: function () { return !!window.TributeGuide; } },
     __feedback: { icon: 'conversation', id: 'v2-nav-feedback',
                   ok: function () { return !!(window.TributeApp && window.TributeApp.feedback); },
-                  go: function () { window.TributeApp.feedback.open(); } }
+                  /* A tester sends feedback; the people running the pilot read
+                     it. Same nav item, because asking someone to remember a
+                     second one during a pilot is how it goes unread. The
+                     server decides who may actually see submissions - this
+                     only decides which panel opens first. */
+                  go: function () {
+                    const A = window.TributeApp, fb = A && A.feedback;
+                    if (!fb) return;
+                    let admin = false;
+                    try {
+                      const me = String(((A.account || {}).username) || '').toLowerCase();
+                      admin = (A.adminUpns || []).some(u => String(u).toLowerCase() === me);
+                    } catch (e) {}
+                    if (admin && fb.openInbox) fb.openInbox(); else fb.open();
+                  } }
   };
 
   const NAV_ID = { pulse: 'nav-pulse', team: 'nav-team', md: 'nav-md' };

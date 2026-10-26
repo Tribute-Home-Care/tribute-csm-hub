@@ -239,7 +239,83 @@
     setTimeout(function () { const x = document.getElementById('v2-fb'); if (x) { x.remove(); busy = false; } }, 4000);
   }
 
-  App.feedback = { open: open, context: collectContext, safeRoute: safeRoute };
+  /* ── READING WHAT CAME IN ─────────────────────────────────────────────
+     The submit form, the store, the sanitiser, the reviewer gate and the
+     status API all existed. The one screen that makes them useful did not,
+     so the only way to read a tester's note was a console command. On the
+     first morning of a pilot that is not good enough.
+
+     Reviewer-only, and the server decides that: this asks, and renders
+     whatever it is given. A 403 is a normal answer, not an error. */
+  async function loadInbox() {
+    const proxy = App.vivProxy || '';
+    const h = (typeof window.dataHeaders === 'function') ? await window.dataHeaders() : {};
+    const r = await fetch(proxy + '?endpoint=v2_feedback', { headers: h });
+    if (r.status === 403) return { forbidden: true };
+    if (!r.ok) throw new Error('Could not load feedback (' + r.status + ').');
+    return await r.json();
+  }
+
+  const STATUSES = ['new', 'triaged', 'fixed', 'wont_fix'];
+  const WHEN = t => { try { return new Date(t).toLocaleString(); } catch (e) { return String(t || ''); } };
+
+  async function openInbox() {
+    let el = document.getElementById('v2-fbx');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'v2-fbx';
+      document.body.appendChild(el);
+    }
+    el.className = 'open';
+    el.innerHTML = '<div class="v2-fbx-panel" role="dialog" aria-modal="true">' +
+      '<button class="v2-fb-x" type="button" aria-label="Close">×</button>' +
+      '<h3>Pilot feedback</h3><div id="v2-fbx-body"><p class="v2-fb-sub">Loading…</p></div></div>';
+    el.querySelector('.v2-fb-x').addEventListener('click', function () { el.classList.remove('open'); });
+    el.addEventListener('click', function (e) { if (e.target === el) el.classList.remove('open'); });
+    const body = el.querySelector('#v2-fbx-body');
+    let j;
+    try { j = await loadInbox(); }
+    catch (e) { body.innerHTML = '<p class="v2-fbx-err">' + esc(e.message) + '</p>'; return; }
+    if (j.forbidden) {
+      body.innerHTML = '<p class="v2-fb-sub">Pilot feedback is readable by the people running the pilot. ' +
+        'Your own submissions are recorded and have been received.</p>';
+      return;
+    }
+    if (!j.count) { body.innerHTML = '<p class="v2-fb-sub">Nothing submitted yet.</p>'; return; }
+    body.innerHTML = '<p class="v2-fb-sub">' + j.count + ' submission' + (j.count === 1 ? '' : 's') +
+      ', newest first.</p>' + j.items.map(function (it) {
+      return '<div class="v2-fbx-item" data-id="' + esc(it.id || '') + '">' +
+        '<div class="v2-fbx-top"><b>' + esc(it.kind || 'feedback') + '</b>' +
+        '<span>' + esc(it.submittedBy || 'unknown') + ' · ' + esc(WHEN(it.submittedAt)) + '</span></div>' +
+        (it.route ? '<div class="v2-fbx-where">' + esc(it.route) + '</div>' : '') +
+        '<p class="v2-fbx-text">' + esc(it.text || it.message || '') + '</p>' +
+        (it.expected ? '<p class="v2-fbx-exp"><em>Expected:</em> ' + esc(it.expected) + '</p>' : '') +
+        (it.impact ? '<div class="v2-fbx-where">Impact: ' + esc(it.impact) + '</div>' : '') +
+        '<div class="v2-fbx-acts">' + STATUSES.map(function (st) {
+          return '<button type="button" class="v2-fb-opt' + (it.status === st ? ' on' : '') +
+            '" data-st="' + st + '">' + esc(st.replace('_', ' ')) + '</button>';
+        }).join('') + '</div></div>';
+    }).join('');
+    // Status changes go to the PATCH the server already implements.
+    [].forEach.call(body.querySelectorAll('.v2-fbx-item'), function (row) {
+      [].forEach.call(row.querySelectorAll('[data-st]'), function (b) {
+        b.addEventListener('click', async function () {
+          const proxy = App.vivProxy || '';
+          const h = (typeof window.dataHeaders === 'function') ? await window.dataHeaders(true) : {};
+          h['Content-Type'] = 'application/json';
+          try {
+            const r = await fetch(proxy + '?endpoint=v2_feedback', { method: 'PATCH', headers: h,
+              body: JSON.stringify({ id: row.dataset.id, status: b.dataset.st }) });
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            [].forEach.call(row.querySelectorAll('[data-st]'), x => x.classList.remove('on'));
+            b.classList.add('on');
+          } catch (e) { b.textContent = 'failed'; }
+        });
+      });
+    });
+  }
+
+  App.feedback = { open: open, openInbox: openInbox, context: collectContext, safeRoute: safeRoute };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
   else mount();
