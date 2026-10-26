@@ -49,6 +49,11 @@ window.GuideViews = (function () {
       if (b.steps) out += '<ol class="g-steps">' + b.steps.map((s, i) =>
         '<li><span class="n">' + (i + 1) + '</span><span><span class="t">' + esc(s.t) +
         '</span><span class="b">' + esc(s.b) + '</span></span></li>').join('') + '</ol>';
+      // A screenshot can sit INSIDE the body, not only at the top. Without
+      // this an article got exactly one picture however long it was, which
+      // is how a guide whose whole point is "show first, explain second"
+      // ended up as pages of prose.
+      if (b.shot) out += shot(b.shot);
       return out;
     }).join('');
   }

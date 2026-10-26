@@ -103,7 +103,21 @@
 .gdoc .g-cards .d { font-size: 13.5px; color: var(--ink-3); }
 
 /* ── prose ───────────────────────────────────────────────────────────── */
-.gdoc .g-prose { max-width: var(--g-measure); }
+/* Text keeps a readable measure; a screenshot does not. An inline shot used
+   to inherit the prose column and render at under half the width of one
+   placed at the top of an article, which made the pictures in the longest
+   articles the smallest ones on the page. The prose is now a grid: words sit
+   in the measure, figures break out to the full content width. */
+.gdoc .g-prose {
+  max-width: none;
+  display: grid;
+  grid-template-columns:
+    [full-start] minmax(0, 1fr)
+    [text-start] minmax(0, var(--g-measure)) [text-end]
+    minmax(0, 1fr) [full-end];
+}
+.gdoc .g-prose > * { grid-column: text; min-width: 0; }
+.gdoc .g-prose > .g-shotwrap { grid-column: full; }
 .gdoc .g-prose h3:first-child { margin-top: var(--s4); }
 .gdoc .g-ul { margin: 0 0 var(--s3); padding: 0; list-style: none; max-width: var(--g-measure); }
 .gdoc .g-ul li { position: relative; padding: 4px 0 4px var(--s4); color: var(--ink-2); }

@@ -313,6 +313,9 @@ window.GUIDE = (function () {
     'record-visit': {
       title: 'Scribe',
       lede: 'Stay present. We\u2019ll help you remember the details.',
+      shot: { src: 'guide-shots/guide-scribe-start.png',
+        alt: 'The Scribe panel over a client, offering Live Scribe, Quick Recap and Call Scribe.',
+        caption: 'Three ways in. Call Scribe is marked Soon and does nothing yet.' },
       body: [
         { p: 'Scribe turns what happened into draft documentation so you are not writing notes while someone ' +
              'is still talking to you. It drafts. You review. Nothing Scribe produces is saved anywhere ' +
@@ -326,7 +329,10 @@ window.GUIDE = (function () {
              'and the documentation should not pretend otherwise.' },
         { h: 'Consent comes first', p: 'Live Scribe will not start until you have asked and recorded the answer. ' +
           'There is a short script on screen to read out. If the answer is no, say so on the screen \u2014 ' +
-          'that is a normal outcome, not a failure, and Quick Recap afterwards works perfectly well.' },
+          'that is a normal outcome, not a failure, and Quick Recap afterwards works perfectly well.',
+          shot: { src: 'guide-shots/guide-scribe-consent.png',
+            alt: 'The consent step, showing a suggested script and the choices Client agreed, Client declined and Cancel.',
+            caption: 'Read it in your own words. Nothing records until you tap.' } },
         { h: 'You can always see that it is recording', p: 'A bar stays on screen the whole time. ' +
           'Leaving the page while a recording is running will warn you. When you are done, the button says ' +
           'Finish & Create Documentation, because that is what it does.' },
@@ -334,7 +340,23 @@ window.GUIDE = (function () {
         { h: 'Reviewing the draft', p: 'Three tabs. Summary is the orientation. Care Plan holds proposed changes ' +
           'to specific fields, each showing the current text beside the proposal. Visit Note holds the note itself. ' +
           'Every proposal cites the facts it rests on, and View source shows you the passage it came from. ' +
-          'A proposal with nothing behind it does not get made.' },
+          'A proposal with nothing behind it does not get made.',
+          shot: { src: 'guide-shots/guide-scribe-review.png',
+            alt: 'The Scribe review panel on Summary, listing key findings, what was drafted, and a Needs review card.',
+            caption: 'Summary first: what Scribe heard, what it drafted, what it wants you to look at.',
+            callouts: [
+              { n: 1, x: 60, y: 9,  title: 'Still a draft',
+                b: 'The Draft tag stays until you have been through it. Nothing has gone anywhere.' },
+              { n: 2, x: 60, y: 24, title: 'Key findings',
+                b: 'The three or four things worth knowing, before any documentation.' },
+              { n: 3, x: 60, y: 44, title: 'What was drafted',
+                b: 'Counts per tab, including anything Scribe wants reviewed.' },
+              { n: 4, x: 60, y: 70, title: 'Needs review',
+                b: 'Calm, not an alarm. Add a clarification or dismiss it.' }
+            ] } },
+        { shot: { src: 'guide-shots/guide-scribe-careplan.png',
+            alt: 'The Care Plan tab showing current text above proposed text for Ambulation and Transfers, each with a reason and View source.',
+            caption: 'Only what changed. Current above, proposed below, and why \u2014 then Approve, reword, or keep what is there.' } },
         { h: 'Needs review', p: 'Two things land here, and they are not alarms. ' +
           '\u201cPossible inconsistency\u201d means Scribe noticed a disagreement but could only trace one side of it ' +
           'to the source \u2014 so it is telling you rather than quietly dropping it, and it will not let an ' +
@@ -748,13 +770,20 @@ window.GUIDE = (function () {
     const rows = [];
     const push = (kind, id, title, text) =>
       rows.push({ kind: kind, id: id, title: title, text: (title + ' ' + text).toLowerCase() });
+    // Captions and callouts are content too. They were not indexed, so a
+    // picture could explain something the search could not find.
+    const shotText = sh => !sh ? '' :
+      [sh.alt || '', sh.caption || '',
+       (sh.callouts || []).map(c => c.title + ' ' + c.b).join(' ')].join(' ');
     const flat = b => (b || []).map(x =>
       [x.h || '', x.p || '', (x.ul || []).join(' '),
-       (x.steps || []).map(s => s.t + ' ' + s.b).join(' ')].join(' ')).join(' ');
+       (x.steps || []).map(s => s.t + ' ' + s.b).join(' '),
+       shotText(x.shot)].join(' ')).join(' ');
     Object.keys(A).forEach(k => {
       const a = A[k];
       push('article', k, a.title,
-        [a.lede, flat(a.body), (a.know || []).join(' '), PAGE_ALIASES[k] || ''].join(' '));
+        [a.lede, flat(a.body), shotText(a.shot), (a.know || []).join(' '),
+         PAGE_ALIASES[k] || ''].join(' '));
     });
     TOPICS.forEach(t => push('topic', t.id, t.title, t.lede));
     trouble.forEach(t => push('trouble', t.id, t.q, t.a.join(' ') + ' ' + (ALIASES[t.id] || '')));
