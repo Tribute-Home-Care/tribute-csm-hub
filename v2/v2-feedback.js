@@ -256,7 +256,19 @@
     return await r.json();
   }
 
-  const STATUSES = ['new', 'triaged', 'fixed', 'wont_fix'];
+  /* The server's own vocabulary, not an invented one. It accepts exactly
+     these five and 400s on anything else; the first version offered
+     triaged/fixed/wont_fix, so three of the four buttons returned "bad
+     status" and the only sign was the button changing to "failed". Same
+     mistake as the field names: guessed instead of read. */
+  const STATUSES = [
+    ['new',          'New'],
+    ['reviewed',     'Reviewed'],
+    ['fix_planned',  'Fix planned'],
+    ['resolved',     'Fixed'],
+    ['not_changing', "Won't change"]
+  ];
+  const STATUS_LABEL = STATUSES.reduce(function (a, s) { a[s[0]] = s[1]; return a; }, {});
   const WHEN = t => { try { return new Date(t).toLocaleString(); } catch (e) { return String(t || ''); } };
 
   async function openInbox() {
@@ -287,24 +299,42 @@
       return;
     }
     if (!j.count) { body.innerHTML = '<p class="v2-fb-sub">Nothing submitted yet.</p>'; return; }
-    body.innerHTML = '<p class="v2-fb-sub">' + j.count + ' submission' + (j.count === 1 ? '' : 's') +
-      ', newest first.</p>' + j.items.map(function (it) {
+    const tally = j.items.reduce(function (a, i) {
+      const k = i.status || 'new'; a[k] = (a[k] || 0) + 1; return a; }, {});
+    const open = (tally.new || 0) + (tally.reviewed || 0) + (tally.fix_planned || 0);
+    const summary = '<p class="v2-fb-sub"><b>' + open + ' still open</b> of ' + j.count +
+      ' \u00b7 ' + STATUSES.map(function (s) {
+        return tally[s[0]] ? tally[s[0]] + ' ' + s[1].toLowerCase() : null;
+      }).filter(Boolean).join(', ') + '</p>';
+    body.innerHTML = summary + j.items.map(function (it) {
       /* Field names read off the stored records, not guessed. The first
          version rendered it.kind and it.submittedBy, which the store does
          not have, so every row said "feedback" from "unknown". */
       var who = it.displayName || it.user || 'unknown';
       var kind = String(it.category || 'feedback').replace(/_/g, ' ');
-      return '<div class="v2-fbx-item" data-id="' + esc(it.id || '') + '">' +
-        '<div class="v2-fbx-top"><b>' + esc(kind) + '</b>' +
+      /* THE STATE, VISIBLE. The question this screen has to answer at a
+         glance is "has this been dealt with", and until now the only sign
+         was which button happened to be highlighted. Settled items carry a
+         badge, say who settled them and when, and recede. */
+      const st = it.status || 'new';
+      const settled = (st === 'resolved' || st === 'not_changing');
+      const badge = '<span class="v2-fbx-st s-' + esc(st) + '">' +
+        esc(STATUS_LABEL[st] || st) + '</span>';
+      const by = (it.statusBy && st !== 'new')
+        ? '<div class="v2-fbx-by">' + esc(STATUS_LABEL[st] || st) + ' by ' +
+          esc(String(it.statusBy).split('@')[0]) +
+          (it.statusAt ? ' \u00b7 ' + esc(WHEN(it.statusAt)) : '') + '</div>' : '';
+      return '<div class="v2-fbx-item' + (settled ? ' settled' : '') + '" data-id="' + esc(it.id || '') + '">' +
+        '<div class="v2-fbx-top"><b>' + esc(kind) + '</b> ' + badge +
         '<span>' + esc(who) + (it.market ? ' \u00b7 ' + esc(it.market) : '') +
         ' \u00b7 ' + esc(WHEN(it.submittedAt)) + '</span></div>' +
         (it.route ? '<div class="v2-fbx-where">' + esc(it.route) + '</div>' : '') +
-        '<p class="v2-fbx-text">' + esc(it.message || it.text || '') + '</p>' +
+        '<p class="v2-fbx-text">' + esc(it.message || it.text || '') + '</p>' + by +
         (it.expected ? '<p class="v2-fbx-exp"><em>Expected:</em> ' + esc(it.expected) + '</p>' : '') +
         (it.impact ? '<div class="v2-fbx-where">Impact: ' + esc(it.impact) + '</div>' : '') +
         '<div class="v2-fbx-acts">' + STATUSES.map(function (st) {
-          return '<button type="button" class="v2-fb-opt' + (it.status === st ? ' on' : '') +
-            '" data-st="' + st + '">' + esc(st.replace('_', ' ')) + '</button>';
+          return '<button type="button" class="v2-fb-opt' + (it.status === st[0] ? ' on' : '') +
+            '" data-st="' + st[0] + '">' + esc(st[1]) + '</button>';
         }).join('') + '</div></div>';
     }).join('');
     // Status changes go to the PATCH the server already implements.
@@ -324,9 +354,13 @@
             const r = await fetch(proxy + '?endpoint=v2_feedback', { method: 'POST', headers: h,
               body: JSON.stringify({ op: 'status', id: row.dataset.id, status: b.dataset.st }) });
             if (!r.ok) throw new Error('HTTP ' + r.status);
-            [].forEach.call(row.querySelectorAll('[data-st]'), x => x.classList.remove('on'));
-            b.classList.add('on');
-          } catch (e) { b.textContent = 'failed'; }
+            // Re-read rather than patch the DOM: the badge, the tally and the
+            // settled styling all have to move together.
+            openInbox();
+          } catch (e) {
+            b.classList.add('v2-fb-bad');
+            b.textContent = 'did not save';
+          }
         });
       });
     });

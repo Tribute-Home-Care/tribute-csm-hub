@@ -197,3 +197,12 @@
 .v2-fbx-acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
 .v2-fbx-err{color:var(--hi)}
 @media (max-width:700px){ .v2-fbx-panel{padding:18px} #v2-fbx{padding:16px} }
+/* Feedback state, visible at a glance */
+.v2-fbx-st{display:inline-block;font-size:10px;letter-spacing:.05em;text-transform:uppercase;
+  padding:2px 7px;border-radius:4px;background:var(--line-soft);color:var(--muted);vertical-align:2px}
+.v2-fbx-st.s-new{background:var(--hi-bg);color:var(--hi)}
+.v2-fbx-st.s-reviewed,.v2-fbx-st.s-fix_planned{background:var(--med-bg);color:var(--med)}
+.v2-fbx-st.s-resolved{background:var(--lo-bg);color:var(--lo)}
+.v2-fbx-item.settled{opacity:.62}
+.v2-fbx-by{font-size:12px;color:var(--muted);margin:2px 0 0}
+.v2-fb-opt.v2-fb-bad{border-color:var(--hi);color:var(--hi)}
