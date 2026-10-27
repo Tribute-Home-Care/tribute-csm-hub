@@ -323,7 +323,10 @@
       const by = (it.statusBy && st !== 'new')
         ? '<div class="v2-fbx-by">' + esc(STATUS_LABEL[st] || st) + ' by ' +
           esc(String(it.statusBy).split('@')[0]) +
-          (it.statusAt ? ' \u00b7 ' + esc(WHEN(it.statusAt)) : '') + '</div>' : '';
+          (it.statusAt ? ' \u00b7 ' + esc(WHEN(it.statusAt)) : '') +
+          (it.fixBuild ? ' \u00b7 build ' + esc(String(it.fixBuild).slice(0, 10)) : '') +
+          '</div>' + (it.fixNote ? '<div class="v2-fbx-fix">' + esc(it.fixNote) + '</div>' : '')
+        : '';
       return '<div class="v2-fbx-item' + (settled ? ' settled' : '') + '" data-id="' + esc(it.id || '') + '">' +
         '<div class="v2-fbx-top"><b>' + esc(kind) + '</b> ' + badge +
         '<span>' + esc(who) + (it.market ? ' \u00b7 ' + esc(it.market) : '') +
@@ -351,8 +354,22 @@
                status change as {op:'status'} over POST and has done all
                along; the first version of this inbox shipped with the wrong
                verb and the triage buttons were dead. */
+            const payload = { op: 'status', id: row.dataset.id, status: b.dataset.st };
+            /* Settling an item records WHAT settled it, not just that
+               somebody decided to. The build is taken from the running
+               page, so it is the one actually live when you pressed the
+               button; the note is yours and optional. */
+            if (b.dataset.st === 'resolved' || b.dataset.st === 'not_changing') {
+              const note = window.prompt(
+                b.dataset.st === 'resolved'
+                  ? 'What fixed it? (optional, one line)'
+                  : 'Why is this not changing? (optional, one line)', '');
+              if (note === null) return;            // cancelled: change nothing
+              if (note.trim()) payload.fixNote = note.trim();
+              try { payload.fixBuild = collectContext().build || ''; } catch (e) {}
+            }
             const r = await fetch(proxy + '?endpoint=v2_feedback', { method: 'POST', headers: h,
-              body: JSON.stringify({ op: 'status', id: row.dataset.id, status: b.dataset.st }) });
+              body: JSON.stringify(payload) });
             if (!r.ok) throw new Error('HTTP ' + r.status);
             // Re-read rather than patch the DOM: the badge, the tally and the
             // settled styling all have to move together.

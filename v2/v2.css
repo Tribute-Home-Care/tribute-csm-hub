@@ -206,3 +206,5 @@
 .v2-fbx-item.settled{opacity:.62}
 .v2-fbx-by{font-size:12px;color:var(--muted);margin:2px 0 0}
 .v2-fb-opt.v2-fb-bad{border-color:var(--hi);color:var(--hi)}
+.v2-fbx-fix{margin:6px 0 0;padding:8px 11px;border-left:3px solid var(--lo);
+  background:var(--lo-bg);border-radius:0 6px 6px 0;font-size:13px;color:var(--ink)}
