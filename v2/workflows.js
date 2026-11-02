@@ -1204,10 +1204,89 @@
       '</div>';
   }
 
+  /* ── Who it goes to ───────────────────────────────────────────────────
+     The addresses already exist: csm_client returns the client's own email,
+     the primary contact, the family contacts and the emergency contacts.
+     Measured across 39 active clients (2026-11-02), 37 have at least one
+     and most have two or more, so this is a chooser, not a prefill.
+
+     Never suggested: a Tribute address (the weekly email goes to a family,
+     not to us) and notmavencare.com, which is a placeholder Viv carries
+     where a real address is missing. */
+  const WEEKLY_NOT_A_FAMILY_ADDRESS = /@(?:[a-z0-9-]+\.)*(?:tributehomecare\.com|notmavencare\.com|mavencare\.com)$/i;
+  const WEEKLY_EMAIL_SHAPE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+  async function weeklyRecipients(c) {
+    const cid = String((c && c.id) || '').replace(/^viv/i, '');
+    const CD = window.TributeClientData;
+    if (!CD || !CD.ready || !/^[a-f0-9]{24}$/i.test(cid)) return [];
+    let d = null;
+    try { d = await CD.ready(cid, 'client'); } catch (e) { d = null; }
+    if (!d) return [];
+    const out = [], seen = Object.create(null);
+    const add = function (email, name, rel, relSource, source) {
+      const e = String(email || '').trim().toLowerCase();
+      if (!WEEKLY_EMAIL_SHAPE.test(e) || WEEKLY_NOT_A_FAMILY_ADDRESS.test(e)) return;
+      if (seen[e]) return;
+      seen[e] = 1;
+      out.push({ email: e, name: name || '', relationship: rel || '',
+                 derived: relSource === 'derived_from_rel', source: source });
+    };
+    const pc = d.primaryContact;
+    if (pc) add(pc.email, pc.name, pc.relationship, pc.relationshipSource, 'Primary contact');
+    (d.contacts || []).forEach(function (x) {
+      add(x.email, x.name, x.relationship, x.relationshipSource,
+          x.emergency ? 'Family and emergency contact' : 'Family contact');
+    });
+    (d.emergencyContacts || []).forEach(function (x) {
+      add(x.email, x.name, x.relationship, x.relationshipSource, 'Emergency contact');
+    });
+    if (d.contact && d.contact.email) {
+      add(d.contact.email, (c && c.name) || 'The client', 'Client', 'viv_rrel', 'The client');
+    }
+    return out;
+  }
+
+  // The stored recipients, as a list. `to` stays a comma-joined string so the
+  // preview, the send and the history keep reading one field.
+  function weeklyToList(c) {
+    const raw = weeklyFor(c.id).to || (c && c.contactEmail) || '';
+    return String(raw).split(',').map(function (x) { return x.trim().toLowerCase(); })
+      .filter(function (x) { return WEEKLY_EMAIL_SHAPE.test(x); });
+  }
+
   async function weeklyChooseMode(c) {
-    const cur = weeklyFor(c.id).mode || 'off';
     const R = window.TributeRedesign;
     if (!R || !R.dialog) return;
+    const cur = weeklyFor(c.id).mode || 'off';
+    const chosen = weeklyToList(c);
+    const sugg = await weeklyRecipients(c);
+
+    const rows = sugg.map(function (r, i) {
+      const on = chosen.indexOf(r.email) > -1;
+      const rel = r.relationship
+        ? '<span class="wk-rel">' + esc(r.relationship) + (r.derived ? '*' : '') + '</span>' : '';
+      return '<label class="wk-mode-opt wk-rcp">' +
+        '<input type="checkbox" class="wk-rcp-box" value="' + esc(r.email) + '"' + (on ? ' checked' : '') + '>' +
+        '<span><b>' + esc(r.name || r.email) + '</b>' + rel +
+        '<em>' + esc(r.email) + ' \u00b7 ' + esc(r.source) + '</em></span></label>';
+    }).join('');
+
+    // Anything already stored that is not in the suggestions (typed by hand
+    // last time) stays in the box rather than being silently dropped.
+    const extra = chosen.filter(function (e) {
+      return !sugg.some(function (r) { return r.email === e; });
+    }).join(', ');
+
+    const anyDerived = sugg.some(function (r) { return r.derived; });
+    const who = sugg.length
+      ? '<div class="wk-sec">Who it goes to</div>' + rows +
+        (anyDerived ? '<p class="wk-note">* Viv records how the client is related to this person, ' +
+          'not the other way round, so this role is worked out from that and is less exact.</p>' : '')
+      : '<div class="wk-sec">Who it goes to</div>' +
+        '<p class="rd-ws-quiet">No email address is on file for this client in Viv. ' +
+        'Add one below, or add it to the client\u2019s contacts in Viv so it is there next time.</p>';
+
     const html = '<div class="wk-modes">' + WEEKLY_MODES.map(function (m) {
       // Automatic is shown rather than hidden, because a CSM should know the
       // option is coming — but it cannot be selected, and the reason is on
@@ -1218,22 +1297,52 @@
         (cur === m[0] && !off ? ' checked' : '') + (off ? ' disabled' : '') + '>' +
         '<span><b>' + esc(m[1]) + (off ? ' <em>not available yet</em>' : '') + '</b>' +
         esc(m[2]) + '</span></label>';
-    }).join('') + '</div>' +
-    '<label class="wk-to"><span>Family email</span>' +
-    '<input type="email" id="wk-to" value="' + esc(weeklyFor(c.id).to || c.contactEmail || '') +
-    '" placeholder="family@example.com"></label>';
-    const okd = await R.dialog({
-      title: 'Weekly schedule email for ' + (c.name || ''),
-      html: html, ok: 'Save', cancel: 'Cancel'
-    });
+    }).join('') + who + '</div>' +
+    '<label class="wk-to"><span>Another address</span>' +
+    '<input type="email" id="wk-to" value="' + esc(extra) + '" placeholder="someone@example.com"></label>';
+
+    /* rdDialog removes its own DOM BEFORE it resolves, so reading the form
+       after `await` found nothing and silently saved mode 'off' with an empty
+       recipient — the chooser appeared to do nothing at all. The values are
+       captured while the dialog is still open instead. */
+    const picked = { mode: cur, boxes: chosen.slice(), other: extra };
+    const grab = function () {
+      const m = document.querySelector('.rd-dlg input[name="wkmode"]:checked');
+      if (m) picked.mode = m.value;
+      const bs = document.querySelectorAll('.rd-dlg .wk-rcp-box');
+      if (bs.length) {
+        picked.boxes = Array.prototype.filter.call(bs, function (b) { return b.checked; })
+          .map(function (b) { return b.value; });
+      }
+      const t = document.querySelector('.rd-dlg #wk-to');
+      if (t) picked.other = t.value;
+    };
+    document.addEventListener('input', grab, true);
+    document.addEventListener('change', grab, true);
+    let okd;
+    try { okd = await R.dialog({ title: 'Weekly schedule email for ' + (c.name || ''),
+                                 html: html, ok: 'Save', cancel: 'Cancel' }); }
+    finally {
+      document.removeEventListener('input', grab, true);
+      document.removeEventListener('change', grab, true);
+    }
     if (!okd) return;
-    const picked = document.querySelector('input[name="wkmode"]:checked');
-    const to = document.getElementById('wk-to');
-    let mode = picked ? picked.value : cur;
+
+    let mode = picked.mode;
     // Belt and braces: a disabled radio cannot be chosen, but nothing should
     // be able to store 'auto' while the delivery service does not exist.
     if (mode === 'auto' && !autoLive()) mode = 'draft';
-    weeklySave(c.id, { mode: mode, to: to ? to.value.trim() : '' });
+
+    const typed = String(picked.other || '').split(',').map(function (x) { return x.trim().toLowerCase(); })
+      .filter(function (x) { return WEEKLY_EMAIL_SHAPE.test(x); });
+    const all = picked.boxes.concat(typed).filter(function (e, i, a) { return a.indexOf(e) === i; });
+
+    weeklySave(c.id, { mode: mode, to: all.join(', ') });
+    if (window.showToast) {
+      window.showToast(mode === 'off'
+        ? 'Weekly schedule email turned off'
+        : 'Saved \u2014 ' + (all.length ? all.length + ' recipient' + (all.length === 1 ? '' : 's') : 'no recipient yet'));
+    }
     if (R.renderWorkspace) R.renderWorkspace();
   }
 

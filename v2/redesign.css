@@ -1743,6 +1743,22 @@ input[type="email"], select { min-height: var(--h-ctl); }
 .wk-mode-opt input { margin-top: 3px; accent-color: var(--brand); }
 .wk-mode-opt span { display: block; font-size: 12.5px; color: var(--muted); line-height: 1.5; }
 .wk-mode-opt b { display: block; font-size: 13.5px; font-weight: 600; color: var(--ink); }
+/* The recipient chooser: suggestions drawn from the client's own contacts. */
+.wk-sec {
+  margin: 14px 0 4px; font-size: 11px; font-weight: 600; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--muted);
+}
+.wk-rcp b { display: inline; }
+.wk-rcp em {
+  display: block; font-style: normal; font-size: 11.5px; color: var(--muted-soft);
+  margin-top: 1px; overflow-wrap: anywhere;
+}
+.wk-rel {
+  display: inline-block; margin-left: 7px; padding: 1px 6px; border-radius: 10px;
+  background: var(--line-soft); color: var(--muted);
+  font-size: 10.5px; font-weight: 600; letter-spacing: .02em; vertical-align: 1px;
+}
+
 .wk-to { display: block; margin-top: 12px; }
 .wk-to span { display: block; font-size: 11.5px; color: var(--muted); margin-bottom: 4px; }
 .wk-to input {

@@ -115,6 +115,10 @@
 
   window.TributeClientData = {
     client:   function (cid) { return snapshot(cid, 'client'); },
+    // The snapshot is for rendering: it returns whatever is in hand right
+    // now. A caller that has to WAIT for the record (the weekly-email
+    // recipient chooser) needs the promise, not a state flag.
+    ready:    function (cid, kind) { return load(cid, kind || 'client'); },
     careplan: function (cid) { return snapshot(cid, 'careplan'); },
     reload:   function (cid) {
       var c = store[cid]; if (!c) return;
