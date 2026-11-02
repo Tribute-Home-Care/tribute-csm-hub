@@ -1246,6 +1246,12 @@
         return;
       }
 
+      /* The tripwire matches Graph by URL, not by endpoint, so it cannot
+         tell which capability authorised a sendMail. gate() records an
+         intent for V1's ecSend; this one has to do the same, or the request
+         arrives unclaimed and is refused as an unlisted write path. One
+         authorisation, one request: the tripwire clears it immediately. */
+      if (A_) A_.__intent = { capability: 'weekly_send', at: Date.now() };
       const r = await fetch('https://graph.microsoft.com/v1.0/me/sendMail', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },

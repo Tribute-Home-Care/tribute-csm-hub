@@ -683,8 +683,16 @@
       // so a stray Graph call can never ride on a previous authorisation.
       const intent = App.__intent && (Date.now() - App.__intent.at < 10000) ? App.__intent.capability : null;
       const GRAPH = [
+        // Two different emails leave through the same Graph call, so the
+        // capability decides which one this is. weekly_send was refused here
+        // with "community email is not switched on" until it was listed:
+        // accurate that it was blocked, wrong about what it was (2026-11-02).
         { re: /graph\.microsoft\.com\/v1\.0\/me\/sendMail/i,
-          caps: ['community_send_test', 'community_send_real'], recordType: 'community email' },
+          caps: ['community_send_test', 'community_send_real', 'weekly_send'],
+          recordType: 'outgoing email',
+          typeFor: function (cap) {
+            return cap === 'weekly_send' ? 'weekly schedule email' : 'community email';
+          } },
         { re: /graph\.microsoft\.com\/v1\.0\/me\/events/i,
           caps: ['graph_calendar_add', 'graph_calendar_delete'], recordType: 'calendar event' }
       ];
@@ -692,21 +700,28 @@
         const g = GRAPH[i];
         if (!g.re.test(u)) continue;
         const cap = (intent && g.caps.indexOf(intent) !== -1) ? intent : null;
+        const what = (g.typeFor && cap) ? g.typeFor(cap) : g.recordType;
         if (!cap || !App.canWrite(cap)) {
-          App.recordBlockedWrite({ feature: g.recordType, capability: cap || 'unclaimed',
-            endpoint: u.split('?')[0], operation: method });
+          App.recordBlockedWrite({ feature: what, capability: cap || 'unclaimed',
+            endpoint: u.split('?')[0], operation: method,
+            // Say what was claimed. "not switched on" when nothing was
+            // claimed at all sends the reader looking at the wrong switch.
+            claimed: intent || null });
           return Promise.resolve(new Response(JSON.stringify(
-            { error: 'v2: ' + g.recordType + ' is not switched on', v2Blocked: true }),
+            { error: intent
+                ? 'v2: ' + what + ' is not switched on'
+                : 'v2: this ' + g.recordType + ' did not say which capability authorised it',
+              v2Blocked: true, claimed: intent || null }),
             { status: 403, headers: { 'Content-Type': 'application/json' } }));
         }
         App.__intent = null;            // one authorisation, one request
         return real(url, opts).then(function (r) {
           App.recordWrite({ capability: cap, endpoint: u.split('?')[0], operation: method,
-            recordType: g.recordType, ok: r.ok, status: r.status });
+            recordType: what, ok: r.ok, status: r.status });
           return r;
         }, function (err) {
           App.recordWrite({ capability: cap, endpoint: u.split('?')[0], operation: method,
-            recordType: g.recordType, ok: false, status: 'network' });
+            recordType: what, ok: false, status: 'network' });
           throw err;
         });
       }
