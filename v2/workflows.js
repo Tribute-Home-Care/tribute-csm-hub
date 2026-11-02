@@ -766,11 +766,12 @@
 
   const WEEKLY_MODES = [
     ['off', 'Off', 'Nothing is prepared or sent.'],
-    ['draft', 'Draft weekly', 'A draft is ready each week, built from the live schedule, for you to review.'],
+    ['draft', 'Draft weekly', 'A draft is ready each week, built from the live schedule, for you to review and send.'],
     ['auto', 'Automatic',
       WEEKLY_AUTOMATION_READY
         ? 'Sent on Friday afternoon unless you stop it.'
-        : 'The scheduled send service is not built. Until it is, this behaves like Draft weekly.']
+        : 'Not built yet. A scheduled send cannot come from your own mailbox, because you are not there ' +
+          'to authorise it, so it needs its own decision. Behaves like Draft weekly for now.']
   ];
   const autoLive = function () { return WEEKLY_AUTOMATION_READY; };
 
@@ -973,15 +974,22 @@
   // can be read anywhere.
   function weeklyAvailable() { return true; }
 
-  // Is there a real send behind the button? In production, no: no server
-  // path emails one client's week to their family yet. Until one exists this
-  // is false and nothing offers to send, because writing "Weekly schedule
-  // email sent" into a client's communication record when nothing left the
-  // building is the one failure this feature cannot afford.
+  // May this account send? Its own capability, separate from the community
+  // email, so weekly family emails can be stopped without stopping those.
   function weeklySendable() {
     const App = window.TributeApp;
-    if (App && App.environment === 'v2-preview') return !!(App.canWrite && App.canWrite('weekly_schedule'));
+    if (App && App.environment === 'v2-preview') return !!(App.canWrite && App.canWrite('weekly_send'));
     return true;   // local preview intercepts mail and logs the simulated send
+  }
+
+  // ...and will it actually leave the building? A walkthrough account drives
+  // the whole thing and stops at the wire. The UI must say which, because
+  // "Send now" meaning two different things is how someone comes to believe
+  // a family was written to when nothing was.
+  function weeklyDeliveryLive() {
+    const App = window.TributeApp;
+    if (!App || !App.suppressWeeklySend) return true;
+    return !App.suppressWeeklySend();
   }
 
   const _weekCache = {};
@@ -1043,7 +1051,12 @@
     };
   }
 
-  /* ── The email itself ─────────────────────────────────────────────────── */
+  /* ── The email itself ───────────────────────────────────────────────
+     INLINE STYLES ONLY, and ONE implementation. This is the document that
+     actually reaches a family, and the preview renders this same function,
+     so what a CSM approves is what is sent. An email client applies none of
+     the Hub's stylesheet, so a class-based version would have previewed
+     beautifully and arrived as unstyled text. */
   function weeklyEmailHtml(c, wk, st) {
     const first = String(c.name || '').split(' ')[0];
     // No week, no email. This is the last line of defence: a caller that
@@ -1054,25 +1067,41 @@
         'The schedule for this week could not be read, so there is no email to show. ' +
         'Nothing has been assumed about ' + esc(first) + '’s visits.</p></div>';
     }
+    const INK = '#1C1A17', MUTED = '#8C857B', LINE = '#EAE6DF', ORANGE = '#FF5A1F';
+    const base = 'font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Helvetica,Arial,sans-serif;';
+    const cell = 'padding:9px 12px;border-bottom:1px solid ' + LINE + ';font-size:14px;color:' + INK + ';';
     const rows = (wk.visits || []).length
       ? (wk.visits || []).map(function (v) {
-          return '<tr><td>' + esc(v.dayLabel) + '</td><td>' + esc(v.time) + '</td><td>' + esc(v.who) + '</td></tr>';
+          return '<tr>' +
+            '<td style="' + cell + 'white-space:nowrap;font-weight:600;">' + esc(v.dayLabel) + '</td>' +
+            '<td style="' + cell + 'white-space:nowrap;">' + esc(v.time) + '</td>' +
+            '<td style="' + cell + '">' + esc(v.who) + '</td></tr>';
         }).join('')
-      : '<tr><td colspan="3" class="q">No Tribute visits are scheduled next week.</td></tr>';
+      : '<tr><td colspan="3" style="' + cell + 'color:' + MUTED + ';">' +
+        'No Tribute visits are scheduled next week.</td></tr>';
     const prof = A().profile || {};
-    return '<div class="wk-mail">' +
-      '<div class="wk-mail-brand">Tribute<span>.</span></div>' +
-      '<h4>' + esc(first) + '’s week with Tribute</h4>' +
-      '<p class="wk-mail-sub">' + esc(wk.weekLabel || '') + '</p>' +
-      '<p>Hello,</p>' +
-      '<p>Here is ' + esc(first) + '’s Tribute schedule for next week. Please call me with anything at all — a change, a question, or just to talk something through.</p>' +
-      '<table class="wk-mail-t">' + rows + '</table>' +
-      '<p class="wk-mail-sign">Warmly,<br><b>' + esc(prof.name || '') + '</b><br>' +
-      '<span>Client Solutions Manager · Tribute Home Care</span></p>' +
+    return '<div class="wk-mail" style="' + base + 'max-width:560px;color:' + INK + ';line-height:1.55;">' +
+      '<div style="font-size:19px;font-weight:700;letter-spacing:-0.02em;color:' + INK + ';">' +
+        'Tribute<span style="color:' + ORANGE + ';">.</span></div>' +
+      '<h4 style="' + base + 'font-size:18px;font-weight:600;margin:18px 0 2px;color:' + INK + ';">' +
+        esc(first) + '&rsquo;s week with Tribute</h4>' +
+      '<p style="margin:0 0 16px;font-size:13px;color:' + MUTED + ';">' + esc(wk.weekLabel || '') + '</p>' +
+      '<p style="margin:0 0 12px;font-size:14px;">Hello,</p>' +
+      '<p style="margin:0 0 16px;font-size:14px;">Here is ' + esc(first) + '&rsquo;s Tribute schedule for next week. ' +
+        'Please call me with anything at all &mdash; a change, a question, or just to talk something through.</p>' +
+      '<table cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;' +
+        'border-top:1px solid ' + LINE + ';margin-bottom:18px;">' + rows + '</table>' +
+      '<p style="margin:0 0 4px;font-size:14px;">Warmly,</p>' +
+      '<p style="margin:0 0 18px;font-size:14px;"><b>' + esc(prof.name || '') + '</b><br>' +
+        '<span style="color:' + MUTED + ';font-size:13px;">Client Solutions Manager &middot; Tribute Home Care</span></p>' +
       // No timezone sentence. The times ARE the client's own local times,
       // and the old line asserted Eastern over a Chicago schedule.
-      '<p class="wk-mail-foot"><i>Remarkable, personified.</i> · ' +
-      'Schedules can change; we will let you know.</p></div>';
+      '<p style="margin:0;padding-top:14px;border-top:1px solid ' + LINE + ';font-size:12px;color:' + MUTED + ';">' +
+        '<i>Remarkable, personified.</i> &middot; Schedules can change; we will let you know.</p></div>';
+  }
+
+  function weeklySubject(c, wk) {
+    return String(c.name || '').split(' ')[0] + '\u2019s Tribute schedule \u2014 ' + (wk.weekLabel || '');
   }
 
   async function weeklyPreview(c) {
@@ -1117,15 +1146,26 @@
     if (go && st.to && weeklySendable()) weeklySend(c, wk);
   }
 
-  /* The send. Nothing leaves the machine: the harness intercepts mail, and
-     this records what WOULD have gone, where, and the exact week it
-     described, so change detection has something true to compare against. */
-  function weeklySend(c, wk) {
+  /* ── The send ─────────────────────────────────────────────────────────
+     V1's Community Email already sends from the CSM's own mailbox with a
+     delegated Graph token, and the Hub's Entra app holds Mail.Send with
+     tenant-wide admin consent, so nobody is prompted. This reuses that
+     exact path rather than inventing a second one: the mail comes from the
+     CSM, lands in their Sent Items, and a family replying replies to them.
+
+     A scheduled Friday run could not do this. There is no user present to
+     hold a delegated token, so automation would have to send app-only from
+     a shared mailbox, which is a different sender and a separate decision.
+     That is why Automatic is still off rather than nearly ready. */
+  const _weeklySending = {};
+
+  async function weeklySend(c, wk) {
+    const A_ = window.TributeApp;
     // The button is hidden when these do not hold, but the delegated click
     // handler and the exported API both reach this directly. Hiding a
     // control is not a guarantee; refusing here is.
     if (!weeklySendable()) {
-      if (window.showToast) window.showToast('Sending the weekly schedule from the Hub is not built yet');
+      if (window.showToast) window.showToast('Sending the weekly schedule is not switched on for this account');
       return;
     }
     if (!wk || wk.unavailable || !Array.isArray(wk.visits)) {
@@ -1133,38 +1173,128 @@
       return;
     }
     const st = weeklyState(c, wk);
-    const who = (A().profile || {}).name || 'unknown';
-    const entry = {
-      at: new Date().toISOString(), by: who, to: st.to,
-      week: st.week, weekLabel: wk.weekLabel || '',
-      visits: (wk.visits || []).length, sig: weekSig(wk.visits)
-    };
-    const prev = weeklyFor(c.id);
-    weeklySave(c.id, {
-      lastSentAt: entry.at, lastSentBy: who, lastSentWeek: st.week, lastSig: entry.sig,
-      history: [entry].concat(prev.history || []).slice(0, 20)
-    });
-    // The client's own communication record, through the application's data
-    // rather than a parallel log.
-    try {
-      const data = A().data, pid = (A().profile || {}).id;
-      if (data && pid && data.profiles && data.profiles[pid]) {
-        data.profiles[pid].touchpoints = data.profiles[pid].touchpoints || [];
-        data.profiles[pid].touchpoints.unshift({
-          id: 'wk' + Date.now(), clientId: c.id, date: entry.at.slice(0, 10),
-          type: 'Email', by: who, note: 'Weekly schedule email — ' + entry.weekLabel +
-            ' (' + entry.visits + ' visit' + (entry.visits === 1 ? '' : 's') + ')'
-        });
-        if (typeof window.queueSave === 'function') window.queueSave();
-      }
-    } catch (e) { console.error('[workflows] weekly touchpoint:', e); }
-    console.log('[' + ((window.TributeApp && window.TributeApp.environment) || 'local') +
-      '] weekly schedule email simulated \u2014 nothing was sent', entry);
-    if (typeof window.showToast === 'function') {
-      window.showToast('Weekly email recorded — nothing was actually sent in local preview');
+    const to = weeklyToList(c);
+    if (!to.length) {
+      if (window.showToast) window.showToast('No family email on file, so there is nobody to send to');
+      return;
     }
-    const R = window.TributeRedesign;
-    if (R && R.renderWorkspace) R.renderWorkspace();
+    if (_weeklySending[c.id]) {
+      if (window.showToast) window.showToast('Still sending \u2014 give it a moment');
+      return;
+    }
+
+    /* ONE SEND PER CLIENT PER WEEK PER RECIPIENT SET. The record lives in
+       the shared document, not localStorage, so a second CSM on another
+       machine is stopped too. No clock in the key: two attempts either side
+       of a minute boundary are the same send. */
+    const prev = weeklyFor(c.id);
+    const key = st.week + '|' + to.join(',');
+    if (prev.lastSentKey === key && prev.lastSentAt) {
+      const mins = Math.max(1, Math.round((Date.now() - new Date(prev.lastSentAt).getTime()) / 60000));
+      if (window.showToast) {
+        window.showToast('That exact email already went out ' + mins + ' minute' + (mins === 1 ? '' : 's') +
+          ' ago \u2014 not sending it twice. Nothing was sent.');
+      }
+      return;
+    }
+
+    const gate = window.tributeKsfGate;
+    if (!gate || !gate.getGraphToken) {
+      if (window.showToast) window.showToast('Sign in with Microsoft to send from your mailbox');
+      return;
+    }
+    let me = null;
+    try { me = await gate.getAccount(); } catch (e) {}
+    const from = (me && me.username) || '';
+    if (!from) {
+      if (window.showToast) window.showToast('Sign in with Microsoft to send from your mailbox');
+      return;
+    }
+
+    const subject = weeklySubject(c, wk);
+    if (!window.confirm('Send ' + (c.name || 'this client') + '\u2019s schedule for ' +
+        (wk.weekLabel || 'next week') + ' to ' + to.join(', ') + ' now, from your mailbox (' + from + ')?')) return;
+
+    _weeklySending[c.id] = true;
+    try {
+      const html = weeklyEmailHtml(c, wk, st);
+      const tok = await gate.getGraphToken(['Mail.Send']);
+      if (!tok) throw new Error('Outlook permission was not granted for this account.');
+      const msg = {
+        subject: subject,
+        body: { contentType: 'HTML', content: html },
+        toRecipients: to.map(function (a) { return { emailAddress: { address: a } }; })
+      };
+
+      /* THE DELIVERY BOUNDARY. Everything above is the real thing: the week
+         was read, the document built, the recipients resolved, the sender
+         resolved, the Graph payload assembled. A suppressed send stops here
+         and says so. It never claims the email went. */
+      if (A_ && A_.suppressWeeklySend && A_.suppressWeeklySend()) {
+        A_.countDryRun && A_.countDryRun('weeklyFamily');
+        if (window.TributeRedesign && window.TributeRedesign.dialog) {
+          await window.TributeRedesign.dialog({
+            title: 'Weekly schedule email',
+            html: '<p class="rd-ws-plain"><b>Ready to send.</b> Validated for ' + esc(c.name || '') +
+              ' \u2014 ' + to.length + ' recipient' + (to.length === 1 ? '' : 's') +
+              ', subject \u201c' + esc(subject) + '\u201d, from ' + esc(from) + '.</p>' +
+              '<p class="wk-note"><b>Nothing was sent:</b> external delivery is suppressed for this account.</p>',
+            ok: '', cancel: 'Close'
+          });
+        }
+        if (window.showToast) window.showToast('Validated \u2014 nothing sent.');
+        return;
+      }
+
+      const r = await fetch('https://graph.microsoft.com/v1.0/me/sendMail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
+        body: JSON.stringify({ saveToSentItems: true, message: msg })
+      });
+      if (r.status !== 202) {
+        const t = await r.text().catch(function () { return ''; });
+        throw new Error('Outlook said ' + r.status + ': ' + String(t).slice(0, 180));
+      }
+      A_ && A_.countLiveSend && A_.countLiveSend('weeklyFamily');
+
+      // Recorded only AFTER Graph accepted it. The signature is the week as
+      // it was described, which is what change detection compares against.
+      const at = new Date().toISOString();
+      const who = (A().profile || {}).name || from;
+      const entry = { at: at, by: who, to: to.join(', '), week: st.week,
+                      weekLabel: wk.weekLabel || '', visits: (wk.visits || []).length,
+                      sig: weekSig(wk.visits) };
+      weeklySave(c.id, {
+        lastSentAt: at, lastSentBy: who, lastSentWeek: st.week, lastSentTo: to.join(', '),
+        lastSentKey: key, lastSig: entry.sig,
+        history: [entry].concat(prev.history || []).slice(0, 20)
+      });
+
+      // The client's own communication record, through the application's
+      // data rather than a parallel log.
+      try {
+        const data = A().data, pid = (A().profile || {}).id;
+        if (data && pid && data.profiles && data.profiles[pid]) {
+          data.profiles[pid].touchpoints = data.profiles[pid].touchpoints || [];
+          data.profiles[pid].touchpoints.unshift({
+            id: 'wk' + Date.now(), clientId: c.id, date: at.slice(0, 10),
+            type: 'Email', by: who, note: 'Weekly schedule email \u2014 ' + entry.weekLabel +
+              ' (' + entry.visits + ' visit' + (entry.visits === 1 ? '' : 's') + ')'
+          });
+          if (typeof window.queueSave === 'function') window.queueSave();
+        }
+      } catch (e) { console.error('[workflows] weekly touchpoint:', e); }
+
+      if (window.showToast) window.showToast('Sent to ' + to.join(', ') + ' \u2014 it is in your Sent Items.');
+    } catch (err) {
+      if (window.showToast) {
+        window.showToast('Send failed \u2014 ' + ((err && err.message) || err) + ' Nothing was sent; you can try again.');
+      }
+    } finally {
+      _weeklySending[c.id] = false;
+      const R = window.TributeRedesign;
+      if (R && R.renderWorkspace) R.renderWorkspace();
+    }
   }
 
   /* ── The Schedule-area block ──────────────────────────────────────────── */
@@ -1182,6 +1312,9 @@
     else line = '<p class="rd-ws-plain">' +
       (weeklySendable() ? 'Draft ready for ' : 'Draft can be previewed for ') +
       esc(st.to) + '.</p>';
+    const fromLine = (weeklySendable() && weeklyDeliveryLive())
+      ? '<p class="rd-ws-quiet">It sends from your own Outlook mailbox and lands in your Sent Items.</p>'
+      : '';
     // Say plainly what each half of this does and does not do. Two separate
     // gaps, and a CSM should not have to infer either one.
     const note =
@@ -1189,13 +1322,17 @@
         ? '<p class="wk-note">Automatic was chosen for this client, but the scheduled send service is not built yet, ' +
           'so nothing goes out on its own.</p>'
         : '') +
-      (weeklySendable() ? ''
-        : '<p class="wk-note">The schedule here is live from Viv, but sending to the family from the Hub is not built yet. ' +
-          'Preview it and send it from Outlook for now.</p>');
+      (!weeklySendable()
+        ? '<p class="wk-note">The schedule here is live from Viv, but sending is not switched on for this account. ' +
+          'Preview it and send it from Outlook instead.</p>'
+        : (!weeklyDeliveryLive()
+            ? '<p class="wk-note">This account validates the send without transmitting: you see exactly what ' +
+              'would go out, and nothing leaves the building.</p>'
+            : ''));
     return '<div class="wk-block">' +
       '<div class="wk-head"><span class="wk-mode">' + esc(label) + '</span>' +
       '<button type="button" class="rd-linkbtn" data-wk="mode">Change</button></div>' +
-      line + note +
+      line + fromLine + note +
       (mode === 'off' ? '' :
         '<div class="wk-acts">' +
           '<button type="button" class="btn btn-sm btn-o" data-wk="preview">Preview the email</button>' +
@@ -2025,6 +2162,8 @@
       normalize: normalizeVisits, weekLabel: weekLabelFor,
       warm: weeklyWarm, fetchWeek: clientWeek, emailHtml: weeklyEmailHtml,
       available: weeklyAvailable, sendable: weeklySendable,
+      deliveryLive: weeklyDeliveryLive, subject: weeklySubject,
+      recipients: weeklyRecipients, toList: weeklyToList,
       automationReady: autoLive
     }
   };

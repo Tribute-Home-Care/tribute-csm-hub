@@ -110,7 +110,8 @@
     // Reading the week is NOT this capability — client_week is a read and
     // is live. This gates the part that would leave Tribute, and no server
     // path emails one client's week to their family yet.
-    weekly_schedule: false,     // no per-client send exists to authorise
+    weekly_send: true,          // email one client's week to their family
+    weekly_schedule: false,     // the unbuilt scheduled Friday run, not the send
     usage_telemetry: false,     // a pilot must not skew real usage stats
 
     assist: true,               // POST, but a question — mutates nothing
@@ -128,14 +129,16 @@
     'community_send_test','community_send_real',
     'ltc_action','ltc_send','ltc_nudge','csm_visit','viv_visit_create','viv_visit_cancel',
     'ltc_approve','ltc_mark_sent','ltc_confirm','ltc_note','ltc_send_carrier','ltc_nudge_caregiver',
-    'graph_calendar','graph_calendar_add','graph_calendar_delete','graph_mail','weekly_schedule',
+    'graph_calendar','graph_calendar_add','graph_calendar_delete','graph_mail',
+    'weekly_send','weekly_schedule',
     'scribe_viv_write']);
   // Capabilities the server knows about. The finer ones are page-side only,
   // so they must not be checked against the server's list or they would all
   // read as disabled.
   const SERVER_CAPS = new Set(['scribe_viv_write',
     'csm_data_pocket','csm_data_shared','community_draft_save',
-    'community_send','community_send_test','community_send_real','graph_calendar_add','graph_calendar_delete',
+    'community_send','community_send_test','community_send_real','weekly_send',
+    'graph_calendar_add','graph_calendar_delete',
     'viv_visit_create','viv_visit_cancel','ltc_approve','ltc_mark_sent','ltc_confirm','ltc_note',
     'ltc_send_carrier','ltc_nudge_caregiver','weekly_schedule']);
   // A page-side capability still depends on the transport the server gates.
@@ -163,19 +166,29 @@
     const d = App.serverWrite.liveDelivery || {};
     return d.community !== true;
   };
+  /* The weekly schedule email to a FAMILY. Same shape as the community
+     email and for the same reason: the page calls Graph itself, so this is
+     the only place the decision is made, and it is made from the server's
+     answer rather than from anything the page decided locally. Separate
+     from community on purpose, so one can be stopped without the other. */
+  App.suppressWeeklySend = function () {
+    const d = App.serverWrite.liveDelivery || {};
+    return d.weeklyFamily !== true;
+  };
   App.deliveryState = function (what) {
     const d = App.serverWrite.liveDelivery || {};
     return d[what] === true ? 'live' : 'suppressed';
   };
   /* A dry run is not an external action and is never counted as one. */
   const dryRuns = { community: 0, ltcCarrier: 0, ltcCaregiver: 0,
-                    vivCreate: 0, vivCancel: 0, ltcStatus: 0 };
+                    vivCreate: 0, vivCancel: 0, ltcStatus: 0, weeklyFamily: 0 };
   const liveSends = { community: 0, ltcCarrier: 0, ltcCaregiver: 0,
-                      vivCreate: 0, vivCancel: 0, ltcStatus: 0 };
+                      vivCreate: 0, vivCancel: 0, ltcStatus: 0, weeklyFamily: 0 };
   App.countDryRun = function (k) { if (k in dryRuns) dryRuns[k]++; };
   App.countLiveSend = function (k) { if (k in liveSends) liveSends[k]++; };
   App.sendCounters = function () {
-    return { communitySendDryRuns: dryRuns.community, communitySendLive: liveSends.community,
+    return { weeklyFamilyDryRuns: dryRuns.weeklyFamily, weeklyFamilyLive: liveSends.weeklyFamily,
+             communitySendDryRuns: dryRuns.community, communitySendLive: liveSends.community,
              ltcCarrierDryRuns: dryRuns.ltcCarrier,   ltcCarrierLive: liveSends.ltcCarrier,
              ltcCaregiverDryRuns: dryRuns.ltcCaregiver, ltcCaregiverLive: liveSends.ltcCaregiver,
              vivCreateDryRuns: dryRuns.vivCreate, vivCreateLive: liveSends.vivCreate,

@@ -240,7 +240,8 @@ window.GUIDE = (function () {
           'Under Weekly schedule email, choose Change.',
           'Pick Draft weekly.',
           'Tick who it should go to.',
-          'Save. The panel then shows who is on it.'
+          'Save. The panel then shows who is on it.',
+          'When you are ready, Preview the email, then Send now.'
         ] },
         { h: 'Who it goes to', p: 'The Hub suggests the people already on the client’s record in Viv: the primary ' +
           'contact, family contacts, emergency contacts and the client’s own address. Tick as many as you need, or ' +
@@ -248,9 +249,15 @@ window.GUIDE = (function () {
         { h: 'A role with a star after it', p: 'Viv sometimes records how the client is related to a contact rather than ' +
           'the other way round. Where that is all we have, the Hub works the role out and stars it to say it is less ' +
           'exact: a starred Child could be a son or a daughter.' },
-        { h: 'Sending it', p: 'Preview it, then send it from Outlook. Sending from the Hub is not built yet, so the ' +
-          'Hub does not offer a Send button, and Automatic is visible but switched off for the same reason. ' +
-          'Nothing goes out on its own.' },
+        { h: 'Sending it', p: 'Preview it, check it, then Send now. It goes from your own Outlook mailbox and ' +
+          'lands in your Sent Items, so a family replying replies to you. You confirm the recipients and the ' +
+          'mailbox before anything leaves.' },
+        { h: 'It will not go twice', p: 'The same week to the same people is sent once. A second attempt tells you ' +
+          'when the first one went and sends nothing. That record is shared, so a colleague covering your caseload ' +
+          'on another machine is stopped too.' },
+        { h: 'Why Automatic is still off', p: 'A scheduled Friday send cannot come from your mailbox, because you ' +
+          'are not there to authorise it. It would have to come from a shared Tribute address instead, which is a ' +
+          'different sender and a decision in its own right. Until that is made, nothing goes out on its own.' },
         { h: 'If the week cannot be read', p: 'You are told, and no draft appears. The Hub will not show an empty week ' +
           'when it could not reach Viv. A family reading \u201cno visits next week\u201d might cancel their own ' +
           'arrangements, so the Hub says it does not know instead.' }
@@ -258,7 +265,8 @@ window.GUIDE = (function () {
       know: [
         'Caregiver payroll records — travel time, time off, sick time, bonuses — sit against the client in Viv but are not visits, so they are left out.',
         'A live-in day reads as All day rather than 12:00 AM to 12:00 AM.',
-        'A schedule that changes after you have sent it is flagged on the panel, so the family is not left holding a week that has moved.'
+        'A schedule that changes after you have sent it is flagged on the panel, so the family is not left holding a week that has moved.',
+        'The send is recorded in the client’s Activity, so the next person can see the family was written to.'
       ],
       related: ['schedule', 'communication', 'emailcomm']
     },
@@ -805,7 +813,7 @@ window.GUIDE = (function () {
     md: 'compliance regulation baltimore assessment overdue reassessment maryland',
     priority: 'open shifts unfilled visits gaps staffing fill',
     emailcomm: 'community email weekly update senior living building',
-    'weekly-email': 'weekly schedule email family send recipients contacts draft automatic who it goes to',
+    'weekly-email': 'weekly schedule email family send recipients contacts draft automatic who it goes to outlook sent items mailbox send now',
     ltc: 'long term care insurance submission carrier invoice blocked',
     assistant: 'ai ask a question chatbot knowledge base templates',
     kpi: 'quarterly numbers metrics targets',
