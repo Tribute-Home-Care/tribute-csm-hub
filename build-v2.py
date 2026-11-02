@@ -13,6 +13,7 @@ LOCAL PREVIEW bar are development-only and are asserted absent below.
 Output: v2/index.html — a sibling of V1, sharing nothing but the origin.
 """
 import hashlib
+import time
 import re
 import io, os, re, shutil, sys
 
@@ -153,8 +154,24 @@ def main():
     i = html.rindex('</body>')
     html = html[:i] + block + html[i:]
 
+    # V1 reloads itself when ./version.json carries a build it does not hold.
+    # V2 fetched it too and got a 404 on every load, so a V2 tab never noticed
+    # a deploy and sat on whatever it had read at startup. That is how a page
+    # kept a stale write-config after a delivery switch was flipped
+    # (2026-11-02): the server was right and the tab was an hour behind.
+    #
+    # Stamp both halves from the same value, so they agree on a fresh load and
+    # differ only once a new build has been published.
+    stamp_v = time.strftime('%Y-%m-%dT%H:%M')
+    html, n_stamp = re.subn(r"const HUB_BUILD='[^']*'",
+                            "const HUB_BUILD='" + stamp_v + "'", html, count=1)
+    if n_stamp != 1:
+        raise SystemExit('could not stamp HUB_BUILD in the V2 bundle (found %d)' % n_stamp)
+
     with io.open(os.path.join(OUT, 'v2', 'index.html'), 'w', encoding='utf-8') as f:
         f.write(html)
+    with io.open(os.path.join(OUT, 'v2', 'version.json'), 'w', encoding='utf-8') as f:
+        f.write('{"build": "%s"}' % stamp_v)
 
     # 4. (the layer was copied above, before the stamps were taken)
 

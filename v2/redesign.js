@@ -181,8 +181,38 @@
         frag.appendChild(el);
       });
     });
+    /* V1's launchProfile still reaches for the nav elements this rail
+       replaced, and sets .style.display on them for every profile it opens.
+       NAV_ID keeps nav-pulse / nav-team / nav-md alive for exactly that
+       reason; #mgr-sec was missed, so the moment the rail had been rebuilt
+       once, switching profile threw
+
+         Cannot read properties of null (reading 'style')
+
+       inside launchProfile, ABOVE `await loadDataFromFile()`. The shared
+       document was then never reloaded for the profile being opened, and
+       the Viv sync, the landing page and the welcome never ran. A silent
+       half-opened profile, from a console error nobody was watching.
+
+       So the node is kept rather than dropped: parked in a hidden holder
+       where V1 can keep writing to its style harmlessly. The holder is
+       display:none on the PARENT, so it stays hidden whatever V1 sets on
+       the child. The new rail draws its own section headings. */
+    const keep = document.createDocumentFragment();
+    ['mgr-sec'].forEach(function (id) {
+      const el = document.getElementById(id);
+      if (el) keep.appendChild(el);
+    });
+
     navEl.innerHTML = '';
     navEl.appendChild(frag);
+    if (keep.childNodes.length) {
+      const holder = document.createElement('div');
+      holder.style.display = 'none';
+      holder.dataset.rdKeep = '1';
+      holder.appendChild(keep);
+      navEl.appendChild(holder);
+    }
     navEl.dataset.rd = '1';
   }
 
