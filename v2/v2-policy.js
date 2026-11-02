@@ -107,7 +107,10 @@
     graph_calendar_delete: true,   // delete one — separate switch on purpose
     graph_calendar: false,         // legacy name, still read by the gate below
     graph_mail: false,          // send mail from the CSM's mailbox
-    weekly_schedule: false,     // client_week is not implemented in production
+    // Reading the week is NOT this capability — client_week is a read and
+    // is live. This gates the part that would leave Tribute, and no server
+    // path emails one client's week to their family yet.
+    weekly_schedule: false,     // no per-client send exists to authorise
     usage_telemetry: false,     // a pilot must not skew real usage stats
 
     assist: true,               // POST, but a question — mutates nothing

@@ -766,7 +766,7 @@
 
   const WEEKLY_MODES = [
     ['off', 'Off', 'Nothing is prepared or sent.'],
-    ['draft', 'Draft weekly', 'A draft is ready each week for you to review and send.'],
+    ['draft', 'Draft weekly', 'A draft is ready each week, built from the live schedule, for you to review.'],
     ['auto', 'Automatic',
       WEEKLY_AUTOMATION_READY
         ? 'Sent on Friday afternoon unless you stop it.'
@@ -967,37 +967,53 @@
     return st[cid];
   }
 
-  // `client_week` does not exist in production (confirmed: zero occurrences
-  // in vivProxy.js). In V2 the feature is visible and inert rather than
-  // fabricating a schedule or quietly reading some other endpoint.
-  function weeklyAvailable() {
+  // READING a week and SENDING an email are two different permissions, and
+  // treating them as one kept the whole feature dark while only half of it
+  // was missing. `client_week` is implemented now (vivProxy.js), so the week
+  // can be read anywhere.
+  function weeklyAvailable() { return true; }
+
+  // Is there a real send behind the button? In production, no: no server
+  // path emails one client's week to their family yet. Until one exists this
+  // is false and nothing offers to send, because writing "Weekly schedule
+  // email sent" into a client's communication record when nothing left the
+  // building is the one failure this feature cannot afford.
+  function weeklySendable() {
     const App = window.TributeApp;
-    if (App && App.environment === 'v2-preview') return App.canWrite && App.canWrite('weekly_schedule');
-    return true;   // local preview has a synthetic endpoint
+    if (App && App.environment === 'v2-preview') return !!(App.canWrite && App.canWrite('weekly_schedule'));
+    return true;   // local preview intercepts mail and logs the simulated send
   }
 
   const _weekCache = {};
+
+  // An unreadable week carries `visits: null`, never []. Every caller below
+  // treats null as "we do not know" and [] as "Viv says there are none", and
+  // the difference is the whole safety property: a family told "no visits
+  // are scheduled next week" because an API timed out may cancel their own
+  // arrangements. Only a failed read is cached-never, so a retry is a retry.
   async function clientWeek(cid, week) {
-    if (!weeklyAvailable()) {
-      return { cid: cid, weekStart: week, visits: [], unavailable: true,
-               reason: 'client_week is not built in production yet' };
-    }
     const key = cid + '@' + week;
     if (_weekCache[key]) return _weekCache[key];
+    const miss = function (why) {
+      return { cid: cid, weekStart: week, visits: null, unavailable: true, error: why };
+    };
     const base = (A().vivProxy || '') + '?endpoint=client_week&cid=' + encodeURIComponent(cid) + '&week=' + week;
     try {
       const h = typeof window.dataHeaders === 'function' ? await window.dataHeaders() : {};
       const r = await fetch(base, { headers: h });
       const ct = r.headers.get('content-type') || '';
-      // A non-JSON answer means the request never reached the mock layer.
-      // Say so loudly rather than returning an empty week that reads as
-      // "this client has no visits".
-      if (ct.indexOf('json') < 0) throw new Error('client_week did not return JSON (got ' + (ct || 'nothing') + ')');
+      // A non-JSON answer means the request never reached the endpoint.
+      if (ct.indexOf('json') < 0) return miss('client_week did not return JSON (got ' + (ct || 'nothing') + ')');
       const j = await r.json();
+      // The server answers an unreadable week with 4xx/5xx and no `visits`
+      // key at all. Both halves are checked: a future shape change on one
+      // side must not quietly become an empty schedule on this one.
+      if (!r.ok) return miss((j && j.error) || ('client_week returned HTTP ' + r.status));
+      if (!Array.isArray(j.visits)) return miss('client_week returned no schedule for this week');
       _weekCache[key] = j;
       return j;
     } catch (e) {
-      return { cid: cid, weekStart: week, visits: [], error: String(e.message || e) };
+      return miss(String((e && e.message) || e));
     }
   }
 
@@ -1012,12 +1028,17 @@
     const to = s.to || c.contactEmail || '';
     const week = nextSundayFor(c);
     const sent = s.lastSentWeek === week;
-    const changed = !!(sent && wk && s.lastSig && weekSig(wk.visits) !== s.lastSig);
+    // Change detection needs a week we actually read. Comparing a signature
+    // against an unreadable week reported every family as "told a different
+    // week" the moment Viv hiccuped.
+    const known = !!(wk && !wk.unavailable && Array.isArray(wk.visits));
+    const changed = !!(sent && known && s.lastSig && weekSig(wk.visits) !== s.lastSig);
     return {
       mode: mode, stored: stored, pendingAutomation: pending,
       to: to, week: week, sent: sent, changed: changed, tz: tzFor(c),
       lastSentAt: s.lastSentAt, lastSentBy: s.lastSentBy,
       history: s.history || [],
+      known: known, unavailable: !!(wk && wk.unavailable),
       needsAttention: mode !== 'off' && (changed || !to)
     };
   }
@@ -1025,6 +1046,14 @@
   /* ── The email itself ─────────────────────────────────────────────────── */
   function weeklyEmailHtml(c, wk, st) {
     const first = String(c.name || '').split(' ')[0];
+    // No week, no email. This is the last line of defence: a caller that
+    // ignores `unavailable` still cannot get a table here, because an empty
+    // one reads to a family as "nobody is coming".
+    if (!wk || wk.unavailable || !Array.isArray(wk.visits)) {
+      return '<div class="wk-mail"><p class="wk-alert">' +
+        'The schedule for this week could not be read, so there is no email to show. ' +
+        'Nothing has been assumed about ' + esc(first) + '’s visits.</p></div>';
+    }
     const rows = (wk.visits || []).length
       ? (wk.visits || []).map(function (v) {
           return '<tr><td>' + esc(v.dayLabel) + '</td><td>' + esc(v.time) + '</td><td>' + esc(v.who) + '</td></tr>';
@@ -1050,27 +1079,59 @@
     const week = nextSundayFor(c);
     const wk = await clientWeek(c.id, week);
     const st = weeklyState(c, wk);
+    const R = window.TributeRedesign;
+    if (!R || !R.dialog) return;
+
+    // A week we could not read is reported as a failure, with no draft and
+    // no send, rather than as an email that happens to be empty.
+    if (!st.known) {
+      await R.dialog({
+        title: 'Weekly schedule email',
+        html: '<p class="wk-alert">The schedule for ' + esc(weekLabelFor(week).toLowerCase()) +
+          ' could not be read, so there is nothing to preview.</p>' +
+          '<p class="rd-ws-quiet">Nothing has been assumed about this client’s visits. ' +
+          'Try again in a moment; if it keeps failing, the schedule service is the place to look.</p>' +
+          (wk && wk.error ? '<p class="rd-ws-quiet"><code>' + esc(String(wk.error).slice(0, 240)) + '</code></p>' : ''),
+        ok: '', cancel: 'Close'
+      });
+      return;
+    }
+
+    const stale = wk.stale
+      ? '<p class="rd-ws-quiet">This is the last schedule we were able to read' +
+        (wk.generatedAt ? ' (' + esc(fmtShort(wk.generatedAt)) + ')' : '') +
+        '. Viv did not answer just now, so check it before sending.</p>'
+      : '';
     const body =
       '<div class="wk-prev-to"><span>To</span><b>' + (st.to ? esc(st.to) : '<i class="warn">no family email on file</i>') + '</b></div>' +
       '<div class="wk-prev-to"><span>Subject</span><b>' + esc(String(c.name || '').split(' ')[0]) +
       '’s Tribute schedule — ' + esc(wk.weekLabel || '') + '</b></div>' +
-      weeklyEmailHtml(c, wk, st);
-    const R = window.TributeRedesign;
-    if (!R || !R.dialog) return;
+      stale + weeklyEmailHtml(c, wk, st);
     const go = await R.dialog({
       title: 'Weekly schedule email',
       html: body,
-      ok: st.to ? 'Send now' : '',
+      ok: (st.to && weeklySendable()) ? 'Send now' : '',
       cancel: 'Close',
       wide: true
     });
-    if (go && st.to) weeklySend(c, wk);
+    if (go && st.to && weeklySendable()) weeklySend(c, wk);
   }
 
   /* The send. Nothing leaves the machine: the harness intercepts mail, and
      this records what WOULD have gone, where, and the exact week it
      described, so change detection has something true to compare against. */
   function weeklySend(c, wk) {
+    // The button is hidden when these do not hold, but the delegated click
+    // handler and the exported API both reach this directly. Hiding a
+    // control is not a guarantee; refusing here is.
+    if (!weeklySendable()) {
+      if (window.showToast) window.showToast('Sending the weekly schedule from the Hub is not built yet');
+      return;
+    }
+    if (!wk || wk.unavailable || !Array.isArray(wk.visits)) {
+      if (window.showToast) window.showToast('The schedule could not be read, so nothing was sent');
+      return;
+    }
     const st = weeklyState(c, wk);
     const who = (A().profile || {}).name || 'unknown';
     const entry = {
@@ -1108,13 +1169,6 @@
 
   /* ── The Schedule-area block ──────────────────────────────────────────── */
   function weeklyBlock(c) {
-    if (!weeklyAvailable()) {
-      return '<div class="wk-block"><div class="wk-head">' +
-        '<span class="wk-mode">Not yet available</span></div>' +
-        '<p class="rd-ws-quiet">The weekly schedule email is being prepared for V2. ' +
-        'The schedule it needs is not built on the server yet, so nothing is shown ' +
-        'here and no preference is stored.</p></div>';
-    }
     const st = weeklyState(c, _weekCache[c.id + '@' + nextSundayFor(c)]);
     const mode = st.mode;
     const label = st.pendingAutomation
@@ -1126,13 +1180,18 @@
     else if (!st.to) line = '<p class="wk-alert">No family email on file, so this cannot go out.</p>';
     else if (st.sent) line = '<p class="rd-ws-plain">Sent ' + fmtShort(st.lastSentAt) + ' to ' + esc(st.to) + '.</p>';
     else line = '<p class="rd-ws-plain">' +
-      (mode === 'auto' ? 'Goes out Friday afternoon' : 'Draft ready Friday') +
-      ' to ' + esc(st.to) + '.</p>';
-    // Say plainly that the stored choice is not doing what its name says.
-    const note = st.pendingAutomation
-      ? '<p class="wk-note">Automatic was chosen for this client, but the scheduled send service is not built yet, ' +
-        'so nothing goes out on its own. Send it from here each week until it is.</p>'
-      : '';
+      (weeklySendable() ? 'Draft ready for ' : 'Draft can be previewed for ') +
+      esc(st.to) + '.</p>';
+    // Say plainly what each half of this does and does not do. Two separate
+    // gaps, and a CSM should not have to infer either one.
+    const note =
+      (st.pendingAutomation
+        ? '<p class="wk-note">Automatic was chosen for this client, but the scheduled send service is not built yet, ' +
+          'so nothing goes out on its own.</p>'
+        : '') +
+      (weeklySendable() ? ''
+        : '<p class="wk-note">The schedule here is live from Viv, but sending to the family from the Hub is not built yet. ' +
+          'Preview it and send it from Outlook for now.</p>');
     return '<div class="wk-block">' +
       '<div class="wk-head"><span class="wk-mode">' + esc(label) + '</span>' +
       '<button type="button" class="rd-linkbtn" data-wk="mode">Change</button></div>' +
@@ -1140,7 +1199,7 @@
       (mode === 'off' ? '' :
         '<div class="wk-acts">' +
           '<button type="button" class="btn btn-sm btn-o" data-wk="preview">Preview the email</button>' +
-          (st.to ? '<button type="button" class="btn btn-sm btn-o" data-wk="send">Send now</button>' : '') +
+          ((st.to && weeklySendable()) ? '<button type="button" class="btn btn-sm btn-o" data-wk="send">Send now</button>' : '') +
         '</div>') +
       '</div>';
   }
@@ -1204,7 +1263,9 @@
         const week = nextSundayFor(c);
         if (!s.mode || s.mode === 'off' || s.lastSentWeek !== week || !s.lastSig) return false;
         const wk = _weekCache[c.id + '@' + week];
-        return wk && weekSig(wk.visits) !== s.lastSig;
+        // Only a week we actually read can contradict what was sent.
+        if (!wk || wk.unavailable || !Array.isArray(wk.visits)) return false;
+        return weekSig(wk.visits) !== s.lastSig;
       });
       if (!stale.length) return null;
       return {
@@ -1854,7 +1915,7 @@
       week: nextSunday, weekFor: nextSundayFor, tzFor: tzFor,
       normalize: normalizeVisits, weekLabel: weekLabelFor,
       warm: weeklyWarm, fetchWeek: clientWeek, emailHtml: weeklyEmailHtml,
-      available: weeklyAvailable,
+      available: weeklyAvailable, sendable: weeklySendable,
       automationReady: autoLive
     }
   };
