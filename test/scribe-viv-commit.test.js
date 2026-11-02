@@ -11,9 +11,28 @@ const ok=(n,c)=>{if(c){pass++;console.log('  PASS  '+n);}else{fail++;console.log
 console.log('--- a commit does not ride on the draft capability ---');
 ok('the two writes are told apart by op and mode', /sOp === 'commit' && sMode === 'live'/.test(P));
 ok('a commit asks for scribe_viv_write', /isCommit \? 'scribe_viv_write' : 'scribe_draft'/.test(P));
-ok('a refused capability is blocked, not downgraded',
-   /if \(!App\.canWrite\(cap\)\)/.test(P) &&
-   /recordBlockedWrite[\s\S]{0,300}status: 403/.test(P));
+// Was a proximity check (recordBlockedWrite within 300 chars of a 403), which
+// broke when an unrelated error body grew. The invariant is narrower than
+// "every blocked write is a 403": the DEFINITION is not a call, deny() blocks
+// before a request exists so there is nothing to answer, and usage_time
+// deliberately answers 202 with a comment saying why. The rule is that a
+// blocked write which DOES answer the caller answers 403.
+(function () {
+  let i = -1, checked = 0, bad = [];
+  while ((i = P.indexOf('recordBlockedWrite({', i + 1)) > -1) {
+    const after = P.slice(i, i + 900);
+    const r = after.indexOf('new Response(');
+    if (r < 0) continue;                       // blocks without answering
+    const seg = after.slice(r, r + 400);
+    if (/usage_time/.test(after.slice(0, r))) continue;   // documented 202
+    checked++;
+    if (!/status: 403/.test(seg)) bad.push(P.slice(0, i).split('\n').length);
+  }
+  ok('there are answering blocked-write sites to check', checked >= 2, String(checked));
+  ok('a refused capability is blocked, not downgraded',
+     /if \(!App\.canWrite\(cap\)\)/.test(P) && bad.length === 0);
+  if (bad.length) console.log('        sites without a 403, at lines: ' + bad.join(', '));
+})();
 
 console.log('\n--- it is a business write and is counted as one ---');
 const BUS=(P.match(/const BUSINESS = new Set\(\[([\s\S]*?)\]\)/)||[])[1]||'';
