@@ -645,6 +645,10 @@ window.GUIDE = (function () {
         { h: 'What a note will mean once it works', p: 'An email, a call, a text, a community update ' +
           'or a GCM update — any real contact. The cadence is about the client being documented on ' +
           'schedule, not about anyone writing a separate note to satisfy a report.' },
+        { h: 'Who is out', p: 'Read from the Tribute Public calendar with your own Microsoft sign-in. It shows who is off today and over the next seven days, overlapping full weeks in the same market, and anyone starting leave in about five business days whose clients have no covering CSM named or whose coverage notes are not done.' },
+        { h: 'Dates only, never reasons', p: 'The calendar is company-wide and people sometimes put a reason in the subject. The reason is thrown away when the entry is read, before it ever reaches this page, so there is nothing to leak. You see who, when, and who is covering.' },
+        { h: 'It will not guess who an entry belongs to', p: 'Names on that calendar are full names, first names, nicknames and initials. A full name matches. A first name or initials match only when they are unique across the team, and the page says when it matched that way. Anything else is listed under Not matched to anyone rather than assigned to somebody — a wrong match puts one CSM’s clients under another CSM’s cover, which is worse than an entry nobody matched. Nicknames can be added so they stop appearing there.' },
+        { h: 'If the calendar cannot be read', p: 'You get a panel saying so, with the access it tried. It never shows an empty calendar as though nobody is out.' },
         { h: 'There is no ranking', p: 'CSMs appear grouped by market and listed alphabetically, always, ' +
           'and no column can be sorted by a number. Caseloads and market rules differ too much for a ' +
           'ranking to mean anything, and the per-CSM counts are there for a conversation rather than a ' +

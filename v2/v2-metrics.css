@@ -94,3 +94,11 @@
   .mx-t { font-size: 13px; }
   .mx-t th, .mx-t td { padding: var(--s2); }
 }
+
+/* ── who is out ────────────────────────────────────────────────────────────
+   Neutral, not alarming. Somebody being on leave is normal; only an
+   overlapping pair of full weeks or missing cover gets the .sev treatment,
+   and those reuse the same marker as "never contacted" rather than inventing
+   a second vocabulary of urgency. */
+.mx-pto .mx-ul li b { font-weight: 600; }
+.mx-pto .mx-grp h4 { display: flex; align-items: center; }

@@ -9,6 +9,7 @@
 // Synthetic throughout. No real client, CSM or market figure appears here.
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const SRC = fs.readFileSync(path.join(process.env.HOME, 'tribute-csm-hub/v2/v2-metrics.js'), 'utf8');
+const PTO = fs.readFileSync(path.join(process.env.HOME, 'tribute-csm-hub/v2/v2-pto.js'), 'utf8');
 let pass = 0, fail = 0;
 const ok = (n, c, d) => { if (c) { pass++; console.log('  PASS  ' + n); }
   else { fail++; console.log('  FAIL  ' + n + (d ? '  (' + d + ')' : '')); } };
@@ -39,9 +40,13 @@ function boot(fetchImpl) {
       Object.defineProperty(e, 'id', { set(v) { this._id = v; pages[v] = this; }, get() { return this._id || ''; } });
       return e; },
     addEventListener() {} };
-  const ctx = { console, setTimeout, location: { hash: '' }, fetch: fetchImpl };
+  const ctx = { console, setTimeout, location: { hash: '' }, fetch: fetchImpl,
+    tributeKsfGate: { getGraphToken: async () => 'stub-token' } };
   ctx.window = ctx; ctx.document = doc;
   vm.createContext(ctx);
+  // The view calls into the PTO reader, so it loads first, exactly as the
+  // built page orders the two script tags.
+  vm.runInContext(PTO, ctx);
   vm.runInContext(SRC, ctx);
   const page = pages['page-metrics'];
   if (page) page.querySelector = (s) => (s === '#mx-view' ? view : null);
@@ -157,6 +162,49 @@ function after(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
   ok('it does not say nothing is off track', r.indexOf('Nothing is off track') < 0);
   ok('it says what it could measure', r.indexOf('Nothing flagged in what could be measured') >= 0);
   ok('and names what it could not', r.indexOf('Note cadence was not measured') >= 0);
+
+  console.log('\n--- who is out ---');
+  // Graph answers: one calendar named Tribute Public, two entries in it.
+  var CAL = async function (u) {
+    if (/me\/calendars\?/.test(u)) return { ok: true, json: async () => ({ value: [
+      { id: 'cal1', name: 'Tribute Public', owner: { address: 'tributepublic@tributehomecare.com' } }] }) };
+    if (/calendarView/.test(u)) return { ok: true, json: async () => ({ value: [
+      { subject: 'Julia Hanna PTO - Jury Duty', isAllDay: true,
+        start: { date: '2099-01-05' }, end: { date: '2099-01-10' } },
+      { subject: 'Nobody Known PTO', isAllDay: true,
+        start: { date: '2099-01-05' }, end: { date: '2099-01-06' } },
+      { subject: 'On-call weekend', isAllDay: true,
+        start: { date: '2099-01-05' }, end: { date: '2099-01-06' } }] }) };
+    return { ok: true, json: async () => (/note_cadence/.test(u) ? LIVE : { rows: [] }) };
+  };
+  var E = boot(CAL);
+  E.ctx.window.TributeApp = APP;
+  E.ctx.window.TributeMetrics.open();
+  await after(90);
+  var ep = E.painted();
+  ok('the panel renders', ep.indexOf('Who is out') >= 0);
+  // The reason must never reach the page. It is dropped at parse time.
+  ok('a reason from the subject is never shown', ep.indexOf('Jury') < 0);
+  ok('an unmatched name is listed, not guessed', ep.indexOf('Nobody Known') >= 0);
+  ok('...and is labelled as not in the Hub', ep.indexOf('not in the Hub') >= 0);
+  ok('an on-call shift is not treated as time off', ep.indexOf('On-call') < 0);
+
+  console.log('\n--- a calendar that cannot be read ---');
+  var DENY = async function (u) {
+    if (/graph\.microsoft\.com/.test(u)) return { ok: false, status: 403 };
+    return { ok: true, json: async () => (/note_cadence/.test(u) ? LIVE : { rows: [] }) };
+  };
+  var F = boot(DENY);
+  F.ctx.window.TributeApp = APP;
+  F.ctx.window.TributeMetrics.open();
+  await after(90);
+  var fp = F.painted();
+  // A calendar we could not read is not an empty calendar.
+  ok('it does not claim nobody is out', fp.indexOf('Nobody is out') < 0);
+  ok('it says the calendar could not be read', fp.indexOf('could not be read') >= 0);
+  ok('...and calls it a gap, not an empty calendar', fp.indexOf('not an empty calendar') >= 0);
+  ok('it reports which access paths were tried', fp.indexOf('HTTP 403') >= 0);
+  ok('the rest of the page still works', fp.indexOf('Visit past due') >= 0);
 
   console.log('\n' + (fail ? 'FAILED ' + fail + ' of ' + (pass + fail) : 'PASSED all ' + pass));
   process.exit(fail ? 1 : 0);

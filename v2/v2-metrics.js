@@ -29,7 +29,7 @@
   'use strict';
 
   var PAGE_ID = 'page-metrics';
-  var S = { loading: false, err: null, cadence: null, md: null, open: {}, scope: null };
+  var S = { loading: false, err: null, cadence: null, md: null, pto: null, open: {}, scope: null };
 
   function A() { return window.TributeApp || {}; }
   function api() { var a = A(); return (typeof a.vivProxy === 'string' && a.vivProxy) || ''; }
@@ -126,10 +126,18 @@
       if (!r.ok) throw new Error(j.error || ep + ' did not answer');
       return j;
     }
-    // Settled, not all: Maryland failing must not blank the MA note cadence.
-    var res = await Promise.allSettled([get('note_cadence'), get('md_compliance')]);
+    // Settled, not all: Maryland failing must not blank the MA note cadence,
+    // and a calendar permission problem must not blank either of them.
+    var pto = function () {
+      return (window.TributePTO ? window.TributePTO.build(8)
+        : Promise.reject(new Error('the PTO reader is not loaded')));
+    };
+    var res = await Promise.allSettled([get('note_cadence'), get('md_compliance'), pto()]);
     S.cadence = res[0].status === 'fulfilled' ? res[0].value : { error: String(res[0].reason && res[0].reason.message || 'unavailable') };
     S.md = res[1].status === 'fulfilled' ? res[1].value : { error: String(res[1].reason && res[1].reason.message || 'unavailable') };
+    S.pto = res[2].status === 'fulfilled' ? res[2].value
+      : { error: String((res[2].reason && res[2].reason.message) || 'unavailable'),
+          tried: (res[2].reason && res[2].reason.tried) || [] };
     S.loading = false;
     render();
   }
@@ -233,6 +241,8 @@
       out += '</div>';
     }
 
+    out += ptoPanel();
+
     /* ── anything that could not be read, said plainly ─────────────────── */
     var unread = [];
     if (S.cadence && S.cadence.error) unread.push('Note cadence for Massachusetts and Chicago: ' + S.cadence.error);
@@ -257,6 +267,104 @@
     $$('[data-open]', el).forEach(function (n) {
       n.addEventListener('click', function () { S.open[n.dataset.open] = !S.open[n.dataset.open]; render(); });
     });
+  }
+
+  /* ── who is out ──────────────────────────────────────────────────────────
+     Dates and the covering CSM. Never a reason: the Tribute Public calendar
+     is company-wide and carries things this page has no business repeating,
+     so the reason is discarded when the subject is parsed rather than
+     filtered out at render time. */
+  function fmtRange(a, b) {
+    var f = function (d) {
+      var x = new Date(d + 'T12:00:00Z');
+      return x.toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
+    };
+    return a === b ? f(a) : f(a) + ' – ' + f(b);
+  }
+
+  function ptoPanel() {
+    var p = S.pto;
+    if (!p) return '';
+    if (p.error) {
+      /* A calendar we could not read is not an empty calendar. Which access
+         path failed matters, because the fix is an Exchange permission and
+         whoever grants it needs to know which one. */
+      return '<div class="card mx-unread"><h3>Who is out</h3>' +
+        '<p class="mx-note">Tribute Public could not be read, so nobody is shown as out. ' +
+        'This is a gap, not an empty calendar.</p>' +
+        (p.tried && p.tried.length ? '<ul class="mx-ul">' + p.tried.map(function (t) {
+          return '<li><span class="mx-w">' + esc(t) + '</span></li>'; }).join('') + '</ul>' : '') +
+        '<p class="mx-note">' + esc(p.error) + '</p></div>';
+    }
+
+    var today = new Date().toISOString().slice(0, 10);
+    var weekEnd = (function () { var d = new Date(); d.setUTCDate(d.getUTCDate() + 7); return d.toISOString().slice(0, 10); })();
+    var now = (p.away || []).filter(function (r) { return r.start <= weekEnd && r.end >= today; });
+    var ready = (window.TributePTO && window.TributePTO.readiness) ? window.TributePTO.readiness(p.away || []) : [];
+    var open = !!S.open.pto;
+
+    var o = '<div class="card mx-pto"><h3>Who is out</h3>';
+    o += now.length
+      ? '<ul class="mx-ul">' + now.map(function (r) {
+          return '<li><b>' + esc(r.who) + '</b>' +
+            '<span class="mx-m">' + esc(r.market || '') + (r.partial ? ' · part of a day' : '') +
+            (r.derived ? ' · matched by ' + esc(r.how) + ', worth checking' : '') + '</span>' +
+            '<span class="mx-w">' + esc(fmtRange(r.start, r.end)) + '</span></li>';
+        }).join('') + '</ul>'
+      : '<p class="mx-note">Nobody is out today or in the next seven days.</p>';
+
+    // Two or more in one market, out for overlapping full weeks.
+    if ((p.overlaps || []).length) o += '<div class="mx-grp"><h4>Overlapping weeks</h4><ul class="mx-ul">' +
+      p.overlaps.map(function (x) {
+        return '<li class="sev"><b>' + esc(x.who.join(' and ')) + '</b>' +
+          '<span class="mx-m">' + esc(x.market) + '</span>' +
+          '<span class="mx-w">' + esc(fmtRange(x.from, x.to)) + '</span></li>';
+      }).join('') + '</ul></div>';
+
+    // Starting within about five business days with cover still missing.
+    if (ready.length) o += '<div class="mx-grp"><h4>Coverage not ready</h4><ul class="mx-ul">' +
+      ready.map(function (x) {
+        var why = [];
+        if (x.missingCover) why.push(x.missingCover + ' of ' + x.clients + ' clients have no covering CSM named');
+        if (!x.coverageNotes) why.push('no coverage notes');
+        return '<li class="sev"><b>' + esc(x.who) + '</b>' +
+          '<span class="mx-m">' + esc(x.market) + ' · from ' + esc(fmtRange(x.start, x.end)) + '</span>' +
+          '<span class="mx-w">' + esc(why.join('; ')) + '</span></li>';
+      }).join('') + '</ul></div>';
+
+    /* Entries nobody could be matched to. Listed rather than guessed, and
+       listed rather than dropped: a nickname this page does not know is a
+       CSM who looks present and is not. */
+    if ((p.unmatched || []).length) o += '<div class="mx-grp"><h4>Not matched to anyone</h4><ul class="mx-ul">' +
+      p.unmatched.slice(0, 12).map(function (u) {
+        return '<li><b>' + esc(u.name) + '</b><span class="mx-m">on the calendar, not in the Hub</span>' +
+          '<span class="mx-w">' + esc(fmtRange(u.start, u.end)) + '</span></li>';
+      }).join('') +
+      ((p.unmatched.length > 12) ? '<li class="mx-more">and ' + (p.unmatched.length - 12) + ' more</li>' : '') +
+      '</ul><p class="mx-note">These are either not CSMs, or a nickname the Hub does not know yet. ' +
+      'Nothing is assumed about them.</p></div>';
+
+    // The eight-week grid, one click away as the spec asks.
+    o += '<div class="mx-grp"><h4><button type="button" class="mx-tog" data-open="pto" aria-expanded="' + open + '">' +
+      I(open ? 'chevronDown' : 'chevron') + 'The next eight weeks</button></h4>';
+    if (open) {
+      MARKET_ORDER.forEach(function (mk) {
+        var rows = (p.away || []).filter(function (r) { return r.market === mk; });
+        if (!rows.length) return;
+        var byWho = {};
+        rows.forEach(function (r) { (byWho[r.who] = byWho[r.who] || []).push(r); });
+        o += '<h4>' + esc(mk) + '</h4><ul class="mx-ul">' +
+          Object.keys(byWho).sort().map(function (w) {
+            return '<li><b>' + esc(w) + '</b><span class="mx-m"></span><span class="mx-w">' +
+              byWho[w].map(function (r) { return esc(fmtRange(r.start, r.end)) + (r.partial ? ' (part day)' : ''); })
+                .join(', ') + '</span></li>';
+          }).join('') + '</ul>';
+      });
+      o += '<p class="mx-note">Read from the Tribute Public calendar. Dates only — reasons are never shown, ' +
+        'and are discarded before they reach this page.</p>';
+    }
+    o += '</div></div>';
+    return o;
   }
 
   /* NO LEADERBOARDS. Markets in a fixed order, CSMs alphabetical inside them,
