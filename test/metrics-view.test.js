@@ -58,6 +58,31 @@ ok('nothing is rendered as clear before anything has been read',
    /Nothing has been read yet/.test(M));
 ok('"nothing is off track" requires a successful read', /!ex\.length && S\.cadence/.test(M));
 
+console.log('\n--- an untrusted source is not shown as a result ---');
+// Measured 3 November: the touch signal counts every kind of client-feed
+// activity (~3.1 events per client per day) and the comms caches are empty,
+// so the number reads near-100% green whatever the truth. A compliance
+// figure that always passes is worse than none.
+ok('there is one predicate for whether a source counts',
+   /function usable\(src\) \{ return !!\(src && !src\.error && src\.trusted !== false\); \}/.test(M));
+ok('exceptions skip an untrusted source', /if \(usable\(c\)\)/.test(M));
+ok('the team table skips it too', /if \(usable\(S\.cadence\)\)/.test(M));
+ok('the unknown-client count is not shown from an untrusted read',
+   /usable\(S\.cadence\) && S\.cadence\.counts/.test(M));
+ok('it is reported under Not measured with its reason', /S\.cadence\.untrustedReason/.test(M));
+ok('...and says nothing is being flagged from it', /Nothing is being flagged from it/.test(M));
+// "Nothing is off track" when a measure was skipped is the exact lie this
+// panel exists to prevent.
+ok('the all-clear requires every source to be usable', /!ex\.length && usable\(S\.cadence\)/.test(M));
+ok('an all-clear with a skipped measure is worded differently',
+   /Nothing flagged in what could be measured/.test(M));
+ok('...and names what was not measured', /Note cadence was not measured/.test(M));
+// A column of dashes beside four real numbers reads as good news.
+ok('the Notes column is dropped, not blanked', /var noteCol = usable\(S\.cadence\)/.test(M));
+ok('the header is conditional', /noteCol \? '<th>Notes<\/th>' : ''/.test(M));
+ok('the cells are conditional', /noteCol \? cell\(noteByCsm\[r\.csm\] \|\| 0\) : ''/.test(M));
+ok('and its absence is explained', /Notes column is absent because note cadence is not being measured/.test(M));
+
 console.log('\n--- the thresholds are Courtney’s, not invented ---');
 ok('touchpoints flag past 7 days overdue', /r\.tpOverdueBy > 7/.test(M));
 ok('Care Conversations flag at any overdue', /r\.ciOverdue/.test(M));

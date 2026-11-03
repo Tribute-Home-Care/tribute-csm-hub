@@ -634,18 +634,25 @@ window.GUIDE = (function () {
         { h: 'What it flags today', ul: [
           'A client never contacted, or more than 7 days past their touchpoint cadence.',
           'A Care Conversation past its 90-day (High) or 180-day (Medium and Low) cadence.',
-          'A visit past due, unless the CSM deliberately moved it.',
-          'A client with no note this calendar month, once 7 days are left — Massachusetts and Chicago. ' +
-            'Maryland has a weekly rule and lives on the Maryland Compliance board.' ] },
-        { h: 'Any touch counts as a note', p: 'An email, a call, a text, a community update or a GCM ' +
-          'update all count. The cadence is about the client being documented on schedule, not about ' +
-          'anyone writing a separate note to satisfy a report.' },
+          'A visit past due, unless the CSM deliberately moved it.' ] },
+        { h: 'Note cadence is not measured yet', p: 'It is in the spec and the plumbing is built, but it ' +
+          'is deliberately switched off rather than shown. Checked against the live book on 3 November, ' +
+          'the signal was counting every kind of activity on a client’s record, including caregiver ' +
+          'visits, at around three events a day — so it reported almost every client as contacted ' +
+          'whether or not anyone had been in touch. A compliance number that always passes is worse than ' +
+          'no number, so the page shows it under Not measured and flags nothing from it. ' +
+          'Maryland’s weekly rule is on the Maryland Compliance board and has the same caveat.' },
+        { h: 'What a note will mean once it works', p: 'An email, a call, a text, a community update ' +
+          'or a GCM update — any real contact. The cadence is about the client being documented on ' +
+          'schedule, not about anyone writing a separate note to satisfy a report.' },
         { h: 'There is no ranking', p: 'CSMs appear grouped by market and listed alphabetically, always, ' +
           'and no column can be sorted by a number. Caseloads and market rules differ too much for a ' +
           'ranking to mean anything, and the per-CSM counts are there for a conversation rather than a ' +
           'comparison.' },
-        { h: 'Not measured is not the same as fine', p: 'If a source did not answer, the page says so in ' +
-          'its own panel and the clients behind it are counted neither as compliant nor as a breach. ' +
+        { h: 'Not measured is not the same as fine', p: 'If a source did not answer, or cannot yet be ' +
+          'relied on, the page says so in its own panel and the clients behind it are counted neither as ' +
+          'compliant nor as a breach. Where a measure is switched off its column is removed rather than ' +
+          'left empty, because a column of dashes beside four real numbers reads as good news. ' +
           'A compliance figure that quietly reads “no note” when the truth is “we could not look” ' +
           'sends you chasing a note that already exists.' },
         { h: 'What is not here yet', p: 'Call counts, talk time, proactive versus reactive, whether a call ' +

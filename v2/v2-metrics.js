@@ -134,6 +134,13 @@
     render();
   }
 
+  /* USABLE means: it answered, AND it says its own numbers can be relied on.
+     A source that reports trusted:false is not a soft warning to render in
+     grey next to the figure — the figure does not get rendered. One predicate
+     so the exception list, the team table and the Not-measured panel cannot
+     drift apart about whether a number counts. */
+  function usable(src) { return !!(src && !src.error && src.trusted !== false); }
+
   /* ── exceptions ─────────────────────────────────────────────────────────
      The spec's own flag thresholds. Nothing is an exception because it looks
      untidy; it is an exception because Courtney wrote down a number. */
@@ -155,7 +162,7 @@
     });
     // 2.1 — note cadence, the two markets this endpoint covers
     var c = S.cadence;
-    if (c && !c.error) (c.clients || []).forEach(function (r) {
+    if (usable(c)) (c.clients || []).forEach(function (r) {
       if (r.flagged) ex.push({ k: 'note', sev: 1, csm: r.csm || '—', market: r.market,
         name: r.name, what: 'No note this month, ' + c.daysLeftInPeriod + ' days left' });
     });
@@ -191,9 +198,16 @@
     /* ── exceptions first ─────────────────────────────────────────────── */
     if (!S.cadence && !S.loading) out += '<div class="card"><p class="mx-note">Nothing has been read yet. Tap Refresh.</p></div>';
 
-    if (!ex.length && S.cadence) {
+    if (!ex.length && usable(S.cadence)) {
       out += '<div class="card mx-clear"><h3>Nothing is off track</h3>' +
         '<p class="mx-note">Every client is inside their cadence, and every visit and Care Conversation is current.</p></div>';
+    } else if (!ex.length && S.cadence && !S.loading) {
+      /* Nothing was flagged, but something was not measured. Saying "nothing is
+         off track" here would be the lie this whole panel exists to avoid, so
+         it says what it did check and names what it did not. */
+      out += '<div class="card mx-clear"><h3>Nothing flagged in what could be measured</h3>' +
+        '<p class="mx-note">Touchpoints, visits and Care Conversations are all current. ' +
+        'Note cadence was not measured — see below.</p></div>';
     } else if (ex.length) {
       out += '<div class="card mx-ex"><h3>Needs attention today <em>' + ex.length + '</em></h3>';
       order.forEach(function (o) {
@@ -214,7 +228,10 @@
     /* ── anything that could not be read, said plainly ─────────────────── */
     var unread = [];
     if (S.cadence && S.cadence.error) unread.push('Note cadence for Massachusetts and Chicago: ' + S.cadence.error);
-    if (S.cadence && !S.cadence.error && S.cadence.counts && S.cadence.counts.unknown)
+    else if (S.cadence && S.cadence.trusted === false) unread.push('Note cadence for Massachusetts and Chicago. ' +
+      (S.cadence.untrustedReason || 'The source has not been verified.') +
+      ' Nothing is being flagged from it, and no figure is shown.');
+    if (usable(S.cadence) && S.cadence.counts && S.cadence.counts.unknown)
       unread.push(S.cadence.counts.unknown + ' client' + (S.cadence.counts.unknown === 1 ? '' : 's') +
         ' could not be read for note cadence, so they are counted neither way');
     if (S.md && S.md.error) unread.push('Maryland compliance board: ' + S.md.error);
@@ -248,10 +265,14 @@
       if (r.ciOverdue) byCsm[k].conv++;
     });
     var noteByCsm = {};
-    if (S.cadence && !S.cadence.error) (S.cadence.clients || []).forEach(function (r) {
+    if (usable(S.cadence)) (S.cadence.clients || []).forEach(function (r) {
       if (r.flagged) noteByCsm[r.csm || '—'] = (noteByCsm[r.csm || '—'] || 0) + 1;
     });
 
+    /* The Notes column is DROPPED, not blanked, when note cadence is not
+       measured. A column of dashes beside four real numbers reads as "no
+       problems here", which is the opposite of the truth. */
+    var noteCol = usable(S.cadence);
     var open = !!S.open.team;
     var o = '<div class="card mx-team"><h3><button type="button" class="mx-tog" data-open="team" aria-expanded="' +
       open + '">' + I(open ? 'chevronDown' : 'chevron') + 'The team</button></h3>';
@@ -264,17 +285,21 @@
       var list = Object.keys(byCsm).filter(function (k) { return byCsm[k].market === mk; }).sort();
       if (!list.length) return;
       o += '<div class="mx-grp"><h4>' + esc(mk) + '</h4><table class="mx-t"><thead><tr>' +
-        '<th>CSM</th><th>Clients</th><th>Touchpoints</th><th>Notes</th><th>Visits</th><th>Conversations</th>' +
+        '<th>CSM</th><th>Clients</th><th>Touchpoints</th>' +
+        (noteCol ? '<th>Notes</th>' : '') + '<th>Visits</th><th>Conversations</th>' +
         '</tr></thead><tbody>' +
         list.map(function (k) {
           var r = byCsm[k];
           var cell = function (n) { return '<td' + (n ? ' class="hot"' : '') + '>' + (n || '—') + '</td>'; };
           return '<tr><th scope="row">' + esc(r.csm) + '</th><td>' + r.clients + '</td>' +
-            cell(r.tpOver) + cell(noteByCsm[r.csm] || 0) + cell(r.visits) + cell(r.conv) + '</tr>';
+            cell(r.tpOver) + (noteCol ? cell(noteByCsm[r.csm] || 0) : '') +
+            cell(r.visits) + cell(r.conv) + '</tr>';
         }).join('') + '</tbody></table></div>';
     });
     o += '<p class="mx-note">Grouped by market and listed alphabetically. These are not comparable between ' +
-      'CSMs: caseloads and market rules differ, and the numbers are here for a conversation, not a ranking.</p></div>';
+      'CSMs: caseloads and market rules differ, and the numbers are here for a conversation, not a ranking.' +
+      (noteCol ? '' : ' The Notes column is absent because note cadence is not being measured yet.') +
+      '</p></div>';
     return o;
   }
 
