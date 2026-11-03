@@ -105,6 +105,7 @@
       '<span class="sr-draft">Draft</span></div>' +
       '<nav class="sr-tabs" role="tablist">' +
       [['summary', 'Summary', 0], ['careplan', 'Care Plan', counts.plan], ['note', 'Visit Note', counts.note]]
+        .concat(counts.se ? [['exceptions', 'Exceptions', counts.se]] : [])
         .map(function (t) {
           return '<button type="button" role="tab" data-t="' + t[0] + '" aria-selected="' + (R.tab === t[0]) + '">' +
             esc(t[1]) + (t[2] ? '<em>' + t[2] + '</em>' : '') + '</button>';
@@ -112,9 +113,17 @@
     paint(R.err ? '<p class="sc-err">' + esc(R.err) + '</p>'
       : !enc ? ''
       : R.tab === 'summary' ? viewSummary()
-      : R.tab === 'careplan' ? viewPlan() : viewNote());
+      : R.tab === 'careplan' ? viewPlan()
+      : R.tab === 'exceptions' ? viewExceptions() : viewNote());
     if (window.TributeIcons && window.TributeIcons.swap) window.TributeIcons.swap(el);
     $$('[data-t]', el).forEach(function (n) { n.addEventListener('click', function () { R.tab = n.dataset.t; render(); }); });
+    /* The type list comes from the server so the page and Viv cannot disagree
+       about what a valid type is. Fetched once, then the tab is redrawn — the
+       select falls back to the single suggested type until it arrives, so the
+       tab is never blank and never offers a type Viv does not have. */
+    if (R.tab === 'exceptions' && !seTypes) {
+      ensureSeTypes().then(function (t) { if (t.length && R.tab === 'exceptions') render(); });
+    }
     $$('[data-a]', el).forEach(function (n) { n.addEventListener('click', action); });
     $$('.sr-src', el).forEach(function (n) {
       n.addEventListener('click', function () { n.nextElementSibling.hidden = !n.nextElementSibling.hidden; });
@@ -129,7 +138,9 @@
       note: (r.visitNote && r.visitNote.fields || []).length,
       clar: (r.missingInformation || []).length, conf: (r.conflicts || []).length,
       review: (r.reviewItems || []).filter(function (x) { return x.status === 'needs_review'; }).length,
-      fu: (r.followUps || []).length };
+      fu: (r.followUps || []).length,
+      se: (r.serviceExceptions || []).length,
+      seSerious: (r.serviceExceptions || []).filter(function (x) { return x.serious; }).length };
   }
 
   /* ── 1. what did Scribe find? ──────────────────────────────────────── */
@@ -150,6 +161,12 @@
       (c.conf ? '<li>' + c.conf + ' conflict' + (c.conf === 1 ? '' : 's') + ' to resolve</li>' : '') +
       (c.review ? '<li>' + c.review + ' possible inconsistenc' + (c.review === 1 ? 'y' : 'ies') + ' to review</li>' : '') +
       (c.clar ? '<li>' + c.clar + ' question' + (c.clar === 1 ? '' : 's') + ' for you</li>' : '') +
+      // Said plainly either way. "No service exception suggested" is a real
+      // answer and the common one; leaving it unsaid invites a CSM to wonder
+      // whether Scribe looked.
+      (c.se ? '<li>' + c.se + ' possible Service Exception' + (c.se === 1 ? '' : 's') +
+        (c.seSerious ? ' \u2014 ' + c.seSerious + ' need' + (c.seSerious === 1 ? 's' : '') + ' escalating' : '') + '</li>'
+            : '<li>No Service Exception suggested</li>') +
       '</ul></section>';
 
     if ((r.conflicts || []).length) out += '<section class="sr-sec"><h3>Conflicting evidence</h3>' +
@@ -329,6 +346,51 @@
     var n = e.currentTarget, a = n.dataset.a;
     if (a === 'close') return close();
 
+    /* Filing a Service Exception. Same two words, same rule, and one extra
+       honesty: Viv has no create route for an exception that we know of, so
+       "File in Viv" currently cannot. It says that, in those words, rather
+       than reporting a success or blaming a switch. The reviewed record is
+       kept and can be filed by hand. */
+    if (a === 'se-preview' || a === 'se-file') {
+      if (R.busy) return;
+      var seLive = a === 'se-file';
+      var seId = n.dataset.id;
+      var seOut = document.getElementById('se-out-' + seId);
+      var seRec = (((R.enc || {}).result || {}).serviceExceptions || [])
+        .find(function (x) { return x.id === seId; }) || {};
+      if (seLive && !window.confirm('File a ' + seRec.type + ' for ' +
+          (R.client.name || 'this client') + '?' +
+          (seRec.serious ? '\n\nThis also follows the escalation path. Confirm you have raised it.' : ''))) return;
+      R.busy = true;
+      if (seOut) seOut.innerHTML = '<p class="sr-note">' +
+        (seLive ? 'Filing…' : 'Building the record…') + '</p>';
+      try {
+        var sj = await post({ op: 'commit', clientVivId: R.client.vivId, encounterId: R.enc.id,
+          target: 'serviceException', id: seId, mode: seLive ? 'live' : 'dryRun',
+          acknowledgeSerious: seRec.serious ? true : undefined });
+        if (!seLive) {
+          var w = sj.wouldWrite || {};
+          seOut.innerHTML = '<p class="sr-note">Nothing was written. This is the record that would be filed:</p>' +
+            '<pre class="sr-pre">' + esc(JSON.stringify(
+              { type: (w.incidentTypes || [])[0], date: w.incidentDate,
+                about: w.subjectName || null, account: w.resolution }, null, 2)) + '</pre>' +
+            (sj.blocked === 'no_create_route'
+              ? '<p class="sr-note">Viv has no route for creating an exception that Scribe can use yet, ' +
+                'so filing is not available. Nothing here is lost — copy the account above into Viv.</p>' : '');
+        } else if (sj.alreadyCommitted) {
+          seOut.innerHTML = '<p class="sr-done">Already filed. Nothing was written a second time.</p>';
+        } else {
+          // Reached when the server refuses with 200+ok:false; post() throws
+          // on a 501, so this is belt and braces rather than the usual path.
+          seOut.innerHTML = '<p class="sr-err">' + esc(sj.error || 'Nothing was filed.') + '</p>';
+        }
+      } catch (sx) {
+        seOut.innerHTML = '<p class="sr-err">' + esc(sx.message || 'That did not go through.') + '</p>';
+      }
+      R.busy = false;
+      return;
+    }
+
     /* Preview and file. The two words never swap: a preview says what WOULD
        happen and shows the text; filing is the only thing that reports a
        note in Viv. */
@@ -386,6 +448,12 @@
         await post(Object.assign(base, { decision: { kind: 'reviewItem', id: n.dataset.id,
           status: (a === 'review-dismiss' || !note) ? (a === 'review-dismiss' ? 'dismissed' : 'needs_review') : 'clarified',
           note: note } }));
+      } else if (a === 'se') {
+        var seSel = $('[data-se-type="' + n.dataset.id + '"]');
+        var seTa = $('[data-se="' + n.dataset.id + '"]');
+        await post(Object.assign(base, { decision: { kind: 'serviceException', id: n.dataset.id,
+          status: n.dataset.s, type: seSel ? seSel.value : undefined,
+          text: seTa ? seTa.value : undefined } }));
       } else if (a === 'conflict') {
         var cf = $('[data-cf="' + n.dataset.id + '"]');
         await post(Object.assign(base, { decision: { kind: 'conflict', id: n.dataset.id,
@@ -398,6 +466,87 @@
     } catch (ex) { R.err = ex.message; }
     R.busy = false;
     render();
+  }
+
+  /* ── 4. possible Service Exceptions ────────────────────────────────
+     The tone is deliberately lower-key than the Care Plan tab. A proposal
+     here becomes a durable record about a named caregiver, so nothing is
+     styled to invite a fast tap: there is no "approve all", the type is
+     editable before anything is approved, and the evidence sits next to the
+     proposal rather than behind a disclosure. */
+  var SE_SUBJECT = { caregiver: 'About a caregiver', client: 'Raised by the client or family',
+    incident: 'Something that happened', internal: 'Internal coordination' };
+  var seTypes = null;   // the allow-list, fetched once from the schema
+
+  async function ensureSeTypes() {
+    if (seTypes) return seTypes;
+    try {
+      var j = await get('schema=1');
+      seTypes = (j.serviceExceptionTypes || []).map(function (t) { return t.name; });
+    } catch (ex) { seTypes = []; }
+    return seTypes;
+  }
+
+  function viewExceptions() {
+    var enc = R.enc, list = (enc.result || {}).serviceExceptions || [];
+    if (!list.length) return '<section class="sr-sec"><p class="sr-note">' +
+      'Scribe did not find anything here that belongs in a Service Exception.</p></section>';
+
+    var out = '<section class="sr-sec"><p class="sr-lede">' +
+      'Scribe suggests these from what was said. Check the type and the account before filing anything — ' +
+      'an exception is a permanent record, and where it names a caregiver it reaches their performance review.' +
+      '</p></section>';
+
+    out += list.map(function (x) {
+      var facts = factsFor(enc, x.supportingFactIds);
+      var done = x.reviewStatus === 'approved' || x.reviewStatus === 'edited';
+      var filed = x.filed || (enc.committed || {})['se:' + x.id];
+      return '<div class="sr-card' + (x.serious ? ' warn' : '') + '">' +
+        '<h4>' + esc(x.type) + '</h4>' +
+        '<p class="sr-prov">' + esc(SE_SUBJECT[x.subject] || '') +
+          (x.subjectName ? ' · ' + esc(x.subjectName) : '') +
+          (typeof x.confidence === 'number' ? ' · ' + Math.round(x.confidence * 100) + '% confident' : '') +
+          (x.typeWasSuggested ? ' · you changed this from “' + esc(x.typeWasSuggested) + '”' : '') +
+        '</p>' +
+        // Serious types say what happens next, not just that they are serious.
+        (x.serious ? '<p class="sr-note"><strong>This follows the escalation path as well as being filed.</strong> ' +
+          'Raise it with the Director of Client Solutions before anything goes to the family.</p>' : '') +
+
+        // The evidence, in the source's own words, beside the claim.
+        (facts.length ? '<div class="sr-ev">' + facts.map(function (f) {
+          return '<p class="sr-quote"><span class="sr-prov">' + esc(EVIDENCE_LABEL[f.evidenceType] || '') +
+            (f.speaker ? ' · ' + esc(f.speaker) : '') + '</span>“' + esc(f.evidenceExcerpt) + '”</p>';
+        }).join('') + '</div>'
+          // Unreachable while the validator holds, and said plainly if it ever is.
+          : '<p class="sr-err">No evidence is attached to this. Do not file it.</p>') +
+
+        (x.whyNotHigher ? '<p class="sr-note">Not established: ' + esc(x.whyNotHigher) + '</p>' : '') +
+
+        '<label class="sr-lbl" for="se-t-' + esc(x.id) + '">Type</label>' +
+        '<select class="fc sr-se-type" id="se-t-' + esc(x.id) + '" data-se-type="' + esc(x.id) + '"' +
+          (filed ? ' disabled' : '') + '>' +
+          (seTypes || [x.type]).map(function (t) {
+            return '<option value="' + esc(t) + '"' + (t === x.type ? ' selected' : '') + '>' + esc(t) + '</option>';
+          }).join('') + '</select>' +
+
+        '<label class="sr-lbl" for="se-r-' + esc(x.id) + '">What happened</label>' +
+        '<textarea class="fc sr-edit sr-se-text" id="se-r-' + esc(x.id) + '" rows="4" data-se="' + esc(x.id) + '"' +
+          (filed ? ' disabled' : '') + '>' + esc(x.csmText || x.resolution) + '</textarea>' +
+
+        (filed
+          ? '<p class="sr-done">Filed.</p>'
+          : '<div class="sr-row">' +
+              '<button type="button" class="btn btn-o btn-sm" data-a="se" data-s="approved" data-id="' + esc(x.id) + '">' +
+                (done ? 'Save changes' : 'Looks right') + '</button>' +
+              '<button type="button" class="btn btn-o btn-sm" data-a="se" data-s="rejected" data-id="' + esc(x.id) + '">Not an exception</button>' +
+              (done ? '<button type="button" class="btn btn-o btn-sm" data-a="se-preview" data-id="' + esc(x.id) + '">Preview</button>' +
+                      '<button type="button" class="btn btn-p btn-sm" data-a="se-file" data-id="' + esc(x.id) + '">File in Viv</button>' : '') +
+            '</div>') +
+        (x.reviewStatus === 'rejected' ? '<p class="sr-note">Marked as not an exception. Nothing will be filed.</p>' : '') +
+        '<div class="sr-se-out" id="se-out-' + esc(x.id) + '"></div>' +
+        '</div>';
+    }).join('');
+    return '<section class="sr-sec">' + out + '</section>';
   }
 
   /* ── encounters for the client workspace ───────────────────────────── */

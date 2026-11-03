@@ -59,7 +59,26 @@ ok('a failure says nothing was filed', /Nothing was filed\./.test(RC));
 
 console.log('\n--- still true of everything else ---');
 ok('the Care Plan is not filed by this control', !/target: 'carePlan'/.test(RC));
-ok('the only commit target is the visit note', (RC.match(/target: '[a-zA-Z]+'/g)||[]).every(t=>/visitNote/.test(t)));
+/* There are two commit targets now: the visit note and a Service Exception.
+   The rule was never "exactly one target", it was that the page can only
+   ever file the things Viv has a route for and never invents a third. */
+ok('the commit targets are the visit note and the service exception',
+   (() => { const t = [...new Set((RC.match(/target: '[a-zA-Z]+'/g)||[])
+     .map(x => x.slice(9, -1)))].sort();
+     return t.length === 2 && t[0] === 'serviceException' && t[1] === 'visitNote'; })());
+
+console.log('\n--- filing an exception cannot claim a success it did not get ---');
+ok('the exception control has its own preview and file', /a === 'se-preview' \|\| a === 'se-file'/.test(RC));
+// Viv has no create route for an exception. The one thing this control must
+// never do is report a filing that did not happen.
+ok('it never writes the word Filed for an exception outcome',
+   !/se-out[\s\S]{0,200}>Filed</.test(RC));
+ok('it says plainly that filing is not available yet',
+   /no route for creating an exception/.test(RC));
+ok('a serious type is confirmed as an escalation, not just a file',
+   /also follows the escalation path/.test(RC));
+ok('the preview builds the record without naming a route it does not know',
+   /Nothing was written\. This is the record that would be filed/.test(RC));
 
 console.log('\n'+pass+' passed, '+fail+' failed');
 process.exit(fail?1:0);

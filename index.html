@@ -1295,6 +1295,7 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
     <div class="mh"><div class="mt" id="m-em-ttl">Email Template</div><button class="mc" onclick="closeM('m-email')">✕</button></div>
     <div class="fg"><label class="fl">Subject</label><input type="text" class="fc" id="em-subj"></div>
     <div class="fg"><label class="fl">Body — edit before copying</label><textarea class="fc" id="em-body" style="min-height:260px;"></textarea></div>
+    <div class="fg" id="em-notes-wrap" style="display:none;"><label class="fl">Before you send — not part of the email</label><div id="em-notes" style="font-size:13px;line-height:1.6;color:var(--muted);background:var(--line-soft);border-radius:8px;padding:12px 14px;"></div></div>
     <div class="mf"><button class="btn btn-o" onclick="closeM('m-email')">Cancel</button><button class="btn btn-o" id="em-mailto" style="display:none;" onclick="openEmailClient()">📧 Open in email</button><button class="btn btn-p" onclick="copyEmail()">📋 Copy to Clipboard</button></div>
   </div>
 </div>
@@ -7055,10 +7056,22 @@ function openEmailAll(i){
   const customTpls=getCustomTpls().map(t=>({...t,_custom:true}));
   const allTpls=[...TPLS,...customTpls];
   const t=allTpls[i];if(!t)return;
+  setEmailNotes(null,null);
   document.getElementById('m-em-ttl').textContent=t.name;document.getElementById('em-subj').value=t.subj;document.getElementById('em-body').value=t.body;openM('m-email');
 }
 function loadTpl(i){const t=TPLS[i];document.getElementById('tpl-prev').innerHTML=`<div class="card" style="border:1px solid #EAE6DF;"><div style="font-size:11px;color:#8C857B;margin-bottom:3px;">Subject</div><div style="font-size:13px;font-weight:500;margin-bottom:11px;">${t.subj}</div><div style="font-size:11px;color:#8C857B;margin-bottom:4px;">Preview</div><div style="font-size:12px;color:#3D3833;line-height:1.6;white-space:pre-line;max-height:200px;overflow-y:auto;">${t.body.substring(0,380)}...</div><button class="btn btn-p" style="width:100%;margin-top:11px;" onclick="openEmail(${i})">Edit &amp; Copy →</button></div>`;}
-function openEmail(i){const t=TPLS[i];document.getElementById('m-em-ttl').textContent=t.name;document.getElementById('em-subj').value=t.subj;document.getElementById('em-body').value=t.body;openM('m-email');}
+function setEmailNotes(notes,needs){
+  const w=document.getElementById('em-notes-wrap'),b=document.getElementById('em-notes');
+  if(!w||!b)return;
+  const list=Array.isArray(notes)?notes.filter(Boolean):[];
+  const miss=Array.isArray(needs)?needs.filter(Boolean):[];
+  if(!list.length&&!miss.length){w.style.display='none';b.textContent='';return;}
+  const esc=x=>String(x).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+  b.innerHTML=(miss.length?'<p style="margin:0 0 8px;color:var(--hi);font-weight:600;">Not ready to send \u2014 fill in: '+miss.map(esc).join('; ')+'</p>':'')
+    +(list.length?'<ul style="margin:0;padding-left:18px;">'+list.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'');
+  w.style.display='';
+}
+function openEmail(i){const t=TPLS[i];setEmailNotes(null,null);document.getElementById('m-em-ttl').textContent=t.name;document.getElementById('em-subj').value=t.subj;document.getElementById('em-body').value=t.body;openM('m-email');}
 function copyEmail(){const full='Subject: '+document.getElementById('em-subj').value+'\n\n'+document.getElementById('em-body').value;navigator.clipboard.writeText(full).then(()=>{closeM('m-email');showToast('Copied to clipboard!');});}
 
 // ═══════════════════════ SCENARIO GUIDES ═══════════════════════
@@ -8317,6 +8330,12 @@ async function generateDraft(){
     document.getElementById('m-em-ttl').textContent='Draft — '+cat.split(' — ')[0];
     document.getElementById('em-subj').value=fill(j.subject);
     document.getElementById('em-body').value=fill(j.body);
+    /* The reviewer notes: what the model could not confirm and what has to be
+       decided before sending — a credit, an escalation, a fact to check. Shown
+       outside the body so copyEmail() can never pick them up, and a draft that
+       still has a [[CONFIRM: ...]] placeholder says so rather than looking
+       finished. */
+    setEmailNotes(j.notes, j.needsConfirmation);
     const mb=document.getElementById('em-mailto');mb.style.display=c.contactEmail?'':'none';mb.dataset.to=c.contactEmail||'';
     openM('m-email');
   }catch(e){ showToast('Draft failed — '+e.message); }

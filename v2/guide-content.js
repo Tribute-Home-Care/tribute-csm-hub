@@ -404,8 +404,9 @@ window.GUIDE = (function () {
           'Leaving the page while a recording is running will warn you. When you are done, the button says ' +
           'Finish & Create Documentation, because that is what it does.' },
         { h: 'What happens to the audio', p: 'It is transcribed and not kept.' },
-        { h: 'Reviewing the draft', p: 'Three tabs. Summary is the orientation. Care Plan holds proposed changes ' +
+        { h: 'Reviewing the draft', p: 'Summary is the orientation. Care Plan holds proposed changes ' +
           'to specific fields, each showing the current text beside the proposal. Visit Note holds the note itself. ' +
+          'Exceptions appears only when Scribe thinks something belongs in a Service Exception. ' +
           'Every proposal cites the facts it rests on, and View source shows you the passage it came from. ' +
           'A proposal with nothing behind it does not get made.',
           shot: { src: 'guide-shots/guide-scribe-review.png',
@@ -429,6 +430,26 @@ window.GUIDE = (function () {
           'to the source \u2014 so it is telling you rather than quietly dropping it, and it will not let an ' +
           'unsubstantiated claim become standing instruction for caregivers on its own. ' +
           '\u201cWording removed\u201d means Scribe refused to write a clinical condition the source never stated.' },
+        { h: 'Possible Service Exceptions', p: 'If something was said that belongs in a Service Exception, ' +
+          'Scribe suggests one and shows you the exact words it heard it in. It picks from the same list of ' +
+          'types Viv already uses — it cannot invent a category — and you can change the type before you ' +
+          'accept it. Most conversations produce none, and “No Service Exception suggested” is the ' +
+          'normal answer rather than a sign that Scribe did not look.' },
+        { h: 'Why it is slower than the other tabs', p: 'An exception is permanent, and where it names a ' +
+          'caregiver it reaches their performance review. So there is no approve-all, the evidence sits beside ' +
+          'the suggestion instead of behind a link, and Scribe will not propose one at all unless it can point ' +
+          'at a fact from the conversation. An exception built out of an impression rather than something ' +
+          'someone actually said is the one thing this must never produce.' },
+        { h: 'Falls, injuries, medication and allegations', p: 'These are suggested like anything else — ' +
+          'hiding one would be far worse than surfacing it — but they are marked, they sort to the top, and ' +
+          'they ask you to confirm you have raised it first. Filing one is not a substitute for the escalation ' +
+          'path: a fall, an injury, a medication error or an allegation goes to the Director of Client ' +
+          'Solutions before anything goes to the family.' },
+        { h: 'Filing does not work yet', p: 'This is the honest state of it. Scribe can suggest an exception, ' +
+          'you can correct it and approve it, and Preview will show you the exact record — but Viv has no way ' +
+          'for us to create a Service Exception from outside it yet, so the File button cannot complete. ' +
+          'Nothing is lost: the reviewed wording stays on the encounter and you can copy it into Viv. ' +
+          'When that route exists the button will start working and this paragraph will go.' },
         { h: 'Scribe does not diagnose', p: '\u201cA bit muddled about what day it is\u201d is what the daughter said. ' +
           'It is not cognitive impairment, and Scribe will not turn it into one. It keeps an observation an ' +
           'observation and a family report a family report. If a condition is genuinely established \u2014 the source ' +
@@ -587,7 +608,16 @@ window.GUIDE = (function () {
         { p: 'The knowledge base, email templates, scenario guides and the decision framework, plus a question box. ' +
              'It answers from Tribute content only — it does not invent policy.' },
         { h: 'Draft update', p: 'Inside a client, Draft update writes a family update from that client’s recent record. ' +
-          'Read it before you send it.' }
+          'Read it before you send it.' },
+        { h: 'What it will not write', p: 'It follows the way Courtney writes to a family, which is mostly a list of ' +
+          'things it must not do: it will not say a credit was approved unless the record says so, will not turn ' +
+          'something we intend to do into something we have done, will not promise the same caregiver or that a ' +
+          'problem will never recur, and will not tell a family which part of Tribute dropped the ball. ' +
+          'It will not reassure anyone about their health.' },
+        { h: 'Before you send', p: 'Under the draft there is a short block of notes for you — what it could not ' +
+          'confirm, and anything that needs deciding first, like a credit or an escalation. Those notes are not ' +
+          'part of the email and Copy to Clipboard does not pick them up. If the draft still has something in ' +
+          'double brackets, it is telling you it could not finish that sentence without a fact only you have.' }
       ],
       related: ['getting-help']
     },
@@ -806,7 +836,7 @@ window.GUIDE = (function () {
     'care-team': 'caregivers who is caring aides',
     'client-information': 'address phone contact details demographics',
     activity: 'history timeline what happened recent',
-    'record-visit': 'scribe recording record visit dictate transcribe microphone consent recap call scribe documentation visit note draft encounter',
+    'record-visit': 'scribe recording record visit dictate transcribe microphone consent recap call scribe documentation visit note draft encounter service exception SE incident complaint file exception escalation fall injury medication error reliability lateness',
     pulse: 'red amber green attention level needs attention monitor status quo',
     s30: 'onboarding new client first 30 days milestones success in 30',
     coverage: 'time off vacation out of office handoff cover covering communities',

@@ -299,3 +299,27 @@
   border-radius: var(--r1);
 }
 .sr-err{ color: var(--hi); font-size: 13px; margin: var(--s2) 0 0; }
+
+/* ── possible Service Exceptions ───────────────────────────────────────────
+   Quieter than the Care Plan tab on purpose. A proposal here becomes a
+   durable record about a named caregiver, so nothing is styled to invite a
+   fast tap: the evidence sits in the card rather than behind a disclosure,
+   and the field labels are visible rather than implied. */
+.sr-lbl {
+  display: block;
+  margin: var(--s3) 0 var(--s1);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.sr-ev {
+  margin: var(--s3) 0;
+  padding-left: var(--s3);
+  border-left: 2px solid var(--line);
+}
+.sr-ev .sr-quote:last-child { margin-bottom: 0; }
+.sr-se-type { width: 100%; font-size: 14px; }
+.sr-se-text { min-height: 5.5em; }
+.sr-se-out:not(:empty) { margin-top: var(--s3); }
