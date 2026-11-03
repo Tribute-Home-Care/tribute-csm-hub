@@ -134,12 +134,20 @@
     render();
   }
 
-  /* USABLE means: it answered, AND it says its own numbers can be relied on.
-     A source that reports trusted:false is not a soft warning to render in
-     grey next to the figure — the figure does not get rendered. One predicate
-     so the exception list, the team table and the Not-measured panel cannot
-     drift apart about whether a number counts. */
-  function usable(src) { return !!(src && !src.error && src.trusted !== false); }
+  /* USABLE means: it answered, AND it says in so many words that its numbers
+     can be relied on. A source reporting trusted:false is not a soft warning
+     to render in grey next to the figure — the figure does not get rendered.
+
+     FAIL CLOSED. The test is `trusted === true`, not `trusted !== false`, so a
+     source that does not say either way is treated as unverified rather than
+     believed. That is the right default for a compliance number on its own
+     merits, and it also closes a deploy-ordering hazard: the page and the
+     endpoint ship separately, so a page that trusts silence would show the
+     very figure it was changed to suppress until the API caught up.
+
+     One predicate, so the exception list, the team table and the Not-measured
+     panel cannot drift apart about whether a number counts. */
+  function usable(src) { return !!(src && !src.error && src.trusted === true); }
 
   /* ── exceptions ─────────────────────────────────────────────────────────
      The spec's own flag thresholds. Nothing is an exception because it looks
@@ -228,8 +236,9 @@
     /* ── anything that could not be read, said plainly ─────────────────── */
     var unread = [];
     if (S.cadence && S.cadence.error) unread.push('Note cadence for Massachusetts and Chicago: ' + S.cadence.error);
-    else if (S.cadence && S.cadence.trusted === false) unread.push('Note cadence for Massachusetts and Chicago. ' +
-      (S.cadence.untrustedReason || 'The source has not been verified.') +
+    else if (S.cadence && S.cadence.trusted !== true) unread.push('Note cadence for Massachusetts and Chicago. ' +
+      (S.cadence.untrustedReason ||
+        'This source has not confirmed that its numbers can be relied on, so it is treated as unverified.') +
       ' Nothing is being flagged from it, and no figure is shown.');
     if (usable(S.cadence) && S.cadence.counts && S.cadence.counts.unknown)
       unread.push(S.cadence.counts.unknown + ' client' + (S.cadence.counts.unknown === 1 ? '' : 's') +

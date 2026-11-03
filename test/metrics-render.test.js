@@ -126,6 +126,21 @@ function after(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
   ok('the all-clear is not claimed over a skipped measure',
      q.indexOf('Nothing is off track') < 0);
 
+  console.log('\n--- a source that says nothing about trust is not believed ---');
+  // Exactly the shape production returns until the API catches up with the
+  // page. If silence were trusted, this would render the misleading figure.
+  var SILENT = JSON.parse(JSON.stringify(LIVE));
+  delete SILENT.trusted; delete SILENT.untrustedReason;
+  var D = boot(reply(SILENT));
+  D.ctx.window.TributeApp = APP;
+  D.ctx.window.TributeMetrics.open();
+  await after(60);
+  var sp = D.painted();
+  ok('an undeclared source flags nothing', sp.indexOf('No note this month') < 0);
+  ok('...and is reported as unverified', sp.indexOf('has not confirmed that its numbers') >= 0);
+  ok('...and its figure is still not rendered', sp.indexOf('114') < 0);
+  ok('the real exceptions are unaffected', sp.indexOf('Visit past due') >= 0);
+
   console.log('\n--- an all-clear with a skipped measure is worded honestly ---');
   var C = boot(reply(LIVE));
   var CLEAN = JSON.parse(JSON.stringify(APP));

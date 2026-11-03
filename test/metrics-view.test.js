@@ -64,7 +64,15 @@ console.log('\n--- an untrusted source is not shown as a result ---');
 // so the number reads near-100% green whatever the truth. A compliance
 // figure that always passes is worse than none.
 ok('there is one predicate for whether a source counts',
-   /function usable\(src\) \{ return !!\(src && !src\.error && src\.trusted !== false\); \}/.test(M));
+   /function usable\(src\) \{ return !!\(src && !src\.error && src\.trusted === true\); \}/.test(M));
+// Fail closed: a source that says nothing either way is unverified, not
+// trusted. The page and the endpoint ship separately, so a page that trusted
+// silence would show the figure it was changed to suppress until the API
+// caught up.
+ok('silence is treated as unverified, not as trustworthy',
+   /trusted === true/.test(M) && !/trusted !== false\); \}/.test(M));
+ok('a source that never declared trust gets its own wording',
+   /has not confirmed that its numbers can be relied on/.test(M));
 ok('exceptions skip an untrusted source', /if \(usable\(c\)\)/.test(M));
 ok('the team table skips it too', /if \(usable\(S\.cadence\)\)/.test(M));
 ok('the unknown-client count is not shown from an untrusted read',
