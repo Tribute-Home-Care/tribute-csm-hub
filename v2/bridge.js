@@ -94,7 +94,13 @@
     'computedTierFor', '_myCocTasks', 'visitCompliance', 'renderClientMaster',
     'loadPulse', 'renderLtcSubmissionBoard', 'renderLtcRecords', 'renderMd',
     'updateHome', 'launchProfile',
-    'routeAfterConnect', 'selectHub', 'selectProfile', 'setJuliaFilter'
+    'routeAfterConnect', 'selectHub', 'selectProfile', 'setJuliaFilter',
+    /* WHO IS SIGNED IN, as opposed to which profile is currently open. These
+       are not the same thing for a manager: Courtney can open any profile in
+       her market, and anything keyed on `profile` would follow her around.
+       Exposed rather than re-implemented so a permission check uses the
+       Hub's own login matching, loginMap override included. */
+    'profileForAccount', 'accountIsManager'
   ];
 
   const missing = [];

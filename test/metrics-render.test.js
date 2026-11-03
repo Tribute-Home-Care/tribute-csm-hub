@@ -53,7 +53,12 @@ function boot(fetchImpl) {
   return { ctx, page, painted: () => painted };
 }
 
-const APP = { account: { username: 'tuadmin@tributehomecare.com' },
+const PROFILE_BY_UPN = { 'courtney.chaulk@tributehomecare.com': { id: 'courtney', name: 'Courtney Chaulk', market: 'Massachusetts', isManager: true },
+  'julia.hanna@tributehomecare.com': { id: 'julia', name: 'Julia Hanna', market: 'Massachusetts' },
+  'jada.tiglao@tributehomecare.com': { id: 'jada', name: 'Jada Tiglao', market: 'Maryland', isManager: true } };
+const matcher = (acct) => PROFILE_BY_UPN[String((acct || {}).username || '').toLowerCase()] || null;
+
+const APP = { account: { username: 'tuadmin@tributehomecare.com' }, profileForAccount: matcher,
   adminUpns: ['tuadmin@tributehomecare.com'], profile: { id: 'tuadmin' },
   profiles: [{ id: 'julia', name: 'Julia Hanna', market: 'Massachusetts' },
              { id: 'jada', name: 'Jada Tiglao', market: 'Maryland' },
@@ -93,10 +98,31 @@ function after(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
   console.log('\n--- the page exists and the gate works ---');
   var A = boot(reply(TRUSTED));
   ok('#page-metrics is created at load, before any click', !!A.page);
-  A.ctx.window.TributeApp = { account: { username: 'someone@tributehomecare.com' },
-    adminUpns: ['tuadmin@tributehomecare.com'], profile: { id: 'julia' } };
+  A.ctx.window.TributeApp = { account: { username: 'julia.hanna@tributehomecare.com' },
+    adminUpns: ['tuadmin@tributehomecare.com'], profileForAccount: matcher, profile: { id: 'julia' } };
   A.ctx.window.TributeMetrics.render();
   ok('a non-owner is refused', A.painted().indexOf('limited to Client Solutions leadership') >= 0);
+  // Courtney keeps the page while LOOKING AT one of her CSMs. The open
+  // profile is Julia's; the signed-in identity is hers.
+  A.ctx.window.TributeApp = { account: { username: 'courtney.chaulk@tributehomecare.com' },
+    adminUpns: ['tuadmin@tributehomecare.com'], profileForAccount: matcher,
+    profile: { id: 'julia' }, profiles: [], data: { profiles: {} } };
+  A.ctx.window.TributeMetrics.render();
+  ok('Courtney keeps it while viewing another CSM',
+     A.painted().indexOf('limited to Client Solutions leadership') < 0);
+  // And another manager does NOT get it by opening hers.
+  A.ctx.window.TributeApp = { account: { username: 'jada.tiglao@tributehomecare.com' },
+    adminUpns: ['tuadmin@tributehomecare.com'], profileForAccount: matcher,
+    profile: { id: 'courtney' }, profiles: [], data: { profiles: {} } };
+  A.ctx.window.TributeMetrics.render();
+  ok('another manager cannot gain it by opening her profile',
+     A.painted().indexOf('limited to Client Solutions leadership') >= 0);
+  // No matcher at all fails closed rather than falling through.
+  A.ctx.window.TributeApp = { account: { username: 'courtney.chaulk@tributehomecare.com' },
+    adminUpns: [], profile: { id: 'courtney' } };
+  A.ctx.window.TributeMetrics.render();
+  ok('without the matcher it fails closed',
+     A.painted().indexOf('limited to Client Solutions leadership') >= 0);
   A.ctx.window.TributeApp = APP;
   A.ctx.window.TributeMetrics.render();
   ok('an owner gets the page', A.painted().indexOf('Daily Metrics') >= 0);

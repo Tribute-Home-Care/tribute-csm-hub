@@ -26,6 +26,18 @@ ok('the page itself refuses when not allowed', /if \(!allowed\(\)\) \{/.test(M))
 ok('...and says why rather than rendering empty', /limited to Client Solutions leadership/.test(M));
 ok('admin is matched on the signed-in account', /\(a\.adminUpns \|\| \[\]\)\.some/.test(M));
 ok('Courtney is named by profile id, not by display name', /OWNER_PROFILE = 'courtney'/.test(M));
+/* The gate keys on WHO IS SIGNED IN, not on which profile is open. The first
+   version tested A.profile.id and was wrong in both directions: Courtney lost
+   the page when she opened one of her CSMs, and any other manager who opened
+   her profile would have been handed it. */
+ok('the gate does not read the open profile at all', !/a\.profile\b/.test(M.slice(
+   M.indexOf('function allowed()'), M.indexOf('function host()'))));
+ok('it uses the Hub’s own login matching', /a\.profileForAccount\(a\.account\)/.test(M));
+ok('no identity means no access', /if \(!a\.account \|\| typeof a\.profileForAccount !== 'function'\) return false;/.test(M));
+ok('a thrown matcher fails closed', /catch \(e\) \{ return false; \}/.test(M));
+const BR = require('fs').readFileSync(require('path').join(process.env.HOME,
+  'tribute-csm-hub-redesign/prototype/bridge.js'), 'utf8');
+ok('the matcher is exposed on the bridge', /'profileForAccount', 'accountIsManager'/.test(BR));
 ok('it is not open to any manager', !/isManager/.test(M));
 
 console.log('\n--- no leaderboards ---');

@@ -42,16 +42,28 @@
   /* ── who may open it ─────────────────────────────────────────────────────
      Courtney and admin only to start (Andrew, 3 November). Deliberately not
      "any manager": these are CSM-level numbers and they go in front of a
-     Market Director only once Courtney has checked them against reality. */
+     Market Director only once Courtney has checked them against reality.
+
+     KEYED ON WHO IS SIGNED IN, NOT ON WHICH PROFILE IS OPEN. The first
+     version tested A.profile.id, which is whichever profile the viewer has
+     opened, and that was wrong in both directions at once: Courtney lost the
+     page the moment she looked at one of her CSMs, and any other manager who
+     opened HER profile would have been handed it. MY_PROFILE_ID is no use
+     either — the application only sets it for non-managers, so it is null for
+     Courtney. profileForAccount() is the Hub's own login matching, loginMap
+     override included, so this asks the same question sign-in asks. */
   var OWNER_PROFILE = 'courtney';
   function allowed() {
     var a = A();
+    var me = '';
+    try { me = String(((a.account || {}).username) || '').toLowerCase(); } catch (e) {}
+    if (me && (a.adminUpns || []).some(function (u) { return String(u).toLowerCase() === me; })) return true;
+    // No identity, no access. Never fall through to the open profile.
+    if (!a.account || typeof a.profileForAccount !== 'function') return false;
     try {
-      var me = String(((a.account || {}).username) || '').toLowerCase();
-      if ((a.adminUpns || []).some(function (u) { return String(u).toLowerCase() === me; })) return true;
-    } catch (e) {}
-    var p = a.profile;
-    return !!(p && p.id === OWNER_PROFILE);
+      var mine = a.profileForAccount(a.account);
+      return !!(mine && mine.id === OWNER_PROFILE);
+    } catch (e) { return false; }
   }
 
   /* ── the page ─────────────────────────────────────────────────────────── */
