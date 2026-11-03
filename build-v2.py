@@ -121,7 +121,8 @@ def main():
     for f in ('v2-mobile.css', 'v2-mobile.js', 'v2-client.js',
               'v2-guide.js', 'guide-views.js', 'guide-content.js', 'guide.css',
               'v2-help.js', 'v2-feedback.js', 'v2.css',
-              'v2-scribe.js', 'v2-scribe-review.js', 'v2-scribe.css'):
+              'v2-scribe.js', 'v2-scribe-review.js', 'v2-scribe.css',
+              'v2-metrics.js', 'v2-metrics.css'):
         shutil.copyfile(os.path.join(OUT, 'v2', f), os.path.join(RD, 'prototype', f))
 
     tags = []
@@ -133,6 +134,7 @@ def main():
     # own, so it cannot reach the application around it.
     tags.append('<link rel="stylesheet" href="%s">' % stamp('guide.css'))
     tags.append('<link rel="stylesheet" href="%s">' % stamp('v2-scribe.css'))
+    tags.append('<link rel="stylesheet" href="%s">' % stamp('v2-metrics.css'))
     for f in LAYER:
         tags.append('<script src="%s"></script>' % stamp(f))
     tags.append('<script src="%s"></script>' % stamp('v2-policy.js'))
@@ -147,6 +149,8 @@ def main():
     # Scribe. Review loads first so the capture flow can hand off to it.
     tags.append('<script src="%s"></script>' % stamp('v2-scribe-review.js'))
     tags.append('<script src="%s"></script>' % stamp('v2-scribe.js'))
+    # The Director view. After v2-client so the bridge and icons are up.
+    tags.append('<script src="%s"></script>' % stamp('v2-metrics.js'))
     tags.append('<script src="%s"></script>' % stamp('v2-mobile.js'))
     block = '\n' + '\n'.join(tags) + '\n'
     # There are two '</body>' in the file: one inside a printable-HTML string
@@ -200,6 +204,7 @@ def main():
                  'v2-fullcap.js', 'v2-mobile.js', 'v2-mobile.css', 'v2-client.js',
                  'v2-guide.js', 'guide-views.js', 'guide-content.js', 'guide.css',
                  'v2-scribe.js', 'v2-scribe-review.js', 'v2-scribe.css',
+                 'v2-metrics.js', 'v2-metrics.css',
                  'manifest.webmanifest', 'apple-touch-icon.png'):
         assert _req in out, 'built index.html does not load %s' % _req
     present = sorted(os.listdir(os.path.join(OUT, 'v2')))

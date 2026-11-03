@@ -40,7 +40,7 @@
   const A = () => window.TributeApp;
   const PAGES = ['home', 'clients', 's60', 'pulse', 'coverage', 'emailcomm',
     'ltc', 'md', 'priority', 'assistant', 'expectations', 'kpi', 'team', 'comms',
-    'guide'];
+    'guide', 'metrics'];
 
   const R = {
     enabled: false,

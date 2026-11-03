@@ -75,7 +75,8 @@
     ['Work', [['home', 'Home'], ['clients', 'Clients'], ['coverage', 'Coverage'],
               ['s60', 'Success in 30'], ['priority', 'Fill Priority'], ['pulse', 'Client Pulse']]],
     ['Operations', [['md', 'Maryland Compliance'], ['ltc', 'LTC'],
-                    ['emailcomm', 'Community Email'], ['team', 'Team']]],
+                    ['emailcomm', 'Community Email'], ['team', 'Team'],
+                    ['__metrics', 'Daily Metrics']]],
     ['Tools', [['assistant', 'Assistant'], ['kpi', 'KPI Tracker'],
                ['expectations', 'Role Expectations'],
                ['__guide', 'Guide'], ['__feedback', 'Feedback']]]
@@ -105,7 +106,16 @@
                       admin = (A.adminUpns || []).some(u => String(u).toLowerCase() === me);
                     } catch (e) {}
                     if (admin && fb.openInbox) fb.openInbox(); else fb.open();
-                  } }
+                  } },
+
+    /* Courtney's daily metrics. ok() is the access gate as well as the
+       presence check: the rail does not show a destination the signed-in
+       person cannot open, and the module refuses on its own account too, so
+       hiding the nav item is not the only thing standing in the way. */
+    __metrics: { icon: 'chart', id: 'v2-nav-metrics', page: 'metrics',
+                 ok: function () {
+                   return !!(window.TributeMetrics && window.TributeMetrics.allowed());
+                 } }
   };
 
   const NAV_ID = { pulse: 'nav-pulse', team: 'nav-team', md: 'nav-md' };

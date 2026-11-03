@@ -1,0 +1,96 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   CSM DAILY METRICS
+   ═══════════════════════════════════════════════════════════════════════════
+   Scoped under .mx so nothing here can reach the rest of the Hub, and it
+   defines no tokens of its own: the Hub's warm-stone palette is inherited.
+
+   The visual argument matches the product argument. The exceptions panel is
+   the only thing with weight. The team table is quiet, evenly spaced and
+   visually flat on purpose, because the moment one row looks heavier than
+   another it reads as a ranking, and the spec says there are no rankings.
+   =========================================================================== */
+.mx { max-width: 1040px; }
+
+.mx-bar {
+  display: flex; align-items: center; gap: var(--s3);
+  margin-bottom: var(--s4);
+}
+.mx-as { font-size: 12px; color: var(--muted); }
+.mx-note { font-size: 13px; color: var(--muted); line-height: 1.6; margin: 0; }
+
+/* ── exceptions: the one panel with weight ─────────────────────────────── */
+.mx-ex { border-left: 3px solid var(--orange); }
+.mx-ex > h3,
+.mx-team > h3,
+.mx-unread > h3,
+.mx-clear > h3 {
+  margin: 0 0 var(--s3);
+  font-size: 15px; font-weight: 600; color: var(--ink);
+  display: flex; align-items: baseline; gap: var(--s2);
+}
+.mx-ex > h3 em {
+  font-style: normal; font-size: 12px; font-weight: 600;
+  background: var(--orange-soft); color: var(--orange-dark);
+  border-radius: 999px; padding: 1px 8px;
+}
+.mx-clear { border-left: 3px solid var(--lo); }
+
+.mx-grp { margin-top: var(--s4); }
+.mx-grp:first-of-type { margin-top: 0; }
+.mx-grp h4 {
+  margin: 0 0 var(--s2);
+  font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--muted);
+}
+.mx-grp h4 em { font-style: normal; color: var(--muted-soft); }
+
+.mx-ul { list-style: none; margin: 0; padding: 0; }
+.mx-ul li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 2px var(--s3);
+  padding: var(--s2) 0;
+  border-top: 1px solid var(--line-soft);
+  font-size: 14px;
+}
+.mx-ul li:first-child { border-top: 0; }
+.mx-ul li b { font-weight: 600; color: var(--ink); min-width: 0; }
+/* "Never contacted" and "never visited" are a different kind of fact from
+   "nine days late", so they are marked. Nothing else is. */
+.mx-ul li.sev b { color: var(--hi); }
+.mx-m { font-size: 12px; color: var(--muted); grid-column: 1; }
+.mx-w { font-size: 13px; color: var(--ink-2); grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+.mx-more { color: var(--muted); font-size: 13px; }
+
+/* ── what could not be read ────────────────────────────────────────────── */
+.mx-unread { border-left: 3px solid var(--med); }
+.mx-unread .mx-ul li { grid-template-columns: 1fr; }
+.mx-unread .mx-w { grid-column: 1; grid-row: auto; }
+
+/* ── the team, deliberately flat ───────────────────────────────────────── */
+.mx-tog {
+  background: none; border: 0; padding: 0; margin: 0;
+  font: inherit; color: inherit; cursor: pointer;
+  display: inline-flex; align-items: center; gap: var(--s2);
+}
+.mx-tog .ti { width: 14px; height: 14px; color: var(--muted); }
+.mx-t { width: 100%; border-collapse: collapse; font-size: 14px; }
+.mx-t th, .mx-t td { padding: var(--s2) var(--s3); text-align: left; }
+.mx-t thead th {
+  font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--muted); border-bottom: 1px solid var(--line);
+  /* No sort affordance, because there is no sorting. */
+  cursor: default;
+}
+.mx-t tbody th { font-weight: 500; color: var(--ink); }
+.mx-t tbody tr { border-bottom: 1px solid var(--line-soft); }
+.mx-t td { color: var(--muted); font-variant-numeric: tabular-nums; }
+.mx-t td.hot { color: var(--ink); font-weight: 600; }
+.mx-t th:not(:first-child), .mx-t td:not(:first-child) { text-align: right; }
+
+@media (max-width: 720px) {
+  .mx-ul li { grid-template-columns: 1fr; }
+  .mx-w { grid-column: 1; grid-row: auto; }
+  .mx-t { font-size: 13px; }
+  .mx-t th, .mx-t td { padding: var(--s2); }
+}

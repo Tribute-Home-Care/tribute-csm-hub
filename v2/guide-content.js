@@ -33,7 +33,7 @@ window.GUIDE = (function () {
       entries: ['home', 'coverage', 's30', 'priority', 'pulse'] },
     { id: 'ops',     title: 'Operations',
       lede: 'The machinery behind the caseload.',
-      entries: ['md', 'ltc', 'emailcomm', 'team'] },
+      entries: ['md', 'ltc', 'emailcomm', 'team', 'metrics'] },
     { id: 'tools',   title: 'Tools',
       lede: 'What you reach for.',
       entries: ['assistant', 'kpi', 'expectations', 'feedback'] },
@@ -622,6 +622,39 @@ window.GUIDE = (function () {
       related: ['getting-help']
     },
 
+    metrics: {
+      title: 'Daily Metrics',
+      lede: 'Are clients getting proactive care, and where is attention needed today?',
+      body: [
+        { p: 'One page that answers one question each morning. It measures outcomes and signals, not ' +
+             'keystrokes, and it is limited to Client Solutions leadership while the numbers are being ' +
+             'checked against reality.' },
+        { h: 'Exceptions first', p: 'What is off track is at the top. Everything on track is a count ' +
+          'behind a disclosure. If the page is quiet, the day is quiet — that is the whole design.' },
+        { h: 'What it flags today', ul: [
+          'A client never contacted, or more than 7 days past their touchpoint cadence.',
+          'A Care Conversation past its 90-day (High) or 180-day (Medium and Low) cadence.',
+          'A visit past due, unless the CSM deliberately moved it.',
+          'A client with no note this calendar month, once 7 days are left — Massachusetts and Chicago. ' +
+            'Maryland has a weekly rule and lives on the Maryland Compliance board.' ] },
+        { h: 'Any touch counts as a note', p: 'An email, a call, a text, a community update or a GCM ' +
+          'update all count. The cadence is about the client being documented on schedule, not about ' +
+          'anyone writing a separate note to satisfy a report.' },
+        { h: 'There is no ranking', p: 'CSMs appear grouped by market and listed alphabetically, always, ' +
+          'and no column can be sorted by a number. Caseloads and market rules differ too much for a ' +
+          'ranking to mean anything, and the per-CSM counts are there for a conversation rather than a ' +
+          'comparison.' },
+        { h: 'Not measured is not the same as fine', p: 'If a source did not answer, the page says so in ' +
+          'its own panel and the clients behind it are counted neither as compliant nor as a breach. ' +
+          'A compliance figure that quietly reads “no note” when the truth is “we could not look” ' +
+          'sends you chasing a note that already exists.' },
+        { h: 'What is not here yet', p: 'Call counts, talk time, proactive versus reactive, whether a call ' +
+          'was documented, promised follow-ups, family response time, NPS and time mix all arrive later. ' +
+          'Several of them need CSM calls to be recorded, which has not started.' }
+      ],
+      related: ['md', 'pulse', 'team']
+    },
+
     kpi: { title: 'KPI Tracker', lede: 'Your quarterly numbers.',
       body: [{ p: 'Quarterly KPI entry and history, against the targets in Role Expectations.' }],
       related: ['expectations', 'team'] },
@@ -818,6 +851,7 @@ window.GUIDE = (function () {
   ];
 
   const ALIASES = {
+    metrics: 'daily metrics dashboard director view exceptions overdue touchpoint cadence note cadence caseload leaderboard ranking proactive care courtney',
     'cant-save': "why can't i save why cant i save cannot save not saving save failed greyed out disabled blocked read only",
     'cant-find-client': "can't find missing client where is lost client search not working no results",
     'no-client-data': 'blank empty no schedule no address no contact not loading viv did not answer try again',
