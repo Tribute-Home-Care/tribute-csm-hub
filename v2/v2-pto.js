@@ -57,20 +57,23 @@
             '&$select=subject,start,end,isAllDay,organizer,showAs';
     var tried = [];
 
-    async function attempt(label, url) {
+    // `noun` matters: the first attempt returns CALENDARS and the rest return
+    // EVENTS. Labelling both "events" produced "my calendar list: 4 events",
+    // which reads as though four days off were found and then discarded.
+    async function attempt(label, url, noun) {
       try {
         var r = await fetch(url, { headers: h });
         if (!r.ok) { tried.push(label + ': HTTP ' + r.status); return null; }
         var j = await r.json();
         var v = (j && j.value) || [];
-        tried.push(label + ': ' + v.length + ' events');
+        tried.push(label + ': ' + v.length + ' ' + (noun || 'events'));
         return v;
       } catch (e) { tried.push(label + ': ' + (e.message || 'failed')); return null; }
     }
 
     // 1. The calendar added to the signed-in person's own list. The most
     //    common shape, and the cheapest.
-    var mine = await attempt('my calendar list', 'https://graph.microsoft.com/v1.0/me/calendars?$select=id,name,owner&$top=100');
+    var mine = await attempt('my calendar list', 'https://graph.microsoft.com/v1.0/me/calendars?$select=id,name,owner&$top=100', 'calendars');
     if (mine) {
       var cal = mine.filter(function (c) {
         return /tribute\s*public/i.test(c.name || '') ||
