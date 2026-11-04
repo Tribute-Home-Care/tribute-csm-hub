@@ -29,7 +29,7 @@
   'use strict';
 
   var PAGE_ID = 'page-metrics';
-  var S = { loading: false, err: null, cadence: null, md: null, pto: null, open: {}, scope: null };
+  var S = { loading: false, err: null, cadence: null, md: null, pto: null, calls: null, exc: null, open: {}, scope: null };
 
   function A() { return window.TributeApp || {}; }
   function api() { var a = A(); return (typeof a.vivProxy === 'string' && a.vivProxy) || ''; }
@@ -144,12 +144,17 @@
       return (window.TributePTO ? window.TributePTO.build(8)
         : Promise.reject(new Error('the PTO reader is not loaded')));
     };
-    var res = await Promise.allSettled([get('note_cadence'), get('md_compliance'), pto()]);
+    var res = await Promise.allSettled([get('note_cadence'), get('md_compliance'), pto(),
+                                        get('csm_calls'), get('csm_exceptions')]);
     S.cadence = res[0].status === 'fulfilled' ? res[0].value : { error: String(res[0].reason && res[0].reason.message || 'unavailable') };
     S.md = res[1].status === 'fulfilled' ? res[1].value : { error: String(res[1].reason && res[1].reason.message || 'unavailable') };
     S.pto = res[2].status === 'fulfilled' ? res[2].value
       : { error: String((res[2].reason && res[2].reason.message) || 'unavailable'),
           tried: (res[2].reason && res[2].reason.tried) || [] };
+    // Settled, not all: call activity failing must not blank the exceptions
+    // beside it, and neither must blank the cadence above them.
+    S.calls = res[3].status === 'fulfilled' ? res[3].value : { error: String(res[3].reason && res[3].reason.message || 'unavailable') };
+    S.exc   = res[4].status === 'fulfilled' ? res[4].value : { error: String(res[4].reason && res[4].reason.message || 'unavailable') };
     S.loading = false;
     render();
   }
@@ -254,6 +259,8 @@
     }
 
     out += ptoPanel();
+    out += excPanel();
+    out += callsPanel();
 
     /* ── anything that could not be read, said plainly ─────────────────── */
     var unread = [];
@@ -266,6 +273,8 @@
       unread.push(S.cadence.counts.unknown + ' client' + (S.cadence.counts.unknown === 1 ? '' : 's') +
         ' could not be read for note cadence, so they are counted neither way');
     if (S.md && S.md.error) unread.push('Maryland compliance board: ' + S.md.error);
+    if (S.exc && S.exc.error) unread.push('Service exceptions: ' + S.exc.error);
+    if (S.calls && S.calls.error) unread.push('Call activity: ' + S.calls.error);
     if (unread.length) out += '<div class="card mx-unread"><h3>Not measured</h3><ul class="mx-ul">' +
       unread.map(function (u) { return '<li><span class="mx-w">' + esc(u) + '</span></li>'; }).join('') +
       '</ul><p class="mx-note">These are gaps in what could be read, not clean results.</p></div>';
@@ -383,6 +392,127 @@
      and not a sortable header anywhere. The counts are context for a 1:1, not
      a ranking, and the order never moves with the numbers. */
   var MARKET_ORDER = ['Massachusetts', 'Maryland', 'Chicago'];
+  /* ── service exceptions ────────────────────────────────────────────
+     NO TOTAL, AND NO COMPARISON AGAINST THE TWO-DAY TARGET. A status is not
+     reliably ticked when the work is done: 957 exceptions are still marked
+     submitted with a median age of 284 days. An "open" count would measure
+     unticked boxes as much as live work, so this shows AGE BANDS, which is
+     what the payload itself says is defensible, and leaves the total alone.
+
+     Nothing here is a ranking. Markets in order, CSMs alphabetical, exactly
+     as the rest of this page. */
+  var EXC_BANDS = [['0-2', 'Opened in the last 2 days'], ['3-7', '3 to 7 days'],
+                   ['8-30', '8 to 30 days'], ['31+', 'Over 30 days']];
+
+  function excPanel() {
+    var e = S.exc;
+    if (!e) return '';
+    if (e.error) {
+      return '<div class="card mx-unread"><h3>Service exceptions</h3>' +
+        '<p class="mx-note">Could not be read: ' + esc(e.error) +
+        '. This is a gap, not an absence of exceptions.</p></div>';
+    }
+    var rows = (e.csms || []).slice();
+    var aged = rows.reduce(function (n, r) { return n + (((r.openByAge || {})['31+']) || 0); }, 0);
+    // Rule 1 of this page: what is off track is visible, and only what is on
+    // track sits behind a disclosure. An exception open past 30 days is off
+    // track, so this opens by default. Call activity below is context and
+    // stays collapsed.
+    var open = S.open.exc !== false;
+    var o = '<div class="card mx-team"><h3><button type="button" class="mx-tog" data-open="exc" aria-expanded="' +
+      open + '">' + I(open ? 'chevronDown' : 'chevron') + 'Service exceptions, by age</button></h3>';
+    o += '<p class="mx-note">' + (e.scanned || 0) + ' raised in the last ' + (e.days || 0) + ' days. ' +
+      (aged ? '<b>' + aged + '</b> still open past 30 days. ' : '') +
+      (e.unassignedToAnyCsm ? e.unassignedToAnyCsm + ' belong to no CSM. ' : '') +
+      'No total is compared against the two-day target, because a status is not reliably updated when the work is done.</p>';
+    if (!open) return o + '</div>';
+
+    var mks = {};
+    rows.forEach(function (r) { (mks[r.market || '\u2014'] = mks[r.market || '\u2014'] || []).push(r); });
+    Object.keys(mks).sort().forEach(function (mk) {
+      var list = mks[mk].sort(function (a, b) { return String(a.csm).localeCompare(String(b.csm)); });
+      o += '<div class="mx-grp"><h4>' + esc(mk) + '</h4><table class="mx-t"><thead><tr><th>CSM</th>' +
+        EXC_BANDS.map(function (b) { return '<th>' + esc(b[1]) + '</th>'; }).join('') +
+        '<th>Oldest open</th></tr></thead><tbody>' +
+        list.map(function (r) {
+          var a = r.openByAge || {};
+          return '<tr><th scope="row">' + esc(r.csm) + '</th>' +
+            EXC_BANDS.map(function (b) {
+              var n = a[b[0]] || 0;
+              // Only the oldest band is marked hot. A new exception is work
+              // arriving, not work going wrong.
+              return '<td' + (n && b[0] === '31+' ? ' class="hot"' : '') + '>' + (n || '\u2014') + '</td>';
+            }).join('') +
+            '<td>' + (r.oldestOpenDays != null ? esc(r.oldestOpenDays) + 'd' : '\u2014') + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+    });
+    o += '<p class="mx-note">' + esc(e.closedTodayNote || '') + '</p>';
+    return o + '</div>';
+  }
+
+  /* ── call activity ───────────────────────────────────────────────
+     The counts UNDERSTATE by an unknown amount, so they are shown as context
+     and never as a measure of anyone. Three facts are worth more than the
+     table and are stated above it:
+       - outbound that belongs to a shared office account and to no CSM,
+       - CSMs showing no outbound at all, which is a gap and not a verdict,
+       - that Nextiva carries call length only, so there is no answered or
+         missed split and none is invented here.
+     A CSM reading a low number next to a colleague's high one would conclude
+     something about themselves that this data cannot support. */
+  function callsPanel() {
+    var c = S.calls;
+    if (!c) return '';
+    if (c.error) {
+      return '<div class="card mx-unread"><h3>Call activity</h3>' +
+        '<p class="mx-note">Could not be read: ' + esc(c.error) +
+        '. This is a gap, not a quiet fortnight.</p></div>';
+    }
+    var open = !!S.open.calls;
+    var o = '<div class="card mx-team"><h3><button type="button" class="mx-tog" data-open="calls" aria-expanded="' +
+      open + '">' + I(open ? 'chevronDown' : 'chevron') + 'Call activity, last ' + (c.days || 0) + ' days</button></h3>';
+
+    var bits = [];
+    if (c.sharedOutbound) bits.push('<b>' + c.sharedOutbound + '</b> outbound calls were placed from a shared office account and belong to no CSM.');
+    if ((c.zeroOutbound || []).length) bits.push('<b>' + c.zeroOutbound.length + '</b> CSM' +
+      (c.zeroOutbound.length === 1 ? '' : 's') + ' show no outbound calls at all (' +
+      c.zeroOutbound.map(esc).join(', ') + '). That is a gap in what Nextiva sees, not a finding about them.');
+    bits.push(esc(c.dispositionNote || ''));
+    o += '<p class="mx-note">' + bits.join(' ') + '</p>';
+
+    if (c.trusted !== true) {
+      o += '<p class="mx-note"><b>These counts are not reliable enough to measure anyone by.</b> ' +
+        esc(c.untrustedReason || '') + '</p>';
+    }
+    if (!open) return o + '</div>';
+
+    var rows = (c.csms || []).slice();
+    var mks = {};
+    rows.forEach(function (r) { (mks[r.market || '\u2014'] = mks[r.market || '\u2014'] || []).push(r); });
+    Object.keys(mks).sort().forEach(function (mk) {
+      var list = mks[mk].sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+      o += '<div class="mx-grp"><h4>' + esc(mk) + '</h4><table class="mx-t"><thead><tr>' +
+        '<th>CSM</th><th>Outbound</th><th>Inbound</th><th>Minutes</th><th>Avg minutes</th><th>After hours</th>' +
+        '</tr></thead><tbody>' +
+        list.map(function (r) {
+          // No cell is marked hot. There is no good or bad number here.
+          return '<tr><th scope="row">' + esc(r.name) + '</th><td>' + (r.out || 0) + '</td><td>' +
+            (r.in || 0) + '</td><td>' + Math.round(r.minutes || 0) + '</td><td>' +
+            (r.avgMinutes != null ? Number(r.avgMinutes).toFixed(1) : '\u2014') + '</td><td>' +
+            (r.afterHours || 0) + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+    });
+    if ((c.sharedLines || []).length) {
+      o += '<div class="mx-grp"><h4>Shared lines</h4><ul class="mx-ul">' +
+        c.sharedLines.map(function (l) {
+          return '<li><b>' + esc(l.line) + '</b><span class="mx-w">' + l.out +
+            ' outbound, ' + l.in + ' inbound. Credited to no CSM on purpose: every delegate of a shared line ' +
+            'traverses one seat, so crediting it to one person would invent work for them and hide it from everyone else.</span></li>';
+        }).join('') + '</ul></div>';
+    }
+    return o + '</div>';
+  }
+
   function team(rows, ex) {
     var byCsm = {};
     rows.forEach(function (r) {

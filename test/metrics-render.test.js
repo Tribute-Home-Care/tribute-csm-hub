@@ -239,6 +239,92 @@ function after(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
   ok('...and names the grant that would fix it', fp.indexOf('Calendars.Read') >= 0);
   ok('the rest of the page still works', fp.indexOf('Visit past due') >= 0);
 
-  console.log('\n' + (fail ? 'FAILED ' + fail + ' of ' + (pass + fail) : 'PASSED all ' + pass));
+  console.log('\n--- call activity and service exceptions ---');
+// Both feeds are trusted:false. They were built, deployed, cached and never
+// rendered anywhere, which looked finished from the backend and reached
+// nobody. Now they render, but under this page's own rules: no leaderboard,
+// and an unreliable count must say so rather than be read as a measure of a
+// person.
+const CALLS = {
+  generatedAt: '2099-01-01T00:00:00Z', days: 14, trusted: false,
+  untrustedReason: 'Nextiva is not seeing every call a CSM makes.',
+  dispositionNote: 'Nextiva\u2019s CDR carries call length only.',
+  sharedOutbound: 68, sharedLines: [{ line: 'Tribute Massachusetts Account', out: 68, in: 0 }],
+  zeroOutbound: ['Courtney Chaulk', 'Julia Hanna'],
+  csms: [
+    { id: 'z', name: 'Zoe Zane',  market: 'Boston', out: 100, in: 4, minutes: 500, avgMinutes: 5, afterHours: 1 },
+    { id: 'a', name: 'Ann Able',  market: 'Boston', out: 3,   in: 9, minutes: 40,  avgMinutes: 3.3, afterHours: 0 }
+  ]
+};
+const EXC = {
+  generatedAt: '2099-01-01T00:00:00Z', days: 45, scanned: 825, trusted: false,
+  untrustedReason: 'A status is not reliably updated when the work is done.',
+  closedTodayNote: 'The dataset records no resolution date.',
+  unassignedToAnyCsm: 57,
+  csms: [
+    { csm: 'Zoe Zane', market: 'Boston', openByAge: { '0-2': 1, '3-7': 0, '8-30': 0, '31+': 4 }, oldestOpenDays: 99 },
+    { csm: 'Ann Able', market: 'Boston', openByAge: { '0-2': 2, '3-7': 1, '8-30': 0, '31+': 0 }, oldestOpenDays: 5 }
+  ]
+};
+const BOTH = async function (u) {
+  if (/endpoint=csm_calls/.test(u)) return { ok: true, json: async () => CALLS };
+  if (/endpoint=csm_exceptions/.test(u)) return { ok: true, json: async () => EXC };
+  if (/endpoint=csm_pto/.test(u)) return { ok: true, json: async () => ({ via: 'graph-app', events: [] }) };
+  return { ok: true, json: async () => (/note_cadence/.test(u) ? LIVE : { rows: [] }) };
+};
+{
+  const G = boot(BOTH);
+  G.ctx.window.TributeApp = APP;
+  G.ctx.window.TributeMetrics.open();
+  await after(120);
+  const g = G.painted();
+  ok('call activity reaches the page at all', g.indexOf('Call activity') >= 0);
+  ok('service exceptions reach the page at all', g.indexOf('Service exceptions') >= 0);
+
+  // Rule 2 of this page: no leaderboards. Alphabetical within market.
+  ok('CSMs are alphabetical, not ranked by volume',
+     g.indexOf('Ann Able') < g.indexOf('Zoe Zane'));
+  // A count that understates by an unknown amount must not look like a score.
+  ok('unreliable call counts say so before the table is opened',
+     g.indexOf('not reliable enough to measure anyone by') >= 0);
+  ok('...and carry the reason', g.indexOf('not seeing every call') >= 0);
+
+  // The correction this session spent its evening on, finally visible.
+  ok('outbound belonging to no CSM is stated', g.indexOf('68') >= 0 && g.indexOf('belong to no CSM') >= 0);
+  ok('a CSM with no outbound is framed as a gap, not a verdict',
+     g.indexOf('not a finding about them') >= 0);
+  ok('no answered or missed split is claimed', g.indexOf('call length only') >= 0);
+
+  // Exceptions: age bands, and deliberately no total against the 2-day target.
+  ok('exceptions are shown by age', g.indexOf('Over 30 days') >= 0);
+  ok('...and no total is compared against the two-day target',
+     g.indexOf('No total is compared against the two-day target') >= 0);
+  ok('exceptions belonging to nobody are counted', g.indexOf('57') >= 0);
+  ok('closed-today is declared underivable rather than estimated',
+     g.indexOf('no resolution date') >= 0);
+}
+
+console.log('\n--- neither one blanks the other, and neither invents a zero ---');
+{
+  const HALF = async function (u) {
+    if (/endpoint=csm_calls/.test(u)) return { ok: false, status: 502 };
+    if (/endpoint=csm_exceptions/.test(u)) return { ok: true, json: async () => EXC };
+    if (/endpoint=csm_pto/.test(u)) return { ok: true, json: async () => ({ via: 'graph-app', events: [] }) };
+    return { ok: true, json: async () => (/note_cadence/.test(u) ? LIVE : { rows: [] }) };
+  };
+  const H = boot(HALF);
+  H.ctx.window.TributeApp = APP;
+  H.ctx.window.TributeMetrics.open();
+  await after(120);
+  const h = H.painted();
+  ok('a failed call feed does not blank the exceptions beside it',
+     h.indexOf('Over 30 days') >= 0);
+  ok('a failed call feed says it is a gap, not a quiet fortnight',
+     h.indexOf('not a quiet fortnight') >= 0);
+  ok('...and no call numbers are drawn', h.indexOf('not reliable enough to measure') < 0);
+  ok('the failure is listed under what was not measured', h.indexOf('Call activity: ') >= 0);
+}
+
+console.log('\n' + (fail ? 'FAILED ' + fail + ' of ' + (pass + fail) : 'PASSED all ' + pass));
   process.exit(fail ? 1 : 0);
 }());
