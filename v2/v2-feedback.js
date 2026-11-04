@@ -333,13 +333,19 @@
       const settled = (st === 'resolved' || st === 'not_changing');
       const badge = '<span class="v2-fbx-st s-' + esc(st) + '">' +
         esc(STATUS_LABEL[st] || st) + '</span>';
-      const by = (it.statusBy && st !== 'new')
+      /* The note is its own thing, not a detail of the "settled by" line.
+         It used to be concatenated inside that branch, which required
+         statusBy, so any record without one rendered the status and no
+         explanation at all. */
+      const byLine = (it.statusBy && st !== 'new')
         ? '<div class="v2-fbx-by">' + esc(STATUS_LABEL[st] || st) + ' by ' +
           esc(String(it.statusBy).split('@')[0]) +
           (it.statusAt ? ' \u00b7 ' + esc(WHEN(it.statusAt)) : '') +
           (it.fixBuild ? ' \u00b7 build ' + esc(String(it.fixBuild).slice(0, 10)) : '') +
-          '</div>' + (it.fixNote ? '<div class="v2-fbx-fix">' + esc(it.fixNote) + '</div>' : '')
+          '</div>'
         : '';
+      const by = byLine +
+        (it.fixNote ? '<div class="v2-fbx-fix">' + esc(it.fixNote) + '</div>' : '');
       return '<div class="v2-fbx-item' + (settled ? ' settled' : '') + (it.mine ? ' mine' : '') +
         '" data-id="' + esc(it.id || '') + '">' +
         '<div class="v2-fbx-top"><b>' + esc(kind) + '</b> ' + badge +
