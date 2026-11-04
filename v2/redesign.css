@@ -2034,6 +2034,23 @@ input[type="email"], select { min-height: var(--h-ctl); }
   font-size: 30px; font-weight: 600; letter-spacing: -.022em; color: var(--ink);
   line-height: 1.12; margin: 0;
 }
+/* Tier beside the name. The same three tones Fill Priority already uses, so
+   a CSM reads one vocabulary across the Hub rather than two. "No tier set" is
+   stated rather than left blank, because a blank reads as Low. */
+.rd-cw-tier {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-left: 10px; vertical-align: middle;
+  font-size: 12px; font-weight: 600; letter-spacing: 0;
+  border-radius: 999px; padding: 2px 10px; white-space: nowrap;
+}
+.rd-cw-tier .dot { font-size: 8px; line-height: 1; margin: 0; }
+.rd-cw-tier.hi   { background: var(--hi-bg);  color: var(--hi); }
+.rd-cw-tier.med  { background: var(--med-bg); color: var(--med); }
+.rd-cw-tier.lo   { background: var(--lo-bg);  color: var(--lo); }
+.rd-cw-tier.none { background: var(--line-soft); color: var(--muted); font-weight: 500; }
+@media (max-width: 720px) {
+  .rd-cw-tier { margin-left: 8px; font-size: 11px; padding: 2px 8px; }
+}
 .rd-cw-meta {
   margin-top: var(--s2); font-size: 13.5px; color: var(--ink-3);
   letter-spacing: .005em;

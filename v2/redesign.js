@@ -73,7 +73,7 @@
      role rules — nothing here grants or hides a capability. */
   const GROUPS = [
     ['Work', [['home', 'Home'], ['clients', 'Clients'], ['coverage', 'Coverage'],
-              ['s60', 'Success in 30'], ['priority', 'Fill Priority'], ['pulse', 'Client Pulse']]],
+              ['s60', 'Onboarding'], ['priority', 'Fill Priority'], ['pulse', 'Client Pulse']]],
     ['Operations', [['md', 'Maryland Compliance'], ['ltc', 'LTC'],
                     ['emailcomm', 'Community Email'], ['team', 'Team'],
                     ['__metrics', 'Daily Metrics']]],
@@ -982,10 +982,25 @@
         '<em class="rd-soon">Soon</em></button>');
     }
 
+    /* TIER, AT A GLANCE, WHERE THE CSM IS ALREADY LOOKING.
+       Tier drives both cadences and most of what Needs attention says, and it
+       was reachable only by opening Details and reading a key/value row.
+       "I'd like it to clearly show tiers on each client's profile with a quick
+       glance as it does with the fill priority" (Courtney, 11/03) — so it
+       borrows fill priority's vocabulary rather than inventing a second one:
+       the same three tones, the same dot, in the header beside the name. */
+    const TIER_TONE = { High: 'hi', Medium: 'med', Low: 'lo' };
+    const TIER_TEXT = { High: 'High need', Medium: 'Medium', Low: 'Low' };
+    const tone = TIER_TONE[c.tier];
+    const tierPill = tone
+      ? '<span class="rd-cw-tier ' + tone + '" title="Touchpoint and care-conversation cadence follow the tier">' +
+        '<span class="dot" aria-hidden="true">\u25CF</span>' + esc(TIER_TEXT[c.tier]) + '</span>'
+      : '<span class="rd-cw-tier none" title="No tier set, so no cadence is being measured">No tier set</span>';
+
     return '<header class="rd-cw-head">' +
       '<div class="rd-cw-bar"><button type="button" class="rd-ws-back">' + I('arrowLeft') +
       '<span>Clients</span></button><span class="rd-cw-bar-n">' + esc(c.name) + '</span></div>' +
-      '<h2 class="rd-cw-name">' + esc(c.name) + '</h2>' +
+      '<h2 class="rd-cw-name">' + esc(c.name) + tierPill + '</h2>' +
       '<p class="rd-cw-meta">' + esc(meta) + '</p>' +
       (addr
         ? '<address class="rd-cw-addr">' + esc(street) + (ct.unit ? ' · ' + esc(ct.unit) : '') +

@@ -258,7 +258,7 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
     <div class="nav-sec">My Work</div>
     <div class="nav-item active" onclick="showPage('home',this)"><span class="nav-icon">🏠</span>Home</div>
     <div class="nav-item" onclick="showPage('clients',this)"><span class="nav-icon">👥</span>Client Tracker</div>
-    <div class="nav-item" onclick="showPage('s60',this)"><span class="nav-icon">🎯</span>Success in 30</div>
+    <div class="nav-item" onclick="showPage('s60',this)"><span class="nav-icon">🎯</span>Onboarding</div>
     <div class="nav-item" onclick="showPage('coverage',this)"><span class="nav-icon">🏖️</span>Coverage Notes</div>
     <div class="nav-item" onclick="showPage('emailcomm',this)"><span class="nav-icon">✉️</span>Email Community</div>
     <div class="nav-item" onclick="showPage('ltc',this)"><span class="nav-icon">🧾</span>LTC Submissions</div>
@@ -592,7 +592,7 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
 
 <!-- SUCCESS IN 30 -->
 <div id="page-s60" class="page">
-  <div class="ph"><h2>🎯 Success in 30</h2><p>Track required onboarding touchpoints for new clients in their first 30 days. Aligns with the Viv Onboarding Checklist.</p></div>
+  <div class="ph"><h2>🎯 Onboarding</h2><p>The Success in 30 milestones: the required touchpoints for a new client's first 30 days. Aligns with the Viv Onboarding Checklist.</p></div>
   <div style="display:flex;gap:10px;margin-bottom:14px;align-items:center;">
     <div style="position:relative;max-width:300px;width:100%;">
       <input type="text" class="fc" id="s60-client-input" placeholder="Search for a client..." autocomplete="off"
@@ -7706,11 +7706,30 @@ async function vivSyncNow(interactive){
     if(!r.ok)throw new Error('HTTP '+r.status);
     const data=await r.json();
     applyVivData(data);
+    /* THE LABEL USED TO REPORT WHEN YOU CLICKED, NOT HOW OLD THE DATA IS.
+       csm_hub is stale-while-revalidate: it answers instantly from the last
+       good build and refreshes behind you. So pressing ⟳ stamped "Viv ✓
+       14:32" over a payload that could have been built hours earlier, and
+       the one thing the button was supposed to tell you — whether anything
+       actually came down — was the one thing it could not say ("Viv isn't
+       syncing. We need to figure out a cadence that makes sense", 10/29).
+       The payload has carried _stale and _ageMinutes all along; nothing
+       read them. */
+    _vivBuiltAt = data.generatedAt || null;
     if(commsR&&commsR.ok){
       try{applyCommsData(await commsR.json());}catch(e){console.warn('comms merge failed',e);}
     }
     localStorage.setItem('viv_last_sync',new Date().toISOString());
-    setVivLabel('Viv ✓ '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}));
+    setVivLabel(_vivFreshnessLabel(data));
+    /* And actually ask for a rebuild. The server only starts one when a read
+       finds the blob over 30 minutes old, so a manual ⟳ on data that is
+       merely stale did nothing at all except redraw the same numbers. When
+       the answer says it is stale, kick the fresh build here and say so;
+       it is detached on purpose, because a cold rebuild runs past Azure's
+       230-second gateway and awaiting it would just time the page out. */
+    if(interactive&&data._stale){
+      fetch(VIV_PROXY+'?endpoint=csm_hub&fresh=1',{headers}).catch(()=>{});
+    }
     if(P){
       updateHome();syncDropdowns();
       renderClientMaster();renderFillPriority();renderOpenVisits();
@@ -7719,11 +7738,30 @@ async function vivSyncNow(interactive){
       loadCoC();       // change-of-condition tasks, incl. clients I'm covering
       reconcileVisitLog(); // drop tracker rows whose Viv visit was deleted
     }
-    if(interactive)showToast('Viv sync complete — clients, visits, open visits & leads updated! ⟳');
+    if(interactive){
+      showToast(data._stale
+        ? 'Showing Viv data from '+_vivWhen(data.generatedAt)+' ('+(data._ageMinutes||0)+' min old). A rebuild has been started — press ⟳ again in a minute for the new numbers.'
+        : 'Viv sync complete — clients, visits, open visits & leads updated! ⟳');
+    }
   }catch(e){
     setVivLabel('Viv: sync failed');
     if(interactive)showToast('Viv sync failed — '+(e.message||e));
   }finally{_vivSyncing=false;}
+}
+
+// When the payload we are LOOKING AT was built, which is not when we asked.
+let _vivBuiltAt=null;
+function _vivWhen(iso){
+  try{ return new Date(iso).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
+  catch(e){ return 'an unknown time'; }
+}
+function _vivFreshnessLabel(data){
+  if(!data||!data.generatedAt) return 'Viv ✓ (age unknown)';
+  const mins=data._ageMinutes!=null?data._ageMinutes
+    :Math.max(0,Math.round((Date.now()-new Date(data.generatedAt).getTime())/60000));
+  if(mins<=2) return 'Viv ✓ '+_vivWhen(data.generatedAt);
+  if(mins<60) return 'Viv ✓ '+_vivWhen(data.generatedAt)+' · '+mins+'m old';
+  return 'Viv ⚠ '+_vivWhen(data.generatedAt)+' · '+Math.round(mins/60)+'h old';
 }
 
 function applyVivData(data){
