@@ -4,9 +4,18 @@
    Courtney, 29 October: "show who is out, who is covering, and whether
    coverage is ready, without me rebuilding it from email threads."
 
-   SOURCE IS THE TRIBUTE PUBLIC CALENDAR, read with the signed-in person's own
-   Microsoft token. Not the request emails: their dates change, say "TBD" and
-   "tentative", and an unconfirmed date shown as fact is worse than no date.
+   SOURCE IS THE TRIBUTE PUBLIC CALENDAR, read SERVER-SIDE through the API
+   (endpoint csm_pto). Not the request emails: their dates change, say "TBD"
+   and "tentative", and an unconfirmed date shown as fact is worse than no
+   date.
+
+   It used to be read here in the browser with the signed-in person's own
+   Microsoft token. That needs each CSM to hold Reviewer on the tributepublic
+   mailbox or to have added the shared calendar by hand, and nobody did, so
+   the panel showed a gap for everyone. The server reads it with the app
+   credential instead, which works for every CSM on day one including new
+   joiners. The trade is that anyone who can open this page can see who is
+   off, rather than only those granted the calendar.
 
    TWO RULES THAT OVERRIDE CONVENIENCE:
 
@@ -36,67 +45,37 @@
   function addDays(s, n) { var d = new Date(s + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return iso(d); }
 
   /* ── reading the calendar ────────────────────────────────────────────────
-     Three ways a shared calendar can be reachable with a delegated token, and
-     which one works depends on how Tribute Public was shared. Rather than
-     assume, each is tried in turn and the one that answered is reported, so
-     the first run tells us what the tenant actually allows instead of failing
-     with "something went wrong". */
-  async function token() {
-    var gate = window.tributeKsfGate;
-    if (!gate || !gate.getGraphToken) throw new Error('Sign in with Microsoft first');
-    var t = await gate.getGraphToken(['Calendars.ReadWrite'], true);
-    if (!t) t = await gate.getGraphToken(['Calendars.Read'], true);
-    if (!t) throw new Error('Outlook is not connected yet');
-    return t;
-  }
+     One call to the API, which holds the credential that can actually read
+     Tribute Public. Nothing here falls back to an empty list: an unreadable
+     calendar and a calendar with nobody off look identical on screen, and the
+     second one quietly tells a CSM that everybody is in. A failure throws and
+     the panel says gap. */
+  function api() { var a = A(); return (typeof a.vivProxy === 'string' && a.vivProxy) || ''; }
 
   async function read(fromISO, toISO) {
-    var tok = await token();
-    var h = { Authorization: 'Bearer ' + tok };
-    var q = 'startDateTime=' + fromISO + 'T00:00:00Z&endDateTime=' + toISO + 'T23:59:59Z&$top=500' +
-            '&$select=subject,start,end,isAllDay,organizer,showAs';
     var tried = [];
-
-    // `noun` matters: the first attempt returns CALENDARS and the rest return
-    // EVENTS. Labelling both "events" produced "my calendar list: 4 events",
-    // which reads as though four days off were found and then discarded.
-    async function attempt(label, url, noun) {
-      try {
-        var r = await fetch(url, { headers: h });
-        if (!r.ok) { tried.push(label + ': HTTP ' + r.status); return null; }
-        var j = await r.json();
-        var v = (j && j.value) || [];
-        tried.push(label + ': ' + v.length + ' ' + (noun || 'events'));
-        return v;
-      } catch (e) { tried.push(label + ': ' + (e.message || 'failed')); return null; }
+    var h = {};
+    try { h = (typeof window.dataHeaders === 'function') ? await window.dataHeaders() : {}; } catch (e) {}
+    var url = api() + '?endpoint=csm_pto&from=' + encodeURIComponent(fromISO) + '&to=' + encodeURIComponent(toISO);
+    var r, j;
+    try {
+      r = await fetch(url, { headers: h });
+    } catch (e) {
+      tried.push('csm_pto: ' + (e.message || 'the request failed'));
+      var ne = new Error('Tribute Public could not be read'); ne.tried = tried; throw ne;
     }
-
-    // 1. The calendar added to the signed-in person's own list. The most
-    //    common shape, and the cheapest.
-    var mine = await attempt('my calendar list', 'https://graph.microsoft.com/v1.0/me/calendars?$select=id,name,owner&$top=100', 'calendars');
-    if (mine) {
-      var cal = mine.filter(function (c) {
-        return /tribute\s*public/i.test(c.name || '') ||
-          String(((c.owner || {}).address) || '').toLowerCase() === PUBLIC_UPN;
-      })[0];
-      if (cal) {
-        var ev = await attempt('shared calendar "' + (cal.name || '') + '"',
-          'https://graph.microsoft.com/v1.0/me/calendars/' + encodeURIComponent(cal.id) + '/calendarView?' + q);
-        if (ev) return { events: ev, via: 'me/calendars', tried: tried };
-      } else {
-        tried.push('my calendar list: no calendar named Tribute Public');
-      }
+    j = await r.json().catch(function () { return {}; });
+    if (!r.ok) {
+      // The endpoint says WHY, including which Graph permission is missing.
+      // Carried through so the panel shows the fix, not just the symptom.
+      tried.push('csm_pto: HTTP ' + r.status + (j.error ? ' — ' + j.error : ''));
+      if (j.graphStatus) tried.push('Graph replied ' + j.graphStatus);
+      if (j.hint) tried.push(j.hint);
+      var e2 = new Error('Tribute Public could not be read'); e2.tried = tried; throw e2;
     }
-    // 2. Direct, which needs at least Reviewer on that mailbox.
-    var direct = await attempt('tributepublic mailbox',
-      'https://graph.microsoft.com/v1.0/users/' + encodeURIComponent(PUBLIC_UPN) + '/calendar/calendarView?' + q);
-    if (direct) return { events: direct, via: 'users/' + PUBLIC_UPN, tried: tried };
-
-    // Nothing worked. Say precisely what was tried, because the fix is an
-    // Exchange permission and whoever grants it needs to know which one.
-    var e = new Error('Tribute Public could not be read');
-    e.tried = tried;
-    throw e;
+    var events = (j && j.events) || [];
+    tried.push('csm_pto: ' + events.length + ' events');
+    return { events: events, via: j.via || 'csm_pto', tried: tried };
   }
 
   /* ── reading a subject ───────────────────────────────────────────────────

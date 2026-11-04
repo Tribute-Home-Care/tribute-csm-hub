@@ -117,10 +117,25 @@ ok('no Graph mail endpoint is ever called',
 ok('every Graph call in this file targets a calendar',
    SRC.split('\n').filter(l => l.indexOf('graph.microsoft.com') >= 0)
       .every(l => /calendar/i.test(l)));
-ok('and there are only the three access attempts',
-   SRC.split('\n').filter(l => l.indexOf('graph.microsoft.com') >= 0).length === 3);
-ok('three access paths are tried before giving up', /me\/calendars/.test(SRC) && /users\/' \+ encodeURIComponent\(PUBLIC_UPN\)/.test(SRC));
-ok('a failure reports which paths were tried', /e\.tried = tried/.test(SRC));
+// The browser no longer talks to Graph at all. Reading Tribute Public with
+// the signed-in person's own token needed every CSM to hold Reviewer on that
+// mailbox or to have added the shared calendar by hand; nobody did, so the
+// panel showed a gap for all twelve. The server reads it with the app
+// credential through endpoint csm_pto.
+ok('the browser makes no Graph calls of its own',
+   SRC.split('\n').filter(l => l.indexOf('graph.microsoft.com') >= 0).length === 0);
+ok('it reads through the API endpoint instead', /endpoint=csm_pto/.test(SRC));
+ok('it asks for the window it was given, not a fixed one',
+   /from=' \+ encodeURIComponent\(fromISO\)/.test(SRC) && /to=' \+ encodeURIComponent\(toISO\)/.test(SRC));
+ok('a failure reports what was tried', /e2\.tried = tried/.test(SRC) && /ne\.tried = tried/.test(SRC));
+// The endpoint names the missing Graph permission when that is the cause.
+// Dropping it would leave the panel saying "could not be read" with no fix.
+ok('the reason the endpoint gives is carried to the panel',
+   /j\.hint/.test(SRC) && /j\.graphStatus/.test(SRC));
+// Every failure path must THROW. Returning [] would render "nobody is out".
+ok('no failure path returns an empty event list',
+   !/catch[^}]*return \{ events: \[\]/.test(SRC));
+ok('both failure paths throw', (SRC.match(/throw (ne|e2);/g) || []).length === 2);
 // Graph's all-day end is exclusive. Without the adjustment a Friday off reads
 // as covering the weekend.
 ok('an all-day end is made inclusive', /ev\.isAllDay \? addDays\(iso\(endRaw\), -1\)/.test(SRC));

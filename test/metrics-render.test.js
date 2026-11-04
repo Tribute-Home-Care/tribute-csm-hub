@@ -190,11 +190,10 @@ function after(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
   ok('and names what it could not', r.indexOf('Note cadence was not measured') >= 0);
 
   console.log('\n--- who is out ---');
-  // Graph answers: one calendar named Tribute Public, two entries in it.
+  // The API answers now, not Graph: the browser has no credential that can
+  // read Tribute Public and no longer tries.
   var CAL = async function (u) {
-    if (/me\/calendars\?/.test(u)) return { ok: true, json: async () => ({ value: [
-      { id: 'cal1', name: 'Tribute Public', owner: { address: 'tributepublic@tributehomecare.com' } }] }) };
-    if (/calendarView/.test(u)) return { ok: true, json: async () => ({ value: [
+    if (/endpoint=csm_pto/.test(u)) return { ok: true, json: async () => ({ via: 'graph-app', events: [
       { subject: 'Julia Hanna PTO - Jury Duty', isAllDay: true,
         start: { date: '2099-01-05' }, end: { date: '2099-01-10' } },
       { subject: 'Nobody Known PTO', isAllDay: true,
@@ -216,8 +215,12 @@ function after(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
   ok('an on-call shift is not treated as time off', ep.indexOf('On-call') < 0);
 
   console.log('\n--- a calendar that cannot be read ---');
+  // The shape the endpoint actually returns when Graph refuses it: a 502
+  // from us carrying Graph's own status and the grant that would fix it.
   var DENY = async function (u) {
-    if (/graph\.microsoft\.com/.test(u)) return { ok: false, status: 403 };
+    if (/endpoint=csm_pto/.test(u)) return { ok: false, status: 502, json: async () => ({
+      error: 'Tribute Public could not be read', graphStatus: 403,
+      hint: 'the app registration needs the APPLICATION permission Calendars.Read with admin consent' }) };
     return { ok: true, json: async () => (/note_cadence/.test(u) ? LIVE : { rows: [] }) };
   };
   var F = boot(DENY);
@@ -229,7 +232,11 @@ function after(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
   ok('it does not claim nobody is out', fp.indexOf('Nobody is out') < 0);
   ok('it says the calendar could not be read', fp.indexOf('could not be read') >= 0);
   ok('...and calls it a gap, not an empty calendar', fp.indexOf('not an empty calendar') >= 0);
-  ok('it reports which access paths were tried', fp.indexOf('HTTP 403') >= 0);
+  ok('it reports what was tried', fp.indexOf('HTTP 502') >= 0);
+  // Graph's own refusal must survive the hop, or the panel blames the API for
+  // a permission problem that is not the API's.
+  ok('...and surfaces the status Graph itself gave', fp.indexOf('Graph replied 403') >= 0);
+  ok('...and names the grant that would fix it', fp.indexOf('Calendars.Read') >= 0);
   ok('the rest of the page still works', fp.indexOf('Visit past due') >= 0);
 
   console.log('\n' + (fail ? 'FAILED ' + fail + ' of ' + (pass + fail) : 'PASSED all ' + pass));
