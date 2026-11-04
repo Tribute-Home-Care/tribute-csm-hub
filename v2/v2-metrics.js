@@ -483,7 +483,7 @@
     }
     var rows = r.candidates || [];
     var open = !!S.open.retype;
-    var o = '<div class="card mx-team"><h3><button type="button" class="mx-tog" data-open="retype" aria-expanded="' +
+    var o = '<div class="card mx-team mx-retype"><h3><button type="button" class="mx-tog" data-open="retype" aria-expanded="' +
       open + '">' + I(open ? 'chevronDown' : 'chevron') +
       'Exceptions that may be typed wrong' + (rows.length ? ' <em>' + rows.length + '</em>' : '') +
       '</button></h3>';
@@ -514,7 +514,7 @@
         '<span class="mx-w">Typed as <b>' + esc(x.typedAs || '') + '</b>' +
         ' · matched: ' + esc((x.signals || []).join(', ')) +
         (x.status ? ' · ' + esc(x.status) : '') + '</span>' +
-        (x.quote ? '<span class="mx-w">“' + esc(x.quote) + '”</span>' : '') +
+        (x.quote ? '<span class="mx-w mx-quote">“' + esc(x.quote) + '”</span>' : '') +
         '</li>';
     }).join('') + '</ul></div>';
     return o + '</div>';

@@ -50,7 +50,43 @@ function boot(fetchImpl) {
   vm.runInContext(SRC, ctx);
   const page = pages['page-metrics'];
   if (page) page.querySelector = (s) => (s === '#mx-view' ? view : null);
-  return { ctx, page, painted: () => painted };
+  /* Enough DOM to work a disclosure. The collapsed panels render a summary
+     and nothing else, so without this the harness could only ever see half
+     of what the page draws — which is how a layout bug that made the whole
+     review queue unreadable shipped with every test green.
+     The nodes are parsed back out of the painted string, so the handler the
+     module actually attaches is the one the test fires. */
+  // Nodes are cached per key. The first version built fresh objects on every
+  // call, so the module attached its handler to one object and the test
+  // clicked another: toggle() reported success and nothing happened.
+  const nodeCache = new Map();
+  if (page) {
+    page.querySelectorAll = (sel) => {
+      const attr = /\[data-open\]/.test(sel) ? 'open' : (/\[data-a\]/.test(sel) ? 'a' : null);
+      if (!attr) return [];
+      const re = new RegExp('data-' + attr + '="([^"]+)"', 'g');
+      const seen = new Set(); const out = []; let m;
+      while ((m = re.exec(painted))) {
+        if (seen.has(m[1])) continue;
+        seen.add(m[1]);
+        const ck = attr + ':' + m[1];
+        if (!nodeCache.has(ck)) {
+          nodeCache.set(ck, { dataset: { [attr]: m[1] }, _h: [],
+            addEventListener(_e, h) { if (this._h.indexOf(h) < 0) this._h.push(h); },
+            click() { this._h.slice(-1).forEach((h) => h.call(this)); } });
+        }
+        out.push(nodeCache.get(ck));
+      }
+      return out;
+    };
+  }
+  const toggle = (key) => {
+    const n = (page ? page.querySelectorAll('[data-open]') : []).find((x) => x.dataset.open === key);
+    if (!n) return false;
+    n.click();
+    return true;
+  };
+  return { ctx, page, painted: () => painted, toggle };
 }
 
 const PROFILE_BY_UPN = { 'courtney.chaulk@tributehomecare.com': { id: 'courtney', name: 'Courtney Chaulk', market: 'Massachusetts', isManager: true },
@@ -338,6 +374,29 @@ const withRetype = (over) => async function (u) {
   ok('the heading hedges, because the match might be wrong', k.indexOf('may be typed wrong') >= 0);
   ok('it says it writes nothing to Viv', k.indexOf('never writes to Viv') >= 0);
   ok('...and that re-typing is done by a person', k.indexOf('Re-type it in Viv if you agree') >= 0);
+
+  /* LAYOUT, because this one only shows up on screen. Every other list on
+     this page puts ONE .mx-w in a row, which is why the stylesheet pins
+     .mx-w to column 2 across both grid rows. These rows have two, and the
+     first version drew them in the same cell, one on top of the other: the
+     whole queue was unreadable and the tests were all green. */
+  // Open the disclosure the way a reader does; the rows only exist expanded.
+  ok('the review queue can be opened', K.toggle('retype'));
+  const k2 = K.painted();
+  const lis = k2.split('<li>').slice(1);
+  const twoW = lis.filter(function (li) { return (li.match(/class="mx-w/g) || []).length > 1; });
+  ok('a row carrying two detail spans exists', twoW.length > 0);
+  ok('...and its card opts into the stacking layout, so they cannot overlap',
+     !twoW.length || k2.indexOf('mx-retype') >= 0);
+  ok('the quote is marked so it can be styled apart from the type line',
+     k2.indexOf('mx-w mx-quote') >= 0);
+}
+{
+  // The override has to exist in the stylesheet, not just be asked for.
+  const css = fs.readFileSync(path.join(__dirname, '../v2/v2-metrics.css'), 'utf8');
+  ok('the stylesheet stacks the review rows instead of pairing them',
+     /\.mx-retype \.mx-ul li \{[^}]*grid-template-columns:\s*1fr/.test(css));
+  ok('...and releases .mx-w from the pinned cell', /\.mx-retype \.mx-w \{[^}]*grid-row:\s*auto/.test(css));
 }
 
 console.log('\n--- an empty queue is only good news if the detector works ---');

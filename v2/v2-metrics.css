@@ -62,6 +62,22 @@
 .mx-w { font-size: 13px; color: var(--ink-2); grid-column: 2; grid-row: 1 / span 2; align-self: center; }
 .mx-more { color: var(--muted); font-size: 13px; }
 
+/* ── the exception type review ─────────────────────────────────────────────
+   Every other list here has ONE .mx-w, which is why .mx-w is pinned to
+   column 2 across both rows. These rows have two — how it was typed, and the
+   sentence from the narrative — and pinning both to the same cell drew them
+   on top of each other. So this list stacks instead of pairing, the same
+   override .mx-unread already uses, and the quote gets room to be read. */
+.mx-retype .mx-ul li { grid-template-columns: 1fr; gap: 4px; }
+.mx-retype .mx-w { grid-column: 1; grid-row: auto; align-self: start; }
+.mx-retype .mx-quote {
+  font-style: italic;
+  color: var(--ink-2);
+  border-left: 2px solid var(--line);
+  padding-left: var(--s2);
+  line-height: 1.5;
+}
+
 /* ── what could not be read ────────────────────────────────────────────── */
 .mx-unread { border-left: 3px solid var(--med); }
 .mx-unread .mx-ul li { grid-template-columns: 1fr; }
