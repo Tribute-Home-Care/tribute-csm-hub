@@ -281,7 +281,7 @@
     el.className = 'open';
     el.innerHTML = '<div class="v2-fbx-panel" role="dialog" aria-modal="true">' +
       '<button class="v2-fb-x" type="button" aria-label="Close">×</button>' +
-      '<h3>Pilot feedback</h3><div id="v2-fbx-body"><p class="v2-fb-sub">Loading…</p></div></div>';
+      '<h3>' + (window.__v2FbCanTriage === false ? 'What everyone has reported' : 'Pilot feedback') + '</h3><div id="v2-fbx-body"><p class="v2-fb-sub">Loading…</p></div></div>';
     el.querySelector('.v2-fb-x').addEventListener('click', function () { el.classList.remove('open'); });
     el.addEventListener('click', function (e) { if (e.target === el) el.classList.remove('open'); });
     const body = el.querySelector('#v2-fbx-body');
@@ -299,13 +299,26 @@
       return;
     }
     if (!j.count) { body.innerHTML = '<p class="v2-fb-sub">Nothing submitted yet.</p>'; return; }
+    /* WHO IS READING. Everyone signed in can now see the queue; only a
+       reviewer can move anything. Before this, reading was reviewer-only and
+       there are two reviewers, so a tester sent a report into silence: two of
+       Courtney's data bugs were fixed on 4 November and the Hub just started
+       showing different numbers. The triage buttons are hidden rather than
+       shown-and-rejected, because a button that 403s is worse than no
+       button. The server decides; this only renders what it was told. */
+    const canTriage = j.canTriage !== false;
+    window.__v2FbCanTriage = canTriage;
+    const h3 = el.querySelector('.v2-fbx-panel h3');
+    if (h3) h3.textContent = canTriage ? 'Pilot feedback' : 'What everyone has reported';
     const tally = j.items.reduce(function (a, i) {
       const k = i.status || 'new'; a[k] = (a[k] || 0) + 1; return a; }, {});
     const open = (tally.new || 0) + (tally.reviewed || 0) + (tally.fix_planned || 0);
+    const mine = j.items.filter(function (i) { return i.mine; }).length;
     const summary = '<p class="v2-fb-sub"><b>' + open + ' still open</b> of ' + j.count +
       ' \u00b7 ' + STATUSES.map(function (s) {
         return tally[s[0]] ? tally[s[0]] + ' ' + s[1].toLowerCase() : null;
-      }).filter(Boolean).join(', ') + '</p>';
+      }).filter(Boolean).join(', ') +
+      (mine ? ' \u00b7 ' + mine + ' of them yours' : '') + '</p>';
     body.innerHTML = summary + j.items.map(function (it) {
       /* Field names read off the stored records, not guessed. The first
          version rendered it.kind and it.submittedBy, which the store does
@@ -327,18 +340,22 @@
           (it.fixBuild ? ' \u00b7 build ' + esc(String(it.fixBuild).slice(0, 10)) : '') +
           '</div>' + (it.fixNote ? '<div class="v2-fbx-fix">' + esc(it.fixNote) + '</div>' : '')
         : '';
-      return '<div class="v2-fbx-item' + (settled ? ' settled' : '') + '" data-id="' + esc(it.id || '') + '">' +
+      return '<div class="v2-fbx-item' + (settled ? ' settled' : '') + (it.mine ? ' mine' : '') +
+        '" data-id="' + esc(it.id || '') + '">' +
         '<div class="v2-fbx-top"><b>' + esc(kind) + '</b> ' + badge +
+        (it.mine ? '<span class="v2-fbx-mine">yours</span>' : '') +
         '<span>' + esc(who) + (it.market ? ' \u00b7 ' + esc(it.market) : '') +
         ' \u00b7 ' + esc(WHEN(it.submittedAt)) + '</span></div>' +
         (it.route ? '<div class="v2-fbx-where">' + esc(it.route) + '</div>' : '') +
         '<p class="v2-fbx-text">' + esc(it.message || it.text || '') + '</p>' + by +
         (it.expected ? '<p class="v2-fbx-exp"><em>Expected:</em> ' + esc(it.expected) + '</p>' : '') +
         (it.impact ? '<div class="v2-fbx-where">Impact: ' + esc(it.impact) + '</div>' : '') +
-        '<div class="v2-fbx-acts">' + STATUSES.map(function (st) {
-          return '<button type="button" class="v2-fb-opt' + (it.status === st[0] ? ' on' : '') +
-            '" data-st="' + st[0] + '">' + esc(st[1]) + '</button>';
-        }).join('') + '</div></div>';
+        (canTriage
+          ? '<div class="v2-fbx-acts">' + STATUSES.map(function (st) {
+              return '<button type="button" class="v2-fb-opt' + (it.status === st[0] ? ' on' : '') +
+                '" data-st="' + st[0] + '">' + esc(st[1]) + '</button>';
+            }).join('') + '</div>'
+          : '') + '</div>';
     }).join('');
     // Status changes go to the PATCH the server already implements.
     [].forEach.call(body.querySelectorAll('.v2-fbx-item'), function (row) {

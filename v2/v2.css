@@ -201,6 +201,12 @@
 .v2-fbx-st{display:inline-block;font-size:10px;letter-spacing:.05em;text-transform:uppercase;
   padding:2px 7px;border-radius:4px;background:var(--line-soft);color:var(--muted);vertical-align:2px}
 .v2-fbx-st.s-new{background:var(--hi-bg);color:var(--hi)}
+/* Your own report, in a queue that is now everybody's. Quiet: it marks the
+   row, it does not rank it. */
+.v2-fbx-mine{display:inline-block;font-size:10px;letter-spacing:.05em;text-transform:uppercase;
+  font-weight:700;border-radius:999px;padding:1px 7px;margin-left:6px;
+  background:var(--line-soft);color:var(--muted)}
+.v2-fbx-item.mine{border-left:2px solid var(--line);padding-left:10px}
 .v2-fbx-st.s-reviewed,.v2-fbx-st.s-fix_planned{background:var(--med-bg);color:var(--med)}
 .v2-fbx-st.s-resolved{background:var(--lo-bg);color:var(--lo)}
 .v2-fbx-item.settled{opacity:.62}
