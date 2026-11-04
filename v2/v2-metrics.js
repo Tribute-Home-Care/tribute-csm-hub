@@ -29,7 +29,7 @@
   'use strict';
 
   var PAGE_ID = 'page-metrics';
-  var S = { loading: false, err: null, cadence: null, md: null, pto: null, calls: null, exc: null, open: {}, scope: null };
+  var S = { loading: false, err: null, cadence: null, md: null, pto: null, calls: null, exc: null, retype: null, open: {}, scope: null };
 
   function A() { return window.TributeApp || {}; }
   function api() { var a = A(); return (typeof a.vivProxy === 'string' && a.vivProxy) || ''; }
@@ -145,7 +145,7 @@
         : Promise.reject(new Error('the PTO reader is not loaded')));
     };
     var res = await Promise.allSettled([get('note_cadence'), get('md_compliance'), pto(),
-                                        get('csm_calls'), get('csm_exceptions')]);
+                                        get('csm_calls'), get('csm_exceptions'), get('se_retype')]);
     S.cadence = res[0].status === 'fulfilled' ? res[0].value : { error: String(res[0].reason && res[0].reason.message || 'unavailable') };
     S.md = res[1].status === 'fulfilled' ? res[1].value : { error: String(res[1].reason && res[1].reason.message || 'unavailable') };
     S.pto = res[2].status === 'fulfilled' ? res[2].value
@@ -155,6 +155,7 @@
     // beside it, and neither must blank the cadence above them.
     S.calls = res[3].status === 'fulfilled' ? res[3].value : { error: String(res[3].reason && res[3].reason.message || 'unavailable') };
     S.exc   = res[4].status === 'fulfilled' ? res[4].value : { error: String(res[4].reason && res[4].reason.message || 'unavailable') };
+    S.retype = res[5].status === 'fulfilled' ? res[5].value : { error: String(res[5].reason && res[5].reason.message || 'unavailable') };
     S.loading = false;
     render();
   }
@@ -260,6 +261,7 @@
 
     out += ptoPanel();
     out += excPanel();
+    out += retypePanel();
     out += callsPanel();
 
     /* ── anything that could not be read, said plainly ─────────────────── */
@@ -275,6 +277,14 @@
     if (S.md && S.md.error) unread.push('Maryland compliance board: ' + S.md.error);
     if (S.exc && S.exc.error) unread.push('Service exceptions: ' + S.exc.error);
     if (S.calls && S.calls.error) unread.push('Call activity: ' + S.calls.error);
+    if (S.retype && S.retype.error) unread.push('Exception type review: ' + S.retype.error);
+    // A detector that silently detects nothing looks exactly like a clean
+    // result. It shipped that way once, matching backspace characters, and
+    // returned 1 where 26 was right. If the server says its own signal table
+    // is broken, the empty queue below means nothing and has to say so.
+    else if (S.retype && S.retype.signalTableOk === false)
+      unread.push('Exception type review: the server reports its own signal table is not matching, '
+        + 'so an empty queue below is not a clean result.');
     if (unread.length) out += '<div class="card mx-unread"><h3>Not measured</h3><ul class="mx-ul">' +
       unread.map(function (u) { return '<li><span class="mx-w">' + esc(u) + '</span></li>'; }).join('') +
       '</ul><p class="mx-note">These are gaps in what could be read, not clean results.</p></div>';
@@ -447,6 +457,66 @@
         }).join('') + '</tbody></table></div>';
     });
     o += '<p class="mx-note">' + esc(e.closedTodayNote || '') + '</p>';
+    return o + '</div>';
+  }
+
+  /* ── exceptions that may be typed wrong ──────────────────────────
+     Already filed, already worked, mostly already closed. What is wrong is
+     the dropdown: the narrative describes a complaint and the type says "No
+     complaint: internal communication". In October that was 26 rows, 21% on
+     top of the 119 filed as complaints, invisible to any count of them.
+
+     EVERY ROW IS A QUESTION, NOT A FINDING. Keyword matching cannot tell a
+     caregiver refusing a visit from a family refusing care, so the words that
+     matched and the sentence they sat in are both shown and the reviewer
+     decides. The heading says "may be" for the same reason.
+
+     Nothing here writes to Viv. Re-typing is done in Viv by whoever agrees
+     with it; this only says where to look. */
+  function retypePanel() {
+    var r = S.retype;
+    if (!r) return '';
+    if (r.error) {
+      return '<div class="card mx-unread"><h3>Exception type review</h3>' +
+        '<p class="mx-note">Could not be read: ' + esc(r.error) +
+        '. This is a gap, not an empty queue.</p></div>';
+    }
+    var rows = r.candidates || [];
+    var open = !!S.open.retype;
+    var o = '<div class="card mx-team"><h3><button type="button" class="mx-tog" data-open="retype" aria-expanded="' +
+      open + '">' + I(open ? 'chevronDown' : 'chevron') +
+      'Exceptions that may be typed wrong' + (rows.length ? ' <em>' + rows.length + '</em>' : '') +
+      '</button></h3>';
+
+    if (!rows.length) {
+      // An empty queue is only good news if the detector is working.
+      return o + '<p class="mx-note">' + (r.signalTableOk === false
+        ? 'Nothing found, but the server reports its own signal table is not matching, so this is a gap rather than a clean result.'
+        : 'Nothing in the last ' + (r.days || 0) + ' days reads like a complaint filed as something else.') +
+        '</p></div>';
+    }
+    o += '<p class="mx-note"><b>' + rows.length + '</b> of ' + (r.typedNoComplaint || 0) +
+      ' exceptions typed "No complaint" have complaint language in the narrative, against ' +
+      (r.typedComplaint || 0) + ' filed as complaints. These are questions, not findings: ' +
+      esc(r.method || '') + '</p>';
+    // Said before the panel is opened, not inside it. Whether this thing can
+    // change a record is the first question a reader has, and making them
+    // expand a panel to find the answer is the wrong way round.
+    o += '<p class="mx-note">' + esc(r.suggestsNothing || '') +
+      ' Re-type it in Viv if you agree; nothing here changes a record.</p>';
+    if (!open) return o + '<p class="mx-note">Open to read them.</p></div>';
+
+    o += '<div class="mx-grp"><ul class="mx-ul">' + rows.map(function (x) {
+      return '<li><b>' + esc(x.client || 'Client not named') + '</b>' +
+        '<span class="mx-m">' + esc(x.date || '') +
+        (x.csm ? ' · ' + esc(x.csm) : '') + (x.market ? ' · ' + esc(x.market) : '') +
+        (x.incidentNum ? ' · #' + esc(x.incidentNum) : '') + '</span>' +
+        '<span class="mx-w">Typed as <b>' + esc(x.typedAs || '') + '</b>' +
+        ' · matched: ' + esc((x.signals || []).join(', ')) +
+        (x.status ? ' · ' + esc(x.status) : '') + '</span>' +
+        (x.quote ? '<span class="mx-w">“' + esc(x.quote) + '”</span>' : '') +
+        '</li>';
+    }).join('') + '</ul></div>';
     return o + '</div>';
   }
 

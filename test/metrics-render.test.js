@@ -304,6 +304,68 @@ const BOTH = async function (u) {
      g.indexOf('no resolution date') >= 0);
 }
 
+console.log('\n--- exceptions that may be typed wrong ---');
+// Already filed, already worked, mostly already closed. What is wrong is the
+// dropdown. Every row has to stay a question: keyword matching cannot tell a
+// caregiver refusing a visit from a family refusing care.
+const RETYPE = {
+  days: 34, typedNoComplaint: 432, typedComplaint: 119,
+  signalTableOk: true, upperBound: true,
+  method: 'Keyword match on the narrative of exceptions typed "No complaint".',
+  suggestsNothing: 'This never proposes a new exception and never writes to Viv.',
+  candidates: [
+    { incidentNum: 'SE-1', date: '2099-01-05', client: 'Ada Client', csm: 'Zoe Zane',
+      market: 'Boston', typedAs: 'No complaint: internal communication', status: 'resolved',
+      signals: ['upset', 'rude'], quote: 'The daughter called very upset.' }
+  ]
+};
+const withRetype = (over) => async function (u) {
+  if (/endpoint=se_retype/.test(u)) return { ok: true, json: async () => Object.assign({}, RETYPE, over || {}) };
+  if (/endpoint=csm_calls/.test(u)) return { ok: true, json: async () => CALLS };
+  if (/endpoint=csm_exceptions/.test(u)) return { ok: true, json: async () => EXC };
+  if (/endpoint=csm_pto/.test(u)) return { ok: true, json: async () => ({ via: 'graph-app', events: [] }) };
+  return { ok: true, json: async () => (/note_cadence/.test(u) ? LIVE : { rows: [] }) };
+};
+{
+  const K = boot(withRetype());
+  K.ctx.window.TributeApp = APP;
+  K.ctx.window.TributeMetrics.open();
+  await after(130);
+  const k = K.painted();
+  ok('the queue reaches the page', k.indexOf('Exceptions that may be typed wrong') >= 0);
+  ok('the count is shown against its denominator', k.indexOf('432') >= 0 && k.indexOf('119') >= 0);
+  ok('it is framed as questions, not findings', k.indexOf('questions, not findings') >= 0);
+  ok('the heading hedges, because the match might be wrong', k.indexOf('may be typed wrong') >= 0);
+  ok('it says it writes nothing to Viv', k.indexOf('never writes to Viv') >= 0);
+  ok('...and that re-typing is done by a person', k.indexOf('Re-type it in Viv if you agree') >= 0);
+}
+
+console.log('\n--- an empty queue is only good news if the detector works ---');
+{
+  // It shipped once matching backspace characters and returned 1 where 26 was
+  // right. An empty queue from a broken detector must not read as "all clear".
+  const B = boot(withRetype({ candidates: [], signalTableOk: false }));
+  B.ctx.window.TributeApp = APP;
+  B.ctx.window.TributeMetrics.open();
+  await after(130);
+  const b = B.painted();
+  ok('a broken signal table is called a gap, not a clean result',
+     b.indexOf('gap rather than a clean result') >= 0);
+  ok('...and is listed under what was not measured',
+     b.indexOf('signal table is not matching') >= 0);
+}
+{
+  const G = boot(withRetype({ candidates: [], signalTableOk: true }));
+  G.ctx.window.TributeApp = APP;
+  G.ctx.window.TributeMetrics.open();
+  await after(130);
+  const g = G.painted();
+  ok('a genuinely empty queue says so plainly',
+     g.indexOf('reads like a complaint filed as something else') >= 0);
+  ok('...and does not cry gap when the detector is fine',
+     g.indexOf('gap rather than a clean result') < 0);
+}
+
 console.log('\n--- neither one blanks the other, and neither invents a zero ---');
 {
   const HALF = async function (u) {
