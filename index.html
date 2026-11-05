@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-10-23T08:49"></script>
+<script src="./entra-auth.js?v=2026-11-05T10:32"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1853,7 +1853,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-10-23T08:49';
+const HUB_BUILD='2026-11-05T10:32';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -4496,11 +4496,17 @@ function openLogPanel(type,clientId,clientName){
   }
 }
 
-// Only an in-person visit or a home assessment belongs on a schedule — a
-// phone call doesn't. Hide the destinations for those.
+// An in-person visit, a home assessment and a virtual visit all belong on a
+// schedule. A phone call doesn't. Hide the destinations for that one.
+//
+// ONE DEFINITION, because this question is asked in two places and they
+// drifted apart once already: Virtual shipped in the dropdown matching
+// neither word, so selecting it hid the time row and both destination
+// checkboxes, and then wrote nothing to Viv or Outlook without an error.
+function _lpOnSched(t){ return /in-person|assessment|virtual/i.test(String(t||'')); }
 function lpVisitDest(){
   const t=(document.getElementById('lp-vtype')||{}).value||'';
-  const onSched=/in-person|assessment/i.test(t);
+  const onSched=_lpOnSched(t);
   const d=document.getElementById('lp-dest'), tr=document.getElementById('lp-time-row');
   if(d)d.style.display=onSched?'block':'none';
   if(tr)tr.style.display=onSched?'grid':'none';
@@ -4600,27 +4606,32 @@ async function _lpRenderShift(){
 // different time still goes through. Recorded only after Graph accepts.
 let _lpCalBusy=false;
 const _lpCalKeys=new Set();
-async function _lpAddToOutlook(clientName,note,w,loc,shift){
+async function _lpAddToOutlook(clientName,note,w,loc,shift,kind){
   const _key=[clientName,w&&w.start&&w.start.toISOString(),w&&w.end&&w.end.toISOString()].join('|');
   if(_lpCalBusy)throw new Error('Still adding that one to Outlook — give it a moment');
   if(_lpCalKeys.has(_key))throw new Error('That visit is already on your Outlook calendar');
   _lpCalBusy=true;
-  try{ return await _lpAddToOutlookInner(clientName,note,w,loc,shift,_key); }
+  try{ return await _lpAddToOutlookInner(clientName,note,w,loc,shift,_key,kind); }
   finally{ _lpCalBusy=false; }
 }
-async function _lpAddToOutlookInner(clientName,note,w,loc,shift,_key){
+async function _lpAddToOutlookInner(clientName,note,w,loc,shift,_key,kind){
   const gate=window.tributeKsfGate;
   const tok=gate&&gate.getGraphToken?await gate.getGraphToken(['Calendars.ReadWrite']):null;
   if(!tok)throw new Error('Outlook is not connected — use the Connect Outlook button and try again');
   const shiftLine=_lpShiftLine(shift);
-  const ev={subject:'Home visit — '+clientName,
+  // A virtual visit has no address. The client's street on it would read as
+  // somewhere to drive to, so it carries neither the location field nor the
+  // address line.
+  const virtual=/virtual/i.test(String(kind||''));
+  const where=virtual?'':loc;
+  const ev={subject:(virtual?'Virtual visit — ':'Home visit — ')+clientName,
     body:{contentType:'HTML',content:(note?escHtml(note)+'<br><br>':'')
-      +(loc?('<b>Address:</b> '+escHtml(loc)+'<br>'):'')
+      +(where?('<b>Address:</b> '+escHtml(where)+'<br>'):'')
       +(shiftLine?('<b>Caregiver on this visit:</b> '+escHtml(shiftLine)+'<br>'):'')
       +'<br>Logged from the Tribute CSM Hub.'},
     start:{dateTime:w.start.toISOString().slice(0,19),timeZone:'UTC'},
     end:{dateTime:w.end.toISOString().slice(0,19),timeZone:'UTC'},
-    location:loc?{displayName:loc}:undefined, reminderMinutesBeforeStart:60};
+    location:where?{displayName:where}:undefined, reminderMinutesBeforeStart:60};
   const r=await fetch('https://graph.microsoft.com/v1.0/me/events',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+tok},body:JSON.stringify(ev)});
   if(!r.ok){const t=await r.text();throw new Error('Outlook said '+r.status+': '+t.slice(0,160));}
   const j=await r.json();
@@ -4641,7 +4652,7 @@ async function lpSaveVisit(cid){
   const type=document.getElementById('lp-vtype').value;
   const note=(document.getElementById('lp-vnote')||{}).value||'';
   const c=get('clients').find(x=>x.id===cid)||{};
-  const onSched=/in-person|assessment/i.test(type);
+  const onSched=_lpOnSched(type);
   const toViv=onSched&&document.getElementById('lp-toviv')&&document.getElementById('lp-toviv').checked&&!!c.vivId;
   const toOutlook=onSched&&document.getElementById('lp-tooutlook')&&document.getElementById('lp-tooutlook').checked;
   const btn=document.getElementById('lp-vbtn'); if(btn){btn.disabled=true;btn.textContent='Saving…';}
@@ -4666,7 +4677,7 @@ async function lpSaveVisit(cid){
   if(toOutlook){
     _lpMsg('Adding to your Outlook calendar…');
     try{ const shift=(window._lpShift&&window._lpShift.length)?window._lpShift:await _lpOnShift(c,w);
-      const ev=await _lpAddToOutlook(c.name||'client',note,w,_lpLocation(c),shift);
+      const ev=await _lpAddToOutlook(c.name||'client',note,w,_lpLocation(c),shift,type);
       outlookId=ev.id; outlookLink=ev.link; }
     catch(e){ problems.push('Outlook: '+e.message); }
   }
