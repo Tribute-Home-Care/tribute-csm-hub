@@ -6148,6 +6148,7 @@ function _ecSettingsHtml(){
     </div>
     <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-top:8px;">
       <div class="fg" style="margin:0;"><label class="fl">Automatic Friday send</label><select class="fc" id="ec-enabled"><option value="0" ${!e.enabled?'selected':''}>Off — I send it myself</option><option value="1" ${e.enabled?'selected':''}>On — send at 2 PM Friday</option></select></div>
+      <div class="fg" style="margin:0;"><label class="fl">How often</label><select class="fc" id="ec-cadence"><option value="weekly" ${(e.cadence||'weekly')==='weekly'?'selected':''}>Weekly</option><option value="biweekly" ${e.cadence==='biweekly'?'selected':''}>Every other week</option><option value="monthly" ${e.cadence==='monthly'?'selected':''}>Monthly</option></select></div>
       <div class="fg" style="margin:0;"><label class="fl">Client names</label><select class="fc" id="ec-names"><option value="full" ${(e.nameStyle||'full')==='full'?'selected':''}>Full names</option><option value="initials" ${e.nameStyle==='initials'?'selected':''}>Initials only</option></select></div>
       <div class="fg" style="margin:0;"><label class="fl">Caregiver names</label><select class="fc" id="ec-cgnames"><option value="first" ${(e.cgNameStyle||'first')==='first'?'selected':''}>First name only</option><option value="initials" ${e.cgNameStyle==='initials'?'selected':''}>First name + initial</option><option value="full" ${e.cgNameStyle==='full'?'selected':''}>Full names</option></select></div>
       <div class="fg" style="margin:0;"><label class="fl">Header line</label><select class="fc" id="ec-header"><option value="1" ${e.hideHeader?'':'selected'}>Show it</option><option value="0" ${e.hideHeader?'selected':''}>Leave it off</option></select></div>
@@ -6288,6 +6289,7 @@ function _ecRead(){
     nameStyle:document.getElementById('ec-names').value,
     cgNameStyle:(document.getElementById('ec-cgnames')||{}).value||'first',
     hideHeader:((document.getElementById('ec-header')||{}).value||'1')==='0',
+    cadence:(document.getElementById('ec-cadence')||{}).value||'weekly',
     to:split(document.getElementById('ec-to').value),cc:split(document.getElementById('ec-cc').value),
     csmId:document.getElementById('ec-csm').value,note:document.getElementById('ec-note').value.trim()};
 }
@@ -6296,11 +6298,13 @@ function saveEmailComm(){
   DATA.shared=DATA.shared||{};DATA.shared.communities=DATA.shared.communities||{};
   const d=DATA.shared.communities[_ecSel]||{levels:[]};const prev=d.email||{};const e=_ecRead();
   if(e.enabled&&!e.to.length){showToast('Add at least one valid recipient email before turning the Friday send on.');return;}
+  const cadenceChanged=(prev.cadence||'weekly')!==(e.cadence||'weekly');
   const styleChanged=(prev.nameStyle||'full')!==(e.nameStyle||'full')
-    || (prev.cgNameStyle||'first')!==(e.cgNameStyle||'first');
+    || (prev.cgNameStyle||'first')!==(e.cgNameStyle||'first')
+    || cadenceChanged;
   d.email={...prev,...e,skipUntil:prev.skipUntil||'',updatedAt:new Date().toISOString(),updatedBy:P?P.name:''};
   DATA.shared.communities[_ecSel]=d;queueSave();
-  if(styleChanged){renderEmailCommList();document.getElementById('ec-detail').innerHTML=_ecSettingsHtml()+'<div id="ec-draft"></div>';showToast('Saved — rewriting the draft with '+(e.nameStyle==='initials'?'initials':'full names')+'…');clearTimeout(saveTimer);Promise.resolve(saveToFile()).then(()=>ecLoadDraft(true));return;}
+  if(styleChanged){renderEmailCommList();document.getElementById('ec-detail').innerHTML=_ecSettingsHtml()+'<div id="ec-draft"></div>';showToast('Saved — rebuilding the draft'+(cadenceChanged?' for '+({weekly:'next week',biweekly:'the next two weeks',monthly:'the month ahead'}[e.cadence||'weekly']):' with '+(e.nameStyle==='initials'?'initials':'full names'))+'…');clearTimeout(saveTimer);Promise.resolve(saveToFile()).then(()=>ecLoadDraft(true));return;}
   const keep=_ecDraft?_ecCollect():null;renderEmailCommList();const el=document.getElementById('ec-detail');el.innerHTML=_ecSettingsHtml()+'<div id="ec-draft"></div>';_ecDraft=keep;renderEmailDraft();
   showToast(e.enabled?'Saved — '+_ecSel+' will also go out automatically on Fridays.':'Settings saved.');
 }
