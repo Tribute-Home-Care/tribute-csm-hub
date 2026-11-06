@@ -31,6 +31,7 @@
 .sr-grp-hidden_incident { border-left: 3px solid var(--hi); }
 .sr-grp-hidden_complaint { border-left: 3px solid var(--orange); }
 .sr-grp-wrong_type { border-left: 3px solid var(--med); }
+.sr-grp-condition_change { border-left: 3px solid var(--muted-soft, var(--line)); }
 .sr-grp-over_typed { border-left: 3px solid var(--line); }
 
 .sr-list { list-style: none; margin: 0; padding: 0; }

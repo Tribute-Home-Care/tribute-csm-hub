@@ -116,11 +116,12 @@
                  caregiver_performance: 'Caregiver issue', routine: 'Routine' };
   var WHO = { client: 'client', family: 'family', community: 'community', referral_partner: 'referral partner',
               caregiver: 'caregiver', staff: 'staff', none: '' };
-  var FLAG_ORDER = ['hidden_incident', 'hidden_complaint', 'wrong_type', 'over_typed'];
+  var FLAG_ORDER = ['hidden_incident', 'hidden_complaint', 'wrong_type', 'condition_change', 'over_typed'];
   var FLAG_TITLE = {
     hidden_incident: 'Safety events filed under a non-incident type',
     hidden_complaint: 'Complaints filed as routine',
     wrong_type: 'Complaints or incidents under the wrong type',
+    condition_change: 'Hospitalizations and changes of condition filed as routine',
     over_typed: 'Filed as a complaint but reads as routine'
   };
   var DECISION_TEXT = { retyped: 'Re-typed in Viv', type_ok: 'Type is right', filed: 'Filed in Viv',
