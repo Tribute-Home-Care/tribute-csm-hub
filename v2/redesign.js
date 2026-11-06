@@ -76,7 +76,7 @@
               ['s60', 'Onboarding'], ['priority', 'Fill Priority'], ['pulse', 'Client Pulse']]],
     ['Operations', [['md', 'Maryland Compliance'], ['ltc', 'LTC'],
                     ['emailcomm', 'Community Email'], ['team', 'Team'],
-                    ['__metrics', 'Daily Metrics']]],
+                    ['__metrics', 'Daily Metrics'], ['__sereview', 'Exception Review']]],
     ['Tools', [['assistant', 'Assistant'], ['kpi', 'KPI Tracker'],
                ['expectations', 'Role Expectations'],
                ['__guide', 'Guide'], ['__feedback', 'Feedback']]]
@@ -115,7 +115,14 @@
     __metrics: { icon: 'chart', id: 'v2-nav-metrics', page: 'metrics',
                  ok: function () {
                    return !!(window.TributeMetrics && window.TributeMetrics.allowed());
-                 } }
+                 } },
+    /* Every client Service Exception, read for what it describes, and the
+       complaints heard in CSM email that never became one. Same gate as
+       Daily Metrics; the server keeps its own list as well. */
+    __sereview: { icon: 'conversation', id: 'v2-nav-sereview', page: 'sereview',
+                  ok: function () {
+                    return !!(window.TributeSEReview && window.TributeSEReview.allowed());
+                  } }
   };
 
   const NAV_ID = { pulse: 'nav-pulse', team: 'nav-team', md: 'nav-md' };

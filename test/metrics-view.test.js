@@ -121,7 +121,7 @@ ok('CSCs are not treated as carrying a caseload', /if \(pr\.isCSC\) return;/.tes
 
 console.log('\n--- it is wired in, and cannot be dropped by a rebuild ---');
 ok('the rail lists it under Operations', /\['__metrics', 'Daily Metrics'\]/.test(RDS));
-ok('the router knows the page', /'guide', 'metrics'\]/.test(ROU));
+ok('the router knows the page', /'guide', 'metrics'[,\]]/.test(ROU));
 ok('the build copies both files', /'v2-metrics\.js', 'v2-metrics\.css'/.test(BLD));
 // A V2 script that stops being referenced left the pilot's Feedback button
 // dead for two hours once already.
