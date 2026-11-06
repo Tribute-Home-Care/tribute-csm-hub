@@ -25,7 +25,7 @@ function boot(account, fetchImpl) {
     getElementById(id) { return id === 'page-home' ? home : (pages[id] || null); },
     querySelector() { return null; }, querySelectorAll() { return []; }, addEventListener() {},
     createElement() { const e = el(); Object.defineProperty(e, 'id', { set(v) { pages[v] = this; }, get() { return ''; } });
-      e.querySelector = s => (s === '#sr-view' ? view : null); return e; },
+      e.querySelector = s => (s === '#xr-view' ? view : null); return e; },
     body: el() };
   const win = { TributeApp: { vivProxy: 'https://x/api/vivProxy', account, adminUpns: ['andrew.dobson@tributehomecare.com'],
     profileForAccount: a => (a && a.username === 'courtney.chaulk@tributehomecare.com' ? { id: 'courtney' } : { id: 'someone' }) },
@@ -87,6 +87,13 @@ const okFetch = async () => ({ ok: true, status: 200, json: async () => JSON.par
   ok('router knows the page', /'sereview'/.test(ROU));
   ok('build ships the script and stylesheet', /stamp\('v2-sereview\.js'\)/.test(BLD) && /stamp\('v2-sereview\.css'\)/.test(BLD));
   ok('build asserts it is present', /'v2-sereview\.js', 'v2-sereview\.css',\s*\n\s*'manifest/.test(BLD));
+
+  // Scribe once owned .sr-tabs/.sr-card too; its selected-tab rule painted
+  // this page's active tab black on black. No other stylesheet may use xr-.
+  const others = fs.readdirSync(path.join(ROOT, 'v2')).filter(f => /\.css$/.test(f) && f !== 'v2-sereview.css')
+    .filter(f => /\.xr-/.test(fs.readFileSync(path.join(ROOT, 'v2', f), 'utf8')));
+  ok('no other stylesheet shares the xr- prefix', others.length === 0, others.join(','));
+  ok('no sr- class left behind', !/\bsr-/.test(SRC));
 
   console.log('\n' + (fail ? 'FAILED ' + fail + ' of ' + (pass + fail) : 'PASSED all ' + pass));
   process.exit(fail ? 1 : 0);
