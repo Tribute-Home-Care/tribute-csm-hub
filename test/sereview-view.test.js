@@ -6,7 +6,7 @@ const SRC = fs.readFileSync(path.join(ROOT, 'v2/v2-sereview.js'), 'utf8');
 const RDS = fs.readFileSync(path.join(ROOT, 'v2/redesign.js'), 'utf8');
 const ROU = fs.readFileSync(path.join(ROOT, 'v2/router.js'), 'utf8');
 const BLD = fs.readFileSync(path.join(ROOT, 'build-v2.py'), 'utf8');
-let pass = 0, fail = 0;
+let pass = 0, fail = 0; const toasts = [];
 const ok = (n, c, d) => { if (c) { pass++; console.log('  PASS  ' + n); }
   else { fail++; console.log('  FAIL  ' + n + (d ? '  (' + d + ')' : '')); } };
 
@@ -15,7 +15,7 @@ function el() {
     set innerHTML(v) { this._html = v; }, get innerHTML() { return this._html; },
     appendChild(c) { this.children.push(c); return c; }, insertBefore(c) { this.children.push(c); return c; },
     querySelector() { return null; }, querySelectorAll() { return []; }, addEventListener() {},
-    classList: { add() {}, remove() {} }, parentNode: null };
+    classList: { add() {}, remove() {} }, parentNode: null, remove() {}, set textContent(v) { toasts.push(v); }, get textContent() { return ""; } };
 }
 function boot(account, fetchImpl) {
   const pages = {}; const home = el(); home.parentNode = el();
@@ -62,7 +62,7 @@ const okFetch = async () => ({ ok: true, status: 200, json: async () => JSON.par
   console.log('\n--- what it says ---');
   const h = b.html();
   ok('says a flag is a question', /question, not a finding/.test(h));
-  ok('says nothing changes Viv', /Nothing here changes Viv/.test(h));
+  ok('says what Fix in Viv changes, and that it is logged', /changes only the exception/.test(h) && /logged with your name/.test(h));
   ok('shows the flagged row', /Pat Example/.test(h) && /Complaints filed as routine/.test(h));
   ok('shows the quoted evidence', /The son was upset\./.test(h));
   ok('unread rows are counted, not hidden', /not read yet/.test(h));
@@ -80,6 +80,36 @@ const okFetch = async () => ({ ok: true, status: 200, json: async () => JSON.par
   b = boot({ username: 'andrew.dobson@tributehomecare.com' }, async () => ({ ok: false, status: 502, json: async () => ({ error: 'Viv is down' }) }));
   b.mod.open(); await tick(); await tick();
   ok('a failed read says so', /Could not be read: Viv is down/.test(b.html()));
+
+  console.log('\n--- Fix in Viv ---');
+  const TYPES = { operations: ['No complaint: internal communication', 'Client Complaint: Reliability'], clinical: ['Combative', 'Change of Condition'] };
+  const sent = [];
+  const routed = async (u, o) => {
+    if (/se_review_types/.test(u)) return { ok: true, status: 200, json: async () => TYPES };
+    if (/se_review_fix/.test(u)) { const body = JSON.parse(o.body); sent.push(body);
+      if (body.id === 'stale') return { ok: false, status: 409, json: async () => ({ ok: false, error: 'This exception was changed in Viv since the page was read.' }) };
+      return { ok: true, status: 200, json: async () => ({ ok: true, after: { types: body.types }, qa: { needed: false } }) }; }
+    return okFetch();
+  };
+  b = boot({ username: 'courtney.chaulk@tributehomecare.com' }, routed); b.mod.open(); await tick(); await tick(); await tick();
+  let f = b.html();
+  ok('the card offers Fix in Viv once types load', /Fix in Viv/.test(f) && /data-fixsel="a1"/.test(f));
+  ok('the AI suggestion is chosen to start', /<option value="Client Complaint: Reliability" selected>/.test(f));
+  ok('only real Viv types are offered', !/Client upset/.test(f) && /Safety events \(clinical\)/.test(f));
+  const x = b.mod._state.data.exceptions[0];
+  b.mod._state.confirm[x.id] = 'Client Complaint: Reliability'; b.mod.render(); f = b.html();
+  ok('it asks before changing, naming before and after', /Change #? ?in Viv from <b>No complaint: internal communication<\/b> to <b>Client Complaint: Reliability<\/b>\?/.test(f.replace(/#[^ ]* /, '# ')) || (/from <b>No complaint: internal communication<\/b> to <b>Client Complaint: Reliability<\/b>/.test(f) && /Yes, change it/.test(f)));
+  b.mod._state.confirm[x.id] = null; b.mod._state.pick[x.id] = 'Combative'; b.mod.render();
+  ok('a safety type says it moves to clinical and QA is told', /Moves it to clinical; QA is told/.test(b.html()));
+  await b.mod._fix(x, 'Client Complaint: Reliability'); await tick();
+  ok('it sends the id, the new type and the types the card showed',
+    sent.length === 1 && sent[0].id === 'a1' && sent[0].types[0] === 'Client Complaint: Reliability' && sent[0].expect[0] === 'No complaint: internal communication');
+  ok('after a confirmed save the card shows it done', /Re-typed in Viv/.test(b.html()) || (b.mod._state.data.decisions['se:a1'] || {}).decision === 'retyped');
+  const stale = { id: 'stale', types: ['Lateness'] }; b.mod._state.data.exceptions.push(stale);
+  await b.mod._fix(stale, 'Combative'); await tick();
+  ok('a refused change is not marked done', !(b.mod._state.data.decisions['se:stale']));
+  ok('the user is told why it was refused', toasts.some(t => /Not changed: This exception was changed in Viv/.test(t)));
+  ok('the user is told it was confirmed', toasts.some(t => /Saved in Viv and confirmed/.test(t)));
 
   console.log('\n--- wired in, and a rebuild cannot drop it ---');
   ok('rail lists it', /\['__sereview', 'Exception Review'\]/.test(RDS));

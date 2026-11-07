@@ -28,7 +28,7 @@
 
   var PAGE_ID = 'page-sereview';
   var S = { loading: false, scanning: false, err: null, data: null, tab: 'flags',
-            q: '', market: '', csm: '', kind: '', open: {}, busy: {} };
+            q: '', market: '', csm: '', kind: '', open: {}, busy: {}, pick: {}, confirm: {}, types: null };
 
   function A() { return window.TributeApp || {}; }
   function api() { var a = A(); return (typeof a.vivProxy === 'string' && a.vivProxy) || ''; }
@@ -75,6 +75,38 @@
       S.data = j;
     } catch (e) { S.err = String(e.message || e); }
     S.loading = false; render();
+    if (S.data && !S.types) loadTypes();
+  }
+
+  /* Viv's current types, for the Fix in Viv picker. If they cannot be read
+     the cards fall back to marking a change made by hand in Viv. */
+  async function loadTypes() {
+    try {
+      var r = await fetch(api() + '?endpoint=se_review_types', { headers: await headers() });
+      var j = await r.json().catch(function () { return {}; });
+      if (r.ok && j.operations && j.clinical) { S.types = j; render(); }
+    } catch (e) {}
+  }
+
+  /* Change the type in Viv. The server reads the record, refuses if it no
+     longer holds what this card shows, saves, reads it back and logs it. */
+  async function fix(x, type) {
+    var key = 'se:' + x.id;
+    S.busy[key] = true; S.confirm[x.id] = null; render();
+    try {
+      var h = await headers(); h['Content-Type'] = 'application/json';
+      var r = await fetch(api() + '?endpoint=se_review_fix', { method: 'POST', headers: h,
+        body: JSON.stringify({ id: x.id, types: [type], expect: x.types || [] }) });
+      var j = await r.json().catch(function () { return {}; });
+      if (!r.ok || !j.ok) throw new Error(j.error || 'Viv did not answer (' + r.status + ')');
+      x.types = (j.after && j.after.types) || [type];
+      S.data.decisions = S.data.decisions || {};
+      S.data.decisions[key] = { decision: 'retyped', note: 'Fixed in Viv from the Hub', newType: x.types.join(', '),
+        by: 'you', at: new Date().toISOString() };
+      toast(j.unchanged ? 'Viv already had that type.' : 'Saved in Viv and confirmed: now ' + x.types.join(', ') +
+        (j.qa && j.qa.needed ? (j.qa.notified ? '. QA has been told.' : '. QA was not told: ' + (j.qa.reason || 'unknown')) : '') + '.');
+    } catch (e) { toast('Not changed: ' + (e.message || e)); }
+    S.busy[key] = false; render();
   }
 
   async function scan() {
@@ -184,8 +216,43 @@
     return '<li class="xr-card' + (decisionOf('se:' + x.id) ? ' is-done' : '') + '">' +
       '<div class="xr-head"><b>' + esc(x.client) + '</b>' + meta(x) + '</div>' +
       '<p class="xr-typed">Filed as <b>' + (x.types || []).map(esc).join('</b>, <b>') + '</b></p>' +
-      reading(x.ai) + narrative(x) +
-      actions('se:' + x.id, [['retyped', 'I re-typed it in Viv', true], ['type_ok', 'Type is right']]) + '</li>';
+      reading(x.ai) + narrative(x) + fixer(x) + '</li>';
+  }
+  function isClinical(t) { return !!(S.types && S.types.clinical.indexOf(t) >= 0); }
+  function pickOf(x) {
+    if (S.pick[x.id]) return S.pick[x.id];
+    var all = S.types ? S.types.operations.concat(S.types.clinical) : [];
+    var sug = ((x.ai && x.ai.suggestedTypes) || []).filter(function (t) { return all.indexOf(t) >= 0; });
+    return sug[0] || '';
+  }
+  /* The decision row for an exception: pick a type and change it in Viv, or
+     say the type is right. Without Viv's type list, mark a change made by hand. */
+  function fixer(x) {
+    var key = 'se:' + x.id;
+    if (decisionOf(key) || !S.types) return actions(key, [['retyped', 'I re-typed it in Viv', true], ['type_ok', 'Type is right']]);
+    var busy = S.busy[key];
+    var pick = pickOf(x);
+    var c = S.confirm[x.id];
+    if (busy) return '<div class="xr-act"><span class="xr-meta">Changing it in Viv and checking it took…</span></div>';
+    var moves = pick && isClinical(pick) && !(x.types || []).every(isClinical);
+    if (c) {
+      return '<div class="xr-act xr-confirm"><span>Change #' + esc(x.num || '') + ' in Viv from <b>' + (x.types || []).map(esc).join(', ') +
+        '</b> to <b>' + esc(c) + '</b>?' + (moves ? ' This moves it from operations to clinical, and QA is told.' : '') +
+        ' Nothing else on the record changes.</span>' +
+        '<button type="button" class="btn btn-p btn-sm" data-fixgo="' + esc(x.id) + '">Yes, change it</button>' +
+        '<button type="button" class="btn btn-o btn-sm" data-fixno="' + esc(x.id) + '">Cancel</button></div>';
+    }
+    var sug = ((x.ai && x.ai.suggestedTypes) || []).filter(function (t) {
+      return S.types.operations.indexOf(t) >= 0 || S.types.clinical.indexOf(t) >= 0; });
+    var opt = function (t) { return '<option value="' + esc(t) + '"' + (t === pick ? ' selected' : '') + '>' + esc(t) + '</option>'; };
+    return '<div class="xr-act">' +
+      '<select class="xr-sel xr-fixsel" data-fixsel="' + esc(x.id) + '" aria-label="New type"><option value="">Choose the right type…</option>' +
+      (sug.length ? '<optgroup label="Suggested">' + sug.map(opt).join('') + '</optgroup>' : '') +
+      '<optgroup label="Safety events (clinical)">' + S.types.clinical.map(opt).join('') + '</optgroup>' +
+      '<optgroup label="Service exceptions (operations)">' + S.types.operations.map(opt).join('') + '</optgroup></select>' +
+      '<button type="button" class="btn btn-p btn-sm" data-fix="' + esc(x.id) + '"' + (pick ? '' : ' disabled') + '>Fix in Viv</button>' +
+      '<button type="button" class="btn btn-o btn-sm" data-dec="type_ok" data-key="' + esc(key) + '">Type is right</button>' +
+      (moves ? '<span class="xr-meta">Moves it to clinical; QA is told.</span>' : '') + '</div>';
   }
   function heardCard(h) {
     var st = h.status === 'missing' ? 'No exception on file for this client within two weeks'
@@ -277,7 +344,8 @@
       'and complaints heard in CSM email that never became one.</p></div>';
     o += '<div class="card xr-rule"><p class="xr-note"><b>Every flag is a question, not a finding.</b> The reading comes from AI and is checked ' +
       'before it reaches you: suggested types are real Viv types, and the quoted sentence is really in the record. ' +
-      '<b>Nothing here changes Viv.</b> Fix the type in Viv, then mark it here. A re-typed exception also drops out on its own at the next read.</p></div>';
+      '<b>Fix in Viv changes only the exception\u2019s type</b>, after you confirm it, and checks with Viv that it took. ' +
+      'The narrative, resolution and everything else stay as they are, and every change is logged with your name.</p></div>';
     if (S.err) o += '<div class="card mx-unread"><p class="xr-note">Could not be read: ' + esc(S.err) + '</p></div>';
     if (!d) { view.innerHTML = o + '<div class="card"><p class="xr-note">' + (S.loading ? 'Reading… the first read of a window can take two or three minutes.' : '') + '</p></div>'; return; }
 
@@ -343,6 +411,13 @@
       S.open[n.dataset.tog] = !S.open[n.dataset.tog]; render(); }); });
     $$('[data-dec]', el).forEach(function (n) { n.addEventListener('click', function (e) {
       e.stopPropagation(); decide(n.dataset.key, n.dataset.dec); }); });
+    var byId = function (id) { return ((S.data && S.data.exceptions) || []).filter(function (x) { return x.id === id; })[0]; };
+    $$('[data-fixsel]', el).forEach(function (n) { n.addEventListener('change', function () { S.pick[n.dataset.fixsel] = n.value; render(); }); });
+    $$('[data-fix]', el).forEach(function (n) { n.addEventListener('click', function () {
+      var x = byId(n.dataset.fix); if (x && pickOf(x)) { S.confirm[x.id] = pickOf(x); render(); } }); });
+    $$('[data-fixno]', el).forEach(function (n) { n.addEventListener('click', function () { S.confirm[n.dataset.fixno] = null; render(); }); });
+    $$('[data-fixgo]', el).forEach(function (n) { n.addEventListener('click', function () {
+      var x = byId(n.dataset.fixgo); if (x && S.confirm[x.id]) fix(x, S.confirm[x.id]); }); });
     $$('[data-a]', el).forEach(function (n) {
       n.addEventListener(n.type === 'checkbox' ? 'change' : 'click', function () {
         var a = n.dataset.a;
@@ -370,5 +445,5 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 
-  window.TributeSEReview = { open: open, render: render, allowed: allowed, pageId: PAGE_ID, _state: S };
+  window.TributeSEReview = { open: open, render: render, allowed: allowed, pageId: PAGE_ID, _state: S, _fix: fix };
 }());

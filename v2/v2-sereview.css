@@ -84,3 +84,10 @@
   .xr-search { min-width: 0; flex: 1 1 100%; }
   .xr-t th:nth-child(3), .xr-t td:nth-child(3) { display: none; }
 }
+
+/* Fix in Viv: the type picker sits in the action row; the confirm line
+   names the before and after in full, so nothing is changed unseen. */
+.xr-fixsel { max-width: 340px; }
+.xr-confirm { background: var(--line-soft); border-radius: 8px; padding: 8px 10px; }
+.xr-confirm span { font-size: 13px; color: var(--ink); flex: 1 1 260px; line-height: 1.5; }
+@media (max-width: 640px) { .xr-fixsel { max-width: 100%; flex: 1 1 100%; } }
