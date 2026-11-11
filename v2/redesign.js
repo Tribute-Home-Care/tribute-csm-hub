@@ -381,12 +381,22 @@
      re-renders through it) and reads `cm-det-<id>`. Both still exist, in a
      hidden container, so every existing code path still lands somewhere real.
      ═══════════════════════════════════════════════════════════════════════ */
+  /* COURTNEY'S ORDER, IN HER WORDS (3 Nov): "all clients", "needs attention",
+     "success in 30", "due soon", "coverage updates". All five views already
+     existed; she asked for the order and two of the names, and she was right
+     to call it a reorder. "Success in 30" rather than "Onboarding" because
+     the PAGE became Onboarding and she asked to keep the Success in 30 plan
+     at the client level, which is what this view is.
+
+     The landing view stays Needs attention. She asked where the tabs sit,
+     not which one opens, and opening on what needs action is the more useful
+     default. Easy to flip if she wants the first tab to lead. */
   const VIEWS = [
-    ['attention', 'Needs attention'],
-    ['soon', 'Due soon'],
     ['all', 'All clients'],
-    ['onboarding', 'Onboarding'],
-    ['coverage', 'Coverage']
+    ['attention', 'Needs attention'],
+    ['onboarding', 'Success in 30'],
+    ['soon', 'Due soon'],
+    ['coverage', 'Coverage updates']
   ];
   let _view = 'attention';
   let _selected = null;

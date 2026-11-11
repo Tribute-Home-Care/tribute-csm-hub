@@ -123,7 +123,8 @@ def main():
               'v2-help.js', 'v2-feedback.js', 'v2.css',
               'v2-scribe.js', 'v2-scribe-review.js', 'v2-scribe.css',
               'v2-metrics.js', 'v2-metrics.css', 'v2-pto.js',
-              'v2-sereview.js', 'v2-sereview.css'):
+              'v2-sereview.js', 'v2-sereview.css',
+              'v2-followups.js', 'v2-followups.css'):
         shutil.copyfile(os.path.join(OUT, 'v2', f), os.path.join(RD, 'prototype', f))
 
     tags = []
@@ -137,6 +138,7 @@ def main():
     tags.append('<link rel="stylesheet" href="%s">' % stamp('v2-scribe.css'))
     tags.append('<link rel="stylesheet" href="%s">' % stamp('v2-metrics.css'))
     tags.append('<link rel="stylesheet" href="%s">' % stamp('v2-sereview.css'))
+    tags.append('<link rel="stylesheet" href="%s">' % stamp('v2-followups.css'))
     for f in LAYER:
         tags.append('<script src="%s"></script>' % stamp(f))
     tags.append('<script src="%s"></script>' % stamp('v2-policy.js'))
@@ -156,6 +158,9 @@ def main():
     tags.append('<script src="%s"></script>' % stamp('v2-pto.js'))
     tags.append('<script src="%s"></script>' % stamp('v2-metrics.js'))
     tags.append('<script src="%s"></script>' % stamp('v2-sereview.js'))
+    # Emily's three buckets, read back onto Home. After redesign.js, because
+    # it hangs its section off the Home sections that layer builds.
+    tags.append('<script src="%s"></script>' % stamp('v2-followups.js'))
     tags.append('<script src="%s"></script>' % stamp('v2-mobile.js'))
     block = '\n' + '\n'.join(tags) + '\n'
     # There are two '</body>' in the file: one inside a printable-HTML string

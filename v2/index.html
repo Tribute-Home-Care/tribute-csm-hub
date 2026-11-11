@@ -1864,7 +1864,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-11-07T09:19';
+const HUB_BUILD='2026-11-11T12:26';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -8519,10 +8519,11 @@ try{ const cur=document.querySelector('.page.active'); TributeUsage.start({ app:
 <link rel="stylesheet" href="./v2-scribe.css?v=40ca9589">
 <link rel="stylesheet" href="./v2-metrics.css?v=5df14608">
 <link rel="stylesheet" href="./v2-sereview.css?v=9d61f880">
+<link rel="stylesheet" href="./v2-followups.css?v=000df8fd">
 <script src="./brand.js?v=e644f4fe"></script>
 <script src="./icons.js?v=b1158bce"></script>
 <script src="./bridge.js?v=a1526feb"></script>
-<script src="./redesign.js?v=33eab515"></script>
+<script src="./redesign.js?v=1e83ead0"></script>
 <script src="./workflows.js?v=2560f23e"></script>
 <script src="./router.js?v=4cec1446"></script>
 <script src="./v2-policy.js?v=cc28be25"></script>
@@ -8539,6 +8540,7 @@ try{ const cur=document.querySelector('.page.active'); TributeUsage.start({ app:
 <script src="./v2-pto.js?v=b8531a0a"></script>
 <script src="./v2-metrics.js?v=a515c5d2"></script>
 <script src="./v2-sereview.js?v=963adea4"></script>
+<script src="./v2-followups.js?v=c9bf9fab"></script>
 <script src="./v2-mobile.js?v=9709c741"></script>
 </body>
 </html>
