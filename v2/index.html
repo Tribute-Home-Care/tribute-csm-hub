@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub · V2 Preview</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="../entra-auth.js?v=2026-11-11T12:35"></script>
+<script src="../entra-auth.js?v=2026-11-11T13:13"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -616,11 +616,19 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
   </div>
   <div id="s60-empty" class="es" style="display:none;"><div class="ei">🎯</div><p>Select a client to view their onboarding tracker.</p></div>
   <div id="s60-content" style="display:none;">
+    <!-- The Viv Onboarding Checklist itself. The touchpoint section of that
+         document is the Required Milestones card below, which already
+         auto-completes from logged touchpoints, so it is not repeated here. -->
+    <div class="card" style="margin-bottom:14px;">
+      <div class="ct">📋 Onboarding Checklist</div>
+      <p style="font-size:12px;color:#8C857B;margin-bottom:12px;">The setup steps from the Viv Onboarding Checklist. Initials go next to each one, the way the Word template does it.</p>
+      <div id="s60-ob"></div>
+    </div>
     <div class="g2" style="margin-bottom:14px;">
       <!-- Required Milestones -->
       <div class="card">
-        <div class="ct">✅ Required Milestones</div>
-        <p style="font-size:12px;color:#8C857B;margin-bottom:12px;">Based on the Viv Onboarding Checklist. Check off as completed.</p>
+        <div class="ct">✅ Touchpoint Tasks</div>
+        <p style="font-size:12px;color:#8C857B;margin-bottom:12px;">The Success in 30 touchpoints. These tick themselves when you log the matching contact below.</p>
         <div id="s60-milestones"></div>
       </div>
       <!-- Log Touchpoint -->
@@ -1864,7 +1872,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-11-11T12:35';
+const HUB_BUILD='2026-11-11T13:14';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -5274,6 +5282,97 @@ const S30_MILESTONES = [
   {id:'viv_icd',label:'Important Client Details updated in Viv',     target:'After assessment', type:'VIV'},
 ];
 
+/* THE VIV ONBOARDING CHECKLIST, as the team actually works it.
+   Source: SharePoint, Home Office > CSM Resources > Operational Documents and
+   Checklists > "Viv Onboarding Checklist for New Client_Template 2025.docx".
+   Courtney asked for "the onboarding check list" on this page and meant that
+   document, not the Success in 30 touchpoints that were already here.
+
+   Its third section, Touchpoint Tasks, is the Required Milestones card and is
+   deliberately not repeated: those already tick themselves off the touchpoint
+   log, which is better than asking for the same thing twice.
+
+   ONE DELIBERATE OMISSION. The template prints a shared Viv password next to
+   the family-access step. A standing password does not get copied into a
+   second system, so the step is here and the credential is not. */
+const OB_CHECKLIST = [
+  {group:'Initial', items:[
+    {id:'ob_asmt',    label:'Complete Assessment'},
+    {id:'ob_welcome', label:'Leave Welcome Packet'},
+    {id:'ob_card',    label:'Leave Business Card'},
+    {id:'ob_comm',    label:'Complete Community Guideline Protocols', hint:'As needed'},
+    {id:'ob_ppe',     label:'Leave or order PPE for the team'},
+  ]},
+  {group:'Viv setup', items:[
+    {id:'ob_geo',     label:'Set "Located In" and "Payor" to the same Geo', hint:'Profile > General > Edit General. Do this BEFORE the workflow or task for a new schedule.'},
+    {id:'ob_icd',     label:'Important Client Details', hint:'Profile > General > Edit General. With the CSM.'},
+    {id:'ob_contacts',label:'Client Contacts', hint:'Profile. With the CSM. Tick Primary Contact and/or Emergency Contact, and PHI Consent for App Received.'},
+    {id:'ob_reqs',    label:'Requirements page', hint:'Scheduling > Requirements. Edit the map, add no mandatory requirements, confirm Tribute Secure is a preferred requirement along with any male or female preference, and write a short blurb on what the client needs.'},
+    {id:'ob_tag',     label:'Hourly or live-in tag', hint:'Summary, at the bottom.'},
+    {id:'ob_csm',     label:'Add the CSM', hint:'Summary. Add the CSM to Account Manager and Clinical Manager. Leave Billing Assignee and Scheduling Partner blank.'},
+    {id:'ob_wf',      label:'Workflow for requested services', hint:'Blue box, white + in the top menu.'},
+    {id:'ob_csa',     label:'Email the CSA and file the signed copy in Viv', hint:'Documents > Client Service Agreement form.'},
+    {id:'ob_access',  label:'Email the family for Viv access and create their user', hint:'Add the family to contacts, then Accounts > User > green person +. Use the standing passcode from the checklist document.'},
+    {id:'ob_tasks',   label:'Create tasks', hint:'Clinical > Care Plan. Client Visit Report only, all seven days, Finish. Do not pick visit types or Geos here.'},
+    {id:'ob_cp',      label:'Complete the Care Plan', hint:'Documents > Tribute Care Plan form.'},
+    {id:'ob_note',    label:'Assessment note', hint:'Service Delivery > Notes. Label it Clinical Progress Note.'},
+  ]},
+];
+
+/* Each row is a tick, the initials of whoever did it, and the date, which is
+   the three columns the Word template has. Initials rather than a name because
+   that is what the team already writes, and because an item is often done by
+   the CSC on the CSM\'s behalf. */
+function _obMap(cid){
+  const out={};
+  for(const r of get('s60_ob')) if(r.clientId===cid) out[r.id]=r;
+  return out;
+}
+function renderObChecklist(cid){
+  const el=document.getElementById('s60-ob'); if(!el)return;
+  const done=_obMap(cid);
+  const total=OB_CHECKLIST.reduce((n,g)=>n+g.items.length,0);
+  const ticked=OB_CHECKLIST.reduce((n,g)=>n+g.items.filter(i=>done[i.id]).length,0);
+  el.innerHTML=`<div style="font-size:12px;color:#8C857B;margin:-4px 0 10px;">${ticked} of ${total} done</div>`+
+    OB_CHECKLIST.map(g=>{
+      const gd=g.items.filter(i=>done[i.id]).length;
+      return `<div style="font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#8C857B;margin:14px 0 4px;">${escHtml(g.group)} <span style="color:#B7B0A6;font-weight:600;">${gd}/${g.items.length}</span></div>`+
+        g.items.map(i=>{
+          const d=done[i.id];
+          return `<div style="display:flex;align-items:flex-start;gap:9px;padding:8px 0;border-bottom:1px solid #F1EEE8;">
+            <input type="checkbox" style="width:14px;height:14px;margin-top:2px;accent-color:var(--navy);flex-shrink:0;cursor:pointer;" ${d?'checked':''} onchange="toggleObTask('${cid}','${i.id}')">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;line-height:1.4;color:${d?'#8C857B':'#3D3833'};${d?'text-decoration:line-through;':''}">${escHtml(i.label)}</div>
+              ${i.hint?`<div style="font-size:11px;color:#8C857B;margin-top:2px;line-height:1.45;">${escHtml(i.hint)}</div>`:''}
+            </div>
+            <input type="text" value="${escHtml((d&&d.by)||'')}" placeholder="initials" maxlength="6"
+              onchange="setObBy('${cid}','${i.id}',this.value)"
+              style="width:62px;flex-shrink:0;font-size:11px;text-align:center;text-transform:uppercase;padding:3px 4px;border:1px solid #EAE6DF;border-radius:6px;background:#fff;">
+            <div style="font-size:11px;color:#0F8F6B;flex-shrink:0;white-space:nowrap;width:68px;text-align:right;">${d&&d.at?new Date(d.at).toLocaleDateString():''}</div>
+          </div>`;
+        }).join('');
+    }).join('');
+}
+function toggleObTask(cid,id){
+  const rows=get('s60_ob');
+  const i=rows.findIndex(r=>r.clientId===cid&&r.id===id);
+  if(i>-1){ rows.splice(i,1); }
+  // Initials default to whoever is signed in, and stay editable: the person
+  // ticking it is often not the person who did it.
+  else { rows.push({clientId:cid,id,by:_initialsOf((P&&P.name)||''),at:new Date().toISOString()}); }
+  set('s60_ob',rows); renderObChecklist(cid);
+}
+function setObBy(cid,id,v){
+  const rows=get('s60_ob');
+  const r=rows.find(x=>x.clientId===cid&&x.id===id);
+  if(!r)return;                      // initials on an unticked row mean nothing
+  r.by=String(v||'').trim().toUpperCase().slice(0,6);
+  set('s60_ob',rows);
+}
+function _initialsOf(name){
+  return String(name||'').trim().split(/\s+/).filter(Boolean).map(p=>p[0]).join('').toUpperCase().slice(0,3);
+}
+
 const TYPE_LABELS = {'ASMT':'Assessment','VISIT':'2nd Visit','CG-PREP':'CG Prep','CG-CHK':'CG Check-In','PHONE':'Phone/Virtual','VIV':'Viv Update','OTHER':'Other'};
 
 let _s60Clients=[];
@@ -5466,6 +5565,8 @@ function renderS60(){
   const milestones=get('s60_ms').filter(x=>x.clientId===cid);
   const msMap=Object.fromEntries(milestones.map(m=>[m.id,m]));
   const daysSince=daysAgo(cl.startDate)||0;
+
+  renderObChecklist(cid);
 
   // Milestones checklist
   document.getElementById('s60-milestones').innerHTML=S30_MILESTONES.map(m=>{
