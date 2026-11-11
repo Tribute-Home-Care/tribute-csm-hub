@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub · V2 Preview</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="../entra-auth.js?v=2026-11-05T11:10"></script>
+<script src="../entra-auth.js?v=2026-11-11T12:32"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1864,7 +1864,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-11-11T12:26';
+const HUB_BUILD='2026-11-11T12:32';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -3674,7 +3674,7 @@ function setPulseAck(id,state){
   const pp=(_PULSE&&c.vivId)?_PULSE.byCid[c.vivId]:null;
   const note=(prompt('Anything worth adding? (optional)','')||'').trim();
   c.pulseAck={state,note,by:(P&&P.name)||'',at:new Date().toISOString(),
-    forReason:(pp&&pp.flagReason)||'',forHeadline:(pp&&pp.headline)||''};
+    forReason:(pp&&pp.flagReason)||'',forLevel:(pp&&pp.level)||'',forHeadline:(pp&&pp.headline)||''};
   queueSave();
   const body=document.getElementById('cm-det-body-'+id);
   if(body)body.innerHTML=buildClientDetail(id);
@@ -3774,7 +3774,19 @@ function buildClientDetail(id){
         // something new has happened and the ack is superseded rather than
         // silencing the client forever.
         const ack=c.pulseAck;
-        const live=ack && ack.forReason===(pp.flagReason||'') && ack.forHeadline===(pp.headline||'');
+        // BOUND TO THE FLAG, NOT TO ITS WORDING. headline is AI prose that
+        // Client Pulse rewrites on every build, so comparing it marked an
+        // acknowledgement stale within a day whether or not anything had
+        // happened: measured on Emily's caseload 11 Nov, 18 of 18 were stale
+        // by headline and 10 of 18 by flagReason. Her acknowledgements were
+        // evaporating overnight, which is part of why she asked for somewhere
+        // to keep track of them.
+        //
+        // flagReason and level are the codes that say the situation moved.
+        // forHeadline is still stored, for display, and acks written before
+        // forLevel existed simply do not test it.
+        const live=ack && ack.forReason===(pp.flagReason||'') &&
+          (ack.forLevel===undefined || ack.forLevel===(pp.level||''));
         if(live){
           return `<div style="margin-top:10px;padding:8px 11px;background:#E2F2EC;border-radius:7px;font-size:12px;color:#0F6E56;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             <span>\u2713 ${escHtml(PULSE_ACK_LABEL[ack.state]||ack.state)}</span>
@@ -8540,7 +8552,7 @@ try{ const cur=document.querySelector('.page.active'); TributeUsage.start({ app:
 <script src="./v2-pto.js?v=b8531a0a"></script>
 <script src="./v2-metrics.js?v=a515c5d2"></script>
 <script src="./v2-sereview.js?v=963adea4"></script>
-<script src="./v2-followups.js?v=c9bf9fab"></script>
+<script src="./v2-followups.js?v=29e280ff"></script>
 <script src="./v2-mobile.js?v=9709c741"></script>
 </body>
 </html>

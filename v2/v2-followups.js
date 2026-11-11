@@ -73,7 +73,14 @@
         var pp = (pm && c.vivId) ? pm[c.vivId] : null;
         // No Pulse record loaded means we cannot tell whether the flag moved,
         // which is not the same as knowing it did. Do not cry stale on it.
-        var stale = !!pp && (a.forReason !== (pp.flagReason || '') || a.forHeadline !== (pp.headline || ''));
+        //
+        // The binding is flagReason + level, NOT headline. headline is AI
+        // prose that Client Pulse rewrites on every build: on Emily's own
+        // caseload, 18 of 18 acknowledgements were stale by headline and 10
+        // of 18 by flagReason. A board that marks everything amber says
+        // nothing. Acks written before forLevel existed do not test it.
+        var stale = !!pp && (a.forReason !== (pp.flagReason || '') ||
+          (a.forLevel !== undefined && a.forLevel !== (pp.level || '')));
         return {
           id: c.id, name: c.name || '', state: a.state,
           note: a.note || '', by: a.by || '', at: a.at || '',

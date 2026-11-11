@@ -33,7 +33,7 @@ function load(state) {
 }
 
 const ack = (o) => Object.assign({ state: 'aware_working', note: '', by: 'Emily Willson',
-  at: '2026-11-01T10:00:00Z', forReason: 'coc', forHeadline: 'Sleep disturbed' }, o);
+  at: '2026-11-01T10:00:00Z', forReason: 'L3', forLevel: 'red', forHeadline: 'Sleep disturbed' }, o);
 
 // ── the buckets ───────────────────────────────────────────────────────────
 const F = load({ clients: [
@@ -58,14 +58,24 @@ ok('every bucket is represented',
    ['aware_none', 'aware_working', 'aware_1to1'].every(s => r.some(x => x.state === s)));
 
 // ── stale: the ack is bound to the flag it was raised on ──────────────────
-const withPulse = (byCid) => load({ pulse: { byCid },
-  clients: [{ id: 'a', name: 'A', vivId: '1', pulseAck: ack({}) }] }).rows()[0];
+const withPulse = (byCid, a) => load({ pulse: { byCid },
+  clients: [{ id: 'a', name: 'A', vivId: '1', pulseAck: ack(a || {}) }] }).rows()[0];
 ok('a matching flag is not stale',
-   withPulse({ '1': { flagReason: 'coc', headline: 'Sleep disturbed' } }).stale === false);
+   withPulse({ '1': { flagReason: 'L3', level: 'red', headline: 'Sleep disturbed' } }).stale === false);
 ok('a changed reason is stale',
-   withPulse({ '1': { flagReason: 'incident', headline: 'Sleep disturbed' } }).stale === true);
-ok('a changed headline is stale',
-   withPulse({ '1': { flagReason: 'coc', headline: 'Fall risk' } }).stale === true);
+   withPulse({ '1': { flagReason: 'L1', level: 'red', headline: 'Sleep disturbed' } }).stale === true);
+ok('a changed level is stale',
+   withPulse({ '1': { flagReason: 'L3', level: 'amber', headline: 'Sleep disturbed' } }).stale === true);
+
+// THE DEFECT THIS REPLACED. headline is AI prose Client Pulse rewrites on
+// every build. Binding to it marked 18 of Emily's 18 acknowledgements stale
+// on 11 Nov, most of them for nothing but a rewording.
+ok('a reworded headline on an unchanged flag is NOT stale',
+   withPulse({ '1': { flagReason: 'L3', level: 'red',
+     headline: 'Her sleep has been disturbed this week.' } }).stale === false);
+ok('an acknowledgement saved before forLevel existed does not test it',
+   withPulse({ '1': { flagReason: 'L3', level: 'amber', headline: 'x' } },
+             { forLevel: undefined }).stale === false);
 // Not knowing is not the same as knowing it moved.
 ok('no Pulse record loaded is not reported as stale', F.rows()[0].stale === false);
 ok('a client absent from the Pulse map is not reported as stale',
@@ -84,7 +94,7 @@ m.api.move('a', 'aware_1to1');
 ok('moving changes the bucket', m.c.pulseAck.state === 'aware_1to1');
 ok('moving keeps the note she typed', m.c.pulseAck.note === 'called daughter');
 ok('moving keeps the flag binding, so a stale card stays stale',
-   m.c.pulseAck.forReason === 'coc' && m.c.pulseAck.forHeadline === 'Sleep disturbed');
+   m.c.pulseAck.forReason === 'L3' && m.c.pulseAck.forLevel === 'red');
 ok('moving records who moved it and when',
    m.c.pulseAck.by === 'Emily Willson' && m.c.pulseAck.at > '2026-11-01T10:00:00Z');
 
@@ -106,6 +116,17 @@ ok('an empty board removes its own section rather than rendering a heading',
 ok('every drag target is also reachable as a button',
    /data-move=/.test(CODE) && /data-clear=/.test(CODE) && /dragstart/.test(CODE));
 ok('it sits under Needs attention on Home', /getElementById\('rd-s-attn'\)/.test(CODE));
+ok('the board never binds staleness to the rewritten headline',
+   !/a\.forHeadline !== \(pp\.headline/.test(CODE));
+
+// The client record must agree with the board, or the same card reads handled
+// in one place and stale in the other.
+const HUB = strip(fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8'));
+ok('the client record binds on reason and level too',
+   /ack\.forReason===\(pp\.flagReason\|\|''\) &&\s*\n?\s*\(ack\.forLevel===undefined \|\| ack\.forLevel===\(pp\.level\|\|''\)\)/.test(HUB));
+ok('the client record no longer compares the headline',
+   !/ack\.forHeadline===\(pp\.headline/.test(HUB));
+ok('a new acknowledgement records the level', /forLevel:\(pp&&pp\.level\)\|\|''/.test(HUB));
 
 console.log('\n' + (fail ? 'FAILED ' + fail : 'PASSED all ' + pass));
 process.exit(fail ? 1 : 0);
