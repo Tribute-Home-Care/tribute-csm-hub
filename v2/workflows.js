@@ -1057,8 +1057,30 @@
      so what a CSM approves is what is sent. An email client applies none of
      the Hub's stylesheet, so a class-based version would have previewed
      beautifully and arrived as unstyled text. */
-  function weeklyEmailHtml(c, wk, st) {
+  /* ── The CSM's own words ─────────────────────────────────────────────
+     The message paragraph is editable in the preview (Julia and Emily,
+     Nov 12). What a CSM types is kept for THAT week only: next week starts
+     from the standard wording again, so a note about Thanksgiving never
+     rides along into December. Stored on the shared clientWeekly record, so
+     a colleague covering sees the same draft. */
+  function weeklyDefaultIntro(c) {
     const first = String(c.name || '').split(' ')[0];
+    return 'Here is ' + first + '\u2019s Tribute schedule for next week. ' +
+      'Please call me with anything at all \u2014 a change, a question, or just to talk something through.';
+  }
+  function weeklyIntroFor(c, week) {
+    const s = weeklyFor(c.id);
+    return (s.introWeek === week && typeof s.intro === 'string' && s.intro.trim()) ? s.intro : weeklyDefaultIntro(c);
+  }
+  function introHtml(text) {
+    return String(text || '').trim().split(/\n\s*\n/).map(function (para) {
+      return '<p style="margin:0 0 16px;font-size:14px;">' + esc(para.trim()).replace(/\n/g, '<br>') + '</p>';
+    }).join('');
+  }
+
+  function weeklyEmailHtml(c, wk, st, intro) {
+    const first = String(c.name || '').split(' ')[0];
+    if (typeof intro !== 'string') intro = weeklyIntroFor(c, (st && st.week) || nextSundayFor(c));
     // No week, no email. This is the last line of defence: a caller that
     // ignores `unavailable` still cannot get a table here, because an empty
     // one reads to a family as "nobody is coming".
@@ -1087,8 +1109,7 @@
         esc(first) + '&rsquo;s week with Tribute</h4>' +
       '<p style="margin:0 0 16px;font-size:13px;color:' + MUTED + ';">' + esc(wk.weekLabel || '') + '</p>' +
       '<p style="margin:0 0 12px;font-size:14px;">Hello,</p>' +
-      '<p style="margin:0 0 16px;font-size:14px;">Here is ' + esc(first) + '&rsquo;s Tribute schedule for next week. ' +
-        'Please call me with anything at all &mdash; a change, a question, or just to talk something through.</p>' +
+      introHtml(intro) +
       '<table cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;' +
         'border-top:1px solid ' + LINE + ';margin-bottom:18px;">' + rows + '</table>' +
       '<p style="margin:0 0 4px;font-size:14px;">Warmly,</p>' +
@@ -1135,14 +1156,39 @@
       '<div class="wk-prev-to"><span>To</span><b>' + (st.to ? esc(st.to) : '<i class="warn">no family email on file</i>') + '</b></div>' +
       '<div class="wk-prev-to"><span>Subject</span><b>' + esc(String(c.name || '').split(' ')[0]) +
       '’s Tribute schedule — ' + esc(wk.weekLabel || '') + '</b></div>' +
-      stale + weeklyEmailHtml(c, wk, st);
-    const go = await R.dialog({
+      stale +
+      '<div class="fg" style="margin:10px 0 12px;"><label class="fl" for="wk-intro">Your message</label>' +
+      '<textarea class="fc" id="wk-intro" rows="4" style="width:100%;resize:vertical;">' +
+        esc(weeklyIntroFor(c, st.week)) + '</textarea>' +
+      '<div class="rd-ws-quiet" style="margin-top:4px;">Edit this for this week. The schedule below stays as Viv has it. ' +
+        '<a href="#" id="wk-intro-reset">Use the standard wording</a></div></div>' +
+      '<div id="wk-prev-mail">' + weeklyEmailHtml(c, wk, st) + '</div>';
+    let intro = weeklyIntroFor(c, st.week);
+    const shown = R.dialog({
       title: 'Weekly schedule email',
       html: body,
       ok: (st.to && weeklySendable()) ? 'Send now' : '',
       cancel: 'Close',
       wide: true
     });
+    // The dialog is in the page as soon as dialog() returns, so the live
+    // preview can follow the textarea: what is approved is what is sent.
+    const ta = document.getElementById('wk-intro');
+    const mail = document.getElementById('wk-prev-mail');
+    const redraw = function () { if (mail) mail.innerHTML = weeklyEmailHtml(c, wk, st, intro); };
+    if (ta) ta.addEventListener('input', function () { intro = ta.value; redraw(); });
+    const reset = document.getElementById('wk-intro-reset');
+    if (reset) reset.addEventListener('click', function (e) {
+      e.preventDefault(); intro = weeklyDefaultIntro(c); if (ta) ta.value = intro; redraw();
+    });
+    const go = await shown;
+    // Keep the edit for this week, sent or not, so closing the preview
+    // does not throw away what the CSM wrote.
+    const custom = intro.trim() && intro.trim() !== weeklyDefaultIntro(c) ? intro : '';
+    const saved = weeklyFor(c.id);
+    if ((saved.introWeek === st.week ? (saved.intro || '') : '') !== custom) {
+      weeklySave(c.id, { intro: custom, introWeek: st.week });
+    }
     if (go && st.to && weeklySendable()) weeklySend(c, wk);
   }
 
