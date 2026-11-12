@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-11-11T13:13"></script>
+<script src="./entra-auth.js?v=2026-11-12T12:43"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1861,7 +1861,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-11-11T13:13';
+const HUB_BUILD='2026-11-12T12:43';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -4449,6 +4449,7 @@ function openLogPanel(type,clientId,clientName){
         <div class="fg"><label class="fl">Date</label><input type="date" class="fc" id="lp-date" value="${today}"></div>
         <div class="fg"><label class="fl">Type</label><select class="fc" id="lp-vtype" onchange="lpVisitDest()"><option>In-Person</option><option>Home Assessment</option><option>Virtual</option><option>Phone Call</option></select></div>
       </div>
+      <div class="fg"><label class="fl">Visit done by</label><select class="fc" id="lp-by">${_lpByOptions()}</select></div>
       <div class="g2" id="lp-time-row">
         <div class="fg"><label class="fl">Start time</label><input type="time" class="fc" id="lp-time" value="10:00"></div>
         <div class="fg"><label class="fl">Length</label><select class="fc" id="lp-dur"><option value="30">30 minutes</option><option value="45">45 minutes</option><option value="60" selected>1 hour</option><option value="90">1.5 hours</option><option value="120">2 hours</option></select></div>
@@ -4524,6 +4525,15 @@ function openLogPanel(type,clientId,clientName){
 // neither word, so selecting it hid the time row and both destination
 // checkboxes, and then wrote nothing to Viv or Outlook without an error.
 function _lpOnSched(t){ return /in-person|assessment|virtual/i.test(String(t||'')); }
+// WHO DID THE VISIT is not always who is logging it (CSM AI, 2026-11-12):
+// Kristen logs Chicago visits from the team's calendars, and a visit filed
+// under the logger makes the CSM who went look behind. The chosen CSM gets
+// the visit in their own log and as the Viv performer; the logger is kept.
+function _lpByOptions(){
+  const me=P&&P.id;
+  const list=PROFILES.slice().sort((a,b)=>(a.id===me?-1:b.id===me?1:a.name.localeCompare(b.name)));
+  return list.map(p=>'<option value="'+escHtml(p.id)+'"'+(p.id===me?' selected':'')+'>'+escHtml(p.name)+(p.id===me?' (me)':'')+'</option>').join('');
+}
 function lpVisitDest(){
   const t=(document.getElementById('lp-vtype')||{}).value||'';
   const onSched=_lpOnSched(t);
@@ -4671,6 +4681,8 @@ async function lpSaveVisit(cid){
   const date=document.getElementById('lp-date').value;if(!date){alert('Select a date.');return;}
   const type=document.getElementById('lp-vtype').value;
   const note=(document.getElementById('lp-vnote')||{}).value||'';
+  const byEl=document.getElementById('lp-by');
+  const by=(byEl&&byEl.value&&PROFILES.some(p=>p.id===byEl.value))?byEl.value:(P&&P.id);
   const c=get('clients').find(x=>x.id===cid)||{};
   const onSched=_lpOnSched(type);
   const toViv=onSched&&document.getElementById('lp-toviv')&&document.getElementById('lp-toviv').checked&&!!c.vivId;
@@ -4682,7 +4694,7 @@ async function lpSaveVisit(cid){
     _lpMsg('Adding to '+escHtml(c.name||'the client')+'\'s Viv schedule…');
     try{
       const r=await fetch(VIV_PROXY+'?endpoint=csm_visit',{method:'POST',headers:await dataHeaders(true),
-        body:JSON.stringify({clientVivId:c.vivId,csmId:P&&P.id,start:w.start.toISOString(),end:w.end.toISOString(),
+        body:JSON.stringify({clientVivId:c.vivId,csmId:by,start:w.start.toISOString(),end:w.end.toISOString(),
           type:/assessment/i.test(type)?'Home Assessment':'Home Visit',notes:note,
           // The visit belongs to the CLIENT's market, not to wherever the
           // person booking it is sitting. The server resolves it from the
@@ -4701,11 +4713,23 @@ async function lpSaveVisit(cid){
       outlookId=ev.id; outlookLink=ev.link; }
     catch(e){ problems.push('Outlook: '+e.message); }
   }
-  const vs=get('visits');
-  vs.push({id:Date.now().toString(),clientId:cid,date,type,note,loggedAt:new Date().toISOString(),
-    start:onSched?w.start.toISOString():'',end:onSched?w.end.toISOString():'',vivVisitId:vivId,outlookEventId:outlookId});
-  set('visits',vs);
-  const cl=get('clients'),i=cl.findIndex(x=>x.id===cid);if(i>-1&&(!cl[i].lastVisit||date>cl[i].lastVisit)){cl[i].lastVisit=date;set('clients',cl);}
+  const rec={id:Date.now().toString(),clientId:cid,date,type,note,loggedAt:new Date().toISOString(),
+    start:onSched?w.start.toISOString():'',end:onSched?w.end.toISOString():'',vivVisitId:vivId,outlookEventId:outlookId};
+  if(by===(P&&P.id)){
+    const vs=get('visits'); vs.push(rec); set('visits',vs);
+  }else{
+    rec.loggedBy=P&&P.id;
+    if(!DATA.profiles[by])DATA.profiles[by]={};
+    const vs=Array.isArray(DATA.profiles[by].visits)?DATA.profiles[by].visits:[];
+    vs.push(rec); DATA.profiles[by].visits=vs;
+  }
+  // Last visit lives on the client record, which can sit in more than one
+  // CSM's list (coverage, dual market): move it forward wherever it is.
+  Object.keys(DATA.profiles||{}).forEach(pid=>{
+    const cl=DATA.profiles[pid]&&DATA.profiles[pid].clients; if(!Array.isArray(cl))return;
+    const x=cl.find(y=>y.id===cid); if(x&&(!x.lastVisit||date>x.lastVisit))x.lastVisit=date;
+  });
+  queueSave();
   if(btn){btn.disabled=false;btn.textContent='Log Visit';}
   if(problems.length){
     _lpMsg('Logged in the hub, but: '+problems.map(escHtml).join(' · '),'#B42318');
