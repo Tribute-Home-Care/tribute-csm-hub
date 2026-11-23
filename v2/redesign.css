@@ -2453,3 +2453,33 @@ input[type="email"], select { min-height: var(--h-ctl); }
   .rd-cad { flex-direction: column; align-items: flex-start; gap: 1px; }
   .rd-cad dd { text-align: left; }
 }
+
+/* Quick care facts: two lines each, which is what was asked for.
+   The sections picked are already the right ones; what made the old Care
+   Snapshot unreadable was that the care plan's answers are paragraphs, and
+   four of them stacked is a wall. Clamped rather than cut: nothing is lost
+   and nothing is rewritten, and the full text is one click away on the Care
+   Plan tab. */
+.rd-snap-t {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Activity filter: All / Family / Caregiver / Visits.
+   This is what lets the Communication view stop existing, since it showed
+   Activity's own touchpoints under a second heading. The counts come from
+   everything, so a filter with nothing in it still reads as empty rather than
+   vanishing and leaving a CSM wondering where the tab went. */
+.rd-actf { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 var(--s3); }
+.rd-actf-b {
+  appearance: none; cursor: pointer;
+  border: 1px solid var(--line); background: var(--surface);
+  border-radius: 999px; padding: 3px 11px;
+  font: inherit; font-size: 12.5px; color: var(--ink-2);
+  display: inline-flex; align-items: baseline; gap: 6px;
+}
+.rd-actf-b:hover { border-color: var(--ink-3); color: var(--ink); }
+.rd-actf-b[aria-selected="true"] { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+.rd-actf-b .n { font-size: 11px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.rd-actf-b[aria-selected="true"] .n { color: var(--surface); opacity: .72; }
+.rd-actf-b:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }

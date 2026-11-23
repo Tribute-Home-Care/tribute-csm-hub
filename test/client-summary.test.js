@@ -64,9 +64,34 @@ ok('community and LTC are on Summary', /block\('Community and LTC'/.test(CODE));
 ok('a coverage note shows only when somebody is covering',
    /if \(cov && \(cov\.coveredBy \|\| cov\.to \|\| cov\.note\)\)/.test(CODE));
 
-// The More menu must still exist until nothing depends on it.
-ok('the More menu is still reachable while its tabs remain',
-   /const WS_MORE = \[/.test(CODE) && /rd-cw-more/.test(CODE));
+// ── the More menu is gone, and nothing went with it ───────────────────────
+// This assertion used to be the opposite: it guarded the interim state where
+// the menu had to stay until its five views had somewhere to live. They do
+// now, so it asserts the removal and, more importantly, that the removal
+// stranded nothing.
+ok('the More menu is gone', !/rd-cw-more/.test(CODE) && !/data-menu="ws"/.test(CODE));
+ok('four tabs and no fifth destination',
+   (CODE.match(/role="tab" data-key=/g) || []).length === 1 && /WS_AREAS\.map/.test(CODE));
+ok('an old route to a moved view lands on the tab that holds it',
+   /const MOVED = \{ team: 'schedule', info: 'overview', communication: 'activity',/.test(CODE) &&
+   /if \(MOVED\[_section\]\) _section = MOVED\[_section\];/.test(CODE));
+// workflows.js registers "Weekly schedule emails sent" into the Communication
+// area. Dropping that view without re-homing the block would have removed a
+// record of what was sent to a family, with nothing in the diff to show it.
+ok('a block contributed to the dropped Communication view still renders',
+   /extraBlocks\('communication', c\)/.test(CODE));
+ok('...on Activity, where it belongs', /extraBlocks\('activity', c\)[\s\S]{0,400}extraBlocks\('communication', c\)/.test(CODE));
+ok('the care team moved to the Schedule tab', /out \+= block\('Care team', wsTeam\(c, snap\)\);/.test(CODE));
+
+// ── the Activity filter, which is what replaces Communication ─────────────
+ok('Activity filters by who the contact was with',
+   /const ACT_FILTERS = \[\['all', 'All'\], \['family', 'Family'\],[\s\S]{0,60}\['caregiver', 'Caregiver'\], \['visit', 'Visits'\]\]/.test(CODE));
+ok('the party is derived at source, not guessed from a label',
+   /party: \/\^CG-\/i\.test\(ty\) \? 'caregiver' : 'family'/.test(CODE));
+ok('counts come from everything, so an empty filter still says so',
+   /Nothing logged under that filter yet\./.test(CODE));
+ok('quick care facts are clamped rather than cut', /\.rd-snap-t \{[\s\S]{0,120}line-clamp: 2/.test(CSS));
+ok('the card is called what she called it', /block\('Quick care facts'/.test(CODE) && !/Care snapshot/.test(CODE));
 
 console.log('\n' + (fail ? 'FAILED ' + fail : 'PASSED all ' + pass));
 process.exit(fail ? 1 : 0);

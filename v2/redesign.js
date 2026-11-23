@@ -929,12 +929,19 @@
   function activityFor(c, snap) {
     const out = [];
     rowsFor('visits', c.id).forEach(function (v) {
-      out.push({ date: v.date, kind: 'Visit', text: v.type || 'Visit', meta: v.by || '' }); });
+      out.push({ date: v.date, kind: 'Visit', text: v.type || 'Visit', party: 'visit', meta: v.by || '' }); });
+    /* WHO THE CONTACT WAS WITH, so the Activity filter can mean something.
+       Courtney asked for All / Family / Caregiver / Visits (17 Nov). The
+       touchpoint TYPE already carries it: CG-PREP and CG-CHK are the caregiver
+       conversations from Success in 30, the rest are family or GCM. Derived at
+       source rather than guessed from the label when it is rendered. */
     rowsFor('touchpoints', c.id).forEach(function (t) {
+      const ty = String(t.type || '');
       out.push({ date: t.date, kind: 'Touchpoint', text: t.type || 'Touchpoint',
+                 party: /^CG-/i.test(ty) ? 'caregiver' : 'family',
                  meta: String(t.note || t.notes || '').slice(0, 60) }); });
     rowsFor('checkins', c.id).forEach(function (x) {
-      out.push({ date: x.date, kind: 'Care conversation',
+      out.push({ date: x.date, kind: 'Care conversation', party: 'family',
                  text: 'Satisfaction ' + (x.satisfaction || '—') + '/5',
                  meta: String(x.working || '').slice(0, 60) }); });
     rowsFor('s60', c.id).forEach(function (m) {
@@ -942,7 +949,7 @@
     try {
       const comms = ((A().data.shared || {}).comms || {}).byClient || {};
       ((comms[c.vivId] || comms[c.id] || {}).events || []).forEach(function (e) {
-        out.push({ date: String(e.date || e.day || '').slice(0, 10), kind: 'Communication',
+        out.push({ date: String(e.date || e.day || '').slice(0, 10), kind: 'Communication', party: 'family',
                    text: e.kind || e.type || 'Contact', meta: String(e.subject || e.with || '').slice(0, 60) });
       });
     } catch (e) {}
@@ -1047,17 +1054,25 @@
             esc([c.loc, c.city].filter(Boolean).join(', ')) + '</span></address>'
           : (snap.state === 'loading' ? '<address class="rd-cw-addr skel">&nbsp;</address>' : ''))) +
       '<div class="rd-cw-acts">' + acts.join('') + '</div>' +
+      /* FOUR TABS, NO MORE MENU. Courtney's priority 2, agreed 12 Nov: nine
+         views for one client, with the family contact, the care team and the
+         Pulse flag all hidden behind a dropdown.
+
+         Every one of those five now has a home on a tab. Care Team sits with
+         the Schedule, which is honest as well as tidier because Viv keeps no
+         care-team roster and that list IS the schedule grouped. Client
+         Information became the header line and the Contacts card. LTC became
+         the Community and LTC card. Pulse became the banner. Communication is
+         gone, because it showed Activity's own touchpoints under a second
+         heading, and Activity now filters by who the contact was with.
+
+         The section keys still resolve, so an old link or a saved route to
+         ?section=team opens the tab that now holds it rather than nothing. */
       '<nav class="rd-cw-rail" role="tablist">' +
       WS_AREAS.map(function (a) {
         return '<button type="button" role="tab" data-key="' + a[0] + '" aria-selected="' +
           (_section === a[0]) + '">' + esc(a[1]) + '</button>';
-      }).join('') +
-      '<div class="rd-menu rd-cw-moremenu"><button type="button" class="rd-cw-more" data-menu="ws"' +
-      ' aria-haspopup="true" aria-selected="' + (WS_AREAS.every(function (a) { return a[0] !== _section; })) + '">' +
-      '<span>More</span>' + I('chevronDown') + '</button><div class="rd-menu-list right" data-for="ws">' +
-      WS_MORE.map(function (a) {
-        return '<button type="button" data-go="' + a[0] + '">' + esc(a[1]) + '</button>';
-      }).join('') + '</div></div></nav></header>';
+      }).join('') + '</nav></header>';
   }
 
   function renderWorkspace() {
@@ -1074,19 +1089,20 @@
     const ex = exceptionFor(c);
     const pp = pulseFor(c);
 
+    /* A route from before the four-tab change still has to land somewhere
+       sensible. ?section=team or =info was a real destination; it is now part
+       of a tab, so send it to the tab that holds it rather than to nothing. */
+    const MOVED = { team: 'schedule', info: 'overview', communication: 'activity',
+                    care: 'overview', admin: 'overview' };
+    if (MOVED[_section]) _section = MOVED[_section];
+
     let body = '';
-    if (_section === 'overview') body = wsOverview(c, ex, pp, snap);
-    else if (_section === 'careplan') body = wsCarePlan(c);
+    if (_section === 'careplan') body = wsCarePlan(c);
     else if (_section === 'schedule') body = wsSchedule(c, snap);
     else if (_section === 'activity') body = wsActivity(c, snap);
-    else if (_section === 'team') body = wsTeam(c, snap);
-    else if (_section === 'info') body = wsInfo(c, snap);
-    else if (_section === 'communication') body = wsCommunication(c);
-    else if (_section === 'care') body = wsCare(c, pp);
-    else body = wsMore(c);
+    else body = wsOverview(c, ex, pp, snap);
 
-    const sub = WS_AREAS.every(function (a) { return a[0] !== _section; })
-      ? '<h3 class="rd-ws-sub-h">' + esc(WS_TITLE[_section] || '') + '</h3>' : '';
+    const sub = '';
 
     ws.innerHTML = wsHeader(c, snap) + wsPulseBanner(c, pp)
       + '<div class="rd-ws-body">' + sub + body + '</div>' + wsActions(c);
@@ -1097,6 +1113,9 @@
         renderWorkspace();
         if (window.TributeRouter) TributeRouter.push({ page: 'clients', client: c.id, section: _section });
       });
+    });
+    $$('[data-actf]', ws).forEach(function (b) {
+      b.addEventListener('click', function () { _actFilter = b.dataset.actf; renderWorkspace(); });
     });
     const back = $('.rd-ws-back', ws);
     if (back) back.addEventListener('click', function () { deselectClient(); if (window.TributeRouter) TributeRouter.push({ page: 'clients', client: null }); });
@@ -1322,11 +1341,11 @@
   function wsSnapshot(c) {
     const snap = CP(c);
     const miss = unread(snap, 'the care plan');
-    if (miss) return block('Care snapshot', miss);
+    if (miss) return block('Quick care facts', miss);
     const p = snap.data && snap.data.careplan;
-    if (!p) return block('Care snapshot', quiet('No care plan on file in Viv yet.'));
+    if (!p) return block('Quick care facts', quiet('No care plan on file in Viv yet.'));
     const secs = cpSections(snap);
-    if (!secs.length) return block('Care snapshot',
+    if (!secs.length) return block('Quick care facts',
       quiet('The care plan is on file but has no structured answers to summarise.') +
       '<button type="button" class="rd-link" data-go="careplan">Open the care plan →</button>');
     const pick = secs.filter(function (s) {
@@ -1334,10 +1353,20 @@
     }).slice(0, 4);
     const show = (pick.length ? pick : secs.filter(function (s) {
       return cpBand(s.title) !== 2; }).slice(0, 3));
-    return block('Care snapshot',
+    /* "Quick care facts (meds, allergies, safety, emergency protocol in one or
+       two lines each)" — Courtney, 17 Nov. The sections were already the right
+       ones, picked by CP_ORDER and by the form's own IMPORTANT / PLEASE READ
+       markers. What made this unreadable was length: the care plan's answers
+       are paragraphs, and four of them stacked is the wall she described as
+       "the care plan again".
+
+       Each one is clamped to two lines rather than cut, so nothing is lost and
+       nothing is rewritten: the full text is one click away on the Care Plan
+       tab, which she asked to keep exactly as it is. */
+    return block('Quick care facts',
       show.map(function (s) {
         return '<div class="rd-snap"><span class="rd-snap-k">' + esc(s.title) + '</span>' +
-          '<p>' + esc(s.items.slice(0, 2).map(function (i) { return i.a; }).join(' · ')) + '</p></div>';
+          '<p class="rd-snap-t">' + esc(s.items.slice(0, 2).map(function (i) { return i.a; }).join(' · ')) + '</p></div>';
       }).join('') +
       '<button type="button" class="rd-link" data-go="careplan">Full care plan →</button>');
   }
@@ -1458,6 +1487,12 @@
     const nv = nextVisit(c);
     out += block('Your next visit', nv ? '<p class="rd-ws-next">' + fmtShort(nv) + '</p>'
       : quiet(c.freq === 'NA' ? 'No visit cadence set.' : 'Not scheduled.'), true);
+    /* THE CARE TEAM BELONGS WITH THE SCHEDULE, which is where Courtney put it
+       (17 Nov: "More > Care Team → Schedule tab + care team card on Summary").
+       It is honest placement as well as tidier: Viv keeps no care-team roster,
+       so this list IS the schedule, grouped by caregiver. Summary keeps the
+       top three as a preview. */
+    out += block('Care team', wsTeam(c, snap));
     out += extraBlocks('schedule', c);
     return out;
   }
@@ -1553,19 +1588,49 @@
   }
 
   /* ── ACTIVITY ───────────────────────────────────────────────────────── */
+  /* All / Family / Caregiver / Visits, which is what Courtney asked for, and
+     what lets the Communication view stop being a separate destination: it
+     showed the same touchpoints as Activity with a different heading. */
+  let _actFilter = 'all';
+  const ACT_FILTERS = [['all', 'All'], ['family', 'Family'],
+                       ['caregiver', 'Caregiver'], ['visit', 'Visits']];
+
   function wsActivity(c, snap) {
     const items = activityFor(c, snap);
     if (!items.length) return block('', quiet('Nothing has been logged for this client yet.'));
+
+    // Counts come from everything, so a filter with nothing in it still says
+    // so rather than disappearing and leaving a CSM wondering where it went.
+    const n = {}; ACT_FILTERS.forEach(function (f) { n[f[0]] = 0; });
+    items.forEach(function (x) { n.all++; if (n[x.party] !== undefined) n[x.party]++; });
+
+    const chips = '<div class="rd-actf" role="tablist">' + ACT_FILTERS.map(function (f) {
+      return '<button type="button" role="tab" class="rd-actf-b" data-actf="' + f[0] + '"' +
+        ' aria-selected="' + (_actFilter === f[0]) + '">' + esc(f[1]) +
+        (n[f[0]] ? '<span class="n">' + n[f[0]] + '</span>' : '') + '</button>';
+    }).join('') + '</div>';
+
+    const shown = _actFilter === 'all' ? items
+      : items.filter(function (x) { return x.party === _actFilter; });
+    if (!shown.length) return chips + block('', quiet('Nothing logged under that filter yet.'));
+
     const byMonth = {};
-    items.forEach(function (x) {
+    shown.forEach(function (x) {
       const k = String(x.date).slice(0, 7);
       (byMonth[k] = byMonth[k] || []).push(x);
     });
-    return Object.keys(byMonth).sort().reverse().slice(0, 6).map(function (k) {
+    return chips + Object.keys(byMonth).sort().reverse().slice(0, 6).map(function (k) {
       const label = new Date(k + '-01T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
       return '<section class="rd-ws-block"><h4>' + esc(label) + '</h4>' +
         activityLines(byMonth[k]) + '</section>';
-    }).join('');
+    }).join('')
+      + extraBlocks('activity', c)
+      /* The Communication view is gone, but another layer contributes a block
+         to it: workflows.js registers "Weekly schedule emails sent" there.
+         Dropping the view without re-homing that block would have removed a
+         real record of what was sent to a family, silently and with nothing
+         in the diff to show it. Activity is where it belongs anyway. */
+      + extraBlocks('communication', c);
   }
 
   /* WHAT AN ACKNOWLEDGEMENT IS CALLED.
