@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub · V2 Preview</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="../entra-auth.js?v=2026-11-22T22:22"></script>
+<script src="../entra-auth.js?v=2026-11-23T07:09"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -292,6 +292,14 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
       <span>⚙️</span><span>Settings</span>
     </div>
   </div>
+  <!-- FEEDBACK LIVES IN THE PRODUCTION HUB TOO.
+       The Feedback button shipped in the V2 pilot only, so everybody working
+       in this hub, which is most of the team, had no way to report anything.
+       They emailed Andrew instead, and the board read as 20 quiet days while
+       two substantial reports arrived in his inbox. A queue nobody can reach
+       is not a quiet queue. Same endpoint, same categories, so a report filed
+       here lands in the same place as a pilot one. -->
+  <div style="padding:0 14px 8px;"><button class="btn btn-sm btn-o" style="width:100%;" onclick="openFeedback()">Send feedback</button></div>
   <div class="sb-foot">Remarkable, personified.<br><span id="sb-build" style="font-size:9px;letter-spacing:.04em;color:#C9C2B6;"></span></div>
 </nav>
 
@@ -1462,6 +1470,37 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
 </div>
 
 <!-- CONNECT TO VIV (fallback sync key) MODAL -->
+<div class="mo" id="m-feedback">
+  <div class="md" style="width:470px;">
+    <div class="mt" style="margin-bottom:4px;">Tell us what you found</div>
+    <p style="font-size:12.5px;color:#8C857B;margin-bottom:14px;">It goes straight to Andrew, and you can see every report and what happened to it.</p>
+    <div class="fg"><label class="fl">Type</label>
+      <select class="fc" id="fb-cat">
+        <option value="broken">Something is broken</option>
+        <option value="confusing">Something is confusing</option>
+        <option value="cannot_find">I can&rsquo;t find something</option>
+        <option value="data_wrong">Data looks wrong</option>
+        <option value="idea">Idea / suggestion</option>
+      </select></div>
+    <div class="fg"><label class="fl">What happened?</label>
+      <textarea class="fc" id="fb-msg" rows="4" placeholder="What you were doing, and what the Hub did."></textarea></div>
+    <div class="fg"><label class="fl">What did you expect? <span style="color:#B7B0A6;font-weight:400;">optional</span></label>
+      <textarea class="fc" id="fb-exp" rows="2" placeholder="What you thought would happen."></textarea></div>
+    <div class="fg"><label class="fl">Impact</label>
+      <select class="fc" id="fb-imp">
+        <option value="minor">Minor</option>
+        <option value="slowed">Slowed me down</option>
+        <option value="blocked">Couldn&rsquo;t continue</option>
+      </select></div>
+    <p style="font-size:11.5px;color:#8C857B;line-height:1.5;">We attach the page you were on, your role and market, and the build. We never attach client names, notes, schedules or anything from a client&rsquo;s record.</p>
+    <p id="fb-error" style="font-size:12px;color:var(--hi);min-height:16px;margin:4px 0 0;"></p>
+    <div class="mf">
+      <button class="btn btn-o" onclick="closeM('m-feedback')">Cancel</button>
+      <button class="btn btn-p" id="fb-send" onclick="sendFeedback()">Send</button>
+    </div>
+  </div>
+</div>
+
 <div class="mo" id="m-vivkey">
   <div class="md" style="width:380px;text-align:center;">
     <div style="font-size:36px;margin-bottom:10px;">🔄</div>
@@ -1876,7 +1915,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-11-22T22:23';
+const HUB_BUILD='2026-11-23T07:10';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -8767,6 +8806,60 @@ ${ci.notes?'\nADDITIONAL NOTES / FOLLOW-UP:\n'+ci.notes:''}`.trim();
   document.getElementById('viv-subject').value=subject;
   document.getElementById('viv-body').value=body;
   openM('m-viv');
+}
+
+/* SENDING FEEDBACK FROM THE PRODUCTION HUB.
+   Same endpoint and the same categories as the pilot's panel, so a report
+   filed here is indistinguishable from one filed there and lands on the same
+   board. Deliberately simpler: no inbox, no triage, no technical capture
+   beyond the page and the build. Reading the queue stays in the pilot for now.
+
+   WHAT IT NEVER SENDS: anything from a client's record. The page you were on
+   is a route like "#clients", not a client. */
+let _fbKey=null;
+function openFeedback(){
+  _fbKey=null;
+  ['fb-msg','fb-exp'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  const err=document.getElementById('fb-error'); if(err)err.textContent='';
+  const b=document.getElementById('fb-send'); if(b){b.disabled=false;b.textContent='Send';}
+  openM('m-feedback');
+  setTimeout(()=>{const m=document.getElementById('fb-msg');if(m)m.focus();},80);
+}
+async function sendFeedback(){
+  const msg=(document.getElementById('fb-msg')||{}).value||'';
+  const err=document.getElementById('fb-error');
+  if(msg.trim().length<4){ if(err)err.textContent='Tell us what happened first.'; return; }
+  const b=document.getElementById('fb-send');
+  if(b){b.disabled=true;b.textContent='Sending…';}
+  if(err)err.textContent='';
+  // One key per attempt, so retrying the same text is not a second row but a
+  // genuinely new report is.
+  if(!_fbKey)_fbKey='ck_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8);
+  try{
+    const headers=Object.assign({'Content-Type':'application/json'}, await dataHeaders(true));
+    const r=await fetch(VIV_PROXY+'?endpoint=v2_feedback',{method:'POST',headers,body:JSON.stringify({
+      clientKey:_fbKey,
+      category:(document.getElementById('fb-cat')||{}).value||'broken',
+      impact:(document.getElementById('fb-imp')||{}).value||'minor',
+      message:msg.trim(),
+      expected:((document.getElementById('fb-exp')||{}).value||'').trim(),
+      route:String(location.hash||'').slice(0,60),
+      // Which page they were on, read off the DOM: V1 keeps no variable for it,
+      // and a blank area on every report makes the board harder to triage.
+      workspaceArea:((document.querySelector('.page.active')||{}).id||'').replace(/^page-/,''),
+      profileId:(P&&P.id)||'', role:(P&&P.role)||'', market:(P&&P.market)||'',
+      build:(typeof HUB_BUILD==='string'?HUB_BUILD:'')
+    })});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok||j.error) throw new Error(j.error||('HTTP '+r.status));
+    _fbKey=null;
+    closeM('m-feedback');
+    showToast('Thank you — that is on the board.');
+  }catch(e){
+    // Never discard what they typed, and never call a failure a success.
+    if(b){b.disabled=false;b.textContent='Retry sending';}
+    if(err)err.textContent='That was NOT sent: '+(e&&e.message?e.message:'no answer from the server')+'. Your words are still here.';
+  }
 }
 
 function openMailto(){
