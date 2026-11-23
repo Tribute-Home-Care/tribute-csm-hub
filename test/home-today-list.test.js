@@ -93,7 +93,15 @@ ok('the row says the window it is talking about',
 ok('the full total is kept on the tile rather than dropped',
    /plural\(ovs\.total, 'visit'\) \+ ' unfilled in all'/.test(CODE));
 ok('one definition of an urgent open visit, read by both the tile and the list',
-   (CODE.match(/openVisitsSoon\(\)/g) || []).length === 3);
+   (CODE.match(/openVisitsSoon\(\)/g) || []).length === 4);
+/* The zero case is the one that can lie. On this caseload today it is 0
+   within 48 hours and 53 unfilled across the month, because Scheduling fills
+   the near days first; "Nothing right now" would be an all-clear nobody
+   earned. Every other bucket at zero really is nothing. */
+ok('an empty Open visits tile still says what is unfilled later',
+   /if \(k === 'open'\) \{[\s\S]{0,200}' unfilled, none in the next 48 hours'/.test(CODE));
+ok('...and the other buckets say nothing, because nothing is true of them',
+   /return 'Nothing right now';/.test(CODE));
 ok('rows are reachable by keyboard', /ev\.key === 'Enter' \|\| ev\.key === ' '/.test(CODE) && /tabindex="0"/.test(CODE));
 ok('only urgency is marked', /\.rd-td-r\.bad/.test(CSS) && /\.rd-td-r\.warn/.test(CSS));
 

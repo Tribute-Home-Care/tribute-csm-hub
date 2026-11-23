@@ -2567,6 +2567,18 @@
         const byBucket = {};
         sig.forEach(function (x) { if (x.bucket) byBucket[x.bucket] = x; });
         const rest = sig.filter(function (x) { return !x.bucket; });
+        /* AN EMPTY TILE MUST NOT CLAIM MORE THAN IT KNOWS. Open visits is the
+           one bucket whose tile can read zero while the caseload is not
+           clear: today's figures are 0 within 48 hours and 53 unfilled across
+           the month, because Scheduling fills the near days first. "Nothing
+           right now" would have been an all-clear nobody earned. */
+        const emptySub = function (k) {
+          if (k === 'open') {
+            const t = openVisitsSoon().total;
+            if (t) return plural(t, 'visit') + ' unfilled, none in the next 48 hours';
+          }
+          return 'Nothing right now';
+        };
         el.innerHTML = TODAY_BUCKETS.map(function (b) {
           const k = b[0], x = byBucket[k];
           const n = tn[k] || 0;
@@ -2576,7 +2588,7 @@
             ' aria-pressed="' + on + '">' +
             '<span class="rd-attn-n">' + n + '</span>' +
             '<span class="rd-attn-l">' + esc(x ? x.label : b[1]) + '</span>' +
-            '<span class="rd-attn-s">' + esc(x ? x.sub : 'Nothing right now') + '</span></button>';
+            '<span class="rd-attn-s">' + esc(x ? x.sub : emptySub(k)) + '</span></button>';
         }).join('') +
         (rest.length ? '<div class="rd-attn-more">' + rest.map(function (s) {
           return '<button type="button" class="rd-attn-link" data-go="' + s.go + '"' +
