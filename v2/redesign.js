@@ -728,8 +728,14 @@
      Everything factual here comes from Viv through two READS (v2-client.js).
      Nothing is stored, copied or synchronised, and a read that fails says so
      instead of rendering as an empty day. */
-  const WS_AREAS = [['overview', 'Overview'], ['careplan', 'Care Plan'],
-                    ['schedule', 'Schedule'], ['activity', 'Activity']];
+  /* "Summary", not "Overview", and Activity before Schedule: Courtney's
+     review of 17 Nov, which asks for four tabs reading Summary, Care Plan,
+     Activity, Schedule, and for Summary to be "one page you can read top to
+     bottom before a call". The More menu's five views still exist while
+     their content is being moved onto Summary; removing the menu before then
+     would make Care Team, Client Information, Pulse and LTC unreachable. */
+  const WS_AREAS = [['overview', 'Summary'], ['careplan', 'Care Plan'],
+                    ['activity', 'Activity'], ['schedule', 'Schedule']];
   const WS_MORE = [['team', 'Care Team'], ['info', 'Client Information'],
                    ['communication', 'Communication'], ['care', 'Pulse & Care'],
                    ['admin', 'LTC & Other']];
@@ -1067,7 +1073,8 @@
     const sub = WS_AREAS.every(function (a) { return a[0] !== _section; })
       ? '<h3 class="rd-ws-sub-h">' + esc(WS_TITLE[_section] || '') + '</h3>' : '';
 
-    ws.innerHTML = wsHeader(c, snap) + '<div class="rd-ws-body">' + sub + body + '</div>' + wsActions(c);
+    ws.innerHTML = wsHeader(c, snap) + wsPulseBanner(c, pp)
+      + '<div class="rd-ws-body">' + sub + body + '</div>' + wsActions(c);
 
     $$('.rd-cw-rail button[data-key]', ws).forEach(function (b) {
       b.addEventListener('click', function () {
@@ -1434,6 +1441,51 @@
     }).join('');
   }
 
+  /* WHAT AN ACKNOWLEDGEMENT IS CALLED.
+     This used to read window.PULSE_ACK_LABEL, which is always undefined: the
+     map is a top-level `const` in the Hub, so it is a global BINDING and not a
+     property of window. Every lookup missed and fell through to the raw key,
+     which is why the page read "aware_none" next to an acknowledgement
+     (Courtney, 17 Nov). Reached bare, behind a guard, with our own words as a
+     fallback so a raw key can never surface again. */
+  const ACK_WORDS = { aware_none: 'Nothing needed',
+                      aware_working: 'Working on it',
+                      aware_1to1: 'Raising in the 1:1' };
+  function ackLabel(state) {
+    const k = String(state || '');
+    try { if (typeof PULSE_ACK_LABEL !== 'undefined' && PULSE_ACK_LABEL && PULSE_ACK_LABEL[k]) return PULSE_ACK_LABEL[k]; }
+    catch (e) {}
+    return ACK_WORDS[k] || 'Acknowledged';
+  }
+
+  /* THE PULSE FLAG, AT THE TOP, WHERE IT IS ABOUT THE CLIENT.
+     Courtney's first priority (17 Nov): "the most important thing about a
+     client is two clicks deep under More > Pulse & Care". Her example was a
+     client taken by paramedics whose Summary said only "No visit on record".
+
+     No flag, no banner. A green client is not news, and a banner that is
+     always there stops being read. */
+  function wsPulseBanner(c, pp) {
+    if (!pp || !pp.level || pp.level === 'green') return '';
+    const tone = pp.level === 'red' ? 'bad' : 'warn';
+    const ack = c.pulseAck;
+    return '<div class="rd-pb ' + tone + '">' +
+      '<div class="rd-pb-k">' + (pp.level === 'red' ? 'Needs attention' : 'Watch') + '</div>' +
+      '<div class="rd-pb-b">' + pulseHeadline(pp.headline) +
+        ((pp.aiWatch && pp.aiWatch.length)
+          ? '<ul class="rd-ul">' + pp.aiWatch.map(function (w) { return '<li>' + esc(w) + '</li>'; }).join('') + '</ul>'
+          : '') +
+        (ack
+          ? '<p class="rd-pb-ack">' + esc(ackLabel(ack.state)) +
+            (ack.by ? ' &middot; ' + esc(ack.by) : '') +
+            ' <button type="button" class="rd-link" data-act="ack-clear">Undo</button></p>'
+          : '<div class="rd-ack"><span>Mark it</span>' +
+            '<button type="button" class="rd-link" data-act="ack" data-state="aware_working">Working on it</button>' +
+            '<button type="button" class="rd-link" data-act="ack" data-state="aware_1to1">Raising in 1:1</button>' +
+            '<button type="button" class="rd-link" data-act="ack" data-state="aware_none">Nothing needed</button></div>') +
+      '</div></div>';
+  }
+
   function wsCare(c, pp) {
     let out = '';
     if (pp) {
@@ -1445,7 +1497,7 @@
         ((pp.aiWatch && pp.aiWatch.length) ? '<ul class="rd-ul">' + pp.aiWatch.map(function (w) { return '<li>' + esc(w) + '</li>'; }).join('') + '</ul>' : '') +
         (c.pulseAck
           ? '<p class="rd-ws-quiet">Acknowledged by ' + esc(c.pulseAck.by || '') + ' · ' +
-            esc((window.PULSE_ACK_LABEL || {})[c.pulseAck.state] || c.pulseAck.state || '') +
+            esc(ackLabel(c.pulseAck.state)) +
             ' <button type="button" class="rd-link" data-act="ack-clear">Undo</button></p>'
           : '<div class="rd-ack"><span>Acknowledge</span>' +
             '<button type="button" class="rd-link" data-act="ack" data-state="aware_none">Nothing needed</button>' +

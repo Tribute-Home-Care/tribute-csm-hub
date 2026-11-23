@@ -2378,3 +2378,39 @@ input[type="email"], select { min-height: var(--h-ctl); }
 .rd-ltc-disch{margin:0 0 10px;font-size:13px;color:var(--muted)}
 .rd-ltc-disch button{background:none;border:0;padding:0;font:inherit;color:var(--orange);
   text-decoration:underline;cursor:pointer}
+
+/* ── The Pulse banner on a client ──────────────────────────────────────────
+   Courtney's first priority (17 Nov): the flag that says a client needs
+   attention sat two clicks deep under More > Pulse & Care, so a Summary could
+   read "No visit on record" for a client who had been taken by paramedics.
+
+   It sits between the header and the tabs, so it is read before the tab you
+   happen to be on, and it is the only thing on the page with a fill. Nothing
+   renders when there is no flag: a banner that is always there is wallpaper,
+   and a green client is not news. */
+.rd-pb {
+  display: flex; gap: var(--s3); align-items: baseline;
+  margin: 0 0 var(--s3);
+  padding: 11px 14px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--bad);
+  border-radius: 10px;
+  background: var(--bad-bg);
+}
+.rd-pb.warn { border-left-color: var(--warn); background: var(--warn-bg); }
+.rd-pb-k {
+  flex: 0 0 auto;
+  font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--bad); padding-top: 2px;
+}
+.rd-pb.warn .rd-pb-k { color: var(--warn); }
+.rd-pb-b { flex: 1 1 auto; min-width: 0; font-size: 13.5px; line-height: 1.55; color: var(--ink); }
+.rd-pb-b .rd-ul { margin-top: 5px; }
+/* Already dealt with, so it reads as settled rather than as a second alarm. */
+.rd-pb-ack { margin-top: 8px; font-size: 12.5px; color: var(--ink-3); }
+.rd-pb .rd-ack { margin-top: 9px; }
+
+@media (max-width: 720px) {
+  .rd-pb { flex-direction: column; gap: 4px; }
+  .rd-pb-k { padding-top: 0; }
+}
