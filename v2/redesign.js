@@ -507,11 +507,29 @@
      badge and the Today's list. Due soon is then everything else that is
      merely warned about, which keeps the two a partition rather than two
      overlapping counts. */
-  function pulseOpen(c) {
-    if (c.pulseAck) return false;                 // sorted is not unsorted
+  /* PULSE'S OWN THREE STATES ARE THE CLIENTS LIST'S FILTERS (Courtney,
+     section 9): "Pulse lives on the Clients list instead of its own page.
+     Needs action, Watch and Stable become filters."
+
+     Pulse reads red, amber or green, and those are her three words: red needs
+     action, amber is a watch, green is stable. So a RED flag joins Needs
+     attention and an AMBER one joins Due soon, the tab that has always meant
+     "worth an eye on, not today". Nothing had to be added to the tab bar to
+     fold Pulse in, which is the point: she asked for ONE filter row, not for
+     Pulse's tabs to arrive beside the existing ones.
+
+     The first pass put both red and amber into Needs attention. That made a
+     watch look like an emergency, and on this caseload a watch was most of
+     the tab. An alarm that includes the things you were only asked to keep an
+     eye on is an alarm people learn to ignore, which is the same failure as a
+     count nobody trusts. */
+  function pulseLevel(c) {
+    if (c.pulseAck) return '';                    // sorted is not unsorted
     const pp = pulseFor(c);
-    return !!(pp && pp.level && pp.level !== 'green');
+    const l = pp && pp.level;
+    return (l && l !== 'green') ? l : '';
   }
+  function pulseOpen(c) { return !!pulseLevel(c); }
   /* WHY A PULSE-FLAGGED CLIENT IS ON THE LIST.
      Needs attention now includes an unsorted Pulse flag, which is right: a
      client taken by paramedics needs the CSM whatever their cadence says. But
@@ -543,10 +561,11 @@
   function needsAction(c) {
     const e = exceptionFor(c);
     if (e && e.tone === 'bad') return true;
-    return pulseOpen(c);
+    return pulseLevel(c) === 'red';
   }
   function dueSoonOnly(c) {
     if (needsAction(c)) return false;
+    if (pulseLevel(c) === 'amber') return true;
     const e = exceptionFor(c);
     return !!(e && e.tone === 'warn');
   }
@@ -2705,10 +2724,15 @@
     cl.forEach(function (c) {
       // 1. Pulse flags, unless somebody has already sorted this one.
       const pp = pulseFor(c);
-      if (pp && pp.level && pp.level !== 'green' && !c.pulseAck) {
-        out.push({ rank: 0, bucket: 'action', cid: c.id, name: c.name,
+      const lvl = pulseLevel(c);
+      if (lvl) {
+        // Red is today's work, amber is this week's. The same split as the
+        // tabs, so a tile and a tab cannot disagree about one client.
+        out.push({ rank: lvl === 'red' ? 0 : 3,
+                   bucket: lvl === 'red' ? 'action' : 'week',
+                   cid: c.id, name: c.name,
                    why: pulseFirst(pp.headline), step: 'Read the Pulse and sort it',
-                   tone: pp.level === 'red' ? 'bad' : 'warn' });
+                   tone: lvl === 'red' ? 'bad' : 'warn' });
       }
       // 2. Success in 30, for anyone inside their first month.
       const age = c.startDate ? daysSince(c.startDate) : null;

@@ -26,10 +26,19 @@ for (const [label, p] of [['shipped', '../v2/redesign.js'],
      Pulse started loading, Home read 38 and the Clients badge read 16, both
      labelled as needing action: exactly the fault she described. */
   ok(label + ': needing action is defined once', /function needsAction\(c\) \{/.test(CODE));
-  ok(label + ': ...as a bad cadence exception OR an unsorted Pulse flag',
-     /if \(e && e\.tone === 'bad'\) return true;\n\s*return pulseOpen\(c\);/.test(CODE));
-  ok(label + ': a sorted flag is not an unsorted one',
-     /if \(c\.pulseAck\) return false;/.test(CODE));
+  /* Pulse reads red, amber or green, and those are Courtney's three words
+     from section 9: red needs action, amber is a watch, green is stable. So a
+     RED flag joins Needs attention and an AMBER one joins Due soon. The first
+     pass put both into Needs attention, which made a watch look like an
+     emergency and filled the tab with things nobody was asked to do today. */
+  ok(label + ': ...as a bad cadence exception OR a RED Pulse flag',
+     /if \(e && e\.tone === 'bad'\) return true;\n\s*return pulseLevel\(c\) === 'red';/.test(CODE));
+  ok(label + ': an amber flag is a watch, so it lands in Due soon',
+     /if \(pulseLevel\(c\) === 'amber'\) return true;/.test(CODE));
+  ok(label + ': a sorted flag is in neither',
+     /if \(c\.pulseAck\) return '';/.test(CODE));
+  ok(label + ': green is stable and never a flag at all',
+     /return \(l && l !== 'green'\) \? l : '';/.test(CODE));
   ok(label + ': the COUNT asks it', /attention: all\.filter\(needsAction\)\.length,/.test(CODE));
   ok(label + ': the LIST asks it',
      /if \(_view === 'attention'\) list = list\.filter\(function \(r\) \{ return needsAction\(r\.c\); \}\);/.test(CODE));
@@ -48,25 +57,37 @@ for (const [label, p] of [['shipped', '../v2/redesign.js'],
    Needs attention on its own. The case that matters is the third one — a
    client whose cadence is merely due soon but whose Pulse is flagged belongs
    in Needs attention, counted ONCE. */
-const needsAction = c => (c.t === 'bad') || (!!c.p && !c.ack);
-const dueSoonOnly = c => !needsAction(c) && c.t === 'warn';
+const lvl = c => c.ack ? '' : (c.p && c.p !== 'green' ? c.p : '');
+const needsAction = c => (c.t === 'bad') || lvl(c) === 'red';
+const dueSoonOnly = c => !needsAction(c) && (lvl(c) === 'amber' || c.t === 'warn');
 const CASES = [
   { n: 'bad cadence, no flag',            t: 'bad',  p: null },
   { n: 'no cadence problem, red flag',    t: null,   p: 'red' },
-  { n: 'due soon AND flagged',            t: 'warn', p: 'amber' },
+  { n: 'due soon AND red flag',           t: 'warn', p: 'red' },
+  { n: 'due soon AND amber flag',         t: 'warn', p: 'amber' },
+  { n: 'amber flag, cadence fine',        t: null,   p: 'amber' },
   { n: 'due soon, no flag',               t: 'warn', p: null },
   { n: 'flag already sorted',             t: null,   p: 'red', ack: 1 },
   { n: 'nothing at all',                  t: null,   p: null }
 ];
 const attn = CASES.filter(needsAction), soonOnly = CASES.filter(dueSoonOnly);
-ok('a Pulse flag alone puts a client in Needs attention',
+ok('a RED flag alone puts a client in Needs attention',
    attn.some(c => c.n === 'no cadence problem, red flag'));
-ok('a client who is both is counted once, under Needs attention',
-   attn.some(c => c.n === 'due soon AND flagged') &&
-   !soonOnly.some(c => c.n === 'due soon AND flagged'));
+// An amber flag is a watch. Putting it in Needs attention is what made that
+// tab most of the caseload and taught people to stop reading it.
+ok('no amber flag ever lands in Needs attention on its own',
+   !attn.some(c => c.p === 'amber' && c.t !== 'bad'));
+ok('a client due soon with a RED flag is counted once, under Needs attention',
+   attn.some(c => c.n === 'due soon AND red flag') &&
+   !soonOnly.some(c => c.n === 'due soon AND red flag'));
+ok('a client due soon with an amber flag is in Due soon only',
+   soonOnly.some(c => c.n === 'due soon AND amber flag') &&
+   !attn.some(c => c.n === 'due soon AND amber flag'));
+ok('an amber flag on a healthy cadence still reaches Due soon',
+   soonOnly.some(c => c.n === 'amber flag, cadence fine'));
 ok('a sorted flag is in neither', !attn.concat(soonOnly).some(c => c.ack));
 ok('the two never overlap', !attn.some(c => soonOnly.indexOf(c) > -1));
-ok('and they add up to 4 of the 6', attn.length + soonOnly.length === 4);
+ok('and they add up to 6 of the 8', attn.length + soonOnly.length === 6);
 
 // Behavioural: the two views must partition the exceptions, never overlap.
 const cl = [{ t: 'bad' }, { t: 'bad' }, { t: 'warn' }, { t: 'warn' }, { t: 'warn' }, { t: null }];

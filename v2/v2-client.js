@@ -20,6 +20,19 @@
   'use strict';
 
   var TTL = 10 * 60 * 1000;         // a schedule changes; ten minutes is plenty
+  /* A READ HAS TO FINISH OR FAIL. Courtney, 17 Nov, priority 7: "Today and
+     Schedule both sat on 'Reading… from Viv' while I was clicking through."
+
+     There was no timeout. fetch() with nothing to stop it waits as long as the
+     other end holds the socket open, so a hung proxy left the entry in
+     `loading` for the life of the tab and the page said "Reading…" forever.
+     Worse, reload() deliberately refuses to reset an entry that is still
+     loading, so there was no way back even by hand.
+
+     Twenty seconds. A client read that has not answered in twenty seconds is
+     not going to, and "Viv did not answer" with a Try again is a far better
+     thing to show a CSM than a sentence that never changes. */
+  var READ_TIMEOUT = 20000;
   var store = {};                    // cid -> { kind: entry }
   var EV = 'tribute:client-data';
 
@@ -66,8 +79,18 @@
     e.state = 'loading';
     e.error = null;
     e.promise = (async function () {
+      var ctl = (typeof AbortController === 'function') ? new AbortController() : null;
+      var timedOut = false;
+      var timer = setTimeout(function () {
+        timedOut = true;
+        if (ctl) try { ctl.abort(); } catch (e2) {}
+      }, READ_TIMEOUT);
       try {
-        var r = await fetch(base + KIND[kind](cid), { headers: await headers() });
+        // The deadline covers the token too: acquiring one can hang in exactly
+        // the same way, and from the page it looks identical.
+        var h = await headers();
+        var r = await fetch(base + KIND[kind](cid),
+                            ctl ? { headers: h, signal: ctl.signal } : { headers: h });
         if (!r.ok) {
           // A 404 means two different things and they send a CSM to two
           // different places. "Viv has no record for this client" sends them
@@ -95,11 +118,16 @@
         // "no visits scheduled" — an empty day and an unanswered question look
         // identical on screen and mean opposite things.
         e.state = 'error';
-        e.error = (err && err.message) || 'Could not reach Viv.';
-        e.retryable = !err || err.retryable !== false;
+        e.error = timedOut
+          ? 'Viv did not answer within 20 seconds.'
+          : ((err && err.message) || 'Could not reach Viv.');
+        e.retryable = timedOut || !err || err.retryable !== false;
         e.data = null;
         return null;
       } finally {
+        // Always: a read that answered must not leave a timer armed to abort
+        // the NEXT one, and a tab left open all day would accumulate them.
+        clearTimeout(timer);
         e.promise = null;
         announce(cid, kind);
       }

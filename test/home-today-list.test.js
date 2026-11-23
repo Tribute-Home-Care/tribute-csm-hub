@@ -40,7 +40,12 @@ ok('a row is a client, a why and a next step',
    /rd-td-n/.test(CODE) && /rd-td-w/.test(CODE) && /rd-td-s/.test(CODE));
 
 // ── her sort order ────────────────────────────────────────────────────────
-ok('Pulse flags rank first', /rank: 0, bucket: 'action'[\s\S]{0,120}pulseFirst/.test(CODE));
+// A red flag ranks first; an amber one ranks with the rest of this week, so
+// the Today's list and the Clients tabs cannot disagree about one client.
+ok('a red Pulse flag ranks first',
+   /rank: lvl === 'red' \? 0 : 3,/.test(CODE) &&
+   /bucket: lvl === 'red' \? 'action' : 'week',/.test(CODE));
+ok('...and the headline is still what the row says', /why: pulseFirst\(pp\.headline\)/.test(CODE));
 ok('Success in 30 ranks second', /rank: 1, bucket: 'onboarding'/.test(CODE));
 ok('overdue ranks above due-soon',
    /rank: ex\.tone === 'bad' \? 2 : 3/.test(CODE));
