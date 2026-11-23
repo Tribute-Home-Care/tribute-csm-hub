@@ -46,5 +46,57 @@ ok('Home still counts due soon as the warnings',
 ok('Home sends you to the tab that now agrees with it',
    /tone: 'bad', go: 'clients', view: 'attention'/.test(CODE) && /label: 'Due soon'[\s\S]{0,80}view: 'soon'/.test(CODE));
 
+/* ── THE RAIL BADGE ───────────────────────────────────────────────────────
+   Courtney, section 1: "The Clients badge (18) doesn't match anything a CSM
+   sees on Home... I'd make the badge equal the number on the Today's list,
+   and nothing else."
+
+   The rail ADDED every signal pointing at a page, so Clients read
+   needs-action plus due-soon plus any change of condition: 16 + 6 = 22 on a
+   real caseload, a number printed nowhere else in the Hub. A badge has to be
+   a number you can go and count. */
+ok('one signal owns the Clients badge rather than the rail summing them',
+   /view: 'attention', badge: true/.test(CODE));
+ok('a claimed badge is not added to', /if \(s\.badge\) by\[s\.go\] = \{ n: s\.n, owned: true \};/.test(CODE));
+ok('...and nothing after it can overwrite the claim',
+   /if \(by\[s\.go\] && by\[s\.go\]\.owned\) return;/.test(CODE));
+ok('a signal with no list behind it carries no badge at all',
+   /if \(s\.badge === false\) return;/.test(CODE) &&
+   /go: 'priority', badge: false/.test(CODE));
+// Behavioural: the two rules, over the shape the real signals have.
+const badgeOf = (sigs, key) => {
+  const by = {};
+  sigs.forEach(s => {
+    if (s.badge === false) return;
+    if (by[s.go] && by[s.go].owned) return;
+    if (s.badge) by[s.go] = { n: s.n, owned: true };
+    else by[s.go] = { n: (by[s.go] ? by[s.go].n : 0) + s.n, owned: false };
+  });
+  return (by[key] && by[key].n > 0) ? by[key].n : '';
+};
+const REAL = [{ go: 'clients', n: 2 },                       // changes of condition
+              { go: 'clients', n: 16, badge: true },          // needs action
+              { go: 'clients', n: 6 },                        // due soon
+              { go: 'priority', n: 14, badge: false },        // open visits
+              { go: 's60', n: 3 }];
+ok('the Clients badge is the Needs attention count, not the sum',
+   badgeOf(REAL, 'clients') === 16);
+ok('Fill Priority carries no number it cannot show you', badgeOf(REAL, 'priority') === '');
+ok('a page with one signal is unaffected', badgeOf(REAL, 's60') === 3);
+ok('a page with no signal stays blank', badgeOf(REAL, 'ltc') === '');
+
+/* ── THE OPEN VISITS TILE ─────────────────────────────────────────────────
+   "The number on each tile is the number of rows you get when you click it."
+   The tile counted VISITS and the Today's list groups them by CLIENT, so on
+   a real caseload the tile said 53 and its own list said 14. */
+ok('the tile counts the clients it will show you',
+   /const ovN = Object\.keys\(ovClients\)\.length;/.test(CODE) &&
+   /if \(ovN\) out\.push\(\{ n: ovN, label: 'Open visits'/.test(CODE));
+ok('...and the visit total is kept, not dropped',
+   /sub: plural\(ov\.length, 'visit'\) \+ ' unfilled on my caseload'/.test(CODE));
+// Both sides derive the client set the same way, or they drift apart again.
+ok('the tile and the list group by the same key',
+   (CODE.match(/v\.clientName \|\| v\.client \|\| ''/g) || []).length === 2);
+
 console.log('\n' + (fail ? 'FAILED ' + fail : 'PASSED all ' + pass));
 process.exit(fail ? 1 : 0);

@@ -2265,19 +2265,47 @@
         if (coc.length) out.push({ n: coc.length, label: coc.length === 1 ? 'Change of condition' : 'Changes of condition', sub: 'Open in Viv', tone: 'bad', go: 'clients' });
       }
     } catch (e) {}
+    /* THIS ONE OWNS THE CLIENTS BADGE. Courtney, section 1: "The Clients
+       badge (18) doesn't match anything a CSM sees on Home... I'd make the
+       badge equal the number on the Today's list, and nothing else."
+
+       The rail was ADDING every signal that points at Clients, so the badge
+       read needs-action plus due-soon plus any change of condition: on a real
+       caseload 16 + 6 = 22, a number that appears nowhere else on the Hub.
+       Clients opens on Needs attention, so the badge is that tab's count and
+       the list under it holds exactly that many, which is her third rule. */
     if (bad.length) out.push({
       n: bad.length, label: bad.length === 1 ? 'Client needs action' : 'Clients need action',
       sub: bad.slice(0, 2).map(function (r) { return String(r.c.name).split(' ')[0]; }).join(', ') +
         (bad.length > 2 ? ' and ' + (bad.length - 2) + ' more' : ''),
-      tone: 'bad', go: 'clients', view: 'attention'
+      tone: 'bad', go: 'clients', view: 'attention', badge: true
     });
     if (warn.length) out.push({ n: warn.length, label: 'Due soon', sub: 'Within two weeks', tone: 'warn', go: 'clients', view: 'soon' });
     const t = todayISO();
     const ovTodo = todos.filter(function (x) { return !x.done && x.due && x.due < t; });
     if (ovTodo.length) out.push({ n: ovTodo.length, label: 'Tasks past due', sub: String(ovTodo[0].text || '').slice(0, 44), tone: 'warn', go: 'home' });
     try {
+      /* THE NUMBER IS THE ROWS YOU GET, which is what she asked of every
+         tile: "The number on each tile is the number of rows you get when you
+         click it." The tile counted VISITS (53) and the list under it groups
+         them by CLIENT (14), so the one tile on Home that disagreed with its
+         own list was this one. The visit total is the useful figure, so it
+         moves to the sub-line rather than being dropped. */
       const ov = ((app.data.profiles[app.profile.id]) || {}).vivOpenVisits || [];
-      if (ov.length) out.push({ n: ov.length, label: 'Open visits', sub: 'Unfilled on my caseload', tone: 'warn', go: 'priority' });
+      const ovClients = {};
+      ov.forEach(function (v) { const k = v.clientName || v.client || ''; if (k) ovClients[k] = 1; });
+      const ovN = Object.keys(ovClients).length;
+      /* badge: false. This signal put its number on the Fill Priority rail
+         item, and Fill Priority ranks the WHOLE caseload for a coverage event
+         rather than listing open visits, so neither 53 nor 14 was ever a
+         number you could go and count there. Open visits are still on Home,
+         as a tile and as a filter on the Today's list, which is where she put
+         them. Flagged for Courtney rather than quietly reinterpreted: section
+         9 asks to "keep open visits and the coverage-event ranking separate",
+         and that is the larger change this is only the honest half of. */
+      if (ovN) out.push({ n: ovN, label: 'Open visits',
+                          sub: plural(ov.length, 'visit') + ' unfilled on my caseload',
+                          tone: 'warn', go: 'priority', badge: false });
     } catch (e) {}
     const onb = real.filter(function (c) { return c.startDate && (daysSince(c.startDate) || 999) <= 30; });
     if (onb.length) out.push({ n: onb.length, label: 'In first 30 days', sub: 'Onboarding milestones', tone: 'info', go: 's60' });
@@ -2538,13 +2566,23 @@
     }).join('') + (rows.length > 10 ? '<div class="rd-quiet">and ' + (rows.length - 10) + ' more</div>' : '');
   }
 
+  /* A BADGE IS A NUMBER YOU CAN GO AND COUNT. Summing every signal that
+     points at a page produces a total that matches no list anywhere, which is
+     exactly what Courtney found on Clients. A signal may claim its page's
+     badge with `badge: true`; everything else still sums, because on those
+     pages only one signal ever contributes. */
   function refreshNavCounts(sig) {
     const by = {};
-    (sig || []).forEach(function (s) { by[s.go] = (by[s.go] || 0) + s.n; });
+    (sig || []).forEach(function (s) {
+      if (s.badge === false) return;          // counts on Home, not on the rail
+      if (by[s.go] && by[s.go].owned) return;
+      if (s.badge) by[s.go] = { n: s.n, owned: true };
+      else by[s.go] = { n: (by[s.go] ? by[s.go].n : 0) + s.n, owned: false };
+    });
     ['home', 'clients', 's60', 'priority', 'ltc', 'md'].forEach(function (k) {
       const el = $('#rdc-' + k);
       if (!el) return;
-      const v = by[k] > 0 ? String(by[k]) : '';
+      const v = (by[k] && by[k].n > 0) ? String(by[k].n) : '';
       if (el.textContent !== v) el.textContent = v;
       el.classList.toggle('zero', !v);
     });
