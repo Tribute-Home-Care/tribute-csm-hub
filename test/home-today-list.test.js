@@ -53,10 +53,18 @@ ok('open visits rank last', /rank: 4, bucket: 'open'/.test(CODE));
    action. Counting rows and counting clients are different questions, and a
    tile that filters a list has to answer the list's question. */
 ok('a client appears once, however many reasons they have',
-   /const seen = \{\}, one = \[\];/.test(CODE) &&
+   /const best = \{\}, order = \[\];/.test(CODE) &&
    /const k = r\.cid \|\| \('name:' \+ r\.name\);/.test(CODE));
-ok('...keeping the most urgent reason, because the sort already ranked them',
-   /out\.sort\(function \(a, b\) \{ return a\.rank - b\.rank[\s\S]{0,900}const seen = \{\}, one = \[\];/.test(CODE));
+/* Her sort order puts Success in 30 above an overdue visit, which is right to
+   READ the list by and wrong for deciding which bucket a client falls under:
+   a new client who is ALSO overdue was landing under In first 30 days, so
+   Home said 27 need action today while the Clients tab said 29. The row kept
+   is the most urgent one the client has; her rank still places it. */
+ok('...the row kept is the most urgent, not merely the highest-sorted',
+   /const isAct = function \(x\) \{ return x\.bucket === 'action' \? 0 : 1; \};/.test(CODE) &&
+   /if \(isAct\(r\) < isAct\(best\[k\]\)\) best\[k\] = r;/.test(CODE));
+ok('...and the list is still ordered the way she asked',
+   /one\.sort\(function \(a, b\) \{ return a\.rank - b\.rank \|\| String\(a\.name\)\.localeCompare\(String\(b\.name\)\); \}\);/.test(CODE));
 ok('an open visit with no matching client is not folded into another',
    /\('name:' \+ r\.name\)/.test(CODE));
 // Behavioural: the collapse, over a client who qualifies three ways.
@@ -68,12 +76,26 @@ const rowsIn = [
   { rank: 4, cid: '',  name: 'Unmatched One', bucket: 'open' },
   { rank: 4, cid: '',  name: 'Unmatched Two', bucket: 'open' }
 ];
-const collapse = rs => { const seen = {}, out = []; rs.forEach(r => {
-  const k = r.cid || ('name:' + r.name); if (seen[k]) return; seen[k] = 1; out.push(r); }); return out; };
+const isAct = x => x.bucket === 'action' ? 0 : 1;
+const collapse = rs => {
+  const best = {}, order = [];
+  rs.forEach(r => { const k = r.cid || ('name:' + r.name);
+    if (!best[k]) { best[k] = r; order.push(k); return; }
+    if (isAct(r) < isAct(best[k])) best[k] = r; });
+  return order.map(k => best[k]).sort((a, b) => a.rank - b.rank || String(a.name).localeCompare(String(b.name)));
+};
 const kept = collapse(rowsIn);
 ok('three reasons for one client become one row', kept.filter(r => r.cid === 'a').length === 1);
 ok('...and it is the most urgent one', kept.find(r => r.cid === 'a').rank === 0);
 ok('...in the bucket that reason belongs to', kept.find(r => r.cid === 'a').bucket === 'action');
+// The case that caused the 27-vs-29 split: onboarding outranks overdue in her
+// sort, but a client who needs action belongs under Need action today.
+const mixed = collapse([
+  { rank: 1, cid: 'z', name: 'Z', bucket: 'onboarding' },
+  { rank: 2, cid: 'z', name: 'Z', bucket: 'action' }
+]);
+ok('a new client who is also overdue counts under Need action today',
+   mixed.length === 1 && mixed[0].bucket === 'action');
 ok('two unmatched open visits stay two rows', kept.filter(r => !r.cid).length === 2);
 ok('the list is four rows, not six', kept.length === 4);
 

@@ -2670,13 +2670,28 @@
        Open-visit rows can carry no client id when the name does not match the
        roster; those are keyed by name so two unmatched clients are not folded
        into one. */
-    const seen = {}, one = [];
+    const best = {}, order = [];
     out.forEach(function (r) {
       const k = r.cid || ('name:' + r.name);
-      if (seen[k]) return;
-      seen[k] = 1;
-      one.push(r);
+      if (!best[k]) { best[k] = r; order.push(k); return; }
+      /* WHICH OF A CLIENT'S REASONS TO SHOW. Her sort order is "Pulse flags,
+         then Success in 30 milestones, then overdue visits and touchpoints,
+         then due this week", so Success in 30 outranks an overdue visit. That
+         is the right order to READ the list in, and the wrong way to decide
+         which bucket a client falls under: a client in their first thirty
+         days who is ALSO overdue was landing under In first 30 days, so Home
+         said 27 need action today while the Clients tab said 29, which is the
+         same two-numbers-one-meaning fault one layer further down.
+
+         So the row kept is the most urgent one the client has, and her rank
+         still decides where that row sits in the list. For a new client with
+         an overdue visit those are usually the same obligation anyway: the
+         second in-person visit by day fourteen. */
+      const isAct = function (x) { return x.bucket === 'action' ? 0 : 1; };
+      if (isAct(r) < isAct(best[k])) best[k] = r;
     });
+    const one = order.map(function (k) { return best[k]; });
+    one.sort(function (a, b) { return a.rank - b.rank || String(a.name).localeCompare(String(b.name)); });
     return one;
   }
 
