@@ -881,48 +881,7 @@
     const sEl = $('#cm-search');
     if (sEl && sEl.placeholder !== CM_SEARCH_PLACEHOLDER) sEl.placeholder = CM_SEARCH_PLACEHOLDER;
 
-    /* ONE FILTER ROW (her Clients callout): "One filter row. Replaces 2
-       dropdowns + 5 tabs + market chips + unused legend."
-
-       The market lived in a chip bar of its own ABOVE the chips, and the tier
-       in a select above that, so the page carried three rows of filters where
-       she drew one. Both are dropdowns at the end of the chip row now, which
-       is how her picture draws them: "Tier v" and "Market v".
-
-       The bar keeps its id and its setJuliaFilter calls, because V1 writes to
-       #mfb-all and friends when it resets the filter. */
-    if (app.profile.dualMarket && !$('#julia-mkt-bar')) {
-      const bar = document.createElement('div');
-      bar.id = 'julia-mkt-bar';
-      bar.className = 'market-filter-bar rd-inrow';
-      bar.innerHTML = '<button class="mfb-btn active" id="mfb-all" hidden onclick="setJuliaFilter(\'all\',this)">All</button>' +
-        '<button class="mfb-btn" id="mfb-ma" hidden onclick="setJuliaFilter(\'Massachusetts\',this)">Massachusetts</button>' +
-        '<button class="mfb-btn" id="mfb-chi" hidden onclick="setJuliaFilter(\'Chicago\',this)">Chicago</button>' +
-        '<select class="rd-fsel" id="rd-mkt-sel" aria-label="Market">' +
-        '<option value="all">All markets</option>' +
-        '<option value="Massachusetts">Massachusetts</option>' +
-        '<option value="Chicago">Chicago</option></select>';
-      const vb = $('#rd-views');
-      if (vb) vb.appendChild(bar);
-      $('#rd-mkt-sel').addEventListener('change', function () {
-        const v = this.value;
-        const btn = v === 'all' ? $('#mfb-all') : v === 'Chicago' ? $('#mfb-chi') : $('#mfb-ma');
-        try { setJuliaFilter(v, btn); } catch (e) {}
-      });
-    }
-    /* The tier select is V1's, sitting in the search row. Moved rather than
-       rebuilt: it already drives the filter and the sort. */
-    (function () {
-      const sel = document.getElementById('cm-tier');
-      const vb = $('#rd-views');
-      if (sel && vb && sel.parentElement !== vb) {
-        // V1 pins it to 130px inline, which beats any stylesheet.
-        sel.removeAttribute('style');
-        sel.classList.remove('fc');
-        sel.classList.add('rd-fsel');
-        vb.appendChild(sel);
-      }
-    })();
+    // (the filter row is folded together after the chip row is built)
 
     const all = app.fn.get('clients') || [];
     /* THE NUMBERS HAVE TO MATCH, which is Courtney's third rule (17 Nov):
@@ -962,6 +921,7 @@
     $$('.rd-view', viewBar).forEach(function (b) {
       b.addEventListener('click', function () { _view = b.dataset.view; renderTrackerList(); });
     });
+    foldFiltersIntoRow(viewBar);
 
     /* A client the filter has just excluded must not stay open beside the
        list. Switching market used to leave the previous client selected and
@@ -1089,6 +1049,62 @@
     if (f.email) acts.push('<a class="rd-cbtn" href="mailto:' + esc(f.email) +
       '" onclick="event.stopPropagation()">' + I('mail') + 'Email</a>');
     return who + (acts.length ? '<span class="rd-clt-act">' + acts.join('') + '</span>' : '');
+  }
+
+/* ONE FILTER ROW, her Clients callout: "One filter row. Replaces 2 dropdowns
+   + 5 tabs + market chips + unused legend."
+
+   The page carried THREE rows of filters where she drew one: a tier select in
+   the search row, a market chip bar under it, and the chips under that. Both
+   strays move to the end of the chip row as dropdowns, which is how her
+   picture draws them ("Tier v", "Market v").
+
+   IT ADOPTS THE BAR RATHER THAN BUILDING ONE. V1 creates #julia-mkt-bar
+   itself, so a version of this that built its own and guarded on the id never
+   ran: whichever fired first won, and it was V1's. Taking whatever is there
+   works no matter who made it, and it still works if V1 rebuilds it later.
+
+   The market BUTTONS are hidden rather than removed, because V1 writes to
+   #mfb-all and friends when it resets the filter and would throw on null. */
+  function foldFiltersIntoRow(viewBar) {
+    if (!viewBar) return;
+
+    const bar = document.getElementById('julia-mkt-bar');
+    if (bar) {
+      bar.classList.add('rd-inrow');
+      const lab = $('.mfb-lab', bar);
+      if (lab) lab.hidden = true;
+      $$('.mfb-btn', bar).forEach(function (b) { b.hidden = true; });
+      if (!document.getElementById('rd-mkt-sel')) {
+        const sel = document.createElement('select');
+        sel.id = 'rd-mkt-sel';
+        sel.className = 'rd-fsel';
+        sel.setAttribute('aria-label', 'Market');
+        sel.innerHTML = '<option value="all">All markets</option>' +
+          '<option value="Massachusetts">Massachusetts</option>' +
+          '<option value="Chicago">Chicago</option>';
+        sel.addEventListener('change', function () {
+          const v = this.value;
+          const btn = document.getElementById(
+            v === 'all' ? 'mfb-all' : v === 'Chicago' ? 'mfb-chi' : 'mfb-ma');
+          try { setJuliaFilter(v, btn); } catch (e) {}
+        });
+        bar.appendChild(sel);
+      }
+      // Keep the dropdown showing what the filter actually is, in case
+      // something else changed it.
+      const cur = document.getElementById('rd-mkt-sel');
+      if (cur && A().juliaMarket && cur.value !== A().juliaMarket) cur.value = A().juliaMarket;
+      if (bar.parentElement !== viewBar) viewBar.appendChild(bar);
+    }
+
+    const tier = document.getElementById('cm-tier');
+    if (tier && tier.parentElement !== viewBar) {
+      tier.removeAttribute('style');   // V1 pins it to 130px inline
+      tier.classList.remove('fc');
+      tier.classList.add('rd-fsel');
+      viewBar.appendChild(tier);
+    }
   }
 
   function clientListTable(rows) {

@@ -128,17 +128,30 @@ ok('call and email are buttons', /class="rd-cbtn" href="tel:/.test(CODE) &&
    ABOVE the chips and the tier in a select above that, so the page carried
    three rows of filters where she drew one. */
 ok('the market is a dropdown at the end of the chip row, not a row of its own',
-   /vb\.appendChild\(bar\);/.test(CODE) && /id="rd-mkt-sel"/.test(CODE));
+   /sel\.id = 'rd-mkt-sel';/.test(CODE) && /viewBar\.appendChild\(bar\);/.test(CODE));
 ok('...and the tier select is moved into the same row',
-   /const sel = document\.getElementById\('cm-tier'\);/.test(CODE) &&
-   /vb\.appendChild\(sel\);/.test(CODE));
+   /const tier = document\.getElementById\('cm-tier'\);/.test(CODE) &&
+   /viewBar\.appendChild\(tier\);/.test(CODE));
 ok('...with V1\'s inline width stripped, since inline beats any stylesheet',
-   /sel\.removeAttribute\('style'\);/.test(CODE));
+   /tier\.removeAttribute\('style'\);/.test(CODE));
+/* IT ADOPTS THE BAR RATHER THAN BUILDING ONE. V1 creates #julia-mkt-bar
+   itself, so the first version of this, which built its own and guarded on
+   the id, never ran: whichever fired first won and it was V1s. It also ran
+   before #rd-views existed, so it had nothing to append to. */
+ok('it takes whatever bar is there, whoever built it',
+   /const bar = document\.getElementById\('julia-mkt-bar'\);/.test(CODE) &&
+   !/if \(app\.profile\.dualMarket && !/.test(CODE));
+ok('...and runs after the chip row exists, not before',
+   CODE.indexOf('foldFiltersIntoRow(viewBar);') > CODE.indexOf('let viewBar = '));
 ok('...and the chip row lays out as one row', /#rd-views \{ display: flex;/.test(CSS));
 /* The market buttons stay in the DOM, hidden: V1 writes to #mfb-all and
    friends when it resets the filter, and removing them would throw there. */
-ok('the market buttons V1 writes to are kept, not deleted',
-   /id="mfb-all" hidden/.test(CODE) && /id="mfb-chi" hidden/.test(CODE));
+ok('the market buttons V1 writes to are hidden, not deleted',
+   /\.mfb-btn', bar\)\.forEach\(function \(b\) \{ b\.hidden = true; \}\);/.test(CODE));
+ok('...and the dropdown drives them, so one thing still owns the filter',
+   /try \{ setJuliaFilter\(v, btn\); \} catch \(e\) \{\}/.test(CODE));
+ok('...and follows the filter if something else changes it',
+   /cur\.value !== A\(\)\.juliaMarket\) cur\.value = A\(\)\.juliaMarket;/.test(CODE));
 
 /* Her client-page callout: "Call" dials the family contact, not just the
    client, and the button says whose number it is. On a client living in a
