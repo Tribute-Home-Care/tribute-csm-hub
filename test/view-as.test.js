@@ -49,6 +49,14 @@ for (const [label, SRC] of [['V1', V1], ['V2', V2]]) {
      /'<span><b>Viewing '\+escHtml\(P\.name\)\+'\\u2019s Hub<\/b>'/.test(SRC) ||
      /Viewing '\+escHtml\(P\.name\)/.test(SRC));
   ok(label + ': it goes up when a profile is opened', /try\{ renderViewAsBanner\(\); \}catch\(e\)\{\}/.test(SRC));
+  /* #app is a flex ROW holding the sidebar and the content column, so a first
+     child there is a third column: the first cut put a 709px amber block down
+     the left of the page. Only visible by looking at it. */
+  ok(label + ': ...inside the content column, not beside the sidebar',
+     /const main=document\.querySelector\('#app > \.main, #app > main, #main'\)/.test(SRC) &&
+     /if\(main\)main\.insertBefore\(el,main\.firstChild\);/.test(SRC));
+  ok(label + ': ...with somewhere to go if that column is not found',
+     /else document\.body\.insertBefore\(el,document\.body\.firstChild\);/.test(SRC));
   ok(label + ': opening a profile is a fresh decision about writing',
      /_viewAsUnlocked=false;          \/\/ a new profile is a new decision/.test(SRC));
   ok(label + ': and it is styled to be impossible to miss', /\.vab\{display:flex;/.test(SRC) && /\.vab\.writing\{/.test(SRC));
