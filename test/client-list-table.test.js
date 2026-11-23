@@ -142,7 +142,7 @@ ok('it takes whatever bar is there, whoever built it',
    /const bar = document\.getElementById\('julia-mkt-bar'\);/.test(CODE) &&
    !/if \(app\.profile\.dualMarket && !/.test(CODE));
 ok('...and runs after the chip row exists, not before',
-   CODE.indexOf('foldFiltersIntoRow(viewBar);') > CODE.indexOf('let viewBar = '));
+   CODE.indexOf('ownClientsChrome(viewBar);') > CODE.indexOf('let viewBar = '));
 ok('...and the chip row lays out as one row', /#rd-views \{ display: flex;/.test(CSS));
 /* The market buttons stay in the DOM, hidden: V1 writes to #mfb-all and
    friends when it resets the filter, and removing them would throw there. */

@@ -914,6 +914,8 @@
       viewBar.setAttribute('role', 'tablist');
       el.parentElement.insertBefore(viewBar, el);
     }
+    const sub = document.getElementById('rd-cl-sub');
+    if (sub) sub.textContent = plural(all.length, 'client') + ' \u00b7 click a row to open';
     viewBar.innerHTML = VIEWS.map(function (v) {
       return '<button type="button" class="rd-view" role="tab" data-view="' + v[0] + '" aria-selected="' + (_view === v[0]) + '">' +
         esc(v[1]) + (counts[v[0]] ? '<span class="n">' + counts[v[0]] + '</span>' : '') + '</button>';
@@ -921,7 +923,7 @@
     $$('.rd-view', viewBar).forEach(function (b) {
       b.addEventListener('click', function () { _view = b.dataset.view; renderTrackerList(); });
     });
-    foldFiltersIntoRow(viewBar);
+    ownClientsChrome(viewBar);
 
     /* A client the filter has just excluded must not stay open beside the
        list. Switching market used to leave the previous client selected and
@@ -1051,24 +1053,75 @@
     return who + (acts.length ? '<span class="rd-clt-act">' + acts.join('') + '</span>' : '');
   }
 
-/* ONE FILTER ROW, her Clients callout: "One filter row. Replaces 2 dropdowns
-   + 5 tabs + market chips + unused legend."
+/* ── THE REDESIGN LAYER OWNS THIS PAGE'S CHROME ───────────────────────────
+   Everything above the table was V1's: a page header, a search row holding
+   two selects and two buttons, a market chip bar, a legend. The redesign
+   restyled some of it and left the rest showing through, which is why the
+   page read as V1 with adjustments rather than as the page she drew.
 
-   The page carried THREE rows of filters where she drew one: a tier select in
-   the search row, a market chip bar under it, and the chips under that. Both
-   strays move to the end of the chip row as dropdowns, which is how her
-   picture draws them ("Tier v", "Market v").
+   So it is rebuilt here instead. V1's header and bar are stood down, and the
+   live controls inside them are MOVED rather than recreated: #cm-search and
+   #cm-tier already carry their own handlers, and rebuilding them would mean
+   two things that both think they own the filter.
 
-   IT ADOPTS THE BAR RATHER THAN BUILDING ONE. V1 creates #julia-mkt-bar
-   itself, so a version of this that built its own and guarded on the id never
-   ran: whichever fired first won, and it was V1's. Taking whatever is there
-   works no matter who made it, and it still works if V1 rebuilds it later.
-
-   The market BUTTONS are hidden rather than removed, because V1 writes to
-   #mfb-all and friends when it resets the filter and would throw on null. */
-  function foldFiltersIntoRow(viewBar) {
+   Her layout: the title and its one line, with the page's actions on the
+   right; then a single filter row of search, the chips, and the two
+   dropdowns. "One filter row. Replaces 2 dropdowns + 5 tabs + market chips +
+   unused legend." */
+  function ownClientsChrome(viewBar) {
     if (!viewBar) return;
+    const page = document.getElementById('page-clients');
+    if (!page) return;
 
+    // V1's header and its filter/action bar, stood down once.
+    const ph = $('.ph', page);
+    if (ph) ph.hidden = true;
+    const v1bar = $('#cm-search') ? $('#cm-search').closest('div') : null;
+
+    let head = document.getElementById('rd-cl-head');
+    if (!head) {
+      head = document.createElement('div');
+      head.id = 'rd-cl-head';
+      head.className = 'rd-pagehead';
+      head.innerHTML = '<div><h2>Clients</h2><p id="rd-cl-sub"></p></div>' +
+                       '<div class="rd-pageacts" id="rd-cl-acts"></div>';
+      page.insertBefore(head, page.firstChild);
+    }
+
+    /* The actions are moved out of the filter row and up beside the title,
+       which is where her picture leaves room for them: her filter row holds
+       filters and nothing else. */
+    const acts = document.getElementById('rd-cl-acts');
+    $$('button.btn', v1bar || page).forEach(function (b) {
+      if (b.closest('#rd-cl-acts')) return;
+      if (!/Add Client|LTC Records/i.test(b.textContent || '')) return;
+      b.classList.remove('btn-p', 'btn-o');
+      b.classList.add('rd-act-btn');
+      acts.appendChild(b);
+    });
+
+    // Search leads the filter row, as it does in her picture.
+    const search = document.getElementById('cm-search');
+    if (search && search.parentElement !== viewBar) {
+      search.removeAttribute('style');
+      search.classList.add('rd-fsearch');
+      search.placeholder = 'Search a client, a family contact, a caregiver\u2026';
+      viewBar.insertBefore(search, viewBar.firstChild);
+    }
+
+    /* The Status select is the "2 dropdowns" she asked to lose: every state it
+       filtered is a chip now, so it would be a second way to ask the same
+       question and a second number to disagree with. */
+    const status = document.getElementById('cm-status');
+    if (status) { status.hidden = true; status.value = ''; }
+    const legend = document.getElementById('cm-legend');
+    if (legend) legend.hidden = true;
+
+    /* THE MARKET BAR IS ADOPTED, NOT BUILT. V1 creates #julia-mkt-bar itself,
+       so a version of this that built its own and guarded on the id never ran:
+       whichever fired first won, and it was V1's. The BUTTONS stay in the DOM,
+       hidden, because V1 writes to #mfb-all and friends when it resets the
+       filter and would throw on null. */
     const bar = document.getElementById('julia-mkt-bar');
     if (bar) {
       bar.classList.add('rd-inrow');
@@ -1091,8 +1144,6 @@
         });
         bar.appendChild(sel);
       }
-      // Keep the dropdown showing what the filter actually is, in case
-      // something else changed it.
       const cur = document.getElementById('rd-mkt-sel');
       if (cur && A().juliaMarket && cur.value !== A().juliaMarket) cur.value = A().juliaMarket;
       if (bar.parentElement !== viewBar) viewBar.appendChild(bar);

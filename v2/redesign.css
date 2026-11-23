@@ -2691,7 +2691,26 @@ input[type="email"], select { min-height: var(--h-ctl); }
 .rd-cbtn:hover { border-color: var(--accent); color: var(--accent); }
 .rd-cbtn svg { width: 11px; height: 11px; }
 
-/* The filter row is one row: chips, then the two dropdowns at its end. */
+/* The page head the redesign draws in place of V1's: the title and its one
+   line, with the page's actions on the right. */
+.rd-pagehead { display: flex; align-items: flex-start; gap: 16px; margin: 0 0 14px; }
+.rd-pagehead h2 { font-size: 21px; font-weight: 600; color: var(--ink); margin: 0; letter-spacing: -.01em; }
+.rd-pagehead p { font-size: 12.5px; color: var(--ink-3); margin: 3px 0 0; }
+.rd-pageacts { margin-left: auto; display: flex; gap: 7px; flex-shrink: 0; }
+.rd-act-btn {
+  appearance: none; cursor: pointer; white-space: nowrap;
+  padding: 6px 12px; border: 1px solid var(--line); border-radius: 8px;
+  font-size: 12px; font-weight: 600; color: var(--ink-2); background: var(--card, #FFFDFA);
+}
+.rd-act-btn:hover { border-color: var(--accent); color: var(--accent); }
+.rd-fsearch {
+  flex: 1 1 230px; min-width: 180px; max-width: 340px;
+  padding: 6px 12px; border: 1px solid var(--line); border-radius: 99px;
+  font-size: 12.5px; color: var(--ink); background: var(--card, #FFFDFA);
+  margin: 0; height: auto;
+}
+
+/* The filter row is one row: search, the chips, then the two dropdowns. */
 #rd-views { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .rd-inrow { margin: 0 0 0 auto !important; padding: 0 !important; border: 0 !important;
   background: none !important; display: flex; align-items: center; gap: 6px; }
