@@ -2711,7 +2711,8 @@ input[type="email"], select { min-height: var(--h-ctl); }
 }
 
 /* The filter row is one row: search, the chips, then the two dropdowns. */
-#rd-views { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+#rd-views { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+#rd-chips { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; }
 .rd-inrow { margin: 0 0 0 auto !important; padding: 0 !important; border: 0 !important;
   background: none !important; display: flex; align-items: center; gap: 6px; }
 .rd-fsel {

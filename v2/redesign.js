@@ -911,16 +911,30 @@
     if (!viewBar) {
       viewBar = document.createElement('div');
       viewBar.id = 'rd-views';
-      viewBar.setAttribute('role', 'tablist');
+
       el.parentElement.insertBefore(viewBar, el);
     }
     const sub = document.getElementById('rd-cl-sub');
     if (sub) sub.textContent = plural(all.length, 'client') + ' \u00b7 click a row to open';
-    viewBar.innerHTML = VIEWS.map(function (v) {
+
+    /* THE CHIPS GET THEIR OWN BOX. They are repainted on every render, and
+       ownClientsChrome moves V1's live search box and selects into this same
+       row. Setting innerHTML on the row itself DESTROYED those nodes on the
+       first repaint: the search box vanished from the page, and
+       getElementById('cm-search') returned null from then on, so nothing
+       could put it back. Only the chips are repainted now. */
+    let chips = $('#rd-chips', viewBar);
+    if (!chips) {
+      chips = document.createElement('div');
+      chips.id = 'rd-chips';
+      chips.setAttribute('role', 'tablist');
+      viewBar.appendChild(chips);
+    }
+    chips.innerHTML = VIEWS.map(function (v) {
       return '<button type="button" class="rd-view" role="tab" data-view="' + v[0] + '" aria-selected="' + (_view === v[0]) + '">' +
         esc(v[1]) + (counts[v[0]] ? '<span class="n">' + counts[v[0]] + '</span>' : '') + '</button>';
     }).join('');
-    $$('.rd-view', viewBar).forEach(function (b) {
+    $$('.rd-view', chips).forEach(function (b) {
       b.addEventListener('click', function () { _view = b.dataset.view; renderTrackerList(); });
     });
     ownClientsChrome(viewBar);
@@ -1107,6 +1121,7 @@
       search.classList.add('rd-fsearch');
       search.placeholder = 'Search a client, a family contact, a caregiver\u2026';
       viewBar.insertBefore(search, viewBar.firstChild);
+      search.setAttribute('aria-label', 'Search clients');
     }
 
     /* The Status select is the "2 dropdowns" she asked to lose: every state it

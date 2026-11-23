@@ -141,6 +141,19 @@ ok('...with V1\'s inline width stripped, since inline beats any stylesheet',
 ok('it takes whatever bar is there, whoever built it',
    /const bar = document\.getElementById\('julia-mkt-bar'\);/.test(CODE) &&
    !/if \(app\.profile\.dualMarket && !/.test(CODE));
+/* THE CHIPS GET THEIR OWN BOX. They are repainted on every render, and the
+   chrome moves V1's live search box and selects into the same row. Setting
+   innerHTML on the row itself DESTROYED them on the first repaint: the search
+   box vanished and getElementById('cm-search') returned null from then on, so
+   nothing could put it back. Caught on the live page, not by a test. */
+ok('only the chips are repainted, not the row holding the moved controls',
+   /chips\.innerHTML = VIEWS\.map/.test(CODE) && !/viewBar\.innerHTML = VIEWS\.map/.test(CODE));
+ok('...and the chips live in a box of their own', /chips\.id = 'rd-chips';/.test(CODE));
+ok('...which is the tablist now, since the row holds more than tabs',
+   /chips\.setAttribute\('role', 'tablist'\)/.test(CODE) &&
+   !/viewBar\.setAttribute\('role', 'tablist'\)/.test(CODE));
+ok('the moved search is still labelled for a screen reader',
+   /search\.setAttribute\('aria-label', 'Search clients'\)/.test(CODE));
 ok('...and runs after the chip row exists, not before',
    CODE.indexOf('ownClientsChrome(viewBar);') > CODE.indexOf('let viewBar = '));
 ok('...and the chip row lays out as one row', /#rd-views \{ display: flex;/.test(CSS));
