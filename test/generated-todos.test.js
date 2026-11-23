@@ -61,8 +61,10 @@ for (const [label, SRC] of [['V1', V1], ['V2', V2]]) {
   ok(label + ': snooze moves it to a later date', /function snoozeTodo\(\)\{/.test(SRC));
 
   // ── the record ──────────────────────────────────────────────────────────
+  // Object.assign since priority 9: a task filed inside somebody else's Hub
+  // also carries who was actually signed in. See view-as.test.js.
   ok(label + ': finishing writes a task row on the client',
-     /tasks\.unshift\(\{id:'task'\+now\.getTime\(\),clientId:t\.clientId,date:day,/.test(SRC));
+     /tasks\.unshift\(Object\.assign\(\{id:'task'\+now\.getTime\(\),clientId:t\.clientId,date:day,/.test(SRC));
   ok(label + ': ...carrying the task, the outcome, the note, the CSM and the time',
      /text:String\(t\.text\),outcome:o\.label,note,source:t\.source\|\|'own',\n?\s*by:P\?P\.name:'',at:now\.toISOString\(\)/.test(SRC));
 

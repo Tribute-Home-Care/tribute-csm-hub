@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub · V2 Preview</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="../entra-auth.js?v=2026-11-23T13:43"></script>
+<script src="../entra-auth.js?v=2026-11-23T13:48"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -165,6 +165,14 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
 .todo-meta{font-size:11px;color:#8C857B;margin-top:2px;}
 /* Where a generated to-do came from, as a quiet label rather than a
    badge: it tells you why the row is there and then gets out of the way. */
+/* Viewing somebody else's Hub. Loud enough that it cannot be missed and
+   quiet enough to work under; amber while read-only, red once an admin has
+   turned writing on, because that is the state worth noticing. */
+.vab{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  padding:8px 16px;font-size:12.5px;line-height:1.45;background:#FBEADF;color:#7A3B12;
+  border-bottom:1px solid #EAD9C8;}
+.vab.writing{background:#FDEAE7;color:#8C2A20;border-bottom-color:#F0C9C2;}
+.vab b{font-weight:700;}
 .todo-src{display:inline-block;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#7A3B12;background:#FBEADF;border-radius:999px;padding:1px 6px;margin-right:6px;vertical-align:1px;}
 .csm-ov{background:#fff;border-radius:12px;padding:15px;box-shadow:0 1px 4px rgba(0,0,0,.07);}
 .tier-bar{height:7px;border-radius:4px;background:#F1EEE8;overflow:hidden;margin-top:6px;display:flex;}
@@ -1901,6 +1909,10 @@ async function saveToFile(){
 }
 
 function queueSave(){
+  // The single place every change goes through on its way to the server. One
+  // guard here beats auditing a hundred call sites, and it is the honest
+  // boundary: in read-only mode nothing reaches anybody else.
+  if(typeof writesBlocked==='function'&&writesBlocked()){ _viewAsRefuse(); return; }
   clearTimeout(saveTimer);
   saveTimer=setTimeout(saveToFile,1500);
 }
@@ -1968,7 +1980,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-11-23T13:44';
+const HUB_BUILD='2026-11-23T13:49';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -2086,6 +2098,80 @@ function profileForAccount(acct){
     return aliases.some(a=>{const na=loginNorm(a);return na&&(na===nName||na===nUpnLocal);});
   })||null;
 }
+/* ═════════════════ VIEW AS ═══════════════════════════════════════════════
+   Courtney, priority 9: "One sign-in per person through Microsoft, with a
+   read-only 'View as' for managers... Checklists and to-dos need to record
+   who actually did the work."
+
+   Until now a manager could open any profile and act in it with no mark of
+   any kind: a visit logged by Courtney inside Julia's Hub was recorded as
+   Julia's, and nothing anywhere said otherwise. That matters more since this
+   morning, because finishing a to-do now writes a row onto the client with a
+   name on it.
+
+   TWO SEPARATE THINGS, and the second is the one that matters.
+
+   1. Read-only. Opening somebody else's Hub stops saving anything. The banner
+      says so, so it is never a silent failure.
+
+   2. WHO ACTUALLY DID IT. Every record already carries `by`, which is the
+      profile it belongs to. Writes now also carry `byAccount`, the person
+      signed in, whenever the two differ. That is the sentence she wrote, and
+      it is true whether or not anyone is in read-only mode.
+
+   THE ADMIN OVERRIDE IS DELIBERATE. tuadmin and Andrew map to no CSM profile
+   at all, so a blunt lock would make them read-only everywhere and the first
+   thing anyone would do is take the lock out again. They can unlock a session
+   explicitly, from the banner, and the banner stays up while it is unlocked.
+   An admin fixing somebody's data is a real job; doing it invisibly is the
+   part that was wrong. */
+let _viewAsUnlocked=false;
+function ownProfileId(){ const o=profileForAccount(ACCT); return o?o.id:null; }
+function isViewingAs(){
+  if(!P)return false;
+  const own=ownProfileId();
+  return own ? own!==P.id : true;   // no profile of your own means every Hub is somebody else's
+}
+function actorName(){ return (ACCT&&(ACCT.name||ACCT.username))||''; }
+// Stamped on a write when the person signed in is not the profile it lands in.
+function actorStamp(){ return isViewingAs() ? { byAccount: actorName() } : {}; }
+function _acctIsAdmin(){ return ADMIN_UPNS.includes(((ACCT&&ACCT.username)||'').toLowerCase()); }
+function writesBlocked(){ return isViewingAs() && !_viewAsUnlocked; }
+function unlockViewAs(){
+  if(!_acctIsAdmin()){ showToast('Only an administrator can write inside somebody else\u2019s Hub.'); return; }
+  _viewAsUnlocked=true; renderViewAsBanner();
+  showToast('Writing as '+P.name+'. Every record will also carry your name.');
+}
+let _viewAsToldAt=0;
+function _viewAsRefuse(){
+  // Say it once in a while rather than on every keystroke-driven save.
+  if(Date.now()-_viewAsToldAt>8000){
+    _viewAsToldAt=Date.now();
+    showToast('Read-only: you are viewing '+(P?P.name:'another')+'\u2019s Hub. Nothing was saved.');
+  }
+}
+function renderViewAsBanner(){
+  let el=document.getElementById('view-as-bar');
+  if(!isViewingAs()){ if(el)el.remove(); return; }
+  if(!el){
+    el=document.createElement('div');
+    el.id='view-as-bar';
+    const app=document.getElementById('app')||document.body;
+    app.insertBefore(el,app.firstChild);
+  }
+  const own=ownProfileId(), ownP=own?PROFILES.find(x=>x.id===own):null;
+  el.className=_viewAsUnlocked?'vab writing':'vab';
+  el.innerHTML='<span><b>Viewing '+escHtml(P.name)+'\u2019s Hub</b>'+
+    (ownP?' as '+escHtml(ownP.name):(actorName()?' as '+escHtml(actorName()):''))+'. '+
+    (_viewAsUnlocked
+      ? 'Writing is <b>on</b>: anything you save is recorded under '+escHtml(P.name)+
+        ' and also carries your name.'
+      : 'Read-only \u2014 nothing you do here is saved.')+'</span>'+
+    ((!_viewAsUnlocked&&_acctIsAdmin())
+      ? '<button class="btn btn-sm btn-o" onclick="unlockViewAs()">Write as '+escHtml(P.name.split(' ')[0])+'</button>'
+      : '');
+}
+
 function accountIsManager(acct){
   if(!acct)return false;
   if(ADMIN_UPNS.includes((acct.username||'').toLowerCase()))return true;
@@ -2196,6 +2282,8 @@ async function launchProfile(id){
     activeMarket=P.market||'';
   }
   juliaMarketFilter='all';
+  _viewAsUnlocked=false;          // a new profile is a new decision
+  try{ renderViewAsBanner(); }catch(e){}
   // Hide every setup screen — not just the profile grid. A non-manager is
   // routed straight from the loading screen to their profile, so hiding only
   // 'screen-profile' left 'screen-folder' displayed: a full-viewport element
@@ -3858,8 +3946,8 @@ function setPulseAck(id,state,note){
   const pp=(_PULSE&&c.vivId)?_PULSE.byCid[c.vivId]:null;
   if(note===undefined)note=(prompt('Anything worth adding? (optional)','')||'').trim();
   note=String(note||'').trim();
-  c.pulseAck={state,note,by:(P&&P.name)||'',at:new Date().toISOString(),
-    forReason:(pp&&pp.flagReason)||'',forLevel:(pp&&pp.level)||'',forHeadline:(pp&&pp.headline)||''};
+  c.pulseAck=Object.assign({state,note,by:(P&&P.name)||'',at:new Date().toISOString(),
+    forReason:(pp&&pp.flagReason)||'',forLevel:(pp&&pp.level)||'',forHeadline:(pp&&pp.headline)||''},actorStamp());
   queueSave();
   const body=document.getElementById('cm-det-body-'+id);
   if(body)body.innerHTML=buildClientDetail(id);
@@ -6106,9 +6194,9 @@ function finishTodo(outcomeId){
      can stay exactly as it is: it clears a list, not a record. */
   if(t.clientId){
     const tasks=get('tasks')||[];
-    tasks.unshift({id:'task'+now.getTime(),clientId:t.clientId,date:day,
+    tasks.unshift(Object.assign({id:'task'+now.getTime(),clientId:t.clientId,date:day,
       text:String(t.text),outcome:o.label,note,source:t.source||'own',
-      by:P?P.name:'',at:now.toISOString()});
+      by:P?P.name:'',at:now.toISOString()},actorStamp()));
     set('tasks',tasks);
   }
 
