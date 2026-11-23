@@ -123,6 +123,25 @@ for (const [label, SRC] of [['V1', V1], ['V2', V2]]) {
   ok(label + ': ...and backing off rather than hammering',
      /const wait=window\._pulseTries\*4000;/.test(SRC));
 }
+/* AND IT HAS TO BE ASKED FOR AT ALL. The retry above only helps if loadPulse
+   runs. It used to be called from inside vivSyncNow and nowhere else, and
+   that sync is skipped when one ran in the last thirty minutes — so on any
+   second visit inside half an hour the Hub had NO Pulse: no chips on the
+   client list, no banner on the client page, no suggested next steps. The one
+   place that still worked was the Pulse page, which asks for it itself, which
+   is why this survived: the page you would check to see whether Pulse was
+   working was the page that repaired it. */
+for (const [label, SRC] of [['V1', V1], ['V2', V2]]) {
+  ok(label + ': Pulse is loaded on sign-in, not only after a Viv sync',
+     /else setVirtual?VivLabel|loadPulse\(false\);\n\}/.test(SRC) ||
+     /thirty minutes[\s\S]{0,600}\n  loadPulse\(false\);\n\}/.test(SRC));
+  ok(label + ': ...and two callers at once make one request',
+     /if\(window\._pulseLoading\)return;/.test(SRC) &&
+     /window\._pulseLoading=true;/.test(SRC));
+  ok(label + ': ...with the flag released however it ends',
+     /\}finally\{\n    window\._pulseLoading=false;\n  \}/.test(SRC));
+}
+
 // Behavioural: the retry gate.
 const retry = (loaded, tries, pending) => !loaded && tries < 4 && !pending;
 ok('a first failure retries', retry(false, 1, false));

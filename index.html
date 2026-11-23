@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-11-23T13:06"></script>
+<script src="./entra-auth.js?v=2026-11-23T13:09"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1957,7 +1957,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-11-23T13:06';
+const HUB_BUILD='2026-11-23T13:09';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -2252,6 +2252,18 @@ async function launchProfile(id){
   const lastViv=localStorage.getItem('viv_last_sync');
   if(!lastViv||Date.now()-new Date(lastViv).getTime()>30*60*1000)vivSyncNow(false);
   else setVivLabel('Viv ✓ '+new Date(lastViv).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}));
+  /* PULSE IS NOT A SIDE EFFECT OF A VIV SYNC. It used to be loaded only from
+     inside vivSyncNow, and that sync is skipped when one ran in the last
+     thirty minutes — so on any second visit inside half an hour the Hub had
+     no Pulse AT ALL. Not the chips on the client list, not the banner on the
+     client page, not the suggested next steps on the to-do list. The one
+     place that still worked was the Pulse page, which asks for it itself,
+     which is exactly why this went unnoticed: the page you would check to see
+     whether Pulse was working was the page that repaired it.
+
+     Found on 23 Nov while checking why no From Pulse to-dos appeared. It is
+     one cached read of about 700ms, so it belongs on sign-in, every time. */
+  loadPulse(false);
 }
 
 function changePwd(){
@@ -8892,6 +8904,10 @@ function _applyFillProposals(){
 }
 
 async function loadPulse(interactive){
+  // Sign-in and a Viv sync can both ask within a second of each other; one
+  // request is enough and two would race each other into _PULSE.
+  if(window._pulseLoading)return;
+  window._pulseLoading=true;
   try{
     if(interactive)setVivLabel('Viv: pulse…');
     const r=await fetch(VIV_PROXY+'?endpoint=client_pulse',{headers:await dataHeaders()});
@@ -8941,6 +8957,8 @@ async function loadPulse(interactive){
     }
     const el=document.getElementById('pulse-list');
     if(el&&!_PULSE)el.innerHTML='<div class="es"><div class="ei">💓</div><p>Could not load the pulse feed — try Refresh.</p></div>';
+  }finally{
+    window._pulseLoading=false;
   }
 }
 // Courtney's spec (v3.8) replaced the free-text read with a structured card:
