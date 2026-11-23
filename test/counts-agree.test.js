@@ -90,13 +90,24 @@ ok('a page with no signal stays blank', badgeOf(REAL, 'ltc') === '');
    The tile counted VISITS and the Today's list groups them by CLIENT, so on
    a real caseload the tile said 53 and its own list said 14. */
 ok('the tile counts the clients it will show you',
-   /const ovN = Object\.keys\(ovClients\)\.length;/.test(CODE) &&
+   /const ovN = Object\.keys\(ovs\.byClient\)\.length;/.test(CODE) &&
    /if \(ovN\) out\.push\(\{ n: ovN, label: 'Open visits'/.test(CODE));
 ok('...and the visit total is kept, not dropped',
-   /sub: plural\(ov\.length, 'visit'\) \+ ' unfilled on my caseload'/.test(CODE));
-// Both sides derive the client set the same way, or they drift apart again.
+   /plural\(ovs\.total, 'visit'\) \+ ' unfilled in all'/.test(CODE));
+// One helper, read by both, so they cannot drift apart again. The earlier fix
+// made them agree; this makes them the same arithmetic.
 ok('the tile and the list group by the same key',
-   (CODE.match(/v\.clientName \|\| v\.client \|\| ''/g) || []).length === 2);
+   (CODE.match(/v\.clientName \|\| v\.client \|\| ''/g) || []).length === 1 &&
+   /function openVisitsSoon\(\)/.test(CODE));
+
+/* Every tile is now a count of the rows behind it, because the counts are
+   taken FROM the list rather than computed a second time beside it. */
+ok('the tile numbers are counted off the list itself',
+   /const tn = \{\}; TODAY_BUCKETS\.forEach\(function \(b\) \{ tn\[b\[0\]\] = 0; \}\);/.test(CODE) &&
+   /todayRows\(\)\.forEach\(function \(r\) \{ if \(tn\[r\.bucket\] !== undefined\) tn\[r\.bucket\]\+\+; \}\);/.test(CODE));
+ok('each of her four buckets has a signal that names it',
+   /bucket: 'action'/.test(CODE) && /bucket: 'week'/.test(CODE) &&
+   /bucket: 'onboarding'/.test(CODE) && /bucket: 'open'/.test(CODE));
 
 console.log('\n' + (fail ? 'FAILED ' + fail : 'PASSED all ' + pass));
 process.exit(fail ? 1 : 0);

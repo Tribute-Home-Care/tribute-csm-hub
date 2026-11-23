@@ -2278,37 +2278,31 @@
       n: bad.length, label: bad.length === 1 ? 'Client needs action' : 'Clients need action',
       sub: bad.slice(0, 2).map(function (r) { return String(r.c.name).split(' ')[0]; }).join(', ') +
         (bad.length > 2 ? ' and ' + (bad.length - 2) + ' more' : ''),
-      tone: 'bad', go: 'clients', view: 'attention', badge: true
+      tone: 'bad', go: 'clients', view: 'attention', badge: true, bucket: 'action'
     });
-    if (warn.length) out.push({ n: warn.length, label: 'Due soon', sub: 'Within two weeks', tone: 'warn', go: 'clients', view: 'soon' });
+    if (warn.length) out.push({ n: warn.length, label: 'Due soon', sub: 'Within two weeks', tone: 'warn', go: 'clients', view: 'soon', bucket: 'week' });
     const t = todayISO();
     const ovTodo = todos.filter(function (x) { return !x.done && x.due && x.due < t; });
     if (ovTodo.length) out.push({ n: ovTodo.length, label: 'Tasks past due', sub: String(ovTodo[0].text || '').slice(0, 44), tone: 'warn', go: 'home' });
     try {
       /* THE NUMBER IS THE ROWS YOU GET, which is what she asked of every
          tile: "The number on each tile is the number of rows you get when you
-         click it." The tile counted VISITS (53) and the list under it groups
-         them by CLIENT (14), so the one tile on Home that disagreed with its
-         own list was this one. The visit total is the useful figure, so it
-         moves to the sub-line rather than being dropped. */
-      const ov = ((app.data.profiles[app.profile.id]) || {}).vivOpenVisits || [];
-      const ovClients = {};
-      ov.forEach(function (v) { const k = v.clientName || v.client || ''; if (k) ovClients[k] = 1; });
-      const ovN = Object.keys(ovClients).length;
-      /* badge: false. This signal put its number on the Fill Priority rail
+         click it." The tile counted VISITS and the list under it groups them
+         by CLIENT, so this was the one tile on Home that disagreed with its
+         own list. Both sides read openVisitsSoon() now, so they cannot drift.
+
+         badge: false. This signal put its number on the Fill Priority rail
          item, and Fill Priority ranks the WHOLE caseload for a coverage event
-         rather than listing open visits, so neither 53 nor 14 was ever a
-         number you could go and count there. Open visits are still on Home,
-         as a tile and as a filter on the Today's list, which is where she put
-         them. Flagged for Courtney rather than quietly reinterpreted: section
-         9 asks to "keep open visits and the coverage-event ranking separate",
-         and that is the larger change this is only the honest half of. */
+         rather than listing open visits, so no number here was ever one you
+         could go and count there. */
+      const ovs = openVisitsSoon();
+      const ovN = Object.keys(ovs.byClient).length;
       if (ovN) out.push({ n: ovN, label: 'Open visits',
-                          sub: plural(ov.length, 'visit') + ' unfilled on my caseload',
-                          tone: 'warn', go: 'priority', badge: false });
+                          sub: 'Within 48 hours \u00b7 ' + plural(ovs.total, 'visit') + ' unfilled in all',
+                          tone: 'warn', go: 'priority', badge: false, bucket: 'open' });
     } catch (e) {}
     const onb = real.filter(function (c) { return c.startDate && (daysSince(c.startDate) || 999) <= 30; });
-    if (onb.length) out.push({ n: onb.length, label: 'In first 30 days', sub: 'Onboarding milestones', tone: 'info', go: 's60' });
+    if (onb.length) out.push({ n: onb.length, label: 'In first 30 days', sub: 'Onboarding milestones', tone: 'info', go: 's60', bucket: 'onboarding' });
     const ltc = app.ltcBoard;
     if (ltc && ltc.counts && ltc.counts.blocked) out.push({ n: ltc.counts.blocked, label: 'LTC blocked', sub: 'Cannot submit yet', tone: 'bad', go: 'ltc' });
     // Other prototype layers add their own signals here rather than editing
@@ -2375,6 +2369,40 @@
                          ['onboarding', 'In first 30 days'], ['open', 'Open visits']];
   let _todayFilter = '';
 
+  /* OPEN VISITS ON HOME ARE THE URGENT ONES (Courtney, section 9): "Open
+     visits on a CSM's clients show on the client's Schedule tab, and on
+     Today's list when they're within 48 hours."
+
+     Home was listing all of them, which on a real caseload is 53 unfilled
+     visits across 14 clients sitting beside items that genuinely need the CSM
+     today. Scheduling fills these; a CSM needs to see the ones about to
+     happen, and the rest belong on the client.
+
+     The 48-hour window is the Hub's existing one, not a second definition of
+     urgent: index.html's urgentOpen has used `day <= now + 48h` since before
+     this review, past-due open visits included, because an unfilled visit
+     that has already come round is more urgent rather than less. Two ideas of
+     "urgent" on one page is how these numbers stopped agreeing to begin with.
+
+     The full total is not dropped. It is on the tile's sub-line, so a CSM can
+     still see the caseload has 53 unfilled visits without them crowding out
+     what they have to do this morning. */
+  function openVisitsSoon() {
+    const app = A();
+    let ov = [];
+    try { ov = ((app.data.profiles[app.profile.id]) || {}).vivOpenVisits || []; }
+    catch (e) { return { byClient: {}, total: 0 }; }
+    const cutoff = Date.now() + 48 * 3600 * 1000;
+    const byClient = {};
+    ov.forEach(function (v) {
+      const d = v.day ? new Date(String(v.day).slice(0, 10) + 'T12:00:00') : null;
+      if (!d || d.getTime() > cutoff) return;
+      const k = v.clientName || v.client || '';
+      if (k) byClient[k] = (byClient[k] || 0) + 1;
+    });
+    return { byClient: byClient, total: ov.length };
+  }
+
   function todayRows() {
     const app = A();
     if (!app.ready) return [];
@@ -2408,22 +2436,29 @@
     });
 
     // Open visits are the client's, but they are Scheduling's to fill, so the
-    // step says who it goes to rather than implying the CSM covers it.
+    // step says who it goes to rather than implying the CSM covers it. Only
+    // the next 48 hours reach this list; see openVisitsSoon().
     try {
-      const ov = ((app.data.profiles[app.profile.id]) || {}).vivOpenVisits || [];
-      const byClient = {};
-      ov.forEach(function (v) { const k = v.clientName || v.client || ''; byClient[k] = (byClient[k] || 0) + 1; });
+      const byClient = openVisitsSoon().byClient;
       Object.keys(byClient).forEach(function (k) {
-        if (!k) return;
         const c = cl.find(function (x) { return x.name === k; });
         out.push({ rank: 4, bucket: 'open', cid: c ? c.id : '', name: k,
-                   why: plural(byClient[k], 'visit') + ' unfilled',
+                   why: plural(byClient[k], 'visit') + ' unfilled in the next 48 hours',
                    step: 'With the Scheduling Partner', tone: 'warn' });
       });
     } catch (e) {}
 
     out.sort(function (a, b) { return a.rank - b.rank || String(a.name).localeCompare(String(b.name)); });
     return out;
+  }
+
+  /* The tiles and the list are two halves of one control, so both repaint.
+     Pressing the tile you are already on clears the filter, which is the way
+     back to everything now that the chip row has gone. */
+  function setTodayFilter(k) {
+    _todayFilter = (_todayFilter === k) ? '' : k;
+    _attnKey = '';
+    renderAttention();
   }
 
   function renderToday() {
@@ -2439,17 +2474,19 @@
       el.innerHTML = '<p class="rd-ws-quiet">Nothing new to sort. Anything you have already sorted is in Following up below.</p>';
       return;
     }
+    /* NO SECOND ROW OF THE SAME NUMBERS. This used to render its own row of
+       filter chips under the tiles, so Home showed "Need action today 16"
+       twice: once as a tile that navigated away, once as a chip that
+       filtered. The tiles do the filtering now, so all that is needed here is
+       a way back to everything when one of them is pressed. */
     const shown = _todayFilter ? rows.filter(function (r) { return r.bucket === _todayFilter; }) : rows;
+    const lab = (TODAY_BUCKETS.filter(function (b) { return b[0] === _todayFilter; })[0] || [])[1];
     el.innerHTML =
-      '<div class="rd-td-f" role="tablist">' +
-        '<button type="button" role="tab" class="rd-td-fb" data-td="" aria-selected="' + (!_todayFilter) + '">' +
-          'Everything<span class="n">' + rows.length + '</span></button>' +
-        TODAY_BUCKETS.map(function (b) {
-          return '<button type="button" role="tab" class="rd-td-fb" data-td="' + b[0] + '"' +
-            ' aria-selected="' + (_todayFilter === b[0]) + '"' + (n[b[0]] ? '' : ' disabled') + '>' +
-            esc(b[1]) + '<span class="n">' + n[b[0]] + '</span></button>';
-        }).join('') +
-      '</div>' +
+      (_todayFilter
+        ? '<div class="rd-td-f"><span>Showing ' + shown.length + ' of ' + rows.length + ' \u00b7 ' +
+          esc(String(lab || '').toLowerCase()) + '</span>' +
+          '<button type="button" class="rd-td-all" data-td="">Show everything</button></div>'
+        : '') +
       (shown.length
         ? '<ul class="rd-td">' + shown.map(function (r) {
             return '<li class="rd-td-r ' + r.tone + '"' + (r.cid ? ' data-cid="' + esc(r.cid) + '" tabindex="0"' : '') + '>' +
@@ -2460,7 +2497,7 @@
         : '<p class="rd-ws-quiet">Nothing under that filter.</p>');
 
     $$('[data-td]', el).forEach(function (b) {
-      b.addEventListener('click', function () { _todayFilter = b.dataset.td; renderToday(); });
+      b.addEventListener('click', function () { setTodayFilter(b.dataset.td); });
     });
     $$('.rd-td-r[data-cid]', el).forEach(function (r) {
       const go = function () { openClient(r.dataset.cid); };
@@ -2477,8 +2514,16 @@
     const sig = attentionSignals();
     const rank = { bad: 0, warn: 1, info: 2 };
     sig.sort(function (a, b) { return (rank[a.tone] - rank[b.tone]) || (b.n - a.n); });
+    // The bucket counts come from the list itself, so the tiles and the rows
+    // under them can never disagree: one is a count of the other.
+    const tn = {}; TODAY_BUCKETS.forEach(function (b) { tn[b[0]] = 0; });
+    todayRows().forEach(function (r) { if (tn[r.bucket] !== undefined) tn[r.bucket]++; });
+    // _todayFilter belongs in the key now that it decides which tile is lit:
+    // without it, pressing a tile repainted the list and left the row above
+    // it looking untouched.
     const key = sig.map(function (s) { return s.tone + s.n + s.label; }).join('|') +
-                '#' + failedSources().join(',');
+                '#' + failedSources().join(',') + '#' + _todayFilter +
+                '#' + TODAY_BUCKETS.map(function (b) { return tn[b[0]]; }).join(',');
     if (key !== _attnKey) {
       _attnKey = key;
       // THE RULE: an endpoint that FAILED is not an endpoint that said
@@ -2501,18 +2546,37 @@
         el.innerHTML = illustration('allclear', 'Everything is caught up',
           'No overdue visits or touchpoints, nothing flagged, and no tasks past due.');
       } else {
-        // Calm control: at most four cards. Six tiles is a dashboard, and a
-        // dashboard is a thing you have to read. Everything past the fourth
-        // collapses into one quiet line that still names what is there, so
-        // nothing is hidden -- it is just not shouting.
-        const SHOW = 4;
-        const front = sig.slice(0, SHOW), rest = sig.slice(SHOW);
-        el.innerHTML = front.map(function (s) {
-          return '<button type="button" class="rd-attn-card ' + s.tone + '" data-go="' + s.go + '"' +
-            (s.view ? ' data-view="' + s.view + '"' : '') + '>' +
-            '<span class="rd-attn-n">' + s.n + '</span>' +
-            '<span class="rd-attn-l">' + esc(s.label) + '</span>' +
-            '<span class="rd-attn-s">' + esc(s.sub) + '</span></button>';
+        /* THE TILES ARE THE FILTERS (Courtney, 17 Nov, section 2): "Keep 4
+           tiles across the top, but make them filters for the list below
+           (Need action today, Due this week, In first 30 days, Open visits).
+           The number on each tile is the number of rows you get when you
+           click it."
+
+           They were not. The tiles navigated away to other pages and a
+           SECOND row of chips underneath did the filtering, so Home carried
+           two rows of the same four numbers and pressing the obvious one took
+           you off the page. One row now, and pressing a tile filters the list
+           under it. Pressing it again clears the filter.
+
+           A signal that is not one of her four buckets keeps the quiet line
+           below: changes of condition, tasks past due, LTC blocked and
+           Maryland gaps are real and were never part of the Today's list, and
+           dropping them to make the row tidy would lose the one a CSM asked
+           to have first on pilot day. Those still navigate, because there IS
+           a page behind each of them. */
+        const byBucket = {};
+        sig.forEach(function (x) { if (x.bucket) byBucket[x.bucket] = x; });
+        const rest = sig.filter(function (x) { return !x.bucket; });
+        el.innerHTML = TODAY_BUCKETS.map(function (b) {
+          const k = b[0], x = byBucket[k];
+          const n = tn[k] || 0;
+          const on = _todayFilter === k;
+          return '<button type="button" class="rd-attn-card' + (x ? ' ' + x.tone : ' none') +
+            (on ? ' on' : '') + '" data-td="' + k + '"' + (n ? '' : ' disabled') +
+            ' aria-pressed="' + on + '">' +
+            '<span class="rd-attn-n">' + n + '</span>' +
+            '<span class="rd-attn-l">' + esc(x ? x.label : b[1]) + '</span>' +
+            '<span class="rd-attn-s">' + esc(x ? x.sub : 'Nothing right now') + '</span></button>';
         }).join('') +
         (rest.length ? '<div class="rd-attn-more">' + rest.map(function (s) {
           return '<button type="button" class="rd-attn-link" data-go="' + s.go + '"' +
@@ -2524,7 +2588,10 @@
             '<p class="rd-attn-partial">' + esc(broken.join(', ')) +
             ' did not answer, so this list may be incomplete.</p>');
         }
-        $$('.rd-attn-card, .rd-attn-link', el).forEach(function (c) {
+        $$('.rd-attn-card[data-td]', el).forEach(function (c) {
+          c.addEventListener('click', function () { setTodayFilter(c.dataset.td); });
+        });
+        $$('.rd-attn-link', el).forEach(function (c) {
           c.addEventListener('click', function () {
             if (c.dataset.view) _view = c.dataset.view;
             const n = $('.nav-item[data-page="' + c.dataset.go + '"]');

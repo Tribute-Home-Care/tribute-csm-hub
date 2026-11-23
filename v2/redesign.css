@@ -781,6 +781,18 @@ html.proto-on body { padding-top: 32px; }
 .rd-attn-card.info .rd-attn-n { color: var(--info); }
 .rd-attn-l { font-size: 14px; font-weight: 600; color: var(--ink); margin-top: 4px; }
 .rd-attn-s { font-size: 13px; color: var(--ink-3); }
+
+/* A TILE THAT FILTERS HAS TO LOOK PRESSED. The tiles used to navigate away,
+   so they never had a selected state to show; now one of them can be the
+   filter the list below is under, and a filter you cannot see is a list that
+   looks wrong. */
+.rd-attn-card.on { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.rd-attn-card.on .rd-attn-l { text-decoration: underline; text-underline-offset: 3px; }
+/* Empty is worth saying: her layout keeps four tiles whether or not each has
+   something in it, so a nothing-today tile stays in place and goes quiet
+   rather than disappearing and shuffling the other three along. */
+.rd-attn-card:disabled { cursor: default; opacity: .55; }
+.rd-attn-card:disabled:hover { box-shadow: none; transform: none; }
 .rd-allclear { display: none; }
 
 #rd-next { padding: 4px 16px; }
@@ -2619,7 +2631,20 @@ input[type="email"], select { min-height: var(--h-ctl); }
    A row is a client, why they are on the list, and the next step. Three
    columns because that is three questions, and a CSM reads across one row
    rather than down three cards. */
-.rd-td-f { display: flex; gap: 6px; flex-wrap: wrap; margin: var(--s3) 0 var(--s2); }
+/* What is left of the filter row: one line saying what you are looking at
+   and how to get back to everything. The chips it replaced were a second copy
+   of the four tiles above. */
+.rd-td-f {
+  display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap;
+  margin: var(--s3) 0 var(--s2); font-size: 12.5px; color: var(--ink-3);
+}
+.rd-td-all {
+  appearance: none; border: none; background: none; padding: 0; cursor: pointer;
+  font: inherit; font-size: 12.5px; color: var(--ink-2);
+  border-bottom: 1px solid var(--line-2);
+}
+.rd-td-all:hover { color: var(--ink); border-bottom-color: var(--ink); }
+.rd-td-all:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .rd-td-fb {
   appearance: none; cursor: pointer;
   border: 1px solid var(--line); background: var(--surface);

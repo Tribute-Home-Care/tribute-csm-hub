@@ -54,7 +54,46 @@ ok('an open visit says whose job it is, not that the CSM covers it',
 ok('a client in their first month with nothing logged says so',
    /nothing logged yet/.test(CODE));
 ok('a tile with no rows is disabled rather than clickable and empty',
-   /\(n\[b\[0\]\] \? '' : ' disabled'\)/.test(CODE));
+   /\(n \? '' : ' disabled'\)/.test(CODE));
+
+/* ── THE TILES ARE THE FILTERS, AND THERE IS ONLY ONE ROW OF THEM ─────────
+   "Keep 4 tiles across the top, but make them filters for the list below."
+   They were not: the tiles navigated to other pages and a second row of
+   chips underneath did the filtering, so Home carried two rows of the same
+   four numbers and pressing the obvious one took you off the page. */
+ok('pressing a tile filters the list rather than leaving the page',
+   /data-td="' \+ k \+ '"/.test(CODE) &&
+   /\$\$\('\.rd-attn-card\[data-td\]', el\)\.forEach/.test(CODE));
+ok('the second row of chips is gone', !/rd-td-fb/.test(CODE));
+ok('...and there is still a way back to everything',
+   /class="rd-td-all" data-td=""/.test(CODE));
+ok('pressing the tile you are on clears the filter',
+   /_todayFilter = \(_todayFilter === k\) \? '' : k;/.test(CODE));
+ok('both halves repaint together, so the pressed tile is not left stale',
+   /function setTodayFilter\(k\) \{[\s\S]{0,160}_attnKey = '';[\s\S]{0,40}renderAttention\(\);/.test(CODE));
+ok('...and the filter is part of the repaint key',
+   /failedSources\(\)\.join\(','\) \+ '#' \+ _todayFilter/.test(CODE));
+ok('a pressed tile looks pressed', /\.rd-attn-card\.on \{/.test(CSS));
+ok('the tile number IS the row count, not a second count of its own',
+   /todayRows\(\)\.forEach\(function \(r\) \{ if \(tn\[r\.bucket\] !== undefined\) tn\[r\.bucket\]\+\+; \}\);/.test(CODE));
+ok('a signal that is not one of her buckets keeps its own line and its page',
+   /const rest = sig\.filter\(function \(x\) \{ return !x\.bucket; \}\);/.test(CODE) &&
+   /\$\$\('\.rd-attn-link', el\)\.forEach/.test(CODE));
+
+/* ── OPEN VISITS ON HOME ARE THE URGENT ONES ──────────────────────────────
+   Section 9: "Open visits on a CSM's clients show on the client's Schedule
+   tab, and on Today's list when they're within 48 hours." Home was listing
+   all 53 unfilled visits across 14 clients, beside items that genuinely
+   needed the CSM that morning. */
+ok('only the next 48 hours reach the list',
+   /const cutoff = Date\.now\(\) \+ 48 \* 3600 \* 1000;/.test(CODE) &&
+   /if \(!d \|\| d\.getTime\(\) > cutoff\) return;/.test(CODE));
+ok('the row says the window it is talking about',
+   /' unfilled in the next 48 hours'/.test(CODE));
+ok('the full total is kept on the tile rather than dropped',
+   /plural\(ovs\.total, 'visit'\) \+ ' unfilled in all'/.test(CODE));
+ok('one definition of an urgent open visit, read by both the tile and the list',
+   (CODE.match(/openVisitsSoon\(\)/g) || []).length === 3);
 ok('rows are reachable by keyboard', /ev\.key === 'Enter' \|\| ev\.key === ' '/.test(CODE) && /tabindex="0"/.test(CODE));
 ok('only urgency is marked', /\.rd-td-r\.bad/.test(CSS) && /\.rd-td-r\.warn/.test(CSS));
 
