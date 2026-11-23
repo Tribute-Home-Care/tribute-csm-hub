@@ -2125,14 +2125,46 @@
     const sCase = sec('rd-s-case', 'Caseload health');
     const sTools = sec('rd-s-tools', 'Your work');
     sTools.className = 'rd-sec quiet';
+    /* CASELOAD HEALTH GOES TO THE BOTTOM, CLOSED.
+       Courtney, 17 Nov: "Caseload health is manager information. CSMs don't
+       need tier mix and touch counts every morning." Her layout has it as one
+       line at the bottom, closed by default.
+
+       Not deleted: she said CSMs do not need it each morning, not that nobody
+       needs it. Collapsing also retires two of the three disagreeing numbers
+       she found, because High touch and the 30-day touch count were only ever
+       confusing next to High Need and the compliance figure. */
     if (ph && ph.nextSibling) page.insertBefore(sAttn, ph.nextSibling); else page.appendChild(sAttn);
-    sAttn.after(sNext); sNext.after(sCase); sCase.after(sTools);
+    sAttn.after(sNext); sNext.after(sTools); sTools.after(sCase);
+    sCase.classList.add('rd-sec-fold');
     if (upcoming) sNext.appendChild(upcoming);
     sNext.insertAdjacentHTML('beforeend', '<div class="card" id="rd-next"></div>');
     if (stats) sCase.appendChild(stats);
     if (caseload) sCase.appendChild(caseload);
     if (drill) sCase.appendChild(drill);
     if (grid) sTools.appendChild(grid);
+
+    /* The fold itself. Closed on arrival, opens on the heading, and says so:
+       a heading that hides things without looking like it does is worse than
+       no fold at all. */
+    const caseH = sCase.querySelector('.rd-sec-h');
+    if (caseH) {
+      caseH.setAttribute('role', 'button');
+      caseH.setAttribute('tabindex', '0');
+      caseH.setAttribute('aria-expanded', 'false');
+      caseH.insertAdjacentHTML('beforeend',
+        '<span class="rd-fold-hint">Tier mix, touch counts and visit compliance</span>' +
+        '<span class="rd-fold-car" aria-hidden="true">›</span>');
+      const toggle = function () {
+        const open = sCase.hasAttribute('data-open');
+        if (open) sCase.removeAttribute('data-open'); else sCase.setAttribute('data-open', '1');
+        caseH.setAttribute('aria-expanded', open ? 'false' : 'true');
+      };
+      caseH.addEventListener('click', toggle);
+      caseH.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggle(); }
+      });
+    }
     page.dataset.rd = '1';
   }
 
