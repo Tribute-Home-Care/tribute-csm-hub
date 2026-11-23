@@ -993,6 +993,73 @@
   const CL_COLS = [['name', 'Client'], ['tier', 'Tier'], ['', 'Status'],
                    ['last', 'Last visit'], ['next', 'Next due'],
                    ['', 'Family contact'], ['community', 'Community']];
+/* WHO TO CALL, ON THE ROW. Courtney's Clients picture gives every row a
+   FAMILY CONTACT column reading "Lisa Pike (dtr)" with a Call and an Email
+   beside it, and her client-page callout says it in as many words: "Call"
+   dials the family contact, not just the client.
+
+   The Hub's own c.contact / c.contactEmail are empty on every client, because
+   CSMs keep contacts in Viv. So this reads the same source the search does.
+   The full client record wins when it is loaded; the caseload-wide crawl is
+   the fallback that makes the other forty-one rows useful.
+
+   RELATIONSHIPS ARE SHORTENED, NOT GUESSED. Her picture writes "(dtr)". Viv's
+   rrel is free text, so only the handful we have actually seen are
+   abbreviated and anything else is printed as it was stored. A contact whose
+   relationship Viv does not record shows a name and no bracket, which is
+   true, rather than a guess. */
+  const REL_SHORT = {
+    daughter: 'dtr', son: 'son', wife: 'wife', husband: 'hus',
+    mother: 'mom', father: 'dad', sister: 'sis', brother: 'bro',
+    'care manager': 'CM', 'geriatric care manager': 'GCM',
+    'power of attorney': 'POA', poa: 'POA', spouse: 'spouse',
+    friend: 'friend', neighbor: 'neighbour', guardian: 'guardian',
+    niece: 'niece', nephew: 'nephew', granddaughter: 'granddtr', grandson: 'grandson'
+  };
+  function relShort(r) {
+    const k = String(r || '').trim().toLowerCase();
+    if (!k) return '';
+    if (REL_SHORT[k]) return REL_SHORT[k];
+    // "primary", "emergency" and "family" say only where the contact was
+    // found, which is not a relationship and reads oddly in a bracket.
+    if (k === 'primary' || k === 'emergency' || k === 'family') return '';
+    return String(r).trim();
+  }
+  function familyContact(c) {
+    let list = [];
+    try { list = (window.TributeClientData && TributeClientData.contacts(c.vivId)) || []; }
+    catch (e) { list = []; }
+    const first = list.find(function (x) { return x && (x.name || x.phone); });
+    if (first) {
+      return { name: first.name || '', rel: relShort(first.relation),
+               phone: first.phone || '', email: first.email || c.contactEmail || '' };
+    }
+    // The roster's own fields, for anyone the crawl has not reached.
+    if (c.contact || c.contactEmail) {
+      return { name: c.contact || '', rel: '', phone: '', email: c.contactEmail || '' };
+    }
+    return null;
+  }
+  /* The cell. A missing contact says so rather than leaving a blank the
+     reader has to interpret: on this caseload the column was empty on every
+     single row, and an empty cell reads as "no contact" when it meant
+     "not read yet". */
+  function contactCell(c) {
+    const f = familyContact(c);
+    if (!f || (!f.name && !f.phone && !f.email)) {
+      const warming = window.TributeClientData && TributeClientData.contactsState
+        && TributeClientData.contactsState() !== 'ready';
+      return '<span class="rd-ws-quiet">' + (warming ? 'Reading\u2026' : 'None on file') + '</span>';
+    }
+    const who = esc(f.name) + (f.rel ? ' <span class="rd-clt-rel">(' + esc(f.rel) + ')</span>' : '');
+    const acts = [];
+    if (f.phone) acts.push('<a href="tel:' + esc(String(f.phone).replace(/[^\d+]/g, '')) +
+      '" onclick="event.stopPropagation()">Call</a>');
+    if (f.email) acts.push('<a href="mailto:' + esc(f.email) +
+      '" onclick="event.stopPropagation()">Email</a>');
+    return who + (acts.length ? '<span class="rd-clt-act">' + acts.join('') + '</span>' : '');
+  }
+
   function clientListTable(rows) {
     const head = CL_COLS.map(function (col) {
       const k = col[0];
@@ -1012,8 +1079,6 @@
       // daysSince is negative for a future date, so days-until is its negation.
       const until = nv ? -daysSince(nv) : null;
       const soonAsmt = newish && until !== null && until >= 0 && until <= 7;
-      const mail = c.contactEmail
-        ? '<a href="mailto:' + esc(c.contactEmail) + '" onclick="event.stopPropagation()">Email</a>' : '';
       /* The cadence exception leads where there is one, because it is the
          thing with a date on it. A client whose cadence is fine and whose
          Pulse is flagged shows the flag instead of nothing at all. */
@@ -1028,8 +1093,7 @@
         '<td>' + (st ? '<span class="rd-cl-ex ' + st.tone + '">' + esc(st.text) + '</span>' : '') + '</td>' +
         '<td>' + (c.lastVisit ? esc(fmtShort(c.lastVisit)) : '<span class="rd-ws-quiet">None</span>') + '</td>' +
         '<td>' + (nv ? esc(fmtShort(nv)) : (c.freq === 'NA' ? '<span class="rd-ws-quiet">No cadence</span>' : '')) + '</td>' +
-        '<td class="rd-clt-con">' + (c.contact ? esc(c.contact) : '') +
-          (mail ? '<span class="rd-clt-act">' + mail + '</span>' : '') + '</td>' +
+        '<td class="rd-clt-con">' + contactCell(c) + '</td>' +
         '<td>' + esc([c.loc, c.city].filter(Boolean).join(', ')) + '</td>' +
         '</tr>';
     }).join('');
@@ -1471,9 +1535,23 @@
     const meta = [c.market || (d.market || ''), status].filter(Boolean).join(' · ');
 
     const acts = [];
-    const phone = ct.phone || (d.primaryContact && d.primaryContact.phone) || '';
-    if (phone) acts.push('<a class="rd-act" href="tel:' + esc(phone.replace(/[^\d+]/g, '')) + '">' +
-      I('phone') + '<span>Call</span></a>');
+    /* "Call" DIALS THE FAMILY CONTACT, NOT JUST THE CLIENT, and says whose
+       number it is. Her words, on the client-page picture. The button read
+       "Call" over whichever number happened to be first, which on a client
+       living in a community is often the community's. */
+    const fam = familyContact(c);
+    const phone = (fam && fam.phone) || ct.phone || (d.primaryContact && d.primaryContact.phone) || '';
+    if (phone) {
+      const who = fam && fam.phone && fam.name
+        ? String(fam.name).trim().split(/\s+/)[0] + (fam.rel ? ' (' + fam.rel + ')' : '')
+        : '';
+      acts.push('<a class="rd-act" href="tel:' + esc(phone.replace(/[^\d+]/g, '')) + '">' +
+        I('phone') + '<span>' + (who ? 'Call ' + esc(who) : 'Call') + '</span></a>');
+    }
+    if (fam && fam.email) {
+      acts.push('<a class="rd-act" href="mailto:' + esc(fam.email) + '">' +
+        I('mail') + '<span>Email family</span></a>');
+    }
     if (addr) acts.push('<a class="rd-act" target="_blank" rel="noreferrer"' +
       ' href="https://maps.apple.com/?q=' + encodeURIComponent(addr) + '">' +
       I('pin') + '<span>Directions</span></a>');

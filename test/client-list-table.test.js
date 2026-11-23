@@ -55,12 +55,49 @@ ok('days-until is derived from days-since rather than a helper that does not exi
    /const until = nv \? -daysSince\(nv\) : null;/.test(CODE));
 ok('a date already past is not called due within a week', /until >= 0 && until <= 7/.test(CODE));
 
-// ── honesty about the family contact ──────────────────────────────────────
-// The Viv contact is fetched per client; filling a column from it would be a
-// Viv call per row on every keystroke in the search box.
-ok('the contact column uses the Hub record, not a per-row Viv read',
-   /c\.contact \? esc\(c\.contact\)/.test(CODE) && !/primaryContact/.test((CODE.match(/function clientListTable[\s\S]*?\n  \}/) || [''])[0]));
-ok('an email is a real mailto', /href="mailto:' \+ esc\(c\.contactEmail\)/.test(CODE));
+/* ── the family contact column ─────────────────────────────────────────────
+   Courtney's Clients picture gives every row "Lisa Pike (dtr)" with a Call
+   and an Email beside it. The column shipped reading c.contact, which is
+   empty on every client in production because CSMs keep contacts in Viv, so
+   it was blank on all forty-two rows.
+
+   THE CONSTRAINT THAT PUT IT THERE STILL HOLDS: a Viv read per row would be
+   a call per client on every keystroke in the search box. It is satisfied a
+   different way now. The caseload-wide crawl is asked for ONCE per session by
+   primeContacts(), and the cell reads that cache; it never fetches. */
+const CELL = (CODE.match(/function contactCell\(c\)[\s\S]*?\n  \}/) || [''])[0];
+ok('the contact cell reads the primed cache', /TributeClientData\.contacts\(c\.vivId\)/.test(CODE));
+ok('...and never fetches, per row or otherwise',
+   !!CELL && !/fetch\(|primeContacts\(|TributeClientData\.ready\(/.test(CELL));
+ok('the crawl is still asked for once, not per render',
+   /if \(bulkState === 'loading' \|\| bulkState === 'ready'\) return/.test(
+     fs.readFileSync(path.join(__dirname, '../v2/v2-client.js'), 'utf8')));
+ok('a call is a real tel: on the contact\'s number',
+   /href="tel:' \+ esc\(String\(f\.phone\)\.replace/.test(CODE));
+ok('an email is a real mailto', /href="mailto:' \+ esc\(f\.email\)/.test(CODE));
+
+/* "NOT READ YET" IS NOT "NO CONTACT". The column was blank on every row and
+   blank reads as "nobody to call". While the crawl is still warming the cell
+   has to say so, or it tells the CSM something false about their client. */
+ok('a cell with nothing yet says which kind of nothing it is',
+   /warming \? 'Reading\\u2026' : 'None on file'/.test(CODE));
+ok('...and asks the module, rather than assuming', /TributeClientData\.contactsState\(\) !== 'ready'/.test(CODE));
+
+/* Her picture writes "(dtr)". Viv's rrel is free text, so only relationships
+   actually seen are shortened and anything else prints as stored. The three
+   placement words are not relationships and must not sit in the bracket. */
+ok('relationships are shortened from a list, not guessed at', /const REL_SHORT = \{/.test(CODE));
+ok('...and Viv\'s placement words never reach the bracket',
+   /if \(k === 'primary' \|\| k === 'emergency' \|\| k === 'family'\) return '';/.test(CODE));
+ok('...and an unknown relationship is printed, not dropped',
+   /return String\(r\)\.trim\(\);/.test(CODE));
+
+/* Her client-page callout: "Call" dials the family contact, not just the
+   client, and the button says whose number it is. On a client living in a
+   community the first number on the record is often the community's. */
+ok('the client page prefers the family contact to dial',
+   /const phone = \(fam && fam\.phone\) \|\| ct\.phone/.test(CODE));
+ok('...and names who it is about to call', /\? 'Call ' \+ esc\(who\) : 'Call'/.test(CODE));
 ok('there is no Call button that cannot dial',
    !/>Call</.test((CODE.match(/function clientListTable[\s\S]*?\n  \}/) || [''])[0]));
 
