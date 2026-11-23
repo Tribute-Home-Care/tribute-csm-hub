@@ -23,8 +23,19 @@ ok('the list is mounted on Home under the tiles',
    /<div id="rd-attn"><\/div><div id="rd-today"><\/div>/.test(CODE));
 ok('the tiles and the list sit under one heading, because they are one thing',
    /sec\('rd-s-attn', 'Needs attention', 'What is new, and not yet sorted'\)/.test(CODE));
+/* Three of the four names are hers. The second is not: she wrote "Due this
+   week", and the data behind that bucket is the warn-tone exception, which is
+   due within FOURTEEN days and is what the Clients page has always called Due
+   soon. Her label would have been a week out from the thing it names. The
+   deviation is deliberate and recorded in the source beside the list. */
 ok('her four buckets are the filters',
-   /\['action', 'Need action today'\], \['week', 'Due this week'\],[\s\S]{0,80}\['onboarding', 'In first 30 days'\], \['open', 'Open visits'\]/.test(CODE));
+   /\['action', 'Need action today'\], \['week', 'Due soon'\],[\s\S]{0,80}\['onboarding', 'In first 30 days'\], \['open', 'Open visits'\]/.test(CODE));
+// The tile and the filter line under it took their label from different
+// places, so the same six clients read "Due soon" above and "due this week"
+// below. One source now.
+ok('the tile takes its name from the bucket, like the filter line does',
+   /'<span class="rd-attn-l">' \+ esc\(b\[1\]\) \+ '<\/span>'/.test(CODE) &&
+   /TODAY_BUCKETS\.filter\(function \(b\) \{ return b\[0\] === _todayFilter; \}\)/.test(CODE));
 ok('a row is a client, a why and a next step',
    /rd-td-n/.test(CODE) && /rd-td-w/.test(CODE) && /rd-td-s/.test(CODE));
 

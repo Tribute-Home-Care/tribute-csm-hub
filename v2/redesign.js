@@ -2365,7 +2365,18 @@
      The tiles above became the filters for it, so the number on a tile is the
      number of rows you get when you press it, which is her third rule applied
      to Home. */
-  const TODAY_BUCKETS = [['action', 'Need action today'], ['week', 'Due this week'],
+  /* ONE NAME PER BUCKET, USED EVERYWHERE. The tile took its label from the
+     signal and the filter line took it from here, so the same six clients
+     were "Due soon · within two weeks" on the tile and "due this week" on the
+     line under it. These names are now the only ones.
+
+     Three are Courtney's words from section 2. The second is not: she wrote
+     "Due this week", and the data behind it is the warn-tone exception, which
+     is due within FOURTEEN days and is what the Clients page has always
+     called Due soon. Her label would have been a week's difference from the
+     thing it names, so the accurate word wins and this note records the
+     deviation rather than hiding it. */
+  const TODAY_BUCKETS = [['action', 'Need action today'], ['week', 'Due soon'],
                          ['onboarding', 'In first 30 days'], ['open', 'Open visits']];
   let _todayFilter = '';
 
@@ -2587,7 +2598,7 @@
             (on ? ' on' : '') + '" data-td="' + k + '"' + (n ? '' : ' disabled') +
             ' aria-pressed="' + on + '">' +
             '<span class="rd-attn-n">' + n + '</span>' +
-            '<span class="rd-attn-l">' + esc(x ? x.label : b[1]) + '</span>' +
+            '<span class="rd-attn-l">' + esc(b[1]) + '</span>' +
             '<span class="rd-attn-s">' + esc(x ? x.sub : emptySub(k)) + '</span></button>';
         }).join('') +
         (rest.length ? '<div class="rd-attn-more">' + rest.map(function (s) {
