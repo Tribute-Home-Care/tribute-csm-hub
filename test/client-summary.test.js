@@ -55,6 +55,11 @@ ok('no contacts on file says so rather than rendering an empty card',
 
 // ── the former More views, folded in ──────────────────────────────────────
 ok('quick care facts come from the care plan, not retyped', /out \+= wsSnapshot\(c\);/.test(CODE));
+// It was briefly rendered in BOTH columns, which doubled the exact thing she
+// complained about. Found by looking at the page, not by reading the diff.
+ok('the care snapshot is rendered once, not once per column',
+   (CODE.match(/wsSnapshot\(c\)/g) || []).length === 2);   // one call, one definition
+ok('it is the right column that holds it', /out \+= wsSnapshot\(c\);[\s\S]{0,120}Quick care facts/.test(CODE));
 ok('community and LTC are on Summary', /block\('Community and LTC'/.test(CODE));
 ok('a coverage note shows only when somebody is covering',
    /if \(cov && \(cov\.coveredBy \|\| cov\.to \|\| cov\.note\)\)/.test(CODE));

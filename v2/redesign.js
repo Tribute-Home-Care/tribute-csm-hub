@@ -1209,9 +1209,10 @@
     else if (!today.length && snap.state === 'ready')
       out += block('Next visit', quiet('Nothing scheduled in the next two weeks.'));
 
-    /* Care snapshot — the few things you would want in your head walking in.
-       Drawn from the approved care plan's own sections, never written here. */
-    out += wsSnapshot(c);
+    /* The care snapshot moved to the right column as Quick care facts, so it
+       is NOT rendered here as well. It was briefly in both, which doubled the
+       exact thing Courtney complained about: "the Care Snapshot is the care
+       plan again, as long paragraphs. It pushes everything else down." */
 
     /* Care team preview. */
     const team = (snap.data && snap.data.careTeam) || [];
