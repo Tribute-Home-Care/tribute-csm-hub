@@ -45,6 +45,38 @@ ok('Success in 30 ranks second', /rank: 1, bucket: 'onboarding'/.test(CODE));
 ok('overdue ranks above due-soon',
    /rank: ex\.tone === 'bad' \? 2 : 3/.test(CODE));
 ok('open visits rank last', /rank: 4, bucket: 'open'/.test(CODE));
+/* ── ONE ROW PER CLIENT ───────────────────────────────────────────────────
+   "Each row is a client, why they're on the list, and the next step."
+   Singular, three times. It is also the only way the counts can agree: a
+   client with a Pulse flag AND an overdue visit was two rows, so Home counted
+   38 things while the Clients tab counted 29 people, both labelled as needing
+   action. Counting rows and counting clients are different questions, and a
+   tile that filters a list has to answer the list's question. */
+ok('a client appears once, however many reasons they have',
+   /const seen = \{\}, one = \[\];/.test(CODE) &&
+   /const k = r\.cid \|\| \('name:' \+ r\.name\);/.test(CODE));
+ok('...keeping the most urgent reason, because the sort already ranked them',
+   /out\.sort\(function \(a, b\) \{ return a\.rank - b\.rank[\s\S]{0,900}const seen = \{\}, one = \[\];/.test(CODE));
+ok('an open visit with no matching client is not folded into another',
+   /\('name:' \+ r\.name\)/.test(CODE));
+// Behavioural: the collapse, over a client who qualifies three ways.
+const rowsIn = [
+  { rank: 0, cid: 'a', name: 'A', bucket: 'action' },
+  { rank: 1, cid: 'a', name: 'A', bucket: 'onboarding' },
+  { rank: 2, cid: 'a', name: 'A', bucket: 'action' },
+  { rank: 1, cid: 'b', name: 'B', bucket: 'onboarding' },
+  { rank: 4, cid: '',  name: 'Unmatched One', bucket: 'open' },
+  { rank: 4, cid: '',  name: 'Unmatched Two', bucket: 'open' }
+];
+const collapse = rs => { const seen = {}, out = []; rs.forEach(r => {
+  const k = r.cid || ('name:' + r.name); if (seen[k]) return; seen[k] = 1; out.push(r); }); return out; };
+const kept = collapse(rowsIn);
+ok('three reasons for one client become one row', kept.filter(r => r.cid === 'a').length === 1);
+ok('...and it is the most urgent one', kept.find(r => r.cid === 'a').rank === 0);
+ok('...in the bucket that reason belongs to', kept.find(r => r.cid === 'a').bucket === 'action');
+ok('two unmatched open visits stay two rows', kept.filter(r => !r.cid).length === 2);
+ok('the list is four rows, not six', kept.length === 4);
+
 // Behavioural: the comparator must be stable and in her order.
 const rows = [{ rank: 4, name: 'B' }, { rank: 0, name: 'Z' }, { rank: 2, name: 'A' }, { rank: 0, name: 'A' }];
 rows.sort((a, b) => a.rank - b.rank || String(a.name).localeCompare(String(b.name)));

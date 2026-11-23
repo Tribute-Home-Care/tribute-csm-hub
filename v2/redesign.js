@@ -2650,7 +2650,34 @@
     } catch (e) {}
 
     out.sort(function (a, b) { return a.rank - b.rank || String(a.name).localeCompare(String(b.name)); });
-    return out;
+
+    /* ONE ROW PER CLIENT, which is what she wrote: "Each row is a client, why
+       they're on the list, and the next step." Singular, three times.
+
+       It is also the only way the numbers can agree. A client with a Pulse
+       flag AND an overdue visit was two rows, so Home counted 38 things while
+       the Clients tab counted 29 people, both labelled as needing action —
+       her exact complaint, one layer down. Counting rows and counting clients
+       are different questions, and a tile that filters a list has to answer
+       the list's question.
+
+       The sort above already put the most urgent first, so the first row a
+       client has is the one worth showing; the rest are the same person said
+       again. A client in their first thirty days who is ALSO flagged appears
+       under Need action today and not under In first 30 days, which is the
+       right order of business even though it makes that tile smaller.
+
+       Open-visit rows can carry no client id when the name does not match the
+       roster; those are keyed by name so two unmatched clients are not folded
+       into one. */
+    const seen = {}, one = [];
+    out.forEach(function (r) {
+      const k = r.cid || ('name:' + r.name);
+      if (seen[k]) return;
+      seen[k] = 1;
+      one.push(r);
+    });
+    return one;
   }
 
   /* The tiles and the list are two halves of one control, so both repaint.
