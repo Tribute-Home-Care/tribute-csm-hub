@@ -17,14 +17,56 @@ const strip = s => s.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').filter(l => !/
 for (const [label, p] of [['shipped', '../v2/redesign.js'],
                           ['source', path.join(process.env.HOME, 'tribute-csm-hub-redesign/prototype/redesign.js')]]) {
   const CODE = strip(fs.readFileSync(path.isAbsolute(p) ? p : path.join(__dirname, p), 'utf8'));
-  ok(label + ': the Needs attention COUNT is the bad ones only',
-     /attention: all\.filter\(function \(c\) \{ const e = exceptionFor\(c\); return e && e\.tone === 'bad'; \}\)/.test(CODE));
-  ok(label + ': the Needs attention LIST matches its own count',
-     /if \(_view === 'attention'\) list = list\.filter\(function \(r\) \{ return r\.ex && r\.ex\.tone === 'bad'; \}\)/.test(CODE));
-  ok(label + ': Due soon is the warnings', /soon: all\.filter\(function \(c\) \{ const e = exceptionFor\(c\); return e && e\.tone === 'warn'; \}\)/.test(CODE));
+  /* ONE DEFINITION, ASKED FOUR WAYS. This used to assert that needing
+     action was the bad cadence exception, inline, in each place. That held
+     only while Pulse was failing to load. The Today's list, built to her
+     section-2 spec, also treats an unsorted Pulse flag as needing action
+     today — correctly, because a client taken by paramedics needs the CSM
+     whatever their visit cadence says, which is her priority 1. The hour
+     Pulse started loading, Home read 38 and the Clients badge read 16, both
+     labelled as needing action: exactly the fault she described. */
+  ok(label + ': needing action is defined once', /function needsAction\(c\) \{/.test(CODE));
+  ok(label + ': ...as a bad cadence exception OR an unsorted Pulse flag',
+     /if \(e && e\.tone === 'bad'\) return true;\n\s*return pulseOpen\(c\);/.test(CODE));
+  ok(label + ': a sorted flag is not an unsorted one',
+     /if \(c\.pulseAck\) return false;/.test(CODE));
+  ok(label + ': the COUNT asks it', /attention: all\.filter\(needsAction\)\.length,/.test(CODE));
+  ok(label + ': the LIST asks it',
+     /if \(_view === 'attention'\) list = list\.filter\(function \(r\) \{ return needsAction\(r\.c\); \}\);/.test(CODE));
+  ok(label + ': the Home tile asks it', /const bad = real\.filter\(needsAction\);/.test(CODE));
+  // Due soon has to be what is LEFT, or the two overlap again.
+  ok(label + ': Due soon excludes anything already needing action',
+     /function dueSoonOnly\(c\) \{\n\s*if \(needsAction\(c\)\) return false;/.test(CODE));
+  ok(label + ': ...and the count and the list both ask that',
+     /soon: all\.filter\(dueSoonOnly\)\.length/.test(CODE) &&
+     /_view === 'soon'\) list = list\.filter\(function \(r\) \{ return dueSoonOnly\(r\.c\); \}\)/.test(CODE));
   ok(label + ': nothing still counts every exception as needing attention',
      !/attention: all\.filter\(function \(c\) \{ return !!exceptionFor\(c\); \}\)/.test(CODE));
 }
+
+/* Behavioural: the partition, now that a Pulse flag can put a client in
+   Needs attention on its own. The case that matters is the third one — a
+   client whose cadence is merely due soon but whose Pulse is flagged belongs
+   in Needs attention, counted ONCE. */
+const needsAction = c => (c.t === 'bad') || (!!c.p && !c.ack);
+const dueSoonOnly = c => !needsAction(c) && c.t === 'warn';
+const CASES = [
+  { n: 'bad cadence, no flag',            t: 'bad',  p: null },
+  { n: 'no cadence problem, red flag',    t: null,   p: 'red' },
+  { n: 'due soon AND flagged',            t: 'warn', p: 'amber' },
+  { n: 'due soon, no flag',               t: 'warn', p: null },
+  { n: 'flag already sorted',             t: null,   p: 'red', ack: 1 },
+  { n: 'nothing at all',                  t: null,   p: null }
+];
+const attn = CASES.filter(needsAction), soonOnly = CASES.filter(dueSoonOnly);
+ok('a Pulse flag alone puts a client in Needs attention',
+   attn.some(c => c.n === 'no cadence problem, red flag'));
+ok('a client who is both is counted once, under Needs attention',
+   attn.some(c => c.n === 'due soon AND flagged') &&
+   !soonOnly.some(c => c.n === 'due soon AND flagged'));
+ok('a sorted flag is in neither', !attn.concat(soonOnly).some(c => c.ack));
+ok('the two never overlap', !attn.some(c => soonOnly.indexOf(c) > -1));
+ok('and they add up to 4 of the 6', attn.length + soonOnly.length === 4);
 
 // Behavioural: the two views must partition the exceptions, never overlap.
 const cl = [{ t: 'bad' }, { t: 'bad' }, { t: 'warn' }, { t: 'warn' }, { t: 'warn' }, { t: null }];
@@ -39,10 +81,14 @@ ok('the old rule double-counted, which is what she saw', anyEx !== soon && anyEx
 
 // Home's tile and the tab now ask the same question of the same data.
 const CODE = strip(fs.readFileSync(path.join(__dirname, '../v2/redesign.js'), 'utf8'));
-ok('Home still counts needing action as the bad ones',
-   /const bad = exc\.filter\(function \(r\) \{ return r\.ex\.tone === 'bad'; \}\)/.test(CODE));
-ok('Home still counts due soon as the warnings',
-   /const warn = exc\.filter\(function \(r\) \{ return r\.ex\.tone === 'warn'; \}\)/.test(CODE));
+// Home asks the same two functions as the Clients tabs, so "the tile and the
+// tab agree" is true by construction rather than by two regexes matching.
+ok('Home counts needing action the one way it is defined',
+   /const bad = real\.filter\(needsAction\);/.test(CODE));
+ok('Home counts due soon as what is left over',
+   /const warn = real\.filter\(dueSoonOnly\);/.test(CODE));
+ok('the old inline copies are gone',
+   !/exc\.filter\(function \(r\) \{ return r\.ex\.tone/.test(CODE));
 ok('Home sends you to the tab that now agrees with it',
    /tone: 'bad', go: 'clients', view: 'attention'/.test(CODE) && /label: 'Due soon'[\s\S]{0,80}view: 'soon'/.test(CODE));
 

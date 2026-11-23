@@ -491,6 +491,38 @@
     return parts.filter(Boolean).join(' ').toLowerCase();
   }
 
+  /* WHAT "NEEDS ACTION" MEANS, IN ONE PLACE.
+     Courtney's third rule: "The numbers have to match. If the badge says 9,
+     the list under it has 9 clients in it." And her complaint: "CSMs stop
+     trusting the Hub fast if 17, 18 and 42 all mean needs attention."
+
+     This used to be the cadence exception alone. The Today's list, built to
+     her section-2 spec, also puts an unsorted Pulse flag in Need action
+     today — correctly: a client taken by paramedics needs the CSM whatever
+     their visit cadence says, which is her priority 1. The two agreed only
+     while Pulse was failing to load. The moment it loaded, Home read 38 and
+     the Clients badge read 16, both labelled as needing action.
+
+     So one definition, asked by the Home tile, the Clients tab, the rail
+     badge and the Today's list. Due soon is then everything else that is
+     merely warned about, which keeps the two a partition rather than two
+     overlapping counts. */
+  function pulseOpen(c) {
+    if (c.pulseAck) return false;                 // sorted is not unsorted
+    const pp = pulseFor(c);
+    return !!(pp && pp.level && pp.level !== 'green');
+  }
+  function needsAction(c) {
+    const e = exceptionFor(c);
+    if (e && e.tone === 'bad') return true;
+    return pulseOpen(c);
+  }
+  function dueSoonOnly(c) {
+    if (needsAction(c)) return false;
+    const e = exceptionFor(c);
+    return !!(e && e.tone === 'warn');
+  }
+
   function visitSt(c) {
     if (c.freq === 'NA') return 'none';
     const cad = parseInt(c.freq) || 90;
@@ -594,8 +626,8 @@
     if (tf) list = list.filter(function (r) { return r.c.tier === tf; });
     // Same partition as the counts above: the list under a tab has to hold
     // exactly what the tab's number says.
-    if (_view === 'attention') list = list.filter(function (r) { return r.ex && r.ex.tone === 'bad'; });
-    else if (_view === 'soon') list = list.filter(function (r) { return r.ex && r.ex.tone === 'warn'; });
+    if (_view === 'attention') list = list.filter(function (r) { return needsAction(r.c); });
+    else if (_view === 'soon') list = list.filter(function (r) { return dueSoonOnly(r.c); });
     else if (_view === 'onboarding') list = list.filter(function (r) { return r.c.startDate && (daysSince(r.c.startDate) || 999) <= 30; });
 
     /* SORTING. Urgency first is the right default and stays the default, but
@@ -721,8 +753,8 @@
        warnings. Nothing is counted twice and the tab agrees with the tile. */
     const counts = {
       all: all.length,
-      attention: all.filter(function (c) { const e = exceptionFor(c); return e && e.tone === 'bad'; }).length,
-      soon: all.filter(function (c) { const e = exceptionFor(c); return e && e.tone === 'warn'; }).length,
+      attention: all.filter(needsAction).length,
+      soon: all.filter(dueSoonOnly).length,
       onboarding: all.filter(function (c) { return c.startDate && (daysSince(c.startDate) || 999) <= 30; }).length
     };
     const rows = trackerRows();
@@ -2407,9 +2439,10 @@
     let cl = [], todos = [];
     try { cl = app.fn.get('clients') || []; todos = app.fn.get('todos') || []; } catch (e) { return out; }
     const real = cl.filter(function (c) { return !c.isOffice; });
-    const exc = real.map(function (c) { return { c: c, ex: exceptionFor(c) }; }).filter(function (r) { return r.ex; });
-    const bad = exc.filter(function (r) { return r.ex.tone === 'bad'; });
-    const warn = exc.filter(function (r) { return r.ex.tone === 'warn'; });
+    // One definition, asked three ways: these two, the Clients tabs and the
+    // Today's list all route through needsAction / dueSoonOnly.
+    const bad = real.filter(needsAction);
+    const warn = real.filter(dueSoonOnly);
 
     /* CHANGE OF CONDITION FIRST. Everything else on this row is a cadence
        falling behind; this one is a person whose health has altered, and it
@@ -2433,7 +2466,7 @@
        the list under it holds exactly that many, which is her third rule. */
     if (bad.length) out.push({
       n: bad.length, label: bad.length === 1 ? 'Client needs action' : 'Clients need action',
-      sub: bad.slice(0, 2).map(function (r) { return String(r.c.name).split(' ')[0]; }).join(', ') +
+      sub: bad.slice(0, 2).map(function (c) { return String(c.name).split(' ')[0]; }).join(', ') +
         (bad.length > 2 ? ' and ' + (bad.length - 2) + ' more' : ''),
       tone: 'bad', go: 'clients', view: 'attention', badge: true, bucket: 'action'
     });
