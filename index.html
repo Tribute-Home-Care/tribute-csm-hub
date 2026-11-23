@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-11-23T09:47"></script>
+<script src="./entra-auth.js?v=2026-11-23T10:00"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1912,7 +1912,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-11-23T09:47';
+const HUB_BUILD='2026-11-23T10:00';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -3274,22 +3274,52 @@ function tglChk(i,key,el){let c=get(key);c.includes(i)?c=c.filter(x=>x!==i):c.pu
 // closed state answers "am I on track?" without a click.
 let _homeDrill=null;
 function _visitMonthWindow(){ const n=new Date(); return {y:n.getFullYear(),m:n.getMonth()}; }
-// Visits DUE this month = cadence clients whose next-due date lands in the month
-// (deferred ones are excluded — see deferVisit). Complete = a visit logged on
-// or after that due date.
+// Visits DUE this month = cadence clients who were already owed a visit when
+// the month opened, or fell due inside it (deferred ones are excluded — see
+// deferVisit). Complete = a visit logged in the month.
+/* WHO WAS DUE IS DECIDED AT THE START OF THE MONTH, NOT NOW.
+   Courtney flagged this on 17 Nov: "Visits this month says '0 of 22 due visits
+   done'". Measured on a real caseload on 23 Nov it was 0 of 20 while eight
+   clients had been visited that month.
+
+   The cause was structural rather than a miscount. `due` was built from
+   nextDue(c.lastVisit, freq) using TODAY'S lastVisit, so completing a visit
+   moved nextDue past the month end and the client left the denominator instead
+   of entering the numerator. Doing the work removed you from the list of
+   people who had work to do, which pinned the number near zero for any cadence
+   longer than a month. All eight of those clients had left `due` entirely.
+
+   So the last visit as of the 1st is read from the visit log, and that decides
+   who was due. A completed visit now stays in the denominator and lands in the
+   numerator, which is what "N of M due visits done" has always claimed.
+
+   The log can be shorter than the client's history, so the fallback is
+   deliberate: somebody visited this month with no earlier visit on record was
+   certainly due, and counting them is the conservative reading. */
 function visitCompliance(){
   const cl=get('clients')||[], vs=get('visits')||[], {y,m}=_visitMonthWindow();
+  const monthStart=new Date(y,m,1), nextMonth=new Date(y,m+1,1);
+  const asDate=d=>new Date(String(d).slice(0,10)+'T12:00:00');
+  const inMonth=d=>{const x=asDate(d);return x.getFullYear()===y&&x.getMonth()===m;};
   const due=[],done=[],deferred=[];
   cl.forEach(c=>{
     if(c.isOffice||!c.freq||c.freq==='NA')return;
-    const nd=nextDue(c.lastVisit,c.freq);
-    const neverVisited=!c.lastVisit;
-    const dueThisMonth=neverVisited||(nd&&nd.getFullYear()===y&&nd.getMonth()===m)||(nd&&nd<new Date());
-    if(!dueThisMonth)return;
+    const mine=vs.filter(v=>v.clientId===c.id&&v.date).map(v=>String(v.date).slice(0,10)).sort();
+    // The log is the record, but a CSM can also type Last visit straight onto
+    // the client form with no row behind it (cf-lastv). Credit that too, or a
+    // client the record says was seen this month reads as not done.
+    const visitedThisMonth=mine.some(inMonth)||(!!c.lastVisit&&inMonth(c.lastVisit));
+    const before=mine.filter(d=>asDate(d)<monthStart);
+    const asOfStart=before.length?before[before.length-1]
+      :(c.lastVisit&&asDate(c.lastVisit)<monthStart?String(c.lastVisit).slice(0,10):null);
+    // Nothing before the 1st means they were due: either never visited, or
+    // visited only within this month with no earlier record.
+    const nd=asOfStart?nextDue(asOfStart,c.freq):null;
+    const wasDue=!asOfStart||(nd&&nd<nextMonth);
+    if(!wasDue)return;
     if(c.visitDeferred&&c.visitDeferred.until&&new Date(c.visitDeferred.until)>=new Date()){deferred.push(c);return;}
     due.push(c);
-    const hit=vs.some(v=>v.clientId===c.id&&v.date&&(()=>{const d=new Date(v.date+'T12:00:00');return d.getFullYear()===y&&d.getMonth()===m;})());
-    if(hit)done.push(c);
+    if(visitedThisMonth)done.push(c);
   });
   const pct=due.length?Math.round(done.length/due.length*100):100;
   return {due,done,deferred,pct};
