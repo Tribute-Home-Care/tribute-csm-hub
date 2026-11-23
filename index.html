@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-11-23T12:56"></script>
+<script src="./entra-auth.js?v=2026-11-23T13:03"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -163,6 +163,9 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
 .todo-text{flex:1;font-size:13px;color:#3D3833;line-height:1.4;}
 .todo-item.done-item .todo-text{text-decoration:line-through;color:#8C857B;}
 .todo-meta{font-size:11px;color:#8C857B;margin-top:2px;}
+/* Where a generated to-do came from, as a quiet label rather than a
+   badge: it tells you why the row is there and then gets out of the way. */
+.todo-src{display:inline-block;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#7A3B12;background:#FBEADF;border-radius:999px;padding:1px 6px;margin-right:6px;vertical-align:1px;}
 .csm-ov{background:#fff;border-radius:12px;padding:15px;box-shadow:0 1px 4px rgba(0,0,0,.07);}
 .tier-bar{height:7px;border-radius:4px;background:#F1EEE8;overflow:hidden;margin-top:6px;display:flex;}
 /* S60 */
@@ -325,7 +328,7 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
           <input type="date" class="fc" id="td-due" style="font-size:11px;padding:5px 7px;width:130px;">
           <select class="fc" id="td-pri" style="font-size:11px;padding:5px 7px;width:105px;"><option value="normal">Normal</option><option value="high">⚡ High</option></select>
         </div>
-        <div id="todo-list" style="max-height:220px;overflow-y:auto;"></div>
+        <div id="todo-list" style="max-height:260px;overflow-y:auto;"></div>
         <div style="margin-top:10px;padding-top:10px;border-top:1px solid #F1EEE8;">
           <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#6B655C;margin-bottom:5px;">📝 Quick Notes</div>
           <textarea class="fc" id="quick-notes" style="min-height:60px;font-size:12px;" placeholder="Scratch pad — auto-saves to your profile."></textarea>
@@ -1485,6 +1488,30 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
 </div>
 
 <!-- CONNECT TO VIV (fallback sync key) MODAL -->
+<!-- FINISHING A TO-DO (Courtney, section 6): "Check it off with one tap,
+     then pick what happened: Spoke with family, Left voicemail, Emailed,
+     Scheduled visit, or No longer needed. An optional one-line note. Snooze
+     moves it to a later date."
+     One tap opens this; the outcome buttons are the second tap and the last
+     one. The note is optional and stays optional: a required note is how a
+     list stops being ticked off. -->
+<div class="mo" id="m-todo-finish">
+  <div class="md" style="width:430px;">
+    <div class="mt" style="margin-bottom:2px;">What happened?</div>
+    <p id="tf-task" style="font-size:13px;color:#1C1A17;margin:6px 0 2px;line-height:1.45;"></p>
+    <p id="tf-client" style="font-size:11.5px;color:#8C857B;margin:0 0 14px;"></p>
+    <div id="tf-outcomes" style="display:grid;gap:6px;margin-bottom:12px;"></div>
+    <div class="fg"><label class="fl">Note (optional)</label>
+      <input type="text" class="fc" id="tf-note" placeholder="One line, if it is worth keeping"></div>
+    <div style="display:flex;gap:8px;align-items:flex-end;border-top:1px solid var(--line-soft);padding-top:12px;">
+      <div class="fg" style="margin:0;flex:1;"><label class="fl">Or snooze until</label>
+        <input type="date" class="fc" id="tf-snooze"></div>
+      <button class="btn btn-o" onclick="snoozeTodo()">Snooze</button>
+      <button class="btn btn-o" onclick="closeTodoFinish()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <div class="mo" id="m-feedback">
   <div class="md" style="width:470px;">
     <div class="mt" style="margin-bottom:4px;">Tell us what you found</div>
@@ -1930,7 +1957,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-11-23T12:56';
+const HUB_BUILD='2026-11-23T13:03';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -3426,7 +3453,7 @@ function deferVisit(cid){
 function renderHighPriorityTasks(){
   if(!P)return;
   const cl=get('clients'),tps=get('touchpoints'),cis=get('checkins'),fps=get('fillPriorities');
-  const MS_DAYS={asmt:1,cg_prep:1,visit2:14,cg_chk:7,fam_wk1:7,fam_wk2:14,fam_wk3:21,fam_wk4:30,viv_req:3,viv_icd:3,tracker:7};
+  const MS_DAYS=TODO_MS_DAYS;
   const actNow=[],overdue=[],dueSoon=[];
 
   cl.forEach(c=>{
@@ -3797,12 +3824,17 @@ const PULSE_ACK_LABEL={aware_none:'Aware, nothing needed right now',
 
 // Mark a Pulse flag as seen. Bound to the flag it was raised on, so a NEW flag
 // on the same client comes back rather than being silenced by an old tick.
-function setPulseAck(id,state){
+/* `note` is optional. Left out, this asks, which is right when a CSM is
+   deciding at the client record. Supplied, it does not, because the caller
+   has already asked: finishing a to-do collects a note in its own sheet, and
+   a second prompt immediately afterwards reads as a bug. */
+function setPulseAck(id,state,note){
   const pid=_pulseAckProfile(id); if(!pid)return;
   const cl=(DATA.profiles&&DATA.profiles[pid]&&DATA.profiles[pid].clients)||[];
   const c=cl.find(x=>x.id===id); if(!c)return;
   const pp=(_PULSE&&c.vivId)?_PULSE.byCid[c.vivId]:null;
-  const note=(prompt('Anything worth adding? (optional)','')||'').trim();
+  if(note===undefined)note=(prompt('Anything worth adding? (optional)','')||'').trim();
+  note=String(note||'').trim();
   c.pulseAck={state,note,by:(P&&P.name)||'',at:new Date().toISOString(),
     forReason:(pp&&pp.flagReason)||'',forLevel:(pp&&pp.level)||'',forHeadline:(pp&&pp.headline)||''};
   queueSave();
@@ -5415,6 +5447,12 @@ function renderS60Emails(cl){
 }
 
 // ═══════════════════════ SUCCESS IN 30 ═══════════════════════
+/* When each Success in 30 milestone stops being "not yet" and becomes late.
+   Hoisted out of renderPriority so the generated to-do list can ask the same
+   question and get the same answer; two copies of this would be two different
+   ideas of overdue on one screen. */
+const TODO_MS_DAYS={asmt:1,cg_prep:1,visit2:14,cg_chk:7,fam_wk1:7,fam_wk2:14,fam_wk3:21,fam_wk4:30,viv_req:3,viv_icd:3,tracker:7};
+
 const S30_MILESTONES = [
   {id:'asmt',   label:'Assessment completed',                        target:'Day 0–1',   type:'ASMT'},
   {id:'cg_prep',label:'All caregivers prepped by phone before Day 1',target:'Before Day 1', type:'CG-PREP'},
@@ -5898,15 +5936,221 @@ function delS60(id){
 
 // ═══════════════════════ TO-DOs ═══════════════════════
 function syncTC(){const cl=get('clients'),el=document.getElementById('td-client'),cur=el.value;el.innerHTML='<option value="">No specific client</option>'+cl.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');el.value=cur;}
+/* ═══════════════════ GENERATED TO-DOS ═══════════════════════════════════
+   Courtney, 17 Nov, section 6: "Pulse next steps, Success in 30 milestones,
+   and overdue visits or touchpoints drop onto the to-do list on their own,
+   tagged with where they came from (From Pulse, Success in 30, Overdue). CSMs
+   can still add their own, tied to a client or not."
+
+   And: "It's not clear where a completed item goes. From what I can see it
+   doesn't show up on the client page, so once it's cleared the history is
+   gone."
+
+   NOTHING IS STORED UNTIL IT IS DONE. A generated to-do is derived from the
+   same facts the rest of Home reads, every time the list draws. That is what
+   makes her "auto-clear when Viv shows it's done" free rather than a feature:
+   log the visit and the row has nothing to stand on, so it goes. A stored
+   copy would have to be hunted down and deleted, and would be wrong in the
+   window between the visit landing and the sweep noticing.
+
+   The id carries what the row is ABOUT, not when it was made, so the same
+   obligation keeps the same identity across renders, and a NEW Pulse flag is
+   a new id rather than something already ticked off. */
+const TODO_SOURCES={pulse:'From Pulse',s30:'Success in 30',overdue:'Overdue'};
+
+function _todoSkips(){ return (P&&DATA.profiles[P.id]&&DATA.profiles[P.id].todoSkip)||{}; }
+function _todoSkip(id,days){
+  if(!P)return;
+  const pr=DATA.profiles[P.id]=DATA.profiles[P.id]||{};
+  pr.todoSkip=pr.todoSkip||{};
+  const until=new Date(Date.now()+(days||3650)*864e5).toISOString().slice(0,10);
+  pr.todoSkip[id]={until,by:P.name,at:new Date().toISOString()};
+  queueSave();
+}
+function _todoSkipped(id){
+  const r=_todoSkips()[id];
+  return !!(r&&r.until&&r.until>=new Date().toISOString().slice(0,10));
+}
+
+function generatedTodos(){
+  if(!P)return[];
+  const out=[],today=new Date().toISOString().slice(0,10);
+  const cl=(get('clients')||[]).filter(c=>!c.isOffice);
+  const ms=get('s60')||[];
+  cl.forEach(c=>{
+    // 1. The Pulse suggestion, unless this flag has already been sorted.
+    const pp=(_PULSE&&c.vivId)?_PULSE.byCid[c.vivId]:null;
+    const sug=pp&&pp.card&&pp.card.recommendedAction;
+    if(pp&&pp.level&&pp.level!=='green'&&sug&&!c.pulseAck){
+      // Keyed on the flag, so next week's flag is next week's to-do.
+      out.push({id:'gen:pulse:'+c.id+':'+_todoKey(pp.flagReason||pp.level),
+        text:String(sug),clientId:c.id,source:'pulse',priority:pp.level==='red'?'high':'normal',due:today});
+    }
+    // 2. Success in 30 milestones that are past their day and not logged.
+    const daysIn=daysAgo(c.startDate);
+    if(daysIn!==null&&daysIn<=30){
+      S30_MILESTONES.forEach(m=>{
+        const td=TODO_MS_DAYS[m.id]||7;
+        if(daysIn<=td)return;                                  // not due yet
+        if(ms.find(x=>x.clientId===c.id&&x.id===m.id))return;   // already logged
+        out.push({id:'gen:s30:'+c.id+':'+m.id,text:m.label,clientId:c.id,
+          source:'s30',priority:'normal',due:_todoDay(c.startDate,td),ms:m.id});
+      });
+    }
+    // 3. The cadence, which already knows overdue from due.
+    const vd=daysAgo(c.lastVisit),vf=c.freq==='NA'?null:(parseInt(c.freq)||90);
+    if(vf!==null&&(vd===null||vd>vf)){
+      out.push({id:'gen:visit:'+c.id,clientId:c.id,source:'overdue',priority:'high',
+        text:'Visit '+c.name+(vd===null?' — no visit on record':' — '+vd+' days since the last one'),
+        due:today});
+    }
+    const tps=(get('touchpoints')||[]).filter(t=>t.clientId===c.id);
+    const lastTp=tps.length?tps.map(t=>t.date).sort().slice(-1)[0]:null;
+    const td2=daysAgo(lastTp),tf=(TP_CADENCE&&TP_CADENCE[c.tier])||30;
+    if(td2!==null&&td2>tf){
+      out.push({id:'gen:tp:'+c.id,clientId:c.id,source:'overdue',priority:'normal',
+        text:'Touchpoint with '+c.name+' — '+td2+' days since the last one',due:today});
+    }
+  });
+  return out.filter(t=>!_todoSkipped(t.id));
+}
+function _todoKey(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').slice(0,40); }
+function _todoDay(start,days){
+  if(!start)return new Date().toISOString().slice(0,10);
+  const d=new Date(String(start).slice(0,10)+'T12:00:00');d.setDate(d.getDate()+days);
+  return d.toISOString().slice(0,10);
+}
+
+/* ═══════════════════ FINISHING ONE ═══════════════════════════════════════
+   "Check it off with one tap, then pick what happened: Spoke with family,
+   Left voicemail, Emailed, Scheduled visit, or No longer needed. An optional
+   one-line note. Snooze moves it to a later date."
+
+   NO DOUBLE LOGGING, which is her next line: "If the outcome was a call or an
+   email, it also logs the touchpoint, so it counts toward cadence." A CSM who
+   has just recorded that they spoke to a family should not then be asked to
+   record that they spoke to the family. */
+const TODO_OUTCOMES=[
+  {id:'spoke', label:'Spoke with family',  tp:'PHONE'},
+  {id:'vm',    label:'Left voicemail',     tp:'PHONE'},
+  {id:'email', label:'Emailed',            tp:'EMAIL'},
+  {id:'visit', label:'Scheduled visit',    tp:''},
+  {id:'na',    label:'No longer needed',   tp:'',skip:true}
+];
+let _todoFinishing=null;
+
+function openTodoFinish(id){
+  const t=[...(get('todos')||[]),...generatedTodos()].find(x=>x.id===id);
+  if(!t)return;
+  _todoFinishing=t;
+  const el=document.getElementById('m-todo-finish');
+  document.getElementById('tf-task').textContent=t.text;
+  const cl=get('clients')||[],c=cl.find(x=>x.id===t.clientId);
+  document.getElementById('tf-client').textContent=c?c.name:'No specific client';
+  document.getElementById('tf-note').value='';
+  document.getElementById('tf-snooze').value='';
+  document.getElementById('tf-outcomes').innerHTML=TODO_OUTCOMES.map(o=>
+    `<button class="btn btn-o" style="text-align:left;" onclick="finishTodo('${o.id}')">${escHtml(o.label)}</button>`).join('');
+  el.classList.add('open');
+}
+function closeTodoFinish(){ document.getElementById('m-todo-finish').classList.remove('open'); _todoFinishing=null; }
+
+function snoozeTodo(){
+  const t=_todoFinishing;if(!t)return;
+  const d=document.getElementById('tf-snooze').value;
+  if(!d){showToast('Pick a date to snooze to.');return;}
+  if(t.id.indexOf('gen:')===0){
+    // A generated row has no stored copy to move, so the snooze IS a skip
+    // with an end date on it. It comes back on its own the day after.
+    const days=Math.max(1,Math.round((new Date(d+'T12:00:00')-Date.now())/864e5));
+    _todoSkip(t.id,days);
+  }else{
+    const td=get('todos'),i=td.findIndex(x=>x.id===t.id);
+    if(i>-1){td[i].due=d;set('todos',td);}
+  }
+  closeTodoFinish();renderTodos();showToast('Snoozed to '+new Date(d+'T12:00:00').toLocaleDateString());
+}
+
+function finishTodo(outcomeId){
+  const t=_todoFinishing;if(!t)return;
+  const o=TODO_OUTCOMES.find(x=>x.id===outcomeId)||TODO_OUTCOMES[0];
+  const note=(document.getElementById('tf-note').value||'').trim();
+  const now=new Date(),day=now.toISOString().slice(0,10);
+
+  /* THE HISTORY LIVES ON THE CLIENT, NOT ON THE LIST. "It saves to the
+     client's Activity as 'Task completed', with the task, the outcome, the
+     note, the CSM's name, and the date and time." That is why Clear Completed
+     can stay exactly as it is: it clears a list, not a record. */
+  if(t.clientId){
+    const tasks=get('tasks')||[];
+    tasks.unshift({id:'task'+now.getTime(),clientId:t.clientId,date:day,
+      text:String(t.text),outcome:o.label,note,source:t.source||'own',
+      by:P?P.name:'',at:now.toISOString()});
+    set('tasks',tasks);
+  }
+
+  // No double logging: a call or an email IS a touchpoint, so it counts.
+  if(t.clientId&&o.tp){
+    const tps=get('touchpoints')||[];
+    tps.unshift({id:'tp'+now.getTime(),clientId:t.clientId,date:day,type:o.tp,
+      note:note||('Task completed: '+String(t.text).slice(0,80)),by:P?P.name:'',auto:false});
+    set('touchpoints',tps);
+  }
+
+  // A Success in 30 milestone ticks itself off by being logged.
+  if(t.source==='s30'&&t.ms&&t.clientId){
+    const ms=get('s60')||[];
+    if(!ms.find(x=>x.clientId===t.clientId&&x.id===t.ms)){
+      ms.unshift({id:t.ms,clientId:t.clientId,date:day,type:'TASK',by:P?P.name:''});
+      set('s60',ms);
+    }
+  }
+
+  /* "If the to-do came from Pulse, the Pulse flag closes." It is marked
+     Working on it rather than Nothing needed: the CSM did something, which is
+     what Working on it means, and it keeps the client in Emily's Following up
+     column instead of vanishing from both halves of Home. */
+  if(t.source==='pulse'&&t.clientId&&typeof setPulseAck==='function'){
+    try{ setPulseAck(t.clientId,'aware_working',note||('Task completed: '+o.label),true); }catch(e){}
+  }
+
+  if(t.id.indexOf('gen:')===0){
+    // Most generated rows disappear because the fact behind them moved. "No
+    // longer needed" moved nothing, so that one is recorded as a skip.
+    if(o.skip)_todoSkip(t.id);
+  }else{
+    const td=get('todos'),i=td.findIndex(x=>x.id===t.id);
+    if(i>-1){td[i].done=true;td[i].doneAt=now.toISOString();td[i].outcome=o.label;set('todos',td);}
+  }
+  closeTodoFinish();
+  renderTodos();
+  try{ if(typeof renderClientMaster==='function')renderClientMaster(); }catch(e){}
+  showToast(o.label+' \u00b7 saved to the client record');
+}
+
 function addTodo(){const t=document.getElementById('td-text').value.trim();if(!t)return;const td=get('todos');td.unshift({id:Date.now().toString(),text:t,clientId:document.getElementById('td-client').value,due:document.getElementById('td-due').value,priority:document.getElementById('td-pri').value,done:false,createdAt:new Date().toISOString()});set('todos',td);document.getElementById('td-text').value='';document.getElementById('td-due').value='';document.getElementById('td-client').value='';renderTodos();showToast('Task added!');}
 function toggleTodo(id){const td=get('todos'),i=td.findIndex(t=>t.id===id);if(i>-1)td[i].done=!td[i].done;set('todos',td);renderTodos();}
 function delTodo(id){set('todos',get('todos').filter(t=>t.id!==id));renderTodos();}
 function clearDone(){set('todos',get('todos').filter(t=>!t.done));renderTodos();showToast('Cleared completed tasks.');}
 function renderTodos(){
-  const td=get('todos'),cl=get('clients'),cm=Object.fromEntries(cl.map(c=>[c.id,c.name]));
+  const td=get('todos')||[],cl=get('clients')||[],cm=Object.fromEntries(cl.map(c=>[c.id,c.name]));
   const el=document.getElementById('todo-list');
-  if(!td.length){el.innerHTML='<div class="es"><div class="ei">✅</div><p>No tasks yet.</p></div>';return;}
-  el.innerHTML=[...td.filter(t=>!t.done),...td.filter(t=>t.done)].map(t=>`<div class="todo-item ${t.done?'done-item':''}" style="${t.priority==='high'&&!t.done?'border-left:3px solid var(--hi);':''}"><input type="checkbox" ${t.done?'checked':''} onclick="toggleTodo('${t.id}')"><div style="flex:1;"><div class="todo-text">${t.text}</div><div class="todo-meta">${t.clientId&&cm[t.clientId]?'👥 '+cm[t.clientId]+' · ':''}${t.due?'📅 Due '+new Date(t.due).toLocaleDateString()+' · ':''}${t.priority==='high'&&!t.done?'<span style="color:var(--hi);">● High</span>':''}</div></div><button class="btn btn-sm btn-o" onclick="delTodo('${t.id}')">✕</button></div>`).join('');
+  if(!el)return;
+  /* The generated ones sit with the CSM's own, tagged with where they came
+     from, which is what she asked for. They are not stored, so they carry no
+     done state and no delete: a generated row leaves when the fact behind it
+     moves, or when somebody says it is no longer needed. */
+  let gen=[];try{gen=generatedTodos();}catch(e){gen=[];}
+  const open=[...gen,...td.filter(t=>!t.done)],done=td.filter(t=>t.done);
+  if(!open.length&&!done.length){el.innerHTML='<div class="es"><div class="ei">✅</div><p>Nothing to do right now.</p></div>';return;}
+  const tag=t=>t.source?`<span class="todo-src">${escHtml(TODO_SOURCES[t.source]||t.source)}</span>`:'';
+  const dd=d=>new Date(String(d)+(String(d).length<11?'T12:00:00':'')).toLocaleDateString();
+  const row=t=>`<div class="todo-item ${t.done?'done-item':''}" style="${t.priority==='high'&&!t.done?'border-left:3px solid var(--hi);':''}">
+    <input type="checkbox" ${t.done?'checked':''} onclick="${t.done?`toggleTodo('${t.id}')`:`openTodoFinish('${escHtml(t.id)}')`}">
+    <div style="flex:1;min-width:0;"><div class="todo-text">${escHtml(t.text)}</div>
+    <div class="todo-meta">${tag(t)}${t.clientId&&cm[t.clientId]?'👥 '+escHtml(cm[t.clientId])+' · ':''}${t.due?'📅 Due '+dd(t.due)+' · ':''}${t.priority==='high'&&!t.done?'<span style="color:var(--hi);">● High</span>':''}${t.done&&t.outcome?escHtml(t.outcome):''}</div></div>
+    ${t.source?'':`<button class="btn btn-sm btn-o" onclick="delTodo('${t.id}')">✕</button>`}</div>`;
+  el.innerHTML=[...open,...done].map(row).join('');
 }
 function loadQN(){document.getElementById('quick-notes').value=getStr('quicknotes');}
 document.addEventListener('input',e=>{if(e.target.id==='quick-notes'&&P)setStr('quicknotes',e.target.value);});

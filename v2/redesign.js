@@ -1199,6 +1199,18 @@
                  meta: String(x.working || '').slice(0, 60) }); });
     rowsFor('s60', c.id).forEach(function (m) {
       out.push({ date: m.date, kind: 'Success in 30', text: m.type || m.milestone || 'Milestone', meta: '' }); });
+    /* A finished to-do is history (Courtney, section 6): "It saves to the
+       client's Activity as 'Task completed', with the task, the outcome, the
+       note, the CSM's name, and the date and time." Her complaint was that
+       clearing the list destroyed the record. It does not any more, because
+       the record was never on the list.
+
+       Party is family: these are the calls, voicemails and emails a CSM makes
+       about a client, which is the same filter a touchpoint lands in. */
+    rowsFor('tasks', c.id).forEach(function (t) {
+      out.push({ date: t.date, kind: 'Task completed', party: 'family',
+                 text: t.outcome || 'Done',
+                 meta: [String(t.text || '').slice(0, 70), t.note, t.by].filter(Boolean).join(' \u00b7 ') }); });
     try {
       const comms = ((A().data.shared || {}).comms || {}).byClient || {};
       ((comms[c.vivId] || comms[c.id] || {}).events || []).forEach(function (e) {
