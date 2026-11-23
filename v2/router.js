@@ -86,10 +86,18 @@
   function current() {
     const page = (document.querySelector('.page.active') || {}).id || 'page-home';
     const s = { page: page.replace(/^page-/, ''), client: null, section: null, layer: null };
-    // The client record is no longer an expanded row: it is the workspace
-    // beside the list, so the selection lives there.
-    const selBtn = document.querySelector('.rd-cl-open.sel');
-    if (selBtn) s.client = selBtn.dataset.cid;
+    /* THE SELECTION IS STATE, NOT MARKUP (17 Nov). This used to read
+       `.rd-cl-open.sel`, a class on the compact list that sat beside an open
+       client. A client now REPLACES the list, so that element does not exist
+       while one is open and the route would have lost the client on every
+       back, forward and reload. Ask the module that owns the selection, and
+       fall back to the row marking for an older bundle. */
+    const RDsel = window.TributeRedesign && window.TributeRedesign.selected;
+    if (RDsel) s.client = RDsel;
+    else {
+      const selBtn = document.querySelector('#client-master-table [data-cid].sel');
+      if (selBtn) s.client = selBtn.dataset.cid;
+    }
     if (s.client) {
       const tab = document.querySelector('.rd-ws-head .rd-cw-rail button[aria-selected="true"]');
       if (tab && tab.dataset.key && tab.dataset.key !== 'overview') s.section = tab.dataset.key;
@@ -146,7 +154,7 @@
         } else {
           // The client may be filtered out of the current view. Widen to All
           // once rather than failing the deep link.
-          if (!document.querySelector('.rd-cl-open[data-cid="' + s.client + '"]')) {
+          if (!document.querySelector('#client-master-table [data-cid="' + s.client + '"]')) {
             const search = document.getElementById('cm-search');
             if (search && search.value) search.value = '';
             if (RD && RD.setView) RD.setView('all');

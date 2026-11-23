@@ -925,6 +925,35 @@ input[type="email"], select { min-height: var(--h-ctl); }
 }
 #rd-split.no-ws { grid-template-columns: minmax(0, 1fr); }
 #rd-split.no-ws .rd-split-ws { display: none; }
+
+/* ── A CLIENT IS ITS OWN PAGE ──────────────────────────────────────────────
+   Courtney, 17 Nov: "Client opens as its own full page", because "opening a
+   client keeps the whole list header above it. The client name starts halfway
+   down the screen under the search bar and filters."
+
+   So the list, the view tabs, the market chips and the page's own title and
+   filter row all stand down while a client is open, at every width rather
+   than only on a phone. The table stays in the DOM, hidden, which is what
+   makes Back instant and keeps deep links resolvable. */
+#page-clients.rd-client-open > .rd-list-chrome { display: none; }
+
+/* THREE FILTER SYSTEMS, STACKED (Courtney, priority 4): "the Tier and Status
+   dropdowns, the Market chips, and the five tabs. The Status dropdown ('Any
+   overdue', 'Due within 14 days') does the same thing as the tabs. The legend
+   (Overdue / Due soon / On track / No record) isn't used in the list at all."
+
+   The V2 list stopped READING the Status dropdown when the tabs took over its
+   job, which left a control on the page that did nothing at all: worse than
+   either keeping or removing it. Both go here rather than from index.html,
+   because V1 still draws the dots the legend explains and still filters on
+   the dropdown. */
+#page-clients #cm-status, #page-clients #cm-legend { display: none; }
+#rd-split.has-sel { grid-template-columns: minmax(0, 1fr); }
+#rd-split.has-sel .rd-split-list { display: none; }
+#rd-split.has-sel .rd-split-ws {
+  position: static; max-height: none; overflow: visible;
+  border-left: none; padding-left: 0;
+}
 .rd-split-list { min-width: 0; }
 .rd-split-ws {
   min-width: 0;
@@ -986,11 +1015,16 @@ input[type="email"], select { min-height: var(--h-ctl); }
 .rd-ws-empty p { margin-top: 14px; }
 
 .rd-ws-head { position: relative; padding-bottom: 4px; }
+/* Always on the page: with the client as its own page there is nothing else
+   on screen to navigate by, so the way back cannot be conditional. */
 .rd-ws-back {
   appearance: none; border: none; background: none; padding: 0; cursor: pointer;
-  display: none; align-items: center; gap: 5px;
-  font: inherit; font-size: 13px; color: var(--ink-2); margin-bottom: 10px;
+  display: inline-flex; align-items: center; gap: 5px;
+  font: inherit; font-size: 13px; color: var(--ink-2); margin-bottom: 0;
+  white-space: nowrap;
 }
+.rd-ws-back:hover { color: var(--ink); }
+.rd-ws-back:focus-visible { box-shadow: var(--ring); border-radius: var(--r-xs); }
 .rd-ws-back .ti { width: 14px; height: 14px; }
 .rd-ws-head h2 {
   font-size: 27px; font-weight: 600; letter-spacing: -.02em; color: var(--ink);
@@ -1127,8 +1161,6 @@ input[type="email"], select { min-height: var(--h-ctl); }
     border-left: none; padding-left: 0;
     border-top: 1px solid var(--line); margin-top: 20px; padding-top: 20px;
   }
-  #rd-split.has-sel .rd-split-list { display: none; }
-  #rd-split.has-sel .rd-ws-back { display: inline-flex; }
   #rd-split.has-sel .rd-split-ws { border-top: none; margin-top: 0; padding-top: 0; }
 }
 
@@ -2106,7 +2138,34 @@ input[type="email"], select { min-height: var(--h-ctl); }
   font-size: 15px; font-weight: 600; color: var(--ink);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
 }
-.rd-cw-head.compact .rd-cw-bar { display: flex; border-bottom: 1px solid var(--line); }
+/* The bar is the way back out and the way through the list, so it is on the
+   page from the start rather than appearing once you have scrolled enough to
+   collapse the title. Only the border arrives with the collapse. */
+.rd-cw-bar { display: flex; }
+.rd-cw-head.compact .rd-cw-bar { border-bottom: 1px solid var(--line); }
+
+/* Prev / Next and "2 of 9" sit at the far end of the bar: she asked to move
+   through the list without going back each time, so the controls belong
+   beside the way back, not buried under the record. */
+.rd-cw-seq { margin-left: auto; display: flex; align-items: center; gap: 2px; flex: 0 1 auto; min-width: 0; }
+.rd-cw-pos { font-size: 12px; color: var(--ink-3); padding: 0 6px; white-space: nowrap; }
+.rd-cw-step {
+  appearance: none; border: 1px solid var(--line); background: var(--surface);
+  border-radius: var(--r-xs); cursor: pointer; font: inherit; font-size: 12.5px;
+  color: var(--ink-2); padding: 4px 9px; line-height: 1.2;
+  display: inline-flex; align-items: center; gap: 5px; max-width: 220px;
+}
+.rd-cw-step span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.rd-cw-step:hover:not(:disabled) { background: var(--surface-2); color: var(--ink); }
+.rd-cw-step:focus-visible { box-shadow: var(--ring); }
+.rd-cw-step:disabled { opacity: .35; cursor: default; }
+/* The names are the first thing to go when the bar runs out of room; the
+   arrows, the count and the way back are not. */
+@media (max-width: 760px) {
+  .rd-cw-step span { display: none; }
+  .rd-cw-step { padding: 4px 7px; }
+  .rd-cw-bar-n { display: none; }
+}
 .rd-cw-head.compact .rd-cw-name,
 .rd-cw-head.compact .rd-cw-meta,
 .rd-cw-head.compact .rd-cw-addr,
@@ -2326,8 +2385,6 @@ input[type="email"], select { min-height: var(--h-ctl); }
   /* Below the split the client IS the screen, so the way back out is always
      on it — not only once you have scrolled far enough to collapse the title.
      The large name still gives way to the compact one. */
-  .rd-cw-head .rd-cw-bar { display: flex; }
-  .rd-cw-head.compact .rd-cw-bar { border-bottom: 1px solid var(--line); }
   .rd-cw-name { font-size: 26px; }
   .rd-act { flex: 1 1 0; min-width: 0; }
   .rd-cp-kvs .rd-kv, .rd-kv { grid-template-columns: minmax(0, 1fr); gap: 2px; }

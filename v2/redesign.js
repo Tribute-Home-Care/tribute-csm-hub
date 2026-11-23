@@ -593,6 +593,9 @@
     }
 
     mountSplit();
+    // Nothing selected means no second pane at all, so the border and the
+    // empty illustration that used to sit beside the list are gone with it.
+    (function () { const sp = $('#rd-split'); if (sp) sp.classList.toggle('no-ws', !_selected); })();
 
     if (app.profile.dualMarket && !$('#julia-mkt-bar')) {
       const bar = document.createElement('div');
@@ -661,7 +664,21 @@
        asked for the client to open as its own page. Until it does, the table is
        what you get with nothing selected and the compact list is what you get
        beside an open client. Same rows, same order, same filters. */
-    el.innerHTML = _selected ? clientListCompact(rows) : clientListTable(rows);
+    /* THE CLIENT IS ITS OWN PAGE NOW (Courtney, 17 Nov, section 3): "Client
+       opens as its own full page." Her complaint was concrete: "Opening a
+       client keeps the whole list header above it. The client name starts
+       halfway down the screen under the search bar and filters."
+
+       So selection no longer splits the screen, it replaces it. The list,
+       the view tabs, the market chips and the page's own filter bar all go,
+       The compact list that used to sit beside an open client went with the
+       split: nothing renders it any more, and a second shape of the same list
+       kept for a layout that no longer exists is just code to mislead.
+
+       With nothing selected the workspace pane is hidden outright rather than
+       holding an empty panel: "On the tabs, an empty 'Choose a client to see
+       how they are doing' panel also sits under the list." */
+    el.innerHTML = clientListTable(rows);
 
     rows.forEach(function (r) { ensureCompat(r.c.id); });
     $$('[data-cid]', el).forEach(function (b) {
@@ -676,23 +693,6 @@
       });
     });
     renderWorkspace();
-  }
-
-  function clientListCompact(rows) {
-    return '<ul class="rd-cl rd-tracker-list" role="listbox">' + rows.map(function (r) {
-      const c = r.c, ex = r.ex, eid = esc(c.id);
-      const sel = _selected === c.id;
-      // ONE exception, or nothing at all. A healthy client carries no mark:
-      // no dot, no badge, no "On track". The absence is the statement.
-      const status = ex ? '<span class="rd-cl-ex ' + ex.tone + '">' + esc(ex.text) + '</span>' : '';
-      const nv = nextVisit(c);
-      const next = nv ? '<span class="rd-cl-next">' + fmtShort(nv) + '</span>' : '';
-      return '<li><button type="button" class="rd-cl-open' + (sel ? ' sel' : '') + '" role="option"' +
-        ' aria-selected="' + sel + '" data-cid="' + eid + '">' +
-        '<span class="rd-cl-id"><span class="rd-cl-name">' + esc(c.name) + '</span>' +
-        (c.loc || c.city ? '<span class="rd-cl-where">' + esc([c.loc, c.city].filter(Boolean).join(', ')) + '</span>' : '') +
-        '</span>' + status + next + '</button></li>';
-    }).join('') + '</ul>';
   }
 
   /* Her columns: Client, Tier, Status and why, Last visit, Next due, Family
@@ -762,6 +762,47 @@
     left.appendChild(el);
   }
 
+  /* WHERE AM I, AND WHAT IS EITHER SIDE OF ME (Courtney, 17 Nov, section 3):
+     "A bar across the top has a clear '← Back to [list name]' button that
+     returns to the same tab and filter, and Prev / Next buttons with the
+     client's name ('Next · Vance ›', '2 of 9') so CSMs can move through the
+     list they came from without going back each time."
+
+     Read from trackerRows() rather than from a copy taken at selection time,
+     so Prev and Next follow the list as it stands: the same search, the same
+     tier, the same tab, the same sort. _view and the filters are never
+     cleared by opening a client, which is what makes Back land where she
+     left. A client the filter no longer matches has no position, and the
+     controls say so by not being there. */
+  function viewName() {
+    const v = VIEWS.filter(function (x) { return x[0] === _view; })[0];
+    return v ? v[1] : 'Clients';
+  }
+  function listPos(cid) {
+    let rows;
+    try { rows = trackerRows(); } catch (e) { return null; }
+    if (!rows || !rows.length) return null;
+    let i = -1;
+    for (let k = 0; k < rows.length; k++) if (rows[k].c.id === cid) { i = k; break; }
+    if (i < 0) return null;
+    return { i: i, n: rows.length,
+             prev: i > 0 ? rows[i - 1].c : null,
+             next: i < rows.length - 1 ? rows[i + 1].c : null };
+  }
+  function seqBtn(dir, c) {
+    const word = dir === 'prev' ? 'Prev' : 'Next';
+    if (!c) {
+      return '<button type="button" class="rd-cw-step" disabled aria-label="No ' +
+        (dir === 'prev' ? 'earlier' : 'later') + ' client in this list">' +
+        (dir === 'prev' ? '‹' : '›') + '</button>';
+    }
+    const label = dir === 'prev'
+      ? '‹<span>' + esc(word) + ' · ' + esc(c.name) + '</span>'
+      : '<span>' + esc(word) + ' · ' + esc(c.name) + '</span>›';
+    return '<button type="button" class="rd-cw-step" data-seq="' + esc(c.id) + '" title="' +
+      esc(word + ': ' + c.name) + '">' + label + '</button>';
+  }
+
   function selectClient(cid) {
     _selected = cid;
     _section = 'overview';
@@ -773,7 +814,9 @@
     if (det && det.style.display === 'none' && window.toggleClientDetail) {
       try { toggleClientDetail(cid); } catch (e) {}
     }
-    $$('.rd-cl-open').forEach(function (b) {
+    // The list is a table now, and the open client replaces it rather than
+    // sitting beside it, so this marks the row you will come back to.
+    $$('#client-master-table [data-cid]').forEach(function (b) {
       const on = b.dataset.cid === cid;
       b.classList.toggle('sel', on);
       b.setAttribute('aria-selected', String(on));
@@ -793,7 +836,7 @@
     if (det && det.style.display !== 'none' && window.toggleClientDetail) {
       try { toggleClientDetail(prev); } catch (e) {}
     }
-    $$('.rd-cl-open').forEach(function (b) { b.classList.remove('sel'); b.setAttribute('aria-selected', 'false'); });
+    $$('#client-master-table [data-cid]').forEach(function (b) { b.classList.remove('sel'); b.setAttribute('aria-selected', 'false'); });
     const sp = $('#rd-split'); if (sp) sp.classList.remove('has-sel');
     renderWorkspace();
     announceSelection(null);
@@ -813,6 +856,10 @@
     mark($('#cm-legend', page));
     const search = $('#cm-search', page);
     if (search) { let n = search; while (n && n.parentElement !== page) n = n.parentElement; mark(n); }
+    // Marked above, hidden here: an open client is the whole page at every
+    // width now, not only on a phone. This is the "client name starts halfway
+    // down the screen" fault, and the chrome is what was above it.
+    page.classList.toggle('rd-client-open', !!_selected);
   }
 
   /* One event, so a phone's single title bar can become the client's without
@@ -1142,7 +1189,16 @@
 
     return '<header class="rd-cw-head">' +
       '<div class="rd-cw-bar"><button type="button" class="rd-ws-back">' + I('arrowLeft') +
-      '<span>Clients</span></button><span class="rd-cw-bar-n">' + esc(c.name) + '</span></div>' +
+      '<span>Back to ' + esc(viewName()) + '</span></button>' +
+      '<span class="rd-cw-bar-n">' + esc(c.name) + '</span>' +
+      (function () {
+        const pos = listPos(c.id);
+        if (!pos) return '';
+        return '<nav class="rd-cw-seq" aria-label="Move through ' + esc(viewName()) + '">' +
+          seqBtn('prev', pos.prev) +
+          '<span class="rd-cw-pos">' + (pos.i + 1) + ' of ' + pos.n + '</span>' +
+          seqBtn('next', pos.next) + '</nav>';
+      })() + '</div>' +
       '<h2 class="rd-cw-name">' + esc(c.name) + tierPill + '</h2>' +
       '<p class="rd-cw-meta">' + esc(meta) + '</p>' +
       (addr
@@ -1179,8 +1235,9 @@
     const app = A();
     const c = _selected ? (app.fn.get('clients') || []).find(function (x) { return x.id === _selected; }) : null;
     if (!c) {
-      ws.innerHTML = '<div class="rd-ws-empty">' + ART.calm +
-        '<p>Choose a client to see how they are doing.</p></div>';
+      // The pane is hidden when nothing is selected, so an illustration here
+      // would only be a panel nobody asked for, under a list.
+      ws.innerHTML = '';
       return;
     }
     const snap = CD(c);
@@ -1214,6 +1271,9 @@
     });
     $$('[data-actf]', ws).forEach(function (b) {
       b.addEventListener('click', function () { _actFilter = b.dataset.actf; renderWorkspace(); });
+    });
+    $$('[data-seq]', ws).forEach(function (b) {
+      b.addEventListener('click', function () { selectClient(b.dataset.seq); });
     });
     const back = $('.rd-ws-back', ws);
     if (back) back.addEventListener('click', function () { deselectClient(); if (window.TributeRouter) TributeRouter.push({ page: 'clients', client: null }); });

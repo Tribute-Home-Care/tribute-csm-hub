@@ -64,10 +64,18 @@ ok('an email is a real mailto', /href="mailto:' \+ esc\(c\.contactEmail\)/.test(
 ok('there is no Call button that cannot dial',
    !/>Call</.test((CODE.match(/function clientListTable[\s\S]*?\n  \}/) || [''])[0]));
 
-// ── the split pane keeps the compact list ─────────────────────────────────
-ok('the table is for the full width, the list for beside an open client',
-   /_selected \? clientListCompact\(rows\) : clientListTable\(rows\)/.test(CODE));
-ok('both shapes open a client the same way', /\$\$\('\[data-cid\]', el\)/.test(CODE));
+// ── one shape, because the client is now its own page ─────────────────────
+// This asserted the split: the table with nothing selected, a compact list
+// beside an open client. Section 3 asked for the client to open as its own
+// full page, so there is no "beside" left and no second shape of the list.
+ok('the table is the list, at every width', /el\.innerHTML = clientListTable\(rows\);/.test(CODE));
+ok('the compact list is gone, not left unreachable',
+   !/clientListCompact/.test(CODE));
+ok('rows still open a client the same way', /\$\$\('\[data-cid\]', el\)/.test(CODE));
+// The three stacked filter systems she counted: the Status dropdown had
+// already stopped being read, which left a control that did nothing.
+ok('the dead Status dropdown and the unused legend are out of sight',
+   /#page-clients #cm-status, #page-clients #cm-legend \{ display: none; \}/.test(CSS));
 
 console.log('\n' + (fail ? 'FAILED ' + fail : 'PASSED all ' + pass));
 process.exit(fail ? 1 : 0);
