@@ -90,18 +90,34 @@
       .sort(function (x, y) { return String(y.at).localeCompare(String(x.at)); });
   }
 
+  /* ONE LINE PER CLIENT: name, what they are doing, date.
+     Courtney, 17 Nov: "each card has a full Pulse paragraph, and the column
+     scrolls inside a page that also scrolls. It's easy to miss cards below the
+     fold... Cards become one line (client, what they're doing, date) and open
+     on click. No scrolling inside a column."
+
+     She is right, and the internal scroll was mine. I added it on 11 Nov
+     because eighteen tall cards made the board 1981px and pushed the rest of
+     Home two screens down. The cap solved that by hiding things inside a
+     scroller, which is the fault she found. One line each fixes the height at
+     source, so the cap comes off and nothing hides.
+
+     The note and the flag it was raised on move to the title attribute: still
+     there on hover, no longer setting the height of the row. */
   function card(r) {
     var others = STATES.filter(function (s) { return s[0] !== r.state; });
-    return '<div class="fup-card' + (r.stale ? ' stale' : '') + '" draggable="true" data-id="' + esc(r.id) + '">' +
+    var tip = [r.note, r.was, r.stale ? 'The Pulse flag has changed since you sorted this.' : '']
+      .filter(Boolean).join(' — ');
+    return '<div class="fup-card' + (r.stale ? ' stale' : '') + '" draggable="true" data-id="' + esc(r.id) + '"' +
+      (tip ? ' title="' + esc(tip) + '"' : '') + '>' +
       '<button type="button" class="fup-name" data-open="' + esc(r.id) + '">' + esc(r.name) + '</button>' +
-      (r.note ? '<div class="fup-note">' + esc(r.note) + '</div>' : '') +
-      (r.stale ? '<div class="fup-stale">The Pulse flag has changed since you sorted this.</div>'
-               : (r.was ? '<div class="fup-was">' + esc(r.was) + '</div>' : '')) +
-      '<div class="fup-meta">' + esc([r.by, when(r.at)].filter(Boolean).join(' · ')) + '</div>' +
+      '<span class="fup-what">' + esc(r.note || r.was || '') + '</span>' +
+      '<span class="fup-when">' + esc(when(r.at)) + '</span>' +
+      (r.stale ? '<span class="fup-flag" aria-label="The Pulse flag has changed since you sorted this">!</span>' : '') +
       '<div class="fup-acts">' +
         others.map(function (s) {
           return '<button type="button" class="fup-act" data-move="' + esc(r.id) + '" data-state="' + s[0] + '">' +
-            'Move to ' + esc(s[1]) + '</button>';
+            esc(s[1]) + '</button>';
         }).join('') +
         '<button type="button" class="fup-act drop" data-clear="' + esc(r.id) + '">Reopen</button>' +
       '</div>' +

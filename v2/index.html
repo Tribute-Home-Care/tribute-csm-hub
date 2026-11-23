@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub · V2 Preview</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="../entra-auth.js?v=2026-11-23T09:10"></script>
+<script src="../entra-auth.js?v=2026-11-23T09:16"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1915,7 +1915,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-11-23T09:11';
+const HUB_BUILD='2026-11-23T09:17';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -8906,7 +8906,7 @@ try{ const cur=document.querySelector('.page.active'); TributeUsage.start({ app:
 <link rel="stylesheet" href="./v2-scribe.css?v=40ca9589">
 <link rel="stylesheet" href="./v2-metrics.css?v=5df14608">
 <link rel="stylesheet" href="./v2-sereview.css?v=9d61f880">
-<link rel="stylesheet" href="./v2-followups.css?v=9b23c603">
+<link rel="stylesheet" href="./v2-followups.css?v=8f4e14d2">
 <script src="./brand.js?v=e644f4fe"></script>
 <script src="./icons.js?v=b1158bce"></script>
 <script src="./bridge.js?v=a1526feb"></script>
@@ -8927,7 +8927,7 @@ try{ const cur=document.querySelector('.page.active'); TributeUsage.start({ app:
 <script src="./v2-pto.js?v=b8531a0a"></script>
 <script src="./v2-metrics.js?v=a515c5d2"></script>
 <script src="./v2-sereview.js?v=963adea4"></script>
-<script src="./v2-followups.js?v=29e280ff"></script>
+<script src="./v2-followups.js?v=65d74738"></script>
 <script src="./v2-mobile.js?v=9709c741"></script>
 </body>
 </html>

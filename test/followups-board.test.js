@@ -116,6 +116,23 @@ ok('an empty board removes its own section rather than rendering a heading',
 ok('every drag target is also reachable as a button',
    /data-move=/.test(CODE) && /data-clear=/.test(CODE) && /dragstart/.test(CODE));
 ok('it sits under Needs attention on Home', /getElementById\('rd-s-attn'\)/.test(CODE));
+
+// ── one line per client (Courtney, 17 Nov) ────────────────────────────────
+// "each card has a full Pulse paragraph, and the column scrolls inside a page
+// that also scrolls. It's easy to miss cards below the fold." The scroll was
+// mine, added 11 Nov to stop eighteen tall cards taking over Home. One line
+// each fixes the height at source, so the cap comes off and nothing hides.
+const CSS = fs.readFileSync(path.join(__dirname, '../v2/v2-followups.css'), 'utf8');
+ok('a card is name, what they are doing, and when',
+   /class="fup-what"/.test(CODE) && /class="fup-when"/.test(CODE));
+ok('nothing scrolls inside a column any more', !/max-height/.test(CSS) && !/overflow-y: auto/.test(CSS));
+ok('the row cannot be stretched by a long note',
+   /\.fup-what \{[\s\S]{0,160}text-overflow: ellipsis/.test(CSS));
+ok('the note is still readable on hover rather than thrown away',
+   /title="' \+ esc\(tip\)/.test(CODE) && /var tip = \[r\.note, r\.was/.test(CODE));
+ok('a stale flag is one character, not a sentence on its own line',
+   /class="fup-flag"/.test(CODE) && /aria-label="The Pulse flag has changed/.test(CODE));
+ok('the move buttons lost the redundant "Move to" prefix', !/'Move to ' \+ esc\(s\[1\]\)/.test(CODE));
 ok('the board never binds staleness to the rewritten headline',
    !/a\.forHeadline !== \(pp\.headline/.test(CODE));
 
