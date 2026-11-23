@@ -2116,8 +2116,10 @@
         (lede ? '<span class="lede">' + esc(lede) + '</span>' : '') + '</div>';
       return s;
     };
-    const sAttn = sec('rd-s-attn', 'Needs attention');
-    sAttn.insertAdjacentHTML('beforeend', '<div id="rd-attn"></div>');
+    /* One heading over the tiles AND the list, because they are one thought:
+       the tiles are the filters and the list is what they filter. */
+    const sAttn = sec('rd-s-attn', 'Needs attention', 'What is new, and not yet sorted');
+    sAttn.insertAdjacentHTML('beforeend', '<div id="rd-attn"></div><div id="rd-today"></div>');
     // Today first, because the question a CSM opens the Hub with is "what is
     // happening today", not "how is my caseload trending". The numbers still
     // come, under Caseload health, where they inform rather than greet.
@@ -2251,6 +2253,124 @@
   }
 
   let _attnKey = '';
+  /* ── TODAY'S LIST ──────────────────────────────────────────────────────────
+     Courtney, 17 Nov: "Four sections answer 'who needs me?' The Needs
+     attention tiles, the Following up board, the High need line in Caseload
+     health, and 'Overdue: Ruth Richter, Virginia Tips… and 13 more.' A CSM has
+     to read all four and put it together themselves."
+
+     One list of anything new or not yet sorted. Each row is a client, why they
+     are on it, and the next step. Her sort order exactly: Pulse flags, then
+     Success in 30 milestones, then overdue visits and touchpoints, then due
+     this week.
+
+     ANYTHING ALREADY SORTED IS NOT NEW. A client whose Pulse flag has been
+     acknowledged has left this list and is in their Following up column, which
+     is what makes the two halves of Home one thought instead of two.
+
+     The tiles above became the filters for it, so the number on a tile is the
+     number of rows you get when you press it, which is her third rule applied
+     to Home. */
+  const TODAY_BUCKETS = [['action', 'Need action today'], ['week', 'Due this week'],
+                         ['onboarding', 'In first 30 days'], ['open', 'Open visits']];
+  let _todayFilter = '';
+
+  function todayRows() {
+    const app = A();
+    if (!app.ready) return [];
+    const out = [];
+    let cl = [];
+    try { cl = (app.fn.get('clients') || []).filter(function (c) { return !c.isOffice; }); } catch (e) { return []; }
+
+    cl.forEach(function (c) {
+      // 1. Pulse flags, unless somebody has already sorted this one.
+      const pp = pulseFor(c);
+      if (pp && pp.level && pp.level !== 'green' && !c.pulseAck) {
+        out.push({ rank: 0, bucket: 'action', cid: c.id, name: c.name,
+                   why: pulseFirst(pp.headline), step: 'Read the Pulse and sort it',
+                   tone: pp.level === 'red' ? 'bad' : 'warn' });
+      }
+      // 2. Success in 30, for anyone inside their first month.
+      const age = c.startDate ? daysSince(c.startDate) : null;
+      if (age !== null && age <= 30) {
+        const done = rowsFor('s60', c.id).length;
+        out.push({ rank: 1, bucket: 'onboarding', cid: c.id, name: c.name,
+                   why: 'Day ' + (age + 1) + ' of 30' + (done ? ' · ' + plural(done, 'milestone') + ' logged' : ' · nothing logged yet'),
+                   step: 'Work the onboarding checklist', tone: done ? 'info' : 'warn' });
+      }
+      // 3 and 4. The cadence exception, which already knows overdue from due.
+      const ex = exceptionFor(c);
+      if (ex) out.push({ rank: ex.tone === 'bad' ? 2 : 3,
+                         bucket: ex.tone === 'bad' ? 'action' : 'week',
+                         cid: c.id, name: c.name, why: ex.text,
+                         step: ex.tone === 'bad' ? 'Book it or defer it' : 'Get it in the diary',
+                         tone: ex.tone });
+    });
+
+    // Open visits are the client's, but they are Scheduling's to fill, so the
+    // step says who it goes to rather than implying the CSM covers it.
+    try {
+      const ov = ((app.data.profiles[app.profile.id]) || {}).vivOpenVisits || [];
+      const byClient = {};
+      ov.forEach(function (v) { const k = v.clientName || v.client || ''; byClient[k] = (byClient[k] || 0) + 1; });
+      Object.keys(byClient).forEach(function (k) {
+        if (!k) return;
+        const c = cl.find(function (x) { return x.name === k; });
+        out.push({ rank: 4, bucket: 'open', cid: c ? c.id : '', name: k,
+                   why: plural(byClient[k], 'visit') + ' unfilled',
+                   step: 'With the Scheduling Partner', tone: 'warn' });
+      });
+    } catch (e) {}
+
+    out.sort(function (a, b) { return a.rank - b.rank || String(a.name).localeCompare(String(b.name)); });
+    return out;
+  }
+
+  function renderToday() {
+    const el = $('#rd-today');
+    if (!el) return;
+    const rows = todayRows();
+    const n = {}; TODAY_BUCKETS.forEach(function (b) { n[b[0]] = 0; });
+    rows.forEach(function (r) { if (n[r.bucket] !== undefined) n[r.bucket]++; });
+
+    // Nothing to sort is worth saying plainly, and is not the same as a source
+    // that failed: that distinction is renderAttention's and is kept there.
+    if (!rows.length) {
+      el.innerHTML = '<p class="rd-ws-quiet">Nothing new to sort. Anything you have already sorted is in Following up below.</p>';
+      return;
+    }
+    const shown = _todayFilter ? rows.filter(function (r) { return r.bucket === _todayFilter; }) : rows;
+    el.innerHTML =
+      '<div class="rd-td-f" role="tablist">' +
+        '<button type="button" role="tab" class="rd-td-fb" data-td="" aria-selected="' + (!_todayFilter) + '">' +
+          'Everything<span class="n">' + rows.length + '</span></button>' +
+        TODAY_BUCKETS.map(function (b) {
+          return '<button type="button" role="tab" class="rd-td-fb" data-td="' + b[0] + '"' +
+            ' aria-selected="' + (_todayFilter === b[0]) + '"' + (n[b[0]] ? '' : ' disabled') + '>' +
+            esc(b[1]) + '<span class="n">' + n[b[0]] + '</span></button>';
+        }).join('') +
+      '</div>' +
+      (shown.length
+        ? '<ul class="rd-td">' + shown.map(function (r) {
+            return '<li class="rd-td-r ' + r.tone + '"' + (r.cid ? ' data-cid="' + esc(r.cid) + '" tabindex="0"' : '') + '>' +
+              '<span class="rd-td-n">' + esc(r.name) + '</span>' +
+              '<span class="rd-td-w">' + esc(r.why) + '</span>' +
+              '<span class="rd-td-s">' + esc(r.step) + '</span></li>';
+          }).join('') + '</ul>'
+        : '<p class="rd-ws-quiet">Nothing under that filter.</p>');
+
+    $$('[data-td]', el).forEach(function (b) {
+      b.addEventListener('click', function () { _todayFilter = b.dataset.td; renderToday(); });
+    });
+    $$('.rd-td-r[data-cid]', el).forEach(function (r) {
+      const go = function () { openClient(r.dataset.cid); };
+      r.addEventListener('click', go);
+      r.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); go(); }
+      });
+    });
+  }
+
   function renderAttention() {
     const el = $('#rd-attn');
     if (!el) return;
@@ -2314,6 +2434,9 @@
       }
       refreshNavCounts(sig);
     }
+    // Outside the key check: the list reflects what has been sorted, and that
+    // changes without any of the tile numbers changing.
+    renderToday();
     renderComingUp();
   }
 

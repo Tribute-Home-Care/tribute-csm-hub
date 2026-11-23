@@ -2538,3 +2538,52 @@ input[type="email"], select { min-height: var(--h-ctl); }
 .rd-fold-car { flex: 0 0 auto; color: var(--ink-3); transition: transform .12s ease; }
 .rd-sec-fold[data-open] > .rd-sec-h .rd-fold-car { transform: rotate(90deg); }
 .rd-sec-fold:not([data-open]) > *:not(.rd-sec-h) { display: none; }
+
+/* ── Today's list ──────────────────────────────────────────────────────────
+   Courtney, 17 Nov: four sections on Home all answered "who needs me?" and a
+   CSM had to read all four and assemble the answer. This is the one list, and
+   the tiles above it are its filters, so the number on a tile is the number of
+   rows you get when you press it.
+
+   A row is a client, why they are on the list, and the next step. Three
+   columns because that is three questions, and a CSM reads across one row
+   rather than down three cards. */
+.rd-td-f { display: flex; gap: 6px; flex-wrap: wrap; margin: var(--s3) 0 var(--s2); }
+.rd-td-fb {
+  appearance: none; cursor: pointer;
+  border: 1px solid var(--line); background: var(--surface);
+  border-radius: 999px; padding: 3px 11px;
+  font: inherit; font-size: 12.5px; color: var(--ink-2);
+  display: inline-flex; align-items: baseline; gap: 6px;
+}
+.rd-td-fb:hover:not(:disabled) { border-color: var(--ink-3); color: var(--ink); }
+.rd-td-fb[aria-selected="true"] { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+.rd-td-fb:disabled { opacity: .45; cursor: default; }
+.rd-td-fb .n { font-size: 11px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.rd-td-fb[aria-selected="true"] .n { color: var(--surface); opacity: .72; }
+.rd-td-fb:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.rd-td { list-style: none; margin: 0; padding: 0; }
+.rd-td-r {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: var(--s3);
+  align-items: baseline;
+  padding: 7px 10px 7px 8px;
+  border-bottom: 1px solid var(--line-2);
+  cursor: pointer;
+}
+.rd-td-r:hover { background: var(--line-2); }
+.rd-td-r:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* Only what is actually urgent carries a mark. */
+.rd-td-r.bad { box-shadow: inset 2px 0 0 var(--bad); }
+.rd-td-r.warn { box-shadow: inset 2px 0 0 var(--warn); }
+.rd-td-n { font-size: 13px; font-weight: 600; color: var(--ink); min-width: 0; }
+.rd-td-w { font-size: 12.5px; color: var(--ink-2); min-width: 0; }
+.rd-td-s { font-size: 12px; color: var(--ink-3); min-width: 0; text-align: right; }
+
+@media (max-width: 760px) {
+  /* On a phone it reads as a short paragraph per client rather than a table. */
+  .rd-td-r { grid-template-columns: 1fr; gap: 1px; }
+  .rd-td-s { text-align: left; }
+}
