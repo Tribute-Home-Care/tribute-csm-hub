@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-11-23T16:08"></script>
+<script src="./entra-auth.js?v=2026-11-23T16:16"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -215,6 +215,9 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
 .obb-r.watch{border-left-color:var(--med);}
 .obb-r.atrisk{border-left-color:var(--hi);}
 .obb-r.live{border-left-color:var(--med);}
+.d30-q{margin-bottom:12px;}
+.d30-l{display:block;font-size:13px;line-height:1.45;color:#1C1A17;margin-bottom:5px;}
+.d30-a{font-family:inherit;line-height:1.5;}
 .obb-n{font-size:13px;font-weight:600;color:#1C1A17;min-width:0;}
 .obb-w{font-size:12.5px;color:#57524A;min-width:0;}
 .obb-r.late .obb-w,.obb-r.atrisk .obb-w{color:#A4271E;}
@@ -693,6 +696,10 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
     </div>
     <div id="s60-board-rows"></div>
   </div>
+  <!-- Managers and directors only. Her "Waiting on you" box and the five
+       metrics from Part 4, above the board, because an approval somebody is
+       waiting on outranks a list. -->
+  <div id="s60-mgr" style="display:none;margin-bottom:14px;"></div>
   <div id="s60-empty" class="es" style="display:none;"><div class="ei">🎯</div><p>Select a client to view their onboarding tracker.</p></div>
   <div id="s60-content" style="display:none;">
     <!-- The Viv Onboarding Checklist itself. The touchpoint section of that
@@ -1575,6 +1582,26 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
      list stops being ticked off. -->
 <!-- Proof on a checklist tick (Courtney, section 7): "Checking it off asks
      for proof. Who they talked to, the date, and a one-line note." -->
+<!-- The Day 30 call guide. "This is a conversation, not a survey": nothing
+     is required, nothing scores, and a blank answer simply does not reach the
+     draft. -->
+<div class="mo" id="m-d30">
+  <div class="md" style="width:600px;max-height:84vh;overflow:auto;">
+    <div class="mt" style="margin-bottom:2px;">Day 30 check-in</div>
+    <p id="d30-client" style="font-size:13px;color:#1C1A17;margin:6px 0 2px;"></p>
+    <p style="font-size:11.5px;color:#8C857B;margin:0 0 14px;">A conversation, not a survey. Skip anything that does not come up.</p>
+    <div style="font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#8C857B;margin:0 0 8px;">With the family</div>
+    <div id="d30-fam"></div>
+    <div style="font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#8C857B;margin:16px 0 8px;">With each core caregiver</div>
+    <div id="d30-cg"></div>
+    <div style="display:flex;gap:8px;align-items:center;border-top:1px solid var(--line-soft);padding-top:12px;margin-top:6px;">
+      <button class="btn btn-p" onclick="saveD30()">Save and draft the follow-up</button>
+      <span style="flex:1;font-size:11.5px;color:#8C857B;">Saves to the client record and opens the email to edit.</span>
+      <button class="btn btn-o" onclick="closeD30()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <div class="mo" id="m-ob-proof">
   <div class="md" style="width:430px;">
     <div class="mt" style="margin-bottom:2px;">Mark it done</div>
@@ -2081,7 +2108,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-11-23T16:08';
+const HUB_BUILD='2026-11-23T16:16';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -2503,7 +2530,7 @@ function showPage(p,el){
   document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
   document.getElementById('page-'+p).classList.add('active');
   if(el)el.classList.add('active');
-  ({home:updateHome,clients:renderClientMaster,pulse:renderPulse,emailcomm:renderEmailComm,priority:renderFillPriority,ltc:renderLtc,md:renderMd,comms:()=>{syncTPClients();syncCIClients();renderDueNow();renderTPRecent();renderTouchpointHistory();},s60:()=>{syncS60();renderS60();renderS60Emails(null);renderObBoard();},coverage:()=>{syncCov();renderCovSummary();renderTeamCoverage();renderHandoffPicker();},assistant:()=>{renderTemplates();renderScenarios();renderDecision();},expectations:()=>{renderExpectations();renderKsfLive('ksf-live-exp');},kpi:()=>{renderKPIHistory();renderKsfLive('ksf-live-kpi');},team:()=>{if(_teamView==='visits')renderTeamVisits();else renderTeamOverview();}}[p]||(_=>{}))();
+  ({home:updateHome,clients:renderClientMaster,pulse:renderPulse,emailcomm:renderEmailComm,priority:renderFillPriority,ltc:renderLtc,md:renderMd,comms:()=>{syncTPClients();syncCIClients();renderDueNow();renderTPRecent();renderTouchpointHistory();},s60:()=>{syncS60();renderS60();renderS60Emails(null);renderObManager();renderObBoard();},coverage:()=>{syncCov();renderCovSummary();renderTeamCoverage();renderHandoffPicker();},assistant:()=>{renderTemplates();renderScenarios();renderDecision();},expectations:()=>{renderExpectations();renderKsfLive('ksf-live-exp');},kpi:()=>{renderKPIHistory();renderKsfLive('ksf-live-kpi');},team:()=>{if(_teamView==='visits')renderTeamVisits();else renderTeamOverview();}}[p]||(_=>{}))();
 }
 function aTab(t,el){['kb','emails','scenarios','decision'].forEach(x=>{document.getElementById('asst-'+x).classList.remove('active');});document.querySelectorAll('#page-assistant .tab').forEach(x=>x.classList.remove('active'));document.getElementById('asst-'+t).classList.add('active');el.classList.add('active');if(t==='emails')renderTemplates();if(t==='scenarios')renderScenarios();if(t==='decision')renderDecision();_updateAsstAdminBars();}
 function _updateAsstAdminBars(){
@@ -6253,6 +6280,136 @@ function openObClient(cid){
   }catch(e){} },140);
 }
 
+/* ═══════════════ THE MANAGER AND DIRECTOR VIEW ══════════════════════════
+   Courtney, Part 4:
+     - Open onboardings and offboardings by market and CSM, overdue first
+     - Success in 30 status for every client in their first 30 days
+     - Success in 30 rate, on-time rate, time to setup, early cancellations,
+       early caregiver churn
+     - An approval queue for Tribute-initiated discharges
+
+   THE APPROVAL QUEUE IS A GATE, NOT A NOTICE. Her rule: "Checklist stays
+   locked until manager approval is recorded. The family notice draft is
+   reviewed by the manager before sending." So approving writes a record that
+   the checklist and the draft both read, and only a manager can write it.
+   Without that the lock would be decoration.
+
+   A METRIC THE HUB CANNOT COMPUTE SAYS SO. Each of her five returns either a
+   number or the reason it has none. A manager acting on a rate that silently
+   fell back to zero is worse off than one who can see it is not ready. */
+function _obAllClients(){
+  const out=[];
+  const seen={};
+  (PROFILES||[]).forEach(pr=>{
+    ((DATA.profiles&&DATA.profiles[pr.id]&&DATA.profiles[pr.id].clients)||[]).forEach(c=>{
+      if(c.isOffice||seen[c.id])return; seen[c.id]=1; out.push({c,csm:pr});
+    });
+  });
+  return out;
+}
+function obApprovals(){
+  return ((DATA.shared&&DATA.shared.dischargeApprovals)||{});
+}
+function obApprovalFor(cid){ return obApprovals()[cid]||null; }
+function obApprove(cid){
+  if(!(P&&(P.isManager||P.isDirector))){ showToast('Only a manager or director can approve a discharge.'); return; }
+  DATA.shared=DATA.shared||{};
+  DATA.shared.dischargeApprovals=DATA.shared.dischargeApprovals||{};
+  DATA.shared.dischargeApprovals[cid]={by:P.name,at:new Date().toISOString()};
+  queueSave();
+  showToast('Approved. The checklist and the family notice are unlocked.');
+  try{ renderObManager(); }catch(e){}
+}
+
+/* Her five metrics. Each is {n, text} or {text} with no number, and nothing
+   divides by a denominator it does not have. */
+function obMetrics(){
+  const all=_obAllClients();
+  const today=new Date().toISOString().slice(0,10);
+  const out=[];
+
+  // 1. Success in 30 rate: On Track at day 30, of those who reached day 30.
+  const reached=all.filter(x=>{const d=daysAgo(x.c.startDate);return d!==null&&d>=30&&d<=120;});
+  if(reached.length){
+    let ok=0;
+    reached.forEach(x=>{ let k=null; try{k=s30Checklist(x.c);}catch(e){}
+      if(k&&(k.state==='ontrack'||k.state==='done'))ok++; });
+    out.push({k:'Success in 30 rate',n:Math.round(ok/reached.length*100)+'%',
+              sub:ok+' of '+reached.length+' reached day 30 on track'});
+  } else out.push({k:'Success in 30 rate',sub:'No client has reached day 30 in the window yet'});
+
+  // 2. On-time rate: checklist items completed by their due date.
+  let due=0,onTime=0;
+  all.forEach(x=>{
+    const d=daysAgo(x.c.startDate); if(d===null||d>120)return;
+    const done=_obMap(x.c.id);
+    OB_CHECKLIST.flatMap(g=>g.items).forEach(i=>{
+      const dd=obDueFor(x.c,i); if(!dd.date||dd.date>today)return;
+      due++;
+      const r=done[i.id];
+      if(r&&(!r.when||r.when<=dd.date))onTime++;
+    });
+  });
+  if(due)out.push({k:'Onboarding on-time rate',n:Math.round(onTime/due*100)+'%',
+                   sub:onTime+' of '+due+' items done by their due date'});
+  else out.push({k:'Onboarding on-time rate',sub:'Nothing has come due yet'});
+
+  // 3. Time to setup: assessment to Viv setup complete.
+  const spans=[];
+  all.forEach(x=>{
+    const done=_obMap(x.c.id);
+    const a=done['ob_asmt'], last=OB_CHECKLIST[1].items
+      .map(i=>done[i.id]).filter(Boolean).map(r=>r.when||String(r.at||'').slice(0,10)).sort().slice(-1)[0];
+    const complete=OB_CHECKLIST[1].items.every(i=>done[i.id]);
+    if(a&&complete&&last){
+      const from=a.when||String(a.at||'').slice(0,10);
+      const n=Math.round((new Date(last+'T12:00:00')-new Date(from+'T12:00:00'))/864e5);
+      if(isFinite(n)&&n>=0)spans.push(n);
+    }
+  });
+  if(spans.length)out.push({k:'Time to setup',n:Math.round(spans.reduce((a,b)=>a+b,0)/spans.length)+'d',
+                            sub:'median across '+spans.length+' completed setups'});
+  else out.push({k:'Time to setup',sub:'No setup is complete enough to measure'});
+
+  // 4 and 5 need data the Hub does not hold yet, and say so rather than
+  // reading zero. Early cancellations want the Cancellation Form reason;
+  // early caregiver churn wants a reason code on a caregiver change.
+  out.push({k:'Early cancellations',sub:'Waiting on the Service Cancellation Pending Form in Viv'});
+  out.push({k:'Early caregiver churn',sub:'Waiting on a reason on each caregiver change'});
+  return out;
+}
+
+function renderObManager(){
+  const el=document.getElementById('s60-mgr'); if(!el)return;
+  const isMgr=!!(P&&(P.isManager||P.isDirector));
+  el.style.display=isMgr?'':'none';
+  if(!isMgr)return;
+  const all=_obAllClients();
+  const pending=all.filter(x=>String(x.c.endType||'')==='tribute'&&!obApprovalFor(x.c.id));
+  const metrics=obMetrics();
+  el.innerHTML=`<div class="card" style="margin-bottom:14px;">
+    <div class="ct">Waiting on you</div>
+    ${pending.length?`<div class="obb">${pending.map(x=>`<div class="obb-r live" style="cursor:default;">
+        <span class="obb-n">${escHtml(x.c.name)}</span>
+        <span class="obb-w">Tribute-initiated discharge, waiting for approval</span>
+        <span class="obb-d">${escHtml(x.csm.name.split(' ')[0])}</span>
+        <button class="btn btn-sm btn-p" onclick="obApprove('${x.c.id}')">Approve</button>
+      </div>`).join('')}</div>`
+      :`<p style="font-size:12.5px;color:#8C857B;margin:0;">Nothing waiting for an approval.</p>`}
+  </div>
+  <div class="card">
+    <div class="ct">Onboarding and Success in 30</div>
+    <p style="font-size:11.5px;color:#8C857B;margin:-4px 0 12px;">Across every CSM in your markets.</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;">
+      ${metrics.map(m=>`<div style="padding:11px 13px;background:#F7F4EF;border-radius:9px;">
+        <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8C857B;">${escHtml(m.k)}</div>
+        ${m.n?`<div style="font-size:21px;font-weight:600;color:#1C1A17;line-height:1.2;margin-top:2px;">${escHtml(m.n)}</div>`:''}
+        <div style="font-size:11.5px;color:${m.n?'#8C857B':'#92580B'};margin-top:${m.n?'1px':'4px'};line-height:1.4;">${escHtml(m.sub)}</div>
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+
 function renderObChecklist(cid){
   const el=document.getElementById('s60-ob'); if(!el)return;
   const done=_obMap(cid);
@@ -6345,9 +6502,19 @@ function openObProof(){
   na.style.display=item.na?'':'none';
   na.textContent=item.na?('Not applicable: '+item.na):'';
   const db=document.getElementById('obp-draft');
-  if(d&&!d.locked){ db.style.display=''; db.textContent='Open the '+d.name.toLowerCase()+' draft'; }
-  else if(d&&d.locked){ db.style.display=''; db.textContent='Locked until a manager approves'; db.disabled=true; }
-  else db.style.display='none';
+  if(item.id==='ob_d30'){
+    // Her flow: the Day 30 item opens the call guide, and the guide writes
+    // the record and the draft. Ticking it on its own would skip the
+    // conversation that is the whole point of the item.
+    db.style.display=''; db.textContent='Open the Day 30 call guide';
+    db.onclick=function(){ const cid=_obProofFor.cid; closeObProof(); openD30Guide(cid); };
+  }
+  else if(d&&!d.locked){ db.style.display=''; db.textContent='Open the '+d.name.toLowerCase()+' draft'; db.onclick=openObDraft; }
+  else if(d&&d.locked&&!obApprovalFor(_obProofFor.cid)){
+    db.style.display=''; db.textContent='Locked until a manager approves'; db.disabled=true; db.onclick=null; }
+  else if(d&&d.locked){ db.style.display=''; db.disabled=false;
+    db.textContent='Open the '+d.name.toLowerCase(); db.onclick=openObDraft; }
+  else { db.style.display='none'; db.onclick=null; }
   openM('m-ob-proof');
 }
 function saveObProof(na){
@@ -6381,7 +6548,8 @@ function openObDraft(){
   if(!_obProofFor)return;
   const d=draftById(_obProofFor.item.draft);
   if(!d)return;
-  if(d.locked){ showToast('This draft is locked until a manager approves the discharge.'); return; }
+  if(d.locked&&!obApprovalFor(_obProofFor.cid)){
+    showToast('This draft is locked until a manager approves the discharge.'); return; }
   const cl=get('clients')||[], c=cl.find(x=>x.id===_obProofFor.cid)||{};
   openDraftFor(d,c);
 }
@@ -8911,6 +9079,86 @@ I am happy to talk this through. You can reach me on [CSM phone].
 /* One library, so the Assistant shows these too rather than keeping a second
    set of templates nobody maintains. */
 function draftById(id){ return DRAFTS.find(d=>d.id===id)||null; }
+
+/* ═══════════════ THE DAY 30 CALL GUIDE ══════════════════════════════════
+   Courtney, Part 3: "This is a conversation, not a survey. The Hub offers
+   these questions as a call guide, then drafts a short follow-up email that
+   summarizes what the family shared." And: "Day 30 check-in opens the call
+   guide with a notes box under each question. When the CSM saves, the Hub
+   drafts the follow-up email from the notes."
+
+   A CONVERSATION, NOT A SURVEY, is a design instruction and not a nicety.
+   Nothing here is required, nothing scores, and an unanswered question simply
+   does not appear in the draft. A guide that refuses to save until every box
+   is filled turns a conversation back into a form, which is the thing she
+   said it is not. */
+const D30_GUIDE = {
+  family:[
+    'What is going well with the care team so far?',
+    'Is there anything about the schedule or routine you would change?',
+    'Does the care plan still reflect how [client] is doing right now?',
+    'Do you know who to call, during the day and after hours?',
+    'Is there anything you were hoping for that we have not got to yet?'
+  ],
+  caregiver:[
+    'Do you have what you need to be successful with [client]?',
+    'Is there anything in the care plan that does not match what you are seeing?'
+  ]
+};
+let _d30For=null;
+function openD30Guide(cid){
+  const c=(get('clients')||[]).find(x=>x.id===cid); if(!c)return;
+  _d30For=c;
+  const first=String(c.name||'').trim().split(/\s+/)[0]||'the client';
+  const q=(arr,kind)=>arr.map((t,i)=>`<div class="d30-q">
+      <label class="d30-l">${escHtml(t.replace(/\[client\]/g,first))}</label>
+      <textarea class="fc d30-a" data-kind="${kind}" data-i="${i}" rows="2"
+        placeholder="What they said. Leave it blank if it did not come up."></textarea>
+    </div>`).join('');
+  document.getElementById('d30-client').textContent=c.name;
+  document.getElementById('d30-fam').innerHTML=q(D30_GUIDE.family,'family');
+  document.getElementById('d30-cg').innerHTML=q(D30_GUIDE.caregiver,'caregiver');
+  openM('m-d30');
+}
+function closeD30(){ closeM('m-d30'); _d30For=null; }
+/* Saving writes the conversation to the client's record and opens the
+   follow-up draft built from what was actually said. An empty box contributes
+   nothing: the draft should read like the call, not like a form with gaps. */
+function saveD30(){
+  const c=_d30For; if(!c)return;
+  const answers=[...document.querySelectorAll('#m-d30 .d30-a')].map(a=>({
+    kind:a.dataset.kind, q:(a.closest('.d30-q').querySelector('.d30-l').textContent||''),
+    a:(a.value||'').trim()})).filter(x=>x.a);
+  const day=new Date().toISOString().slice(0,10);
+  const tasks=get('tasks')||[];
+  tasks.unshift(Object.assign({id:'task'+Date.now(),clientId:c.id,date:day,
+    text:'Day 30 check-in', outcome:'Spoke with family',
+    note:answers.length?answers.map(x=>x.q+' '+x.a).join(' \u00b7 ').slice(0,400)
+                       :'Conversation held; nothing recorded',
+    source:'s30', by:P?P.name:'', at:new Date().toISOString()},
+    typeof actorStamp==='function'?actorStamp():{}));
+  set('tasks',tasks);
+  // It is also the Day 30 milestone, so it ticks the checklist item too
+  // rather than asking for the same thing twice.
+  const rows=get('s60_ob')||[];
+  if(!rows.some(r=>r.clientId===c.id&&r.id==='ob_d30')){
+    rows.push({clientId:c.id,id:'ob_d30',by:_initialsOf((P&&P.name)||''),
+               at:new Date().toISOString(),when:day,note:'Day 30 call guide completed'});
+    set('s60_ob',rows);
+  }
+  const d=draftById('d30');
+  closeD30();
+  if(d){
+    const fam=answers.filter(x=>x.kind==='family');
+    const good=fam[0]?fam[0].a:'[From the call]';
+    const change=fam[1]?fam[1].a:'[From the call, or "Nothing right now, which is good news"]';
+    const body=d.body.replace('[From the call]\n',good+'\n')
+                     .replace('[From the call, or "Nothing right now, which is good news"]',change);
+    openDraftFor(Object.assign({},d,{body}),c);
+  }
+  showToast('Saved to the client record.');
+  try{ if(typeof renderClientMaster==='function')renderClientMaster(); }catch(e){}
+}
 
 function renderTemplates(){
   _updateAsstAdminBars();

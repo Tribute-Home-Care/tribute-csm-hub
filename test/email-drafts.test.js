@@ -90,8 +90,19 @@ ok('the app access draft says to use it without repeating it',
    account. */
 ok('nothing in the draft flow sends', !/sendMail|sendDraft|graphSend/.test(lift('function openDraftFor(')));
 ok('the dialog says so in words', /Send it from your own account\. Nothing is sent from here\./.test(V1));
-ok('a locked draft refuses to open',
-   /if\(d\.locked\)\{ showToast\('This draft is locked until a manager approves/.test(CODE));
+/* The lock is a GATE, not a notice. Her rule: "Checklist stays locked until
+   manager approval is recorded. The family notice draft is reviewed by the
+   manager before sending." So it reads an approval record, and only a manager
+   or director can write one. Unconditional, it was decoration. */
+ok('a locked draft refuses to open until an approval is recorded',
+   /if\(d\.locked&&!obApprovalFor\(_obProofFor\.cid\)\)\{\n?\s*showToast\('This draft is locked until a manager approves/.test(CODE));
+ok('...and opens once one is', /else if\(d&&d\.locked\)\{ db\.style\.display=''; db\.disabled=false;/.test(CODE));
+ok('only a manager or director can record the approval',
+   /if\(!\(P&&\(P\.isManager\|\|P\.isDirector\)\)\)\{ showToast\('Only a manager or director can approve a discharge\.'\)/.test(CODE));
+ok('the approval is recorded with who and when',
+   /DATA\.shared\.dischargeApprovals\[cid\]=\{by:P\.name,at:new Date\(\)\.toISOString\(\)\};/.test(CODE));
+ok('...and is shared, so the CSM\'s Hub sees it too',
+   /DATA\.shared\.dischargeApprovals=DATA\.shared\.dischargeApprovals\|\|\{\};/.test(CODE));
 
 // ── what the Hub fills in ─────────────────────────────────────────────────
 ok('the client\'s own details are filled in', /\.replace\(\/\\\[Client first name\\\]\/g,first\)/.test(CODE));
