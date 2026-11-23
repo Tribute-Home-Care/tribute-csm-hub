@@ -79,7 +79,17 @@ ok('...and a client with nothing dated outstanding says so',
    undefined" at a manager on the live page. */
 ok('the board builds its own phrase rather than printing an absent field',
    /const when=d\.date\?\('due '\+_cmDate\(d\.date\)\):'';/.test(CODE) &&
-   /const say=\[d\.note,when\|\|d\.text\]\.filter\(Boolean\)\.join/.test(CODE));
+   /const say=\[d\.short,when\|\|d\.text\]\.filter\(Boolean\)\.join/.test(CODE));
+/* A rule needs two lengths. The checklist row can carry the whole sentence;
+   the board cell is one short phrase, and her picture writes it as
+   "Assessment . 48 hr MD rule . due 11/15". The full Massachusetts note
+   wrapped one cell onto three lines on the live page. */
+ok('the board uses the SHORT rule name, not the checklist sentence',
+   /short:'48 hr MD rule'/.test(CODE) && !/const say=\[d\.note/.test(CODE));
+ok('...and a market with no rule worth naming has an empty one',
+   (CODE.match(/short:''/g)||[]).length === 2);
+ok('...while the checklist still carries the full note',
+   /note:'48 hr MD rule/.test(CODE) && /due\.note\?/.test(CODE));
 ok('...and never concatenates an undefined into the cell',
    !/nd\.item\.label\+' \\u00b7 '\+nd\.text/.test(CODE));
 
