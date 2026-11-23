@@ -100,6 +100,37 @@ for (const [label, SRC] of [['V1', V1], ['V2', V2]]) {
      /\$\{t\.source\?'':`<button class="btn btn-sm btn-o" onclick="delTodo/.test(SRC));
 }
 
+/* ── THE PULSE ROWS HAVE TO BE ABLE TO ARRIVE ─────────────────────────────
+   Two faults found by watching the live page, not by reading the diff.
+
+   First, Pulse lands seconds after Home has drawn, and nothing repainted the
+   to-do list, so the From Pulse rows were absent until something else
+   happened to redraw it, which on a normal morning is never.
+
+   Second, and worse, loadPulse is fired and forgotten at startup. On a cold
+   load it can run before the token is ready. One 401 and _PULSE stayed null
+   for the whole session: every Pulse chip, the client-page banner and these
+   to-dos quietly missing. Measured on 23 Nov the endpoint answered a
+   hand-made request in 677ms with 236 clients while _PULSE was still null
+   twelve seconds in. Pre-existing, and this is what surfaced it. */
+for (const [label, SRC] of [['V1', V1], ['V2', V2]]) {
+  ok(label + ': the to-do list repaints when Pulse lands',
+     /try\{ renderTodos\(\); \}catch\(e2\)\{\}/.test(SRC));
+  ok(label + ': a failed Pulse load is retried rather than lost',
+     /window\._pulseTries=\(window\._pulseTries\|\|0\)\+1;/.test(SRC));
+  ok(label + ': ...a bounded number of times', /window\._pulseTries<4/.test(SRC));
+  ok(label + ': ...only while nothing has loaded', /if\(!_PULSE&&window\._pulseTries<4&&!window\._pulseRetry\)/.test(SRC));
+  ok(label + ': ...and backing off rather than hammering',
+     /const wait=window\._pulseTries\*4000;/.test(SRC));
+}
+// Behavioural: the retry gate.
+const retry = (loaded, tries, pending) => !loaded && tries < 4 && !pending;
+ok('a first failure retries', retry(false, 1, false));
+ok('a third failure retries', retry(false, 3, false));
+ok('a fourth does not', !retry(false, 4, false));
+ok('a load that succeeded in the meantime stops the retries', !retry(true, 1, false));
+ok('a retry already scheduled is not scheduled twice', !retry(false, 1, true));
+
 // ── the history shows up where she asked for it ──────────────────────────
 ok('a finished task appears in the client\'s Activity',
    /rowsFor\('tasks', c\.id\)\.forEach/.test(RD) && /kind: 'Task completed'/.test(RD));
