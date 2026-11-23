@@ -399,6 +399,9 @@
     ['coverage', 'Coverage updates']
   ];
   let _view = 'attention';
+  /* Urgency is the default sort and stays it; a column the reader picked beats
+     a ranking they cannot see, so these hold what they picked. */
+  let _sortKey = '', _sortDir = 'asc';
   let _selected = null;
   let _section = 'overview';
   let _showAdmin = false;
@@ -481,26 +484,49 @@
         return want.indexOf(c.market || 'Massachusetts') > -1;
       });
     }
-    const qEl = $('#cm-search'), tEl = $('#cm-tier'), sEl = $('#cm-status');
+    /* THE STATUS DROPDOWN IS GONE, because the tabs already do it.
+       Courtney, 17 Nov: "Three filter systems stacked on top of each other...
+       The Status dropdown ('Any overdue', 'Due within 14 days') does the same
+       thing as the tabs." It was worse than redundant: "Due Within 14 Days"
+       filtered on ANY exception, so it and the Needs attention tab disagreed
+       about what they were showing. Search, Tier and Market remain. */
+    const qEl = $('#cm-search'), tEl = $('#cm-tier');
     const q = (qEl ? qEl.value : '').toLowerCase().trim();
     const tf = tEl ? tEl.value : '';
-    const sf = sEl ? sEl.value : '';
     let list = clients.map(function (c) { return { c: c, ex: exceptionFor(c) }; });
     if (q) list = list.filter(function (r) {
       return ((r.c.name || '') + ' ' + (r.c.loc || '') + ' ' + (r.c.city || '') + ' ' + (r.c.notes || '')).toLowerCase().indexOf(q) > -1;
     });
     if (tf) list = list.filter(function (r) { return r.c.tier === tf; });
-    if (sf === 'overdue') list = list.filter(function (r) { return r.ex && r.ex.tone === 'bad'; });
-    else if (sf === 'due_soon') list = list.filter(function (r) { return !!r.ex; });
     // Same partition as the counts above: the list under a tab has to hold
     // exactly what the tab's number says.
     if (_view === 'attention') list = list.filter(function (r) { return r.ex && r.ex.tone === 'bad'; });
     else if (_view === 'soon') list = list.filter(function (r) { return r.ex && r.ex.tone === 'warn'; });
     else if (_view === 'onboarding') list = list.filter(function (r) { return r.c.startDate && (daysSince(r.c.startDate) || 999) <= 30; });
     else if (_view === 'coverage') list = list.filter(function (r) { return !!r.c.vacation; });
-    list.sort(function (a, b) {
+
+    /* SORTING. Urgency first is the right default and stays the default, but
+       she asked to be able to sort by next visit due, start date and A to Z
+       ("Sort the client list" was also an action item from 12 Nov). A column
+       the reader chose beats a ranking they cannot see. */
+    const dir = _sortDir === 'desc' ? -1 : 1;
+    const byName = function (a, b) { return String(a.c.name).localeCompare(String(b.c.name)); };
+    const nullsLast = function (v) { return v == null || v === '' ? '￿' : String(v); };
+    if (_sortKey === 'name') list.sort(function (a, b) { return dir * byName(a, b); });
+    else if (_sortKey === 'tier') list.sort(function (a, b) {
+      const o = { High: 0, Medium: 1, Low: 2 };
+      return dir * ((o[a.c.tier] == null ? 9 : o[a.c.tier]) - (o[b.c.tier] == null ? 9 : o[b.c.tier])) || byName(a, b); });
+    else if (_sortKey === 'last') list.sort(function (a, b) {
+      return dir * nullsLast(a.c.lastVisit).localeCompare(nullsLast(b.c.lastVisit)) || byName(a, b); });
+    else if (_sortKey === 'next') list.sort(function (a, b) {
+      return dir * nullsLast(nextVisit(a.c)).localeCompare(nullsLast(nextVisit(b.c))) || byName(a, b); });
+    else if (_sortKey === 'start') list.sort(function (a, b) {
+      return dir * nullsLast(a.c.startDate).localeCompare(nullsLast(b.c.startDate)) || byName(a, b); });
+    else if (_sortKey === 'community') list.sort(function (a, b) {
+      return dir * nullsLast(a.c.loc || a.c.city).localeCompare(nullsLast(b.c.loc || b.c.city)) || byName(a, b); });
+    else list.sort(function (a, b) {
       const ra = a.ex ? a.ex.rank : 99, rb = b.ex ? b.ex.rank : 99;
-      return ra - rb || String(a.c.name).localeCompare(String(b.c.name));
+      return ra - rb || byName(a, b);
     });
     return list;
   }
@@ -624,7 +650,33 @@
 
     if (!rows.length) { el.innerHTML = emptyState(all.length); renderWorkspace(); return; }
 
-    el.innerHTML = '<ul class="rd-cl rd-tracker-list" role="listbox">' + rows.map(function (r) {
+    /* TWO SHAPES, ONE LIST.
+       Courtney asked for a table: "Rows don't tell you enough. Name, community,
+       one status. To see the tier, the last visit, or who to call, you have to
+       open the client." Seven columns need the full width, and the moment a
+       client is open this pane is a third of the screen — which is why she also
+       asked for the client to open as its own page. Until it does, the table is
+       what you get with nothing selected and the compact list is what you get
+       beside an open client. Same rows, same order, same filters. */
+    el.innerHTML = _selected ? clientListCompact(rows) : clientListTable(rows);
+
+    rows.forEach(function (r) { ensureCompat(r.c.id); });
+    $$('[data-cid]', el).forEach(function (b) {
+      b.addEventListener('click', function () { selectClient(b.dataset.cid); });
+    });
+    $$('[data-sort]', el).forEach(function (b) {
+      b.addEventListener('click', function () {
+        const k = b.dataset.sort;
+        if (_sortKey === k) _sortDir = _sortDir === 'asc' ? 'desc' : 'asc';
+        else { _sortKey = k; _sortDir = 'asc'; }
+        renderTrackerList();
+      });
+    });
+    renderWorkspace();
+  }
+
+  function clientListCompact(rows) {
+    return '<ul class="rd-cl rd-tracker-list" role="listbox">' + rows.map(function (r) {
       const c = r.c, ex = r.ex, eid = esc(c.id);
       const sel = _selected === c.id;
       // ONE exception, or nothing at all. A healthy client carries no mark:
@@ -638,12 +690,55 @@
         (c.loc || c.city ? '<span class="rd-cl-where">' + esc([c.loc, c.city].filter(Boolean).join(', ')) + '</span>' : '') +
         '</span>' + status + next + '</button></li>';
     }).join('') + '</ul>';
+  }
 
-    rows.forEach(function (r) { ensureCompat(r.c.id); });
-    $$('.rd-cl-open', el).forEach(function (b) {
-      b.addEventListener('click', function () { selectClient(b.dataset.cid); });
-    });
-    renderWorkspace();
+  /* Her columns: Client, Tier, Status and why, Last visit, Next due, Family
+     contact, Community. Sortable by the ones worth sorting by.
+
+     THE FAMILY CONTACT IS THE HUB'S OWN RECORD, not the Viv read. The Viv
+     contact is fetched per client when you open one, and fetching it for forty
+     rows to fill a column would be a Viv call per client on every keystroke in
+     the search box. So this is what the CSM recorded, and an email is a real
+     mailto. A phone number needs the Viv read, so there is no Call button
+     here pretending it can dial. */
+  const CL_COLS = [['name', 'Client'], ['tier', 'Tier'], ['', 'Status'],
+                   ['last', 'Last visit'], ['next', 'Next due'],
+                   ['', 'Family contact'], ['community', 'Community']];
+  function clientListTable(rows) {
+    const head = CL_COLS.map(function (col) {
+      const k = col[0];
+      if (!k) return '<th scope="col">' + esc(col[1]) + '</th>';
+      const on = _sortKey === k;
+      return '<th scope="col" aria-sort="' + (on ? (_sortDir === 'asc' ? 'ascending' : 'descending') : 'none') + '">' +
+        '<button type="button" data-sort="' + k + '">' + esc(col[1]) +
+        (on ? '<span class="rd-clt-ar">' + (_sortDir === 'asc' ? '↑' : '↓') + '</span>' : '') +
+        '</button></th>';
+    }).join('');
+    const body = rows.map(function (r) {
+      const c = r.c, ex = r.ex;
+      const nv = nextVisit(c);
+      // An assessment due inside a week is marked, which was an action item
+      // from 12 Nov and is the one row state worth catching at a glance.
+      const newish = c.startDate && (daysSince(c.startDate) || 999) <= 30;
+      // daysSince is negative for a future date, so days-until is its negation.
+      const until = nv ? -daysSince(nv) : null;
+      const soonAsmt = newish && until !== null && until >= 0 && until <= 7;
+      const mail = c.contactEmail
+        ? '<a href="mailto:' + esc(c.contactEmail) + '" onclick="event.stopPropagation()">Email</a>' : '';
+      return '<tr class="rd-clt-row' + (soonAsmt ? ' due' : '') + '" data-cid="' + esc(c.id) + '" tabindex="0">' +
+        '<th scope="row"><span class="rd-clt-n">' + esc(c.name) + '</span>' +
+          (soonAsmt ? '<span class="rd-clt-tag">Assessment due</span>' : '') + '</th>' +
+        '<td>' + (c.tier ? esc(c.tier) : '<span class="rd-ws-quiet">—</span>') + '</td>' +
+        '<td>' + (ex ? '<span class="rd-cl-ex ' + ex.tone + '">' + esc(ex.text) + '</span>' : '') + '</td>' +
+        '<td>' + (c.lastVisit ? esc(fmtShort(c.lastVisit)) : '<span class="rd-ws-quiet">None</span>') + '</td>' +
+        '<td>' + (nv ? esc(fmtShort(nv)) : (c.freq === 'NA' ? '<span class="rd-ws-quiet">No cadence</span>' : '')) + '</td>' +
+        '<td class="rd-clt-con">' + (c.contact ? esc(c.contact) : '') +
+          (mail ? '<span class="rd-clt-act">' + mail + '</span>' : '') + '</td>' +
+        '<td>' + esc([c.loc, c.city].filter(Boolean).join(', ')) + '</td>' +
+        '</tr>';
+    }).join('');
+    return '<div class="rd-clt-wrap"><table class="rd-clt"><thead><tr>' + head +
+      '</tr></thead><tbody>' + body + '</tbody></table></div>';
   }
 
   function mountSplit() {
