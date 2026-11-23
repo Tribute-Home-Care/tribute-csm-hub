@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-11-23T16:02"></script>
+<script src="./entra-auth.js?v=2026-11-23T16:06"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -203,6 +203,27 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
    than just a check mark, so a manager or covering CSM can see it was done
    the right way. */
 .ob-proof{font-size:11px;color:#0F6E56;margin-top:3px;line-height:1.45;}
+/* The board: every open checklist in one list, overdue first. One line each,
+   because a worklist you scroll is a worklist you skim. */
+.obb{border-top:1px solid #F1EEE8;}
+.obb-r{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.6fr) 112px 72px;gap:12px;
+  align-items:baseline;width:100%;text-align:left;background:none;border:none;
+  border-bottom:1px solid #F1EEE8;border-left:3px solid transparent;
+  padding:9px 10px;cursor:pointer;font:inherit;}
+.obb-r:hover{background:#FBFAF8;}
+.obb-r.late{border-left-color:var(--hi);}
+.obb-r.watch{border-left-color:var(--med);}
+.obb-r.atrisk{border-left-color:var(--hi);}
+.obb-r.live{border-left-color:var(--med);}
+.obb-n{font-size:13px;font-weight:600;color:#1C1A17;min-width:0;}
+.obb-w{font-size:12.5px;color:#57524A;min-width:0;}
+.obb-r.late .obb-w,.obb-r.atrisk .obb-w{color:#A4271E;}
+.obb-d{font-size:11.5px;color:#8C857B;white-space:nowrap;}
+.obb-p{font-size:11.5px;color:#8C857B;text-align:right;font-variant-numeric:tabular-nums;}
+@media (max-width:760px){
+  .obb-r{grid-template-columns:minmax(0,1fr) 72px;row-gap:2px;}
+  .obb-w,.obb-d{grid-column:1;}
+}
 @media (max-width:900px){
   .ob-row{grid-template-columns:16px minmax(0,1fr);row-gap:3px;}
   .ob-own,.ob-hub,.ob-due,.ob-by,.ob-at{grid-column:2;text-align:left;}
@@ -657,6 +678,20 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
       <div id="s60-dropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1px solid #EAE6DF;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.1);z-index:200;max-height:220px;overflow-y:auto;"></div>
     </div>
     <div style="font-size:12px;color:#8C857B;flex:1;">Clients started within the last 60 days.</div>
+  </div>
+  <!-- EVERY OPEN CHECKLIST IN ONE LIST (Courtney, section 7): "Onboarding
+       page: Every open checklist in one list, with tabs for Onboarding,
+       Success in 30, Offboarding and Completed. Filter to Mine or by market."
+       The search box above still finds one client; this is the list you land
+       on, because hunting for a client one at a time is not a worklist. -->
+  <div id="s60-board">
+    <div class="tabs" id="s60-tabs"></div>
+    <div style="display:flex;gap:8px;align-items:center;margin:0 0 10px;">
+      <label style="font-size:11.5px;color:#8C857B;cursor:pointer;">
+        <input type="checkbox" id="s60-mine" onchange="renderObBoard()" style="accent-color:#FF5A1F;"> Only mine</label>
+      <span id="s60-board-n" style="font-size:11.5px;color:#8C857B;margin-left:auto;"></span>
+    </div>
+    <div id="s60-board-rows"></div>
   </div>
   <div id="s60-empty" class="es" style="display:none;"><div class="ei">🎯</div><p>Select a client to view their onboarding tracker.</p></div>
   <div id="s60-content" style="display:none;">
@@ -2046,7 +2081,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-11-23T16:02';
+const HUB_BUILD='2026-11-23T16:06';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -2468,7 +2503,7 @@ function showPage(p,el){
   document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
   document.getElementById('page-'+p).classList.add('active');
   if(el)el.classList.add('active');
-  ({home:updateHome,clients:renderClientMaster,pulse:renderPulse,emailcomm:renderEmailComm,priority:renderFillPriority,ltc:renderLtc,md:renderMd,comms:()=>{syncTPClients();syncCIClients();renderDueNow();renderTPRecent();renderTouchpointHistory();},s60:()=>{syncS60();renderS60();renderS60Emails(null);},coverage:()=>{syncCov();renderCovSummary();renderTeamCoverage();renderHandoffPicker();},assistant:()=>{renderTemplates();renderScenarios();renderDecision();},expectations:()=>{renderExpectations();renderKsfLive('ksf-live-exp');},kpi:()=>{renderKPIHistory();renderKsfLive('ksf-live-kpi');},team:()=>{if(_teamView==='visits')renderTeamVisits();else renderTeamOverview();}}[p]||(_=>{}))();
+  ({home:updateHome,clients:renderClientMaster,pulse:renderPulse,emailcomm:renderEmailComm,priority:renderFillPriority,ltc:renderLtc,md:renderMd,comms:()=>{syncTPClients();syncCIClients();renderDueNow();renderTPRecent();renderTouchpointHistory();},s60:()=>{syncS60();renderS60();renderS60Emails(null);renderObBoard();},coverage:()=>{syncCov();renderCovSummary();renderTeamCoverage();renderHandoffPicker();},assistant:()=>{renderTemplates();renderScenarios();renderDecision();},expectations:()=>{renderExpectations();renderKsfLive('ksf-live-exp');},kpi:()=>{renderKPIHistory();renderKsfLive('ksf-live-kpi');},team:()=>{if(_teamView==='visits')renderTeamVisits();else renderTeamOverview();}}[p]||(_=>{}))();
 }
 function aTab(t,el){['kb','emails','scenarios','decision'].forEach(x=>{document.getElementById('asst-'+x).classList.remove('active');});document.querySelectorAll('#page-assistant .tab').forEach(x=>x.classList.remove('active'));document.getElementById('asst-'+t).classList.add('active');el.classList.add('active');if(t==='emails')renderTemplates();if(t==='scenarios')renderScenarios();if(t==='decision')renderDecision();_updateAsstAdminBars();}
 function _updateAsstAdminBars(){
@@ -6112,6 +6147,104 @@ function _obMap(cid){
   (get('s60_ob')||[]).forEach(r=>{ if(r.clientId===cid)m[r.id]={by:r.by||'',at:r.at||''}; });
   return m;
 }
+/* ── The board: every open checklist, in her four tabs ────────────────────
+   "Clicking a client in this list opens that client's page, with the
+   checklist at the top of the Summary tab. It's not a separate checklist
+   page. Back takes you to the list where you left off."
+
+   Overdue first, because that is the only ordering a worklist can justify.
+   The Success in 30 tab shows progress by week rather than by phase, and the
+   Offboarding tab shows the type of ending and the final date, which is what
+   she asked for in the two sentences after that. */
+const OB_BOARD_TABS=[['onboarding','Onboarding'],['s30','Success in 30'],
+                     ['offboarding','Offboarding'],['done','Completed']];
+let _obTab='onboarding';
+function setObTab(t){ _obTab=t; renderObBoard(); }
+
+function _obProgress(c){
+  const done=_obMap(c.id), items=OB_CHECKLIST.flatMap(g=>g.items);
+  const today=new Date().toISOString().slice(0,10);
+  let late=0;
+  items.forEach(i=>{ if(done[i.id])return; const d=obDueFor(c,i); if(d.date&&d.date<today)late++; });
+  const n=items.filter(i=>done[i.id]).length;
+  return {done:n,total:items.length,late,finished:n===items.length};
+}
+function _obOffFor(c){
+  // The checklist opens when a Service Cancellation Pending Form is created.
+  // Until the Hub reads that form, an end date on the record is the signal.
+  const end=c.endDate||c.vivDischarged||'';
+  if(!end)return null;
+  const done=_obMap(c.id);
+  const n=OFF_CHECKLIST.filter(i=>done['off:'+i.id]).length;
+  return {end,done:n,total:OFF_CHECKLIST.length,type:c.endType||'',finished:n===OFF_CHECKLIST.length};
+}
+function obBoardRows(){
+  const cl=(get('clients')||[]).filter(c=>!c.isOffice);
+  const mine=document.getElementById('s60-mine');
+  const rows=[];
+  cl.forEach(c=>{
+    const daysIn=daysAgo(c.startDate);
+    const off=_obOffFor(c);
+    if(off){ rows.push({tab:off.finished?'done':'offboarding',c,off,
+                        late:0,sort:off.end}); return; }
+    if(daysIn===null||daysIn>30)return;
+    const pr=_obProgress(c);
+    let k=null; try{ k=s30Checklist(c); }catch(e){ k=null; }
+    rows.push({tab:pr.finished&&(!k||k.finished)?'done':'onboarding',
+               c,pr,k,daysIn,late:pr.late,sort:c.startDate});
+    if(k&&!k.finished)rows.push({tab:'s30',c,pr,k,daysIn,late:k.weeks?0:0,sort:c.startDate});
+  });
+  // Overdue first, then the newest start of care.
+  rows.sort((a,b)=>(b.late-a.late)||String(b.sort).localeCompare(String(a.sort)));
+  return (mine&&mine.checked)?rows.filter(r=>!r.c.csm||r.c.csm===(P&&P.name)):rows;
+}
+function renderObBoard(){
+  const box=document.getElementById('s60-board-rows'); if(!box)return;
+  const all=obBoardRows();
+  const n={}; OB_BOARD_TABS.forEach(t=>n[t[0]]=0);
+  all.forEach(r=>{ if(n[r.tab]!==undefined)n[r.tab]++; });
+  const tabs=document.getElementById('s60-tabs');
+  if(tabs)tabs.innerHTML=OB_BOARD_TABS.map(t=>
+    `<div class="tab${_obTab===t[0]?' active':''}" onclick="setObTab('${t[0]}')">${escHtml(t[1])}${n[t[0]]?` <span style="opacity:.6;">${n[t[0]]}</span>`:''}</div>`).join('');
+  const rows=all.filter(r=>r.tab===_obTab);
+  const cnt=document.getElementById('s60-board-n');
+  if(cnt)cnt.textContent=rows.length?(rows.length+(rows.length===1?' client':' clients')):'';
+  if(!rows.length){ box.innerHTML='<div class="es"><div class="ei">\u2713</div><p>Nothing in this list right now.</p></div>'; return; }
+  box.innerHTML='<div class="obb">'+rows.map(r=>{
+    const open=`openObClient('${r.c.id}')`;
+    if(r.tab==='offboarding'||(r.off&&r.tab==='done')){
+      const t=(OFF_TYPES.find(x=>x.id===r.off.type)||{}).label||'Type not recorded';
+      return `<button type="button" class="obb-r${r.off.finished?'':' live'}" onclick="${open}">
+        <span class="obb-n">${escHtml(r.c.name)}</span>
+        <span class="obb-w">${escHtml(t)}</span>
+        <span class="obb-d">Final ${escHtml(new Date(r.off.end+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}))}</span>
+        <span class="obb-p">${r.off.done} of ${r.off.total}</span></button>`;
+    }
+    if(r.tab==='s30'){
+      const st=r.k?r.k.state:'ontrack';
+      return `<button type="button" class="obb-r ${st}" onclick="${open}">
+        <span class="obb-n">${escHtml(r.c.name)}</span>
+        <span class="obb-w">${escHtml(r.k?r.k.why:'')}</span>
+        <span class="obb-d">Day ${r.daysIn+1} of 30</span>
+        <span class="obb-p">${r.k?r.k.done:0} of ${r.k?r.k.total:0}</span></button>`;
+    }
+    return `<button type="button" class="obb-r${r.late?' late':''}" onclick="${open}">
+      <span class="obb-n">${escHtml(r.c.name)}</span>
+      <span class="obb-w">${r.late?(r.late+(r.late===1?' item overdue':' items overdue')):'On time so far'}</span>
+      <span class="obb-d">Day ${r.daysIn+1} of 30</span>
+      <span class="obb-p">${r.pr.done} of ${r.pr.total}</span></button>`;
+  }).join('')+'</div>';
+}
+/* Her rule: the row opens the CLIENT, not a checklist page of its own. */
+function openObClient(cid){
+  const nv=document.querySelector('.nav-item[onclick*=clients]');
+  if(nv)showPage('clients',nv);
+  setTimeout(()=>{ try{
+    if(window.TributeRedesign){ TributeRedesign.setView('all'); TributeRedesign.select(cid); }
+    else if(typeof toggleClientDetail==='function')toggleClientDetail(cid);
+  }catch(e){} },140);
+}
+
 function renderObChecklist(cid){
   const el=document.getElementById('s60-ob'); if(!el)return;
   const done=_obMap(cid);
