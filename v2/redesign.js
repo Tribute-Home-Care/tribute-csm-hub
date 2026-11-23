@@ -492,7 +492,9 @@
     if (tf) list = list.filter(function (r) { return r.c.tier === tf; });
     if (sf === 'overdue') list = list.filter(function (r) { return r.ex && r.ex.tone === 'bad'; });
     else if (sf === 'due_soon') list = list.filter(function (r) { return !!r.ex; });
-    if (_view === 'attention') list = list.filter(function (r) { return !!r.ex; });
+    // Same partition as the counts above: the list under a tab has to hold
+    // exactly what the tab's number says.
+    if (_view === 'attention') list = list.filter(function (r) { return r.ex && r.ex.tone === 'bad'; });
     else if (_view === 'soon') list = list.filter(function (r) { return r.ex && r.ex.tone === 'warn'; });
     else if (_view === 'onboarding') list = list.filter(function (r) { return r.c.startDate && (daysSince(r.c.startDate) || 999) <= 30; });
     else if (_view === 'coverage') list = list.filter(function (r) { return !!r.c.vacation; });
@@ -575,9 +577,22 @@
     }
 
     const all = app.fn.get('clients') || [];
+    /* THE NUMBERS HAVE TO MATCH, which is Courtney's third rule (17 Nov):
+       "If the badge says 9, the list under it has 9 clients in it."
+
+       Needs attention counted EVERY exception and Due soon counted the
+       warnings, so Due soon's clients were inside Needs attention's count as
+       well. Home meanwhile counts only the bad ones as needing action. Three
+       numbers, overlapping, all labelled as if they meant the same thing:
+       "CSMs stop trusting the Hub fast if 17, 18 and 42 all mean needs
+       attention".
+
+       The two now partition the exceptions. Needs attention is the bad ones,
+       which is what Home has always called needing action, and Due soon is the
+       warnings. Nothing is counted twice and the tab agrees with the tile. */
     const counts = {
       all: all.length,
-      attention: all.filter(function (c) { return !!exceptionFor(c); }).length,
+      attention: all.filter(function (c) { const e = exceptionFor(c); return e && e.tone === 'bad'; }).length,
       soon: all.filter(function (c) { const e = exceptionFor(c); return e && e.tone === 'warn'; }).length,
       onboarding: all.filter(function (c) { return c.startDate && (daysSince(c.startDate) || 999) <= 30; }).length,
       coverage: all.filter(function (c) { return !!c.vacation; }).length
