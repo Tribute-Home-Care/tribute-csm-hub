@@ -44,13 +44,29 @@ for (const [label, SRC] of [['V1', V1], ['V2', V2]]) {
   ok(label + ': a week with nothing in it is not rendered', /\.filter\(w=>w\.items\.length\)/.test(SRC));
 
   // ── the status line ─────────────────────────────────────────────────────
-  ok(label + ': the three states are hers',
-     /state=\(late\.length>1\|\|by>3\)\?'atrisk':'watch';/.test(SRC) &&
-     /let state='ontrack'/.test(SRC));
-  ok(label + ': the line names the oldest overdue item, not a count',
-     /const oldest=late\.slice\(\)\.sort\(\(a,b\)=>a\.due\.localeCompare\(b\.due\)\)\[0\];/.test(SRC));
-  ok(label + ': ...in her shape, "X is N days overdue"',
-     /' is '\+\n?\s*\(by===0\?'due today':\(by\+' day'\+\(by===1\?'':'s'\)\+' overdue'\)\)/.test(SRC));
+  /* HER ACTUAL RULES, from Part 3 of the Onboarding, Offboarding & Success in
+     30 document, which arrived after the first version of this was built. My
+     first pass used only the overdue count: it got the easy half right and
+     ignored the service exceptions and the caregiver churn entirely, so a
+     client with a complaint on file and nothing overdue read On Track. */
+  ok(label + ': Watch is one item up to 3 days late, one SE, or one caregiver change',
+     /if\(late\.length===1\)watch\.push/.test(SRC) &&
+     /if\(ses\.any&&!ses\.complaint\)watch\.push\('a new service exception'\);/.test(SRC) &&
+     /if\(cgChanges===1\)watch\.push\('one unplanned caregiver change'\);/.test(SRC));
+  ok(label + ': At Risk is 2+ overdue, the day 14 visit, a complaint, or 2+ caregiver changes',
+     /if\(late\.length>1\)atRisk\.push/.test(SRC) &&
+     /if\(d14Missed\)atRisk\.push\('the day 14 visit was missed'\);/.test(SRC) &&
+     /if\(ses\.complaint\)atRisk\.push\('a client complaint is on file'\);/.test(SRC) &&
+     /if\(cgChanges>1\)atRisk\.push/.test(SRC));
+  ok(label + ': At Risk outranks Watch', /if\(atRisk\.length\)\{ state='atrisk'/.test(SRC));
+  ok(label + ': an open dissatisfaction exception is enough to leave On Track',
+     /else if\(ses\.dissatisfaction\)\{ state='watch'/.test(SRC));
+  /* One of her conditions cannot be seen from here. Saying so beats implying
+     the Hub checked it. */
+  ok(label + ': the condition the Hub cannot see is named, not faked',
+     /missing:\['whether the family has asked to remove a caregiver'\]/.test(SRC));
+  ok(label + ': the day 14 visit is found by id, not by position',
+     /const d14=rows\.find\(r=>r\.id==='visit2'\);/.test(SRC));
 
   // ── owners ──────────────────────────────────────────────────────────────
   /* Her rule says every row carries an owner, and the real assignment is in

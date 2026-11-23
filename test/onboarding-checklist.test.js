@@ -44,9 +44,36 @@ const { OB_CHECKLIST, toggleObTask, setObBy, _initialsOf, _obMap } = env;
 
 // ── the content, against the document ─────────────────────────────────────
 const items = OB_CHECKLIST.flatMap(g => g.items);
-ok('two sections: the initial tasks and the Viv setup', OB_CHECKLIST.length === 2);
-ok('five initial tasks, as the template has', OB_CHECKLIST[0].items.length === 5);
-ok('twelve Viv setup tasks, as the template has', OB_CHECKLIST[1].items.length === 12);
+/* REBUILT FROM HER OWN DOCUMENT, 23 Nov. This used to assert two sections of
+   5 and 12 taken from the 2026 Viv template. "CSM Hub_Onboarding Offboarding
+   and Success in 30_final.docx" supersedes it with three phases: Assessment
+   and initial tasks, Viv setup, and the first 60 days. Her Part 1, item for
+   item, with her owners, due rules and Hub behaviours. */
+ok('three phases, in her order',
+   OB_CHECKLIST.length === 3 &&
+   /Phase 1 — Assessment & initial tasks/.test(OB_CHECKLIST[0].g) &&
+   /Phase 2 — Viv setup/.test(OB_CHECKLIST[1].g) &&
+   /Phase 3 — First 60 days/.test(OB_CHECKLIST[2].g));
+ok('eight, thirteen and eight items, as the document has',
+   OB_CHECKLIST[0].items.length === 8 && OB_CHECKLIST[1].items.length === 13 &&
+   OB_CHECKLIST[2].items.length === 8);
+// Her key: AUTO, CHECK, EMAIL, ALERT and the combinations she uses.
+ok('every item declares an owner and a Hub behaviour',
+   items.every(i => i.owner && i.hub));
+ok('the Hub behaviours are only ones from her key',
+   items.every(i => i.hub.split('+').every(h => ['AUTO', 'CHECK', 'EMAIL', 'ALERT'].includes(h))));
+ok('every item carries a due rule', items.every(i => i.due && typeof i.due === 'object'));
+ok('the items she marked NEW are marked NEW', items.filter(i => i.isNew).length === 4);
+ok('the per-caregiver items are flagged as such',
+   items.filter(i => i.perCaregiver).length === 2);
+/* "Steps that have to happen in order stay locked until the step before is
+   done. For example, the Viv Workflow can't be checked until Located In and
+   Payor are set." */
+ok('the Geo step gates the Viv setup items that depend on it',
+   items.filter(i => i.needs === 'ob_geo').length >= 6 &&
+   items.find(i => i.id === 'ob_geo').gate === true);
+ok('a gate points at an item that exists',
+   items.filter(i => i.needs).every(i => items.some(x => x.id === i.needs)));
 ok('no duplicate ids', new Set(items.map(i => i.id)).size === items.length);
 const s30 = [...CODE.matchAll(/\{id:'([a-z0-9_]+)',\s+label:/g)].map(m => m[1]);
 ok('checklist ids never collide with a Success in 30 milestone id',
@@ -64,12 +91,63 @@ ok('the touchpoint section is not duplicated',
 // assertion exists to keep out.
 ok('no standing passcode is carried into the Hub', !/Tribute\d{4}!/.test(SRC));
 ok('the family-access step still exists without it',
-   items.some(i => /Viv access/i.test(i.label)) &&
-   /standing passcode from the checklist document/.test(CODE));
+   items.some(i => /Viv app access/i.test(i.label)) &&
+   /it is not repeated here/.test(CODE));
 
 // Detail that makes the step followable rather than a bare title.
-ok('the fiddly Viv steps carry their location',
-   items.filter(i => i.hint && /Profile >|Scheduling >|Clinical >|Documents >|Service Delivery >|Summary/.test(i.hint)).length >= 8);
+/* "Viv location under the task in small grey text (Profile > General) for the
+   Viv setup items, so the CSP doesn't have to look it up." Asserted by naming
+   the items the document gives a location for, rather than by counting
+   matches of a regex: the old count-based version broke the day an item's
+   location was "Profile" rather than "Profile >". */
+const WITH_LOCATION = {
+  ob_geo:'Profile > General', ob_icd:'Profile > General', ob_contacts:'Profile',
+  ob_reqs:'Scheduling > Requirements', ob_tag:'Summary', ob_mgrs:'Summary',
+  ob_wf:'Blue box', ob_cp:'Documents > Tribute Care Plan',
+  ob_note:'Service Delivery > Notes', ob_app:'Accounts > User'
+};
+ok('every Viv step the document locates carries that location',
+   Object.keys(WITH_LOCATION).every(id => {
+     const it = items.find(x => x.id === id);
+     return it && it.hint && it.hint.indexOf(WITH_LOCATION[id]) > -1;
+   }));
+/* Part 2, which did not exist before today. Step 1 is universal; Step 2
+   depends on how the service ended, and the type comes from the Service
+   Cancellation Pending Form. */
+const OFF_CHECKLIST = lift('const OFF_CHECKLIST =') && eval(lift('const OFF_CHECKLIST =').replace(/^const OFF_CHECKLIST =/, ''));
+const OFF_TYPES = lift('const OFF_TYPES =') && eval(lift('const OFF_TYPES =').replace(/^const OFF_TYPES =/, ''));
+ok('the universal close-out is her nine steps', OFF_CHECKLIST && OFF_CHECKLIST.length === 9);
+ok('...each with an owner and a Hub behaviour',
+   OFF_CHECKLIST.every(i => i.owner && i.hub));
+ok('setting the client to Discharged is the last step and says it is gated',
+   OFF_CHECKLIST[OFF_CHECKLIST.length - 1].lastStep === true &&
+   /will not allow this until every item above is done/.test(OFF_CHECKLIST[OFF_CHECKLIST.length - 1].hint));
+ok('her six endings are all there', OFF_TYPES && OFF_TYPES.length === 6);
+ok('...and each carries the Hub rule she wrote for it',
+   OFF_TYPES.every(t => t.rule && t.steps && t.steps.length));
+// Two of the six change what the Hub does, not just what the CSM does.
+ok('a Tribute-initiated discharge is locked until a manager approves',
+   OFF_TYPES.find(t => t.id === 'tribute').locked === true);
+ok('a death is handled gently and never as a template email',
+   OFF_TYPES.find(t => t.id === 'death').gentle === true &&
+   /suggestions only, never a template email/.test(OFF_TYPES.find(t => t.id === 'death').rule));
+ok('a hospitalisation goes to Hospitalized, not Discharged',
+   /Hospitalized on the Viv Timeline, not Discharged/.test(OFF_TYPES.find(t => t.id === 'hosp').rule));
+
+/* "Market rules set the due date. A Maryland client shows '48 hr MD rule'
+   next to the assessment." It is a state regulation, and virtual assessments
+   are not allowed there at all. */
+ok('Maryland carries the 48 hour rule and no virtual assessment',
+   /MD: \{ hrs:48, virtual:false,/.test(CODE) &&
+   /48 hr MD rule/.test(CODE));
+ok('MA and Chicago allow a virtual assessment',
+   /MA: \{ hrs:null, virtual:true,/.test(CODE) && /IL: \{ hrs:null, virtual:true,/.test(CODE));
+/* "the real due date (11/18, not just 'Day 14')". Where the anchor is not
+   known yet the row says what it is waiting for; it never guesses, because a
+   wrong due date turns the whole list red and teaches people to ignore it. */
+ok('due dates are computed from this client\'s own dates', /function obDueFor\(c,item\)\{/.test(CODE));
+ok('...and an unknowable one says what it waits for, rather than guessing',
+   /return \{date:null,text:'Before the first visit'\};/.test(CODE));
 ok('the Geo step keeps its ordering warning', items.some(i => /BEFORE the workflow/i.test(i.hint || '')));
 ok('the Add CSM step keeps what to leave blank',
    items.some(i => /Billing Assignee and Scheduling Partner blank/.test(i.hint || '')));

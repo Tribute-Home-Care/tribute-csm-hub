@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub · V2 Preview</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="../entra-auth.js?v=2026-11-23T14:29"></script>
+<script src="../entra-auth.js?v=2026-11-23T15:53"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -173,6 +173,37 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
   border-bottom:1px solid #EAD9C8;}
 .vab.writing{background:#FDEAE7;color:#8C2A20;border-bottom-color:#F0C9C2;}
 .vab b{font-weight:700;}
+/* The onboarding checklist, to Courtney's layout rules: owner, real due date
+   and Hub behaviour on every row; overdue red and first in its phase; a
+   locked step visibly waiting on the one before it. */
+.ob-sum{font-size:12px;color:#8C857B;margin:-4px 0 10px;}
+.ob-g>summary{cursor:pointer;font-size:11px;font-weight:700;letter-spacing:.05em;
+  text-transform:uppercase;color:#8C857B;margin:14px 0 4px;display:flex;align-items:baseline;gap:8px;}
+.ob-g>summary .n{margin-left:auto;font-weight:600;color:#B7B0A6;}
+.ob-g>summary .n.fin{color:#0F8F6B;}
+.ob-row{display:grid;grid-template-columns:16px minmax(0,1fr) 74px 92px 104px 64px 58px;
+  gap:9px;align-items:start;padding:8px 0;border-bottom:1px solid #F1EEE8;}
+.ob-cb{width:14px;height:14px;margin-top:2px;accent-color:var(--navy);cursor:pointer;}
+.ob-cb:disabled{cursor:not-allowed;opacity:.45;}
+.ob-l{font-size:13px;line-height:1.4;color:#3D3833;}
+.ob-row.done .ob-l{color:#8C857B;text-decoration:line-through;}
+.ob-row.late .ob-l{color:#A4271E;font-weight:600;}
+.ob-h{font-size:11px;color:#8C857B;margin-top:2px;line-height:1.45;}
+.ob-block{color:#92580B;}
+.ob-rule{color:#7A3B12;}
+.ob-new{display:inline-block;font-size:9px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.06em;color:#7A3B12;background:#FBEADF;border-radius:999px;padding:1px 5px;margin-right:6px;vertical-align:1px;}
+.ob-own,.ob-hub,.ob-due{font-size:10.5px;color:#8C857B;padding-top:2px;}
+.ob-hub{letter-spacing:.04em;}
+.ob-row.late .ob-due{color:#A4271E;font-weight:600;}
+.ob-by{width:100%;font-size:11px;text-align:center;text-transform:uppercase;padding:3px 4px;
+  border:1px solid #EAE6DF;border-radius:6px;background:#fff;}
+.ob-at{font-size:11px;color:#0F8F6B;text-align:right;white-space:nowrap;padding-top:2px;}
+@media (max-width:900px){
+  .ob-row{grid-template-columns:16px minmax(0,1fr);row-gap:3px;}
+  .ob-own,.ob-hub,.ob-due,.ob-by,.ob-at{grid-column:2;text-align:left;}
+  .ob-by{width:80px;}
+}
 .todo-src{display:inline-block;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#7A3B12;background:#FBEADF;border-radius:999px;padding:1px 6px;margin-right:6px;vertical-align:1px;}
 .csm-ov{background:#fff;border-radius:12px;padding:15px;box-shadow:0 1px 4px rgba(0,0,0,.07);}
 .tier-bar{height:7px;border-radius:4px;background:#F1EEE8;overflow:hidden;margin-top:6px;display:flex;}
@@ -1980,7 +2011,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-11-23T14:30';
+const HUB_BUILD='2026-11-23T15:54';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -5642,6 +5673,44 @@ function _s30Week(m){
   const d=TODO_MS_DAYS[m.id]||7;
   return (S30_WEEKS.find(w=>w.upto>=d)||S30_WEEKS[S30_WEEKS.length-1]).id;
 }
+/* What the Hub can see of her service-exception conditions. The SE types it
+   reads are the ones the exception feed already carries; anything it cannot
+   classify is counted as "any SE", which is her Watch condition, rather than
+   being silently dropped. */
+function _s30Exceptions(c){
+  let rows=[];
+  try{ rows=(get('exceptions')||[]).filter(x=>x.clientId===c.id); }catch(e){ rows=[]; }
+  if(!rows.length){
+    try{ rows=((DATA.shared&&DATA.shared.exceptions)||[]).filter(x=>x.clientId===c.id||x.cid===c.vivId); }
+    catch(e){ rows=[]; }
+  }
+  const since=_obPlus(c.startDate,0);
+  const inWindow=rows.filter(x=>!since||String(x.date||x.day||'').slice(0,10)>=since);
+  const t=x=>String(x.type||x.category||'').toLowerCase();
+  return {
+    any:inWindow.length>0,
+    complaint:inWindow.some(x=>/complaint/.test(t(x))),
+    dissatisfaction:inWindow.some(x=>/dissatisf/.test(t(x))&&!/closed/i.test(String(x.status||'')))
+  };
+}
+/* An unplanned caregiver change inside the first 30 days. Counted as distinct
+   caregivers on the visit log beyond the first, which is the closest the Hub
+   can get without a reason code on the change. */
+function _s30CaregiverChanges(c){
+  try{
+    const vv=((DATA.shared&&DATA.shared.viv&&DATA.shared.viv.visits)||[]);
+    const soc=String(c.startDate||'').slice(0,10);
+    const end=_obPlus(soc,30)||'';
+    const names=new Set();
+    vv.forEach(v=>{ if(v.cid!==c.vivId)return;
+      const d=String(v.day||'').slice(0,10);
+      if(soc&&d<soc)return; if(end&&d>end)return;
+      if(v.caregiver)names.add(String(v.caregiver).trim());
+    });
+    return Math.max(0,names.size-1);
+  }catch(e){ return 0; }
+}
+
 function s30Checklist(c){
   const daysIn=daysAgo(c.startDate);
   if(daysIn===null) return null;
@@ -5657,17 +5726,53 @@ function s30Checklist(c){
   });
   const done=rows.filter(r=>r.done).length, total=rows.length;
   const late=rows.filter(r=>r.overdue);
-  /* On Track, Watch or At Risk, with one plain line on why. Watch is a single
-     thing a day or two late; At Risk is more than one, or one badly late. The
-     line names the oldest, because that is the one to pick up first. */
-  let state='ontrack', why='Every milestone so far is logged.';
-  if(late.length){
-    const oldest=late.slice().sort((a,b)=>a.due.localeCompare(b.due))[0];
-    const by=Math.max(0,Math.round((new Date(today+'T12:00:00')-new Date(oldest.due+'T12:00:00'))/864e5));
-    state=(late.length>1||by>3)?'atrisk':'watch';
-    why=oldest.label.charAt(0).toLowerCase()+oldest.label.slice(1)+' is '+
-        (by===0?'due today':(by+' day'+(by===1?'':'s')+' overdue'));
-  }else if(done===total){ state='done'; why='All '+total+' milestones logged.'; }
+
+  /* HER STATUS RULES, from Part 3 of the Onboarding, Offboarding & Success in
+     30 document. She wrote them as proposed starting rules to calibrate after
+     a month of real data, so they are kept here in one place and in her
+     order, and nothing else in the Hub decides this.
+
+       On Track  Everything due so far is done, and no open Client
+                 Dissatisfaction SEs
+       Watch     One item up to 3 days overdue, OR one new SE of any kind, OR
+                 one unplanned caregiver change
+       At Risk   Two or more items overdue, OR the Day 14 visit was missed, OR
+                 any Client Complaint SE, OR two or more caregiver changes in
+                 30 days, OR the family has asked to remove a caregiver
+
+     My first pass used only the overdue count, which got the easy half right
+     and ignored the service exceptions and the caregiver churn entirely. A
+     client with a complaint on file and nothing overdue read On Track, which
+     is the opposite of what she asked for.
+
+     The family-asked-to-remove-a-caregiver condition is NOT implemented: the
+     Hub cannot tell that from an SE type, and guessing it would put clients
+     At Risk for the wrong reason. It is listed in `missing` so the card can
+     say what it could not check rather than implying it did. */
+  const ses=_s30Exceptions(c);
+  const cgChanges=_s30CaregiverChanges(c);
+  const d14=rows.find(r=>r.id==='visit2');
+  const d14Missed=!!(d14&&!d14.done&&d14.due<today);
+  const oldest=late.length?late.slice().sort((a,b)=>a.due.localeCompare(b.due))[0]:null;
+  const oldestBy=oldest?Math.max(0,Math.round((new Date(today+'T12:00:00')-new Date(oldest.due+'T12:00:00'))/864e5)):0;
+
+  let state='ontrack', why='Everything due so far is done.';
+  const atRisk=[];
+  if(late.length>1)atRisk.push(late.length+' items overdue');
+  if(d14Missed)atRisk.push('the day 14 visit was missed');
+  if(ses.complaint)atRisk.push('a client complaint is on file');
+  if(cgChanges>1)atRisk.push(cgChanges+' caregiver changes in the first 30 days');
+  const watch=[];
+  if(late.length===1)watch.push(oldest.label.charAt(0).toLowerCase()+oldest.label.slice(1)+' is '+
+    (oldestBy===0?'due today':(oldestBy+' day'+(oldestBy===1?'':'s')+' overdue')));
+  if(ses.any&&!ses.complaint)watch.push('a new service exception');
+  if(cgChanges===1)watch.push('one unplanned caregiver change');
+
+  if(atRisk.length){ state='atrisk'; why=atRisk[0]; }
+  else if(late.length===1&&oldestBy>3){ state='atrisk'; why=watch[0]; }
+  else if(watch.length){ state='watch'; why=watch[0]; }
+  else if(ses.dissatisfaction){ state='watch'; why='an open client dissatisfaction exception'; }
+  else if(done===total){ state='done'; why='All '+total+' milestones logged.'; }
   const weeks=S30_WEEKS.map(w=>{
     const items=rows.filter(r=>r.week===w.id);
     // Overdue first within a phase, then by due date. Her rule.
@@ -5680,7 +5785,10 @@ function s30Checklist(c){
   const current=weeks.find(w=>!w.finished);
   return { daysIn, done, total, state, why, weeks,
            currentWeek:current?current.id:null,
-           finished:done===total };
+           finished:done===total,
+           // Said out loud rather than implied: this one condition of hers is
+           // not something the Hub can see.
+           missing:['whether the family has asked to remove a caregiver'] };
 }
 
 /* THE VIV ONBOARDING CHECKLIST, as the team actually works it.
@@ -5696,64 +5804,336 @@ function s30Checklist(c){
    ONE DELIBERATE OMISSION. The template prints a shared Viv password next to
    the family-access step. A standing password does not get copied into a
    second system, so the step is here and the credential is not. */
+/* ═══════════ CLIENT ONBOARDING, OFFBOARDING & SUCCESS IN 30 ══════════════
+   Source: "CSM Hub_Onboarding Offboarding and Success in 30_final.docx",
+   Courtney Chaulk, Draft v1.0, November 2026. Her Part 1 and Part 2, item for
+   item, with her owners, her due dates and her Hub behaviours.
+
+   HER HUB BEHAVIOUR KEY, which is the contract for what each row does:
+     AUTO   the Hub detects completion from Viv and ticks it; a person may
+            still tick it by hand when the sync lags
+     CHECK  a person ticks it. Some items carry an N/A option
+     EMAIL  ticking opens a ready-to-edit draft. Nothing sends on its own
+     ALERT  not done by its due date and the owner is told; two days later it
+            reaches the owner's manager
+
+   DUE DATES ARE COMPUTED, NOT TYPED. She asked for "the real due date (11/18,
+   not just 'Day 14')", so each item carries a rule and dueFor() resolves it
+   against this client's start of care, assessment date and market. Where a
+   date cannot be known yet (per caregiver, per market) the row says what it
+   is waiting for rather than inventing one.
+
+   ONE DELIBERATE OMISSION, carried over from the 2026 template: the document
+   prints the shared family password beside the Viv app-access step. A
+   standing password does not belong in a repository, so the step says to send
+   the standard family password and does not repeat it. */
+
+const OB_OWNERS = { CSM:'CSM', CSP:'CSP', SP:'Scheduling Partner', RDM:'RDM' };
+
+/* Her market rules table, which decides when the assessment is due.
+   Maryland is a state regulation, not a preference, and virtual is not
+   allowed there at all. */
+const OB_MARKET_RULES = {
+  MD: { hrs:48, virtual:false,
+        note:'48 hr MD rule — state regulation. Best practice is before start of care.' },
+  MA: { hrs:null, virtual:true,
+        note:'Before start of care or Day 1 for high utilisation; short-hour may be reviewed virtually.' },
+  IL: { hrs:null, virtual:true,
+        note:'Before start of care or Day 1 for high utilisation; short-hour may be reviewed virtually.' }
+};
+
 const OB_CHECKLIST = [
-  {group:'Initial', items:[
-    {id:'ob_asmt',    label:'Complete Assessment'},
-    {id:'ob_welcome', label:'Leave Welcome Packet'},
-    {id:'ob_card',    label:'Leave Business Card'},
-    {id:'ob_comm',    label:'Complete Community Guideline Protocols', hint:'As needed'},
-    {id:'ob_ppe',     label:'Leave or order PPE for the team'},
+  {g:'Phase 1 — Assessment & initial tasks', items:[
+    {id:'ob_asmt', label:'Complete the assessment', owner:'CSM', hub:'AUTO+ALERT',
+     due:{market:true}, hint:'In person or virtual as the market rules allow.'},
+    {id:'ob_welcome', label:'Leave a Tribute welcome packet', owner:'CSM', hub:'CHECK',
+     due:{at:'assessment'}},
+    {id:'ob_card', label:'Leave a business card', owner:'CSM', hub:'CHECK',
+     due:{at:'assessment'}},
+    {id:'ob_comm', label:'Complete community guideline protocols', owner:'CSM', hub:'CHECK',
+     due:{at:'assessment'}, na:'Not in a community'},
+    {id:'ob_ppe', label:'Leave PPE for the care team, or ask the CSP to order it',
+     owner:'CSM / CSP', hub:'CHECK', due:{before:'firstVisit'}},
+    {id:'ob_welmail', label:'Send the family a welcome email', owner:'CSM', hub:'EMAIL',
+     due:{before:'firstVisit'}, isNew:true,
+     hint:'What we discussed, what happens next, and who to call including after hours.',
+     draft:'welcome'},
+    {id:'ob_refsrc', label:'Let the referral source know care has started',
+     owner:'CSM or RDM', hub:'EMAIL', due:{from:'leadClose', hrs:24}, isNew:true,
+     hint:'GCM or community partner. Share only what they need.', draft:'soc_update'},
+    {id:'ob_tier', label:'Confirm the touch tier', owner:'CSM', hub:'AUTO+CHECK',
+     due:{from:'assessment', hrs:24}, isNew:true,
+     hint:'New clients start at the Medium floor for their first 90 days, and may go to High after assessment.'}
   ]},
-  {group:'Viv setup', items:[
-    {id:'ob_geo',     label:'Set "Located In" and "Payor" to the same Geo', hint:'Profile > General > Edit General. Do this BEFORE the workflow or task for a new schedule.'},
-    {id:'ob_icd',     label:'Important Client Details', hint:'Profile > General > Edit General. With the CSM.'},
-    {id:'ob_contacts',label:'Client Contacts', hint:'Profile. With the CSM. Tick Primary Contact and/or Emergency Contact, and PHI Consent for App Received.'},
-    {id:'ob_reqs',    label:'Requirements page', hint:'Scheduling > Requirements. Edit the map, add no mandatory requirements, confirm Tribute Secure is a preferred requirement along with any male or female preference, and write a short blurb on what the client needs.'},
-    {id:'ob_tag',     label:'Hourly or live-in tag', hint:'Summary, at the bottom.'},
-    {id:'ob_csm',     label:'Add the CSM', hint:'Summary. Add the CSM to Account Manager and Clinical Manager. Leave Billing Assignee and Scheduling Partner blank.'},
-    {id:'ob_wf',      label:'Workflow for requested services', hint:'Blue box, white + in the top menu.'},
-    {id:'ob_csa',     label:'Email the CSA and file the signed copy in Viv', hint:'Documents > Client Service Agreement form.'},
-    {id:'ob_access',  label:'Email the family for Viv access and create their user', hint:'Add the family to contacts, then Accounts > User > green person +. Use the standing passcode from the checklist document.'},
-    {id:'ob_tasks',   label:'Create tasks', hint:'Clinical > Care Plan. Client Visit Report only, all seven days, Finish. Do not pick visit types or Geos here.'},
-    {id:'ob_cp',      label:'Complete the Care Plan', hint:'Documents > Tribute Care Plan form.'},
-    {id:'ob_note',    label:'Assessment note', hint:'Service Delivery > Notes. Label it Clinical Progress Note.'},
+  {g:'Phase 2 — Viv setup', items:[
+    {id:'ob_geo', label:'Set "Located In" and "Payor" to the same Geo', owner:'CSP',
+     hub:'AUTO+ALERT', due:{order:'first'}, gate:true,
+     hint:'Profile > General > Edit General. Must be done BEFORE the Workflow or Tasks.'},
+    {id:'ob_icd', label:'Important Client Details', owner:'CSP + CSM', hub:'AUTO',
+     due:{before:'firstVisit'}, needs:'ob_geo',
+     hint:'Profile > General > Edit General. Paste the template and complete it with the CSM.'},
+    {id:'ob_contacts', label:'Client contacts', owner:'CSP + CSM', hub:'AUTO',
+     due:{before:'firstVisit'}, needs:'ob_geo',
+     hint:'Profile. Tick Primary Contact and/or Emergency Contact, plus PHI Consent for App Received for anyone who will use the app.'},
+    {id:'ob_reqs', label:'Requirements page', owner:'CSP', hub:'AUTO',
+     due:{before:'firstVisit'}, needs:'ob_geo',
+     hint:'Scheduling > Requirements. Edit the map, add no mandatory requirements, list Tribute Secure as preferred (and CNA-I, CNA-II in Maryland), and write a short blurb on client needs.'},
+    {id:'ob_tag', label:'Hourly or Live-In tag', owner:'CSP', hub:'AUTO',
+     due:{before:'firstVisit'}, needs:'ob_geo', hint:'Summary, at the bottom.'},
+    {id:'ob_mgrs', label:'Add the CSM as Account Manager and the CSP as Clinical Manager',
+     owner:'CSP', hub:'AUTO', due:{before:'firstVisit'}, needs:'ob_geo',
+     hint:'Summary. Market Director instead if the client is shared with them. Leave Billing Assignee and Scheduling Partner blank.'},
+    {id:'ob_wf', label:'Workflow for requested services', owner:'CSP', hub:'AUTO',
+     due:{before:'firstVisit'}, needs:'ob_geo', hint:'Blue box, or the white + in the top menu.'},
+    {id:'ob_csa', label:'Email the Client Service Agreement to the family', owner:'CSP',
+     hub:'EMAIL', due:{at:'assessment'}, draft:'csa',
+     hint:'Sent in DocuSign. Short, and explains why the signature matters before start of care.'},
+    {id:'ob_csa_up', label:'Confirm the CSA is uploaded to Viv and tell the CSM it is signed',
+     owner:'CSP', hub:'AUTO+ALERT', due:{before:'serviceBegins'}, needs:'ob_csa',
+     hint:'Still unsigned as start of care approaches: follow up with the family right away, document the delay and loop in the Market Director.'},
+    {id:'ob_app', label:'Send the Viv app access email and create the family user account',
+     owner:'CSP', hub:'EMAIL+AUTO', due:{before:'firstVisit'}, draft:'app_access',
+     hint:'Accounts > User > the green person with a +. Use the standard family password; it is not repeated here.'},
+    {id:'ob_task', label:'Create the Task for Scheduling', owner:'CSP', hub:'AUTO',
+     due:{before:'firstVisit'}, needs:'ob_geo'},
+    {id:'ob_cp', label:'Complete the Tribute Care Plan with the CSM', owner:'CSP + CSM',
+     hub:'AUTO+ALERT', due:{from:'assessment', hrs:24}, hint:'Documents > Tribute Care Plan.'},
+    {id:'ob_note', label:'Assessment note labelled "Clinical Progress Note"', owner:'CSM',
+     hub:'AUTO+ALERT', due:{from:'assessment', hrs:24}, hint:'Service Delivery > Notes.'}
   ]},
+  {g:'Phase 3 — First 60 days', items:[
+    {id:'ob_cgprep', label:'Call each caregiver before their first visit', owner:'CSM',
+     hub:'CHECK+EMAIL', due:{perCaregiver:'firstVisit'}, perCaregiver:true, draft:'cg_prep',
+     hint:'Care plan, client preferences and safety considerations. One check per caregiver.'},
+    {id:'ob_visit2', label:'Second in-person visit', owner:'CSM', hub:'CHECK+ALERT',
+     due:{from:'soc', days:14},
+     hint:'Caregiver fit, how the client is adjusting, and whether the care plan is accurate.'},
+    {id:'ob_cgchk', label:'Check in with each caregiver after their first week', owner:'CSM',
+     hub:'CHECK+ALERT', due:{perCaregiver:'week1'}, perCaregiver:true,
+     hint:'Is the care plan accurate? Any updates?'},
+    {id:'ob_contact', label:'Stay in contact with the GCM, family or client every week',
+     owner:'CSM', hub:'AUTO+EMAIL', due:{from:'soc', days:60, every:7}, draft:'week1',
+     hint:'Days 1 to 60, depending on service level.'},
+    {id:'ob_brief', label:'Update Requirements > Brief Description with more detail',
+     owner:'CSP + CSM', hub:'CHECK', due:{from:'soc', days:7}},
+    {id:'ob_icd2', label:'Update Important Client Details with more detail on essential care needs',
+     owner:'CSP + CSM', hub:'CHECK', due:{from:'soc', days:7}},
+    {id:'ob_hub', label:'Confirm the CSM Hub record: tier, fill priority and contacts',
+     owner:'CSM', hub:'AUTO+CHECK', due:{from:'soc', days:7}},
+    {id:'ob_d30', label:'Day 30 check-in with the family and core caregivers', owner:'CSM',
+     hub:'CHECK+EMAIL', due:{from:'soc', days:28, to:32}, isNew:true, draft:'d30',
+     hint:'See the Day 30 call guide. Can be virtual or in person.'}
+  ]}
 ];
 
-/* Each row is a tick, the initials of whoever did it, and the date, which is
-   the three columns the Word template has. Initials rather than a name because
-   that is what the team already writes, and because an item is often done by
-   the CSP on the CSM\'s behalf. */
+/* Part 2. Step 1 is universal; Step 2 depends on how the service ended, and
+   the ending type comes from the Service Cancellation Pending Form. Where a
+   client has more than one form, the most recent one counts. */
+const OFF_CHECKLIST = [
+  {id:'off_final', label:'Confirm the final date of service with the family and tell Scheduling',
+   owner:'CSM', hub:'CHECK+EMAIL', due:{sameDay:true}, draft:'final_date',
+   hint:'Task and a Teams post in Scheduling and Client Solutions.'},
+  {id:'off_form', label:'Complete the Service Cancellation Pending Form', owner:'CSM or CSP',
+   hub:'AUTO+ALERT', due:{from:'finalVisit', hrs:24}, isNew:true,
+   hint:'The official record of the cancellation reason. If the client has passed away, fill out the Death Form instead.'},
+  {id:'off_cg', label:'Notify caregivers of the final visit, with enough notice',
+   owner:'CSM', hub:'CHECK', due:{sameDay:true},
+   hint:'If the client has passed, or was long term, call each caregiver personally before anything in writing.'},
+  {id:'off_family', label:'Send the family a warm closing message', owner:'CSM',
+   hub:'EMAIL+ALERT', due:{from:'finalVisit', hrs:48}, draft:'closing',
+   hint:'A call, a note or a card.'},
+  {id:'off_ref', label:'Thank the referring GCM or community partner and log it in HubSpot',
+   owner:'CSM', hub:'EMAIL+ALERT', due:{from:'finalVisit', hrs:24}, draft:'ref_thanks'},
+  {id:'off_mgr', label:'Tell your manager and the Market Director of any concerns about quality of care',
+   owner:'CSM', hub:'EMAIL', due:{sameDay:true}, draft:'discharge_notice'},
+  {id:'off_visits', label:'Remove or inactivate all scheduled visits after the final date',
+   owner:'SP', hub:'AUTO', due:{after:'finalConfirmed'}},
+  {id:'off_se', label:'Close all open service exceptions and tasks in Viv', owner:'CSP',
+   hub:'AUTO', due:{by:'finalVisit'}},
+  {id:'off_disch', label:'Confirm nothing is outstanding, then set the client to Discharged',
+   owner:'CSP', hub:'AUTO', due:{after:'finalVisit'}, lastStep:true,
+   hint:'Viv Timeline. The Hub will not allow this until every item above is done.'}
+];
+
+/* Her Step 2. The `rule` is what the Hub does differently, in her words. */
+const OFF_TYPES = [
+  {id:'voluntary', label:'Voluntary', rule:'Standard close-out', steps:[
+    'Acknowledge the decision warmly and thank them for trusting Tribute',
+    'Ask the reason for cancellation and record it on the Service Cancellation Pending Form',
+    'Log the outcome in HubSpot and tag RDMs if applicable']},
+  {id:'hosp', label:'Hospitalisation, return expected',
+   rule:'The client goes to Hospitalized on the Viv Timeline, not Discharged. They are often still receiving care from us, and a day-to-day cancellation still counts as Hospitalized.',
+   steps:[
+    'Confirm the hospitalisation with the family and update the schedule',
+    'Tell caregivers and the Scheduling and Client Solutions channel about the hold and the expected return',
+    'Check in with the family at least once during the stay if services are on hold',
+    'Coordinate discharge planning with the family and any GCM',
+    'Reactivate in Viv as Active once the return date is confirmed'],
+   draft:'hospital_checkin'},
+  {id:'hloc', label:'Move to a higher level of care',
+   rule:'Opens a draft introduction to the community contact', steps:[
+    'Confirm the move date and the last day of home care',
+    'Introduce yourself to the facility social worker or RCD in case more support is needed',
+    'If the community is a Tribute referral partner, tell the RDM and log the connection in HubSpot',
+    'Send the family a warm closing note',
+    'Record the reason on the Service Cancellation Pending Form'],
+   draft:'community_intro'},
+  {id:'hospice', label:'Hospice transition',
+   rule:'If service continues, this checklist closes and a care plan update reminder opens instead.',
+   steps:[
+    "Talk directly with the family about Tribute's role alongside hospice",
+    'Coordinate with the hospice team so they understand their scope',
+    'Update the care plan with any medication changes',
+    'If service is ending, follow the voluntary steps and give caregivers proper notice',
+    'Document the hospice coordination in Viv Notes and HubSpot']},
+  {id:'death', label:'Client death',
+   rule:'Condolence wording is offered as suggestions only, never a template email.',
+   steps:[
+    'A personal condolence call from the CSM right away, and an update to the team in the Scheduling and Client Solutions channel',
+    'Tell caregivers privately and with care, calling before anything in writing',
+    'A handwritten card to all clients; flowers or a charitable donation for a long-term client, with the family aware',
+    'Record the date of death in Viv and set the client to Discharged once the care team is updated',
+    'Alert Caregiver Excellence if a caregiver may need support, and submit the Death Form'],
+   draft:'condolence', gentle:true},
+  {id:'tribute', label:'Tribute-initiated discharge',
+   rule:'The checklist stays locked until manager approval is recorded, and the family notice is reviewed by the manager before it is sent.',
+   steps:[
+    'Decide with your manager and the Market Director. Never proceed alone.',
+    'Give the family at least two weeks notice unless there is an immediate safety concern',
+    'Document the reason and the rationale clearly in Viv',
+    'Talk to caregivers thoughtfully, without sharing sensitive family information',
+    'Offer the family referrals to other providers if appropriate'],
+   draft:'tribute_discharge', locked:true}
+];
+
+/* ── When is it due ───────────────────────────────────────────────────────
+   "Every item is timed from the Start of Care (SOC) date or the final date of
+   service, so the Hub can flag anything overdue." Where the anchor is not
+   known yet, this returns no date and the row says what it is waiting for.
+   It never guesses a date, because a wrong due date is worse than none: it
+   turns the whole list red and teaches people to ignore it. */
+function _obMarket(c){
+  const st=(typeof PULSE_MKT_STATE!=='undefined'&&PULSE_MKT_STATE[String(c.market||'').trim()])||'';
+  return OB_MARKET_RULES[st]||OB_MARKET_RULES.MA;
+}
+function _obPlus(date,days){
+  if(!date)return null;
+  const d=new Date(String(date).slice(0,10)+'T12:00:00');
+  if(isNaN(d))return null;
+  d.setDate(d.getDate()+days);
+  return d.toISOString().slice(0,10);
+}
+function obDueFor(c,item){
+  const due=item.due||{}, soc=c.startDate||'';
+  const asmt=(get('s60')||[]).find(x=>x.clientId===c.id&&x.id==='ob_asmt');
+  const asmtDate=asmt?asmt.date:'';
+  if(due.market){
+    const m=_obMarket(c);
+    if(m.hrs&&soc)return {date:_obPlus(soc,Math.ceil(m.hrs/24)),note:m.note};
+    return {date:soc||null,note:m.note};
+  }
+  if(due.at==='assessment')return {date:asmtDate||soc||null,text:'At assessment'};
+  if(due.from==='assessment'&&due.hrs)
+    return {date:asmtDate?_obPlus(asmtDate,Math.ceil(due.hrs/24)):null,
+            text:asmtDate?'':'Within '+due.hrs+' hrs of the assessment'};
+  if(due.from==='soc'&&due.days!=null)
+    return {date:_obPlus(soc,due.days),
+            text:due.to?('Day '+due.days+'–'+due.to):('By day '+due.days)};
+  if(due.from==='leadClose')return {date:null,text:'Within '+due.hrs+' hrs of lead closure'};
+  if(due.before==='firstVisit')return {date:null,text:'Before the first visit'};
+  if(due.before==='serviceBegins')return {date:null,text:'Before service begins'};
+  if(due.order==='first')return {date:null,text:'First, before the Workflow or Tasks'};
+  if(due.perCaregiver)return {date:null,
+    text:due.perCaregiver==='week1'?'A week after each caregiver’s first visit'
+                                   :'Before each caregiver’s first visit'};
+  if(due.sameDay)return {date:null,text:'Same day'};
+  if(due.from==='finalVisit')return {date:null,text:'Within '+due.hrs+' hrs of the final visit'};
+  if(due.by==='finalVisit')return {date:null,text:'By the final visit'};
+  if(due.after)return {date:null,text:'After the final visit'};
+  return {date:null,text:''};
+}
+
+/* ── The onboarding checklist, to her layout rules ────────────────────────
+   "Every row has the same things: checkbox, task, owner (CSM, CSP, SP), the
+   real due date (11/18, not just 'Day 14'), and one button for the next
+   step." And: "Phases as sections. Finished phases collapse with a green
+   count (8 of 8). The phase in progress sits on top. Overdue rows turn red
+   and move to the top of their phase."
+
+   A LOCKED STEP STAYS LOCKED. "Steps that have to happen in order stay locked
+   until the step before is done. For example, the Viv Workflow can't be
+   checked until Located In and Payor are set." The checkbox is disabled and
+   the row says what it is waiting for, rather than letting someone tick it
+   and lose the ordering that made the rule worth having.
+
+   The due date is computed from this client's own dates and market, so
+   Maryland's 48 hour rule shows as a date and says which rule produced it. */
+/* One row per ticked item, keyed by item id, from the per-CSM s60_ob store.
+   Lost in a rewrite of the checklist data above and restored: the renderer
+   calls it, and onboarding-checklist.test.js caught the deletion before it
+   shipped, which is the whole reason that test lifts the handlers. */
 function _obMap(cid){
-  const out={};
-  for(const r of get('s60_ob')) if(r.clientId===cid) out[r.id]=r;
-  return out;
+  const m={};
+  (get('s60_ob')||[]).forEach(r=>{ if(r.clientId===cid)m[r.id]={by:r.by||'',at:r.at||''}; });
+  return m;
 }
 function renderObChecklist(cid){
   const el=document.getElementById('s60-ob'); if(!el)return;
   const done=_obMap(cid);
+  const cl=get('clients')||[], c=cl.find(x=>x.id===cid)||{};
+  const today=new Date().toISOString().slice(0,10);
   const total=OB_CHECKLIST.reduce((n,g)=>n+g.items.length,0);
   const ticked=OB_CHECKLIST.reduce((n,g)=>n+g.items.filter(i=>done[i.id]).length,0);
-  el.innerHTML=`<div style="font-size:12px;color:#8C857B;margin:-4px 0 10px;">${ticked} of ${total} done</div>`+
+
+  const rowOf=(i)=>{
+    const d=done[i.id];
+    const due=obDueFor(c,i);
+    const late=!d&&due.date&&due.date<today;
+    const blocked=!d&&i.needs&&!done[i.needs];
+    const whenTxt=due.date?('Due '+new Date(due.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}))
+                          :(due.text||'');
+    return {i,d,late,blocked,html:`<div class="ob-row${d?' done':''}${late?' late':''}${blocked?' blocked':''}">
+      <input type="checkbox" class="ob-cb" ${d?'checked':''} ${blocked?'disabled':''}
+        onchange="toggleObTask('${cid}','${i.id}')"
+        title="${blocked?'Waiting on the step above':'Tick when it is done'}">
+      <div class="ob-t">
+        <div class="ob-l">${i.isNew?'<span class="ob-new">New</span>':''}${escHtml(i.label)}</div>
+        ${i.hint?`<div class="ob-h">${escHtml(i.hint)}</div>`:''}
+        ${blocked?`<div class="ob-h ob-block">Waiting on: ${escHtml((OB_CHECKLIST.flatMap(g=>g.items).find(x=>x.id===i.needs)||{}).label||'the step above')}</div>`:''}
+        ${due.note?`<div class="ob-h ob-rule">${escHtml(due.note)}</div>`:''}
+      </div>
+      <span class="ob-own">${escHtml(i.owner||'')}</span>
+      <span class="ob-hub" title="${escHtml(OB_HUB_HELP[i.hub]||i.hub||'')}">${escHtml(i.hub||'')}</span>
+      <span class="ob-due">${escHtml(whenTxt)}</span>
+      <input type="text" class="ob-by" value="${escHtml((d&&d.by)||'')}" placeholder="initials" maxlength="6"
+        onchange="setObBy('${cid}','${i.id}',this.value)">
+      <span class="ob-at">${d&&d.at?new Date(d.at).toLocaleDateString('en-US',{month:'short',day:'numeric'}):''}</span>
+    </div>`};
+  };
+
+  el.innerHTML=`<div class="ob-sum">${ticked} of ${total} done</div>`+
     OB_CHECKLIST.map(g=>{
-      const gd=g.items.filter(i=>done[i.id]).length;
-      return `<div style="font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#8C857B;margin:14px 0 4px;">${escHtml(g.group)} <span style="color:#B7B0A6;font-weight:600;">${gd}/${g.items.length}</span></div>`+
-        g.items.map(i=>{
-          const d=done[i.id];
-          return `<div style="display:flex;align-items:flex-start;gap:9px;padding:8px 0;border-bottom:1px solid #F1EEE8;">
-            <input type="checkbox" style="width:14px;height:14px;margin-top:2px;accent-color:var(--navy);flex-shrink:0;cursor:pointer;" ${d?'checked':''} onchange="toggleObTask('${cid}','${i.id}')">
-            <div style="flex:1;min-width:0;">
-              <div style="font-size:13px;line-height:1.4;color:${d?'#8C857B':'#3D3833'};${d?'text-decoration:line-through;':''}">${escHtml(i.label)}</div>
-              ${i.hint?`<div style="font-size:11px;color:#8C857B;margin-top:2px;line-height:1.45;">${escHtml(i.hint)}</div>`:''}
-            </div>
-            <input type="text" value="${escHtml((d&&d.by)||'')}" placeholder="initials" maxlength="6"
-              onchange="setObBy('${cid}','${i.id}',this.value)"
-              style="width:62px;flex-shrink:0;font-size:11px;text-align:center;text-transform:uppercase;padding:3px 4px;border:1px solid #EAE6DF;border-radius:6px;background:#fff;">
-            <div style="font-size:11px;color:#0F8F6B;flex-shrink:0;white-space:nowrap;width:68px;text-align:right;">${d&&d.at?new Date(d.at).toLocaleDateString():''}</div>
-          </div>`;
-        }).join('');
+      const rows=g.items.map(rowOf);
+      // Overdue first inside the phase, her rule; everything else keeps the
+      // order the document puts it in, because that order is the procedure.
+      rows.sort((a,b)=>(b.late-a.late));
+      const gd=rows.filter(r=>r.d).length, fin=gd===rows.length;
+      return `<details class="ob-g${fin?' fin':''}" ${fin?'':'open'}>
+        <summary>${escHtml(g.g)}<span class="n${fin?' fin':''}">${gd} of ${rows.length}</span></summary>
+        ${rows.map(r=>r.html).join('')}</details>`;
     }).join('');
 }
+const OB_HUB_HELP={
+  'AUTO':'The Hub ticks this from Viv. You can still tick it by hand if the sync lags.',
+  'CHECK':'Tick it when it is done.',
+  'EMAIL':'Ticking opens a draft to edit and send yourself. Nothing sends on its own.',
+  'AUTO+ALERT':'The Hub ticks this from Viv. Past its due date the owner is told, and two days later their manager.',
+  'AUTO+CHECK':'The Hub ticks what it can see; confirm the rest.',
+  'CHECK+ALERT':'Tick it when it is done. Past its due date the owner is told.',
+  'CHECK+EMAIL':'Tick it when it is done, and a draft opens to send yourself.',
+  'EMAIL+AUTO':'A draft opens to send yourself; the Hub confirms the rest from Viv.',
+  'EMAIL+ALERT':'A draft opens to send yourself. Past its due date the owner is told.'
+};
 function toggleObTask(cid,id){
   const rows=get('s60_ob');
   const i=rows.findIndex(r=>r.clientId===cid&&r.id===id);
