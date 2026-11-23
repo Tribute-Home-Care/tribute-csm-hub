@@ -445,19 +445,34 @@
     return out;
   }
 
-  /* Asked once, when the roster is known, and never on a keystroke. A warming
-     cache is asked again on the next render rather than taken for an empty
-     answer. */
-  let _primed = false;
+  /* Asked when the roster is known, never on a keystroke, and asked again
+     while the answer is not in hand.
+
+     The first version asked once and gave up. Two things make one attempt
+     wrong: the cache can be warming, which is a "not yet" rather than a "no";
+     and this runs from the first list render, which on a cold load happens
+     before the app has published its proxy URL, so the very first attempt
+     fails for a reason that has nothing to do with contacts. Measured live,
+     that is exactly what happened: the state read `failed` while the same
+     request by hand returned 202 immediately afterwards.
+
+     Bounded in both directions. Not more than once every twenty seconds, so
+     typing in the search box cannot turn this into a request per keystroke,
+     and not more than a few times in all, so a genuinely broken endpoint is
+     not retried forever. */
+  let _primeAt = 0, _primeTries = 0;
+  const PRIME_GAP = 20000, PRIME_MAX = 6;
   function primeContacts() {
     if (!window.TributeClientData || !TributeClientData.primeContacts) return;
     const st = TributeClientData.contactsState ? TributeClientData.contactsState() : '';
-    if (_primed && st !== 'warming') return;
+    if (st === 'ready' || st === 'loading') return;
+    if (_primeTries >= PRIME_MAX) return;
+    if (Date.now() - _primeAt < PRIME_GAP) return;
     let cl = [];
     try { cl = A().fn.get('clients') || []; } catch (e) { return; }
     const ids = cl.map(function (c) { return c.vivId; }).filter(Boolean);
     if (!ids.length) return;
-    _primed = true;
+    _primeAt = Date.now(); _primeTries++;
     try {
       TributeClientData.primeContacts(ids).then(function () {
         // The list may be on screen with a search already typed in it.

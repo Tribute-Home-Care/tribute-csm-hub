@@ -140,7 +140,11 @@
     if (!want.length) return Promise.resolve(bulk);
     if (bulkState === 'loading' || bulkState === 'ready') return Promise.resolve(bulk);
     var base = proxy();
-    if (!base) { bulkState = 'failed'; return Promise.resolve(bulk); }
+    // NOT attempted is not FAILED. This runs from the first list render, which
+    // can happen before the app has published its proxy URL; calling that a
+    // failure made a startup race permanent for the session, because nothing
+    // retries a failure. Leaving it idle means the next render tries again.
+    if (!base) { bulkState = 'idle'; return Promise.resolve(bulk); }
     bulkState = 'loading';
     return (async function () {
       try {

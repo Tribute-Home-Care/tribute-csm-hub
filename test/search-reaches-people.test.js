@@ -58,12 +58,40 @@ const CLIENTJS = strip(fs.readFileSync(path.join(__dirname, '../v2/v2-client.js'
 ok('there is a bulk contacts read', /endpoint=csm_contacts&cids=/.test(CLIENTJS));
 ok('it is asked once, not on every keystroke',
    /if \(bulkState === 'loading' \|\| bulkState === 'ready'\) return Promise\.resolve\(bulk\);/.test(CLIENTJS) &&
-   /let _primed = false;/.test(CODE));
+   /let _primeAt = 0, _primeTries = 0;/.test(CODE));
 // A cache still warming is not an empty caseload. Rendering the second as the
 // first is how a search quietly lies about who it could not find.
 ok('a warming cache is asked again rather than taken for an empty answer',
    /if \(r\.status === 202\) \{ bulkState = 'warming'; return bulk; \}/.test(CLIENTJS) &&
-   /if \(_primed && st !== 'warming'\) return;/.test(CODE));
+   /if \(st === 'ready' \|\| st === 'loading'\) return;/.test(CODE));
+
+/* ── A STARTUP RACE IS NOT A BROKEN ENDPOINT ──────────────────────────────
+   Caught live, not by a test: the state read `failed` while the identical
+   request by hand returned 202 a second later. primeContacts runs from the
+   first list render, which on a cold load happens before the app publishes
+   its proxy URL. The first version called that a failure and asked once, so
+   one lost race meant no contacts for the whole session. */
+ok('no proxy yet is idle, not failed',
+   /if \(!base\) \{ bulkState = 'idle'; return Promise\.resolve\(bulk\); \}/.test(CLIENTJS));
+ok('...and an answer that is not in hand is asked for again',
+   /if \(_primeTries >= PRIME_MAX\) return;/.test(CODE));
+// Bounded both ways: the list re-renders on every keystroke in the search
+// box, so without a gap this would be a request per letter.
+ok('retries cannot become a request per keystroke',
+   /if \(Date\.now\(\) - _primeAt < PRIME_GAP\) return;/.test(CODE) &&
+   /const PRIME_GAP = 20000, PRIME_MAX = 6;/.test(CODE));
+ok('...and a genuinely dead endpoint is not retried forever',
+   /_primeAt = Date\.now\(\); _primeTries\+\+;/.test(CODE));
+// Behavioural: the gate, over the states it will actually see.
+const gate = (st, tries, since) =>
+  !(st === 'ready' || st === 'loading') && tries < 6 && since >= 20000;
+ok('a warming cache is retried', gate('warming', 1, 30000));
+ok('a failed attempt is retried', gate('failed', 1, 30000));
+ok('an untried state is tried', gate('idle', 0, 30000));
+ok('a ready cache is left alone', !gate('ready', 1, 30000));
+ok('a request in flight is not duplicated', !gate('loading', 1, 30000));
+ok('a keystroke two seconds later does not fire again', !gate('warming', 1, 2000));
+ok('the sixth failure is the last', !gate('failed', 6, 30000));
 ok('the ids are checked before they go in a URL',
    /\/\^\[a-f0-9\]\{24\}\$\/i\.test\(String\(c \|\| ''\)\)/.test(CLIENTJS));
 ok('the read carries names, relationships and phones, and nothing else',
