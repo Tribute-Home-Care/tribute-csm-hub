@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub · V2 Preview</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="../entra-auth.js?v=2026-11-23T09:59"></script>
+<script src="../entra-auth.js?v=2026-11-23T11:33"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -271,7 +271,7 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
     <div class="nav-item" onclick="showPage('clients',this)"><span class="nav-icon">👥</span>Client Tracker</div>
     <div class="nav-item" onclick="showPage('s60',this)"><span class="nav-icon">🎯</span>Onboarding</div>
     <div class="nav-item" onclick="showPage('coverage',this)"><span class="nav-icon">🏖️</span>Coverage Notes</div>
-    <div class="nav-item" onclick="showPage('emailcomm',this)"><span class="nav-icon">✉️</span>Email Community</div>
+    <div class="nav-item" onclick="showPage('emailcomm',this)"><span class="nav-icon">🏘️</span>Communities</div>
     <div class="nav-item" onclick="showPage('ltc',this)"><span class="nav-icon">🧾</span>LTC Submissions</div>
     <div class="nav-item" id="nav-md" style="display:none;" onclick="showPage('md',this)"><span class="nav-icon">🩺</span>Maryland Compliance</div>
     <div class="nav-item" onclick="showPage('priority',this)"><span class="nav-icon">🚨</span>Fill Priority</div>
@@ -684,11 +684,37 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
 <!-- COVERAGE -->
 <div id="page-coverage" class="page">
   <div class="ph"><h2>Coverage Notes</h2><p>Notes are shared across all CSMs — anyone covering can see what they need.</p></div>
+  <!-- GOING OUT? AT THE TOP, NOT A TAB (Courtney, 17 Nov): "Put Handoffs at
+       the top as a 'Going out?' bar (covering CSM, dates, Hand off). Tabs
+       become: My clients, Clients I'm covering, Team notes."
+       A handoff is something you do once before you leave, not a place you
+       visit, so it stopped being a destination. The client picker stays,
+       folded: most handoffs are the whole caseload, and the few that are not
+       still have to choose. -->
+  <div class="card cov-going">
+    <div class="cov-going-row">
+      <div class="cov-going-lede"><b>Going out?</b>
+        <span>Pick who is covering and when. They see a coverage profile for every client — contacts, community numbers, Pulse and your notes.</span></div>
+      <div class="fg" style="margin:0;min-width:150px;"><label class="fl">Covering CSM</label><select class="fc" id="ho-csm"></select></div>
+      <div class="fg" style="margin:0;min-width:135px;"><label class="fl">Through (optional)</label><input type="date" class="fc" id="ho-to"></div>
+      <div class="fg" style="margin:0;flex:1;min-width:190px;"><label class="fl">Note for the covering CSM</label><input type="text" class="fc" id="ho-note" placeholder="e.g. Out Mon–Wed; call me only for emergencies"></div>
+      <div style="display:flex;gap:8px;align-items:flex-end;">
+        <button class="btn btn-p" onclick="startHandoff()">Hand off</button>
+        <button class="btn btn-o" onclick="endHandoff()">End mine</button>
+      </div>
+    </div>
+    <details class="cov-going-which">
+      <summary>Choose which clients <span>(all of them unless you say otherwise)</span></summary>
+      <label style="font-size:12px;color:#57524A;display:flex;gap:6px;align-items:center;cursor:pointer;margin:8px 0;"><input type="checkbox" id="ho-all" checked onchange="renderHandoffPicker()"> All my clients</label>
+      <div id="ho-picker" style="max-height:220px;overflow-y:auto;"></div>
+    </details>
+    <div id="ho-status" style="font-size:12px;color:#8C857B;margin-top:8px;"></div>
+  </div>
+
   <div class="tabs">
-    <div class="tab active" onclick="setCovTab('mine',this)">📝 My Clients</div>
-    <div class="tab" onclick="setCovTab('team',this)">👥 Team Coverage</div>
-    <div class="tab" onclick="setCovTab('handoff',this)">🔁 Handoffs</div>
-    <div class="tab" onclick="setCovTab('communities',this)">🏘️ Communities</div>
+    <div class="tab active" onclick="setCovTab('mine',this)">📝 My clients</div>
+    <div class="tab" onclick="setCovTab('covering',this)">🤝 Clients I'm covering</div>
+    <div class="tab" onclick="setCovTab('team',this)">👥 Team notes</div>
   </div>
 
   <!-- My clients tab -->
@@ -738,61 +764,27 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
     </div>
   </div>
 
-  <!-- Handoffs tab -->
-  <div id="cov-tab-handoff" class="tc">
-    <div class="g2">
-      <div class="card">
-        <div class="ct">Hand off my clients</div>
-        <p style="font-size:12px;color:#8C857B;margin-bottom:10px;">Going out? Pick who's covering and when. They'll see a coverage profile for each client — contacts, community numbers, pulse, your notes.</p>
-        <div class="g2">
-          <div class="fg"><label class="fl">Covering CSM</label><select class="fc" id="ho-csm"></select></div>
-          <div class="fg"><label class="fl">Through (optional)</label><input type="date" class="fc" id="ho-to"></div>
-        </div>
-        <div class="fg"><label class="fl">Note for the covering CSM</label><input type="text" class="fc" id="ho-note" placeholder="e.g. Out Mon–Wed; call me only for emergencies"></div>
-        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
-          <label style="font-size:12px;color:#57524A;display:flex;gap:6px;align-items:center;cursor:pointer;"><input type="checkbox" id="ho-all" checked onchange="renderHandoffPicker()"> All my clients</label>
-        </div>
-        <div id="ho-picker" style="max-height:220px;overflow-y:auto;margin-bottom:10px;"></div>
-        <div style="display:flex;gap:8px;">
-          <button class="btn btn-p" style="flex:1;" onclick="startHandoff()">Hand off</button>
-          <button class="btn btn-o" onclick="endHandoff()">End my active handoffs</button>
-        </div>
-        <div id="ho-status" style="font-size:12px;color:#8C857B;margin-top:10px;"></div>
-      </div>
-      <div class="card">
-        <div class="ct">Clients I'm covering</div>
-        <p style="font-size:12px;color:#8C857B;margin-bottom:10px;">Everything you need while you're the point person.</p>
-        <div id="ho-covering"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Communities tab -->
-  <div id="cov-tab-communities" class="tc">
-    <div class="card" style="margin-bottom:12px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px;">
-        <div class="ct" style="margin:0;">🏘️ Community Tracker</div>
-        <div style="display:flex;gap:6px;align-items:center;">
-          <label style="font-size:11.5px;color:#8C857B;"><input type="checkbox" id="cm-tr-mine" onchange="renderCommunityTracker()" style="accent-color:#FF5A1F;"> Only mine</label>
-          <button class="btn btn-sm btn-o" onclick="renderCommunityTracker(true)">↻ Refresh</button>
-        </div>
-      </div>
-      <p style="font-size:11.5px;color:#8C857B;margin-bottom:10px;">Who is there, when a Tribute CSM was last on site, when we last wrote to them, and whether we are keeping to the cadence we committed to. Shared with the whole team.</p>
-      <div id="cm-tracker" style="overflow-x:auto;"></div>
-    </div>
-    <div class="g2" style="grid-template-columns:320px 1fr;">
-      <div class="card">
-        <div class="ct">Communities</div>
-        <p style="font-size:12px;color:#8C857B;margin-bottom:8px;">Every community your clients live in — pick one to see who to call per level of care. Shared across all CSMs.</p>
-        <input class="si" type="text" id="cm-dir-search" placeholder="Search community..." oninput="renderCommunityList()" style="width:100%;margin-bottom:8px;">
-        <div id="cm-dir-list" style="max-height:520px;overflow-y:auto;"></div>
-      </div>
-      <div class="card" id="cm-dir-detail"><div class="es"><div class="ei">🏘️</div><p>Select a community.</p></div></div>
+  <div id="cov-tab-covering" class="tc">
+    <div class="card">
+      <div class="ct">Clients I'm covering</div>
+      <p style="font-size:12px;color:#8C857B;margin-bottom:10px;">Everything you need while you're the point person.</p>
+      <div id="ho-covering"></div>
     </div>
   </div>
 </div>
 
 <style>
+/* "Going out?" sits above the tabs: one row on a desktop, stacked on a phone.
+   It is a bar, not a card to work in, so the fields are small and the lede
+   carries the explanation that used to be a whole panel. */
+.cov-going{margin-bottom:12px;padding:12px 14px;}
+.cov-going-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;}
+.cov-going-lede{flex:1 1 230px;min-width:200px;font-size:12px;color:#8C857B;line-height:1.45;}
+.cov-going-lede b{display:block;font-size:13.5px;color:#1C1A17;margin-bottom:2px;}
+.cov-going-which{margin-top:8px;}
+.cov-going-which>summary{font-size:12px;color:#57524A;cursor:pointer;}
+.cov-going-which>summary span{color:#8C857B;}
+@media (max-width:760px){ .cov-going-row{align-items:stretch;} .cov-going-row .fg{min-width:0!important;} }
 @media (max-width:1180px){ #ltc-grid{grid-template-columns:minmax(0,1fr)!important;} }
 #ltc-rows table{min-width:560px;}
 </style>
@@ -862,8 +854,27 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
 </div>
 
 <!-- FILL PRIORITY -->
+<!-- ONE COMMUNITIES PAGE (Courtney, 17 Nov, sections 5 and 9): "Communities
+     moves to its own page", "one Communities page under Operations, instead of
+     Community Email plus a Communities tab on Coverage. List on the left, Mine
+     by default. On the right: the community's contacts by level of care, last
+     CSM on site, last email, and the Friday email ready to send."
+     The two halves were the same communities seen twice: Coverage held the
+     tracker and the contacts, this page held the Friday draft, and picking a
+     community in one told the other nothing. One list now drives both. -->
 <div id="page-emailcomm" class="page">
-  <div class="ph"><h2>✉️ Email Community</h2><p>Click a community and the Friday email is already written — next week's schedule (Sunday–Saturday) for every Tribute client there and a short note on how each is doing. Edit anything, then send it from your own Outlook.</p></div>
+  <div class="ph"><h2>🏘️ Communities</h2><p>Every community your clients live in: who to call for each level of care, when a Tribute CSM was last on site, and the Friday email already written for next week. Edit anything, then send it from your own Outlook.</p></div>
+
+  <details class="card" id="cm-tracker-wrap" style="margin-bottom:12px;" ontoggle="if(this.open)renderCommunityTracker()">
+    <summary style="cursor:pointer;font-size:13px;font-weight:600;color:#1C1A17;">All communities — last on site, last email, committed cadence</summary>
+    <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin:10px 0 4px;">
+      <label style="font-size:11.5px;color:#8C857B;"><input type="checkbox" id="cm-tr-mine" onchange="renderCommunityTracker()" style="accent-color:#FF5A1F;"> Only mine</label>
+      <button class="btn btn-sm btn-o" onclick="renderCommunityTracker(true)">↻ Refresh</button>
+    </div>
+    <p style="font-size:11.5px;color:#8C857B;margin-bottom:10px;">Who is there, when a Tribute CSM was last on site, when we last wrote to them, and whether we are keeping to the cadence we committed to. Shared with the whole team.</p>
+    <div id="cm-tracker" style="overflow-x:auto;"></div>
+  </details>
+
   <div class="g2" style="grid-template-columns:300px 1fr;gap:14px;align-items:start;">
     <div class="card">
       <div class="ct" style="margin-bottom:8px;">Communities</div>
@@ -875,7 +886,13 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
       <div id="ec-list" style="max-height:720px;overflow:auto;"></div>
       <div id="ec-status" style="font-size:11px;color:#8C857B;margin-top:8px;"></div>
     </div>
-    <div id="ec-detail"><div class="card"><p style="font-size:12.5px;color:#8C857B;">Pick a community on the left — the draft loads automatically.</p></div></div>
+    <div>
+      <div id="ec-detail"><div class="card"><p style="font-size:12.5px;color:#8C857B;">Pick a community on the left — the draft loads automatically.</p></div></div>
+      <details class="card" id="cm-dir-wrap" style="margin-top:12px;display:none;">
+        <summary style="cursor:pointer;font-size:13px;font-weight:600;color:#1C1A17;">Who to call — contacts by level of care, cadence and notes</summary>
+        <div id="cm-dir-detail" style="margin-top:12px;"></div>
+      </details>
+    </div>
   </div>
 </div>
 
@@ -1923,7 +1940,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-11-23T09:59';
+const HUB_BUILD='2026-11-23T11:34';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -2251,7 +2268,7 @@ function showPage(p,el){
   document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
   document.getElementById('page-'+p).classList.add('active');
   if(el)el.classList.add('active');
-  ({home:updateHome,clients:renderClientMaster,pulse:renderPulse,emailcomm:renderEmailComm,priority:renderFillPriority,ltc:renderLtc,md:renderMd,comms:()=>{syncTPClients();syncCIClients();renderDueNow();renderTPRecent();renderTouchpointHistory();},s60:()=>{syncS60();renderS60();renderS60Emails(null);},coverage:()=>{syncCov();renderCovSummary();renderTeamCoverage();},assistant:()=>{renderTemplates();renderScenarios();renderDecision();},expectations:()=>{renderExpectations();renderKsfLive('ksf-live-exp');},kpi:()=>{renderKPIHistory();renderKsfLive('ksf-live-kpi');},team:()=>{if(_teamView==='visits')renderTeamVisits();else renderTeamOverview();}}[p]||(_=>{}))();
+  ({home:updateHome,clients:renderClientMaster,pulse:renderPulse,emailcomm:renderEmailComm,priority:renderFillPriority,ltc:renderLtc,md:renderMd,comms:()=>{syncTPClients();syncCIClients();renderDueNow();renderTPRecent();renderTouchpointHistory();},s60:()=>{syncS60();renderS60();renderS60Emails(null);},coverage:()=>{syncCov();renderCovSummary();renderTeamCoverage();renderHandoffPicker();},assistant:()=>{renderTemplates();renderScenarios();renderDecision();},expectations:()=>{renderExpectations();renderKsfLive('ksf-live-exp');},kpi:()=>{renderKPIHistory();renderKsfLive('ksf-live-kpi');},team:()=>{if(_teamView==='visits')renderTeamVisits();else renderTeamOverview();}}[p]||(_=>{}))();
 }
 function aTab(t,el){['kb','emails','scenarios','decision'].forEach(x=>{document.getElementById('asst-'+x).classList.remove('active');});document.querySelectorAll('#page-assistant .tab').forEach(x=>x.classList.remove('active'));document.getElementById('asst-'+t).classList.add('active');el.classList.add('active');if(t==='emails')renderTemplates();if(t==='scenarios')renderScenarios();if(t==='decision')renderDecision();_updateAsstAdminBars();}
 function _updateAsstAdminBars(){
@@ -6151,14 +6168,23 @@ function renderTeamCoverage(){
 
 function syncDropdowns(){syncVC();syncCov();syncTC();syncS60();}
 
+const COV_TABS=['mine','covering','team'];
 function setCovTab(tab,el){
-  ['mine','team','handoff','communities'].forEach(t=>document.getElementById('cov-tab-'+t).classList.remove('active'));
+  // 'handoff' and 'communities' were tabs here until 17 Nov. Handing off moved
+  // to the bar at the top and Communities became its own page, so the old
+  // names are forwarded rather than left to throw on a node that is gone.
+  if(tab==='handoff')tab='covering';
+  if(tab==='communities'){ showPage('emailcomm',document.querySelector('.nav-item[onclick*=emailcomm]')); return; }
+  if(COV_TABS.indexOf(tab)<0)tab='mine';
+  COV_TABS.forEach(t=>document.getElementById('cov-tab-'+t).classList.remove('active'));
   document.querySelectorAll('#page-coverage .tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('cov-tab-'+tab).classList.add('active');
-  el.classList.add('active');
+  // A forwarded call can arrive with the element the CALLER clicked, which is
+  // not one of these tabs. Light the tab that matches the destination instead.
+  const want=document.querySelector('#page-coverage .tab[onclick*="\''+tab+'\'"]');
+  (want||el||{classList:{add(){}}}).classList.add('active');
   if(tab==='team') renderTeamCoverage();
-  if(tab==='handoff') renderHandoffs();
-  if(tab==='communities'){ renderCommunityList(); renderCommunityTracker(); }
+  if(tab==='covering') renderHandoffs();
 }
 
 function renderCoveringBanner(){
@@ -6169,7 +6195,7 @@ function renderCoveringBanner(){
   const owners=[...new Set(rows.map(r=>r.owner.name.split(' ')[0]))];
   el.innerHTML=`<div class="card" style="margin-bottom:14px;border-left:4px solid #92580B;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
     <div style="font-size:13px;"><b>🔁 You're covering ${rows.length} client${rows.length>1?'s':''}</b> for ${escHtml(owners.join(', '))}.</div>
-    <button class="btn btn-sm btn-p" onclick="showPage('coverage',document.querySelector('.nav-item[onclick*=coverage]'));setCovTab('handoff',document.querySelector('#page-coverage .tab:nth-child(3)'))">Open coverage profiles →</button></div>`;
+    <button class="btn btn-sm btn-p" onclick="showPage('coverage',document.querySelector('.nav-item[onclick*=coverage]'));setCovTab('covering')">Open coverage profiles →</button></div>`;
 }
 
 // ═══════════════════════ HANDOFFS (coverage) ═══════════════════════
@@ -6371,18 +6397,13 @@ async function renderCommunityTracker(refresh){
       <th></th></tr></thead><tbody>${rows}</tbody></table>
     <p style="font-size:11px;color:#8C857B;margin-top:8px;">Rows shade when a committed cadence has slipped. <b>On site</b> = the most recent CSM home visit (Viv or logged here) or meeting logged in HubSpot, whichever is later. <b>HubSpot (sales)</b> shows the latest logged activity by anyone — Sales included. Calls and emails do not count as being on site.</p>`;
 }
-function renderCommunityList(){
-  const el=document.getElementById('cm-dir-list');if(!el)return;
-  const idx=_communityIndex();const dirs=(DATA.shared&&DATA.shared.communities)||{};
-  Object.keys(dirs).forEach(k=>{if(!idx[k])idx[k]={clients:0,csms:new Set(),city:''};});
-  const q=(document.getElementById('cm-dir-search')?.value||'').toLowerCase();
-  const names=Object.keys(idx).filter(n=>!q||n.toLowerCase().includes(q)).sort((a,b)=>idx[b].clients-idx[a].clients||a.localeCompare(b));
-  if(!names.length){el.innerHTML='<p style="font-size:12px;color:#8C857B;">No communities found.</p>';return;}
-  el.innerHTML=names.map(n=>{const d=dirs[n];const has=d&&((d.levels&&d.levels.length)||d.mainContact);return `<div onclick="selectCommunity('${escHtml(n).replace(/'/g,"\\'")}')" style="padding:8px 6px;border-bottom:1px solid var(--line-soft);cursor:pointer;${_cmDirSel===n?'background:#F1EEE8;border-radius:6px;':''}">
-    <div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:13px;font-weight:500;">${escHtml(n)}</span><span style="font-size:10px;font-weight:700;color:${has?'#0F6E56':'#92580B'};">${has?'✓ contacts':'needs info'}</span></div>
-    <div style="font-size:11px;color:#8C857B;">${idx[n].clients} client${idx[n].clients!==1?'s':''}${idx[n].csms.size?' · '+[...idx[n].csms].join(', '):''}${idx[n].city?' · '+escHtml(idx[n].city):''}</div></div>`;}).join('');
+// Kept as the public name: the tracker rows, the client page's Community
+// button and the V2 search all call it. It now opens the one Communities page.
+function selectCommunity(name){
+  const nv=document.querySelector('.nav-item[onclick*=emailcomm]');
+  if(nv&&!document.getElementById('page-emailcomm').classList.contains('active'))showPage('emailcomm',nv);
+  selectEmailComm(name);
 }
-function selectCommunity(name){_cmDirSel=name;renderCommunityList();renderCommunityDetail();}
 function renderCommunityDetail(){
   const el=document.getElementById('cm-dir-detail');if(!el||!_cmDirSel)return;
   const d=((DATA.shared&&DATA.shared.communities)||{})[_cmDirSel]||{levels:[]};
@@ -6428,7 +6449,7 @@ function saveCommunity(){
     weeklyMeeting:!!document.getElementById('cmd-cad-weeklyMeeting')?.checked,
     visitList:(document.getElementById('cmd-cad-visitList')?.value||'').trim()};
   DATA.shared.communities[_cmDirSel]={email:_prevEmail,cadence:_cad,mainContact:document.getElementById('cmd-main').value.trim(),mainPhone:document.getElementById('cmd-phone').value.trim(),levels,notes:document.getElementById('cmd-notes').value.trim(),updatedAt:new Date().toISOString(),updatedBy:P?P.name:''};
-  queueSave();renderCommunityList();renderCommunityDetail();showToast('Community directory saved — shared with the whole team.');
+  queueSave();renderEmailCommList();renderCommunityDetail();showToast('Community directory saved — shared with the whole team.');
 }
 
 // ═══════════════════════ EMAIL COMMUNITY ═══════════════════════
@@ -6443,7 +6464,12 @@ const _csmEmail=id=>CSM_UPN[id]?CSM_UPN[id]+'@tributehomecare.com':'';
 // Everyone sees every community in their MARKET (so a covering CSM can send
 // while someone is out) with a Mine / All toggle — Courtney, 9/3. Ownership is
 // still visible per row; it just no longer hides the rest of the market.
-let _ecOwnerFilter='all';   // Courtney's ask: everyone sees the market, filter to narrow
+// 'all' from 9/3 ("everyone sees the market, filter to narrow"), then 'mine'
+// from 17 Nov ("List on the left, Mine by default"). Both hold: the All button
+// is still there, this only decides which one you land on. A CSM who owns no
+// community would land on an empty list, so that case falls back and says so.
+let _ecOwnerFilter='mine';
+let _ecFellBack=false;
 function _ecMyCommunityNames(){
   const mine=new Set();
   if(P)get('clients',P.id).forEach(c=>{const k=(c.loc||'').trim();if(k)mine.add(k);});
@@ -6473,7 +6499,10 @@ let _ecAcct=null;
 function _ecMe(){return _ecAcct||{};}
 async function renderEmailComm(){
   if(!_ecAcct&&window.tributeKsfGate&&window.tributeKsfGate.getAccount){try{_ecAcct=await window.tributeKsfGate.getAccount();}catch(e){}}
-  renderEmailCommList();if(_ecSel)renderEmailCommDetail();
+  renderEmailCommList();
+  if(_ecSel){renderEmailCommDetail();renderCommunityDetail();}
+  // Nothing picked, nothing to show contacts for.
+  const dw=document.getElementById('cm-dir-wrap');if(dw)dw.style.display=_ecSel?'':'none';
   const dirs=(DATA.shared&&DATA.shared.communities)||{};const on=Object.values(dirs).filter(d=>d.email&&d.email.enabled&&(d.email.to||[]).length).length;
   const st=document.getElementById('ec-status');if(st)st.textContent=on?on+' communit'+(on===1?'y':'ies')+' in the automatic Friday run':'No communities in the automatic Friday run yet';
 }
@@ -6486,12 +6515,31 @@ function renderEmailCommList(){
   const dirs=(DATA.shared&&DATA.shared.communities)||{};
   const q=(document.getElementById('ec-search')?.value||'').toLowerCase();
   const rows=_ecScopeNames().filter(r=>!q||r.name.toLowerCase().includes(q)).sort((a,b)=>{const ea=!!(dirs[a.name]?.email?.enabled),eb=!!(dirs[b.name]?.email?.enabled);return (eb-ea)||b.clients-a.clients||a.name.localeCompare(b.name);});
+  if(!rows.length&&_ecOwnerFilter==='mine'&&!_ecFellBack){
+    // The note goes in the list, not in ec-status: renderEmailComm() rewrites
+    // ec-status straight after this returns, so a note left there vanishes.
+    _ecFellBack=true;_ecOwnerFilter='all';renderEmailCommList();
+    el.insertAdjacentHTML('afterbegin','<p style="font-size:11.5px;color:#92580B;margin:0 0 6px;">None of these are yours yet — showing your whole market.</p>');
+    return;
+  }
   if(!rows.length){el.innerHTML='<p style="font-size:12px;color:#8C857B;">No communities with your clients yet.</p>';return;}
-  el.innerHTML=rows.map(r=>{const e=(dirs[r.name]||{}).email||{};const on=e.enabled&&(e.to||[]).length;return `<div onclick="selectEmailComm('${escHtml(r.name).replace(/'/g,"\\'")}')" style="padding:8px 6px;border-bottom:1px solid var(--line-soft);cursor:pointer;${_ecSel===r.name?'background:#FFF3EC;border-radius:8px;':''}">
+  // "needs info" came from the directory list that this one replaced. Courtney
+  // asked for community contacts to be filled in once, so which ones are still
+  // empty has to be visible from the list she now works out of.
+  el.innerHTML=rows.map(r=>{const d=dirs[r.name]||{};const e=d.email||{};const on=e.enabled&&(e.to||[]).length;
+    const hasContacts=!!((d.levels&&d.levels.length)||d.mainContact);
+    return `<div onclick="selectEmailComm('${escHtml(r.name).replace(/'/g,"\\'")}')" style="padding:8px 6px;border-bottom:1px solid var(--line-soft);cursor:pointer;${_ecSel===r.name?'background:#FFF3EC;border-radius:8px;':''}">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;"><span style="font-size:13px;font-weight:500;">${escHtml(r.name)}</span><span style="font-size:10px;font-weight:700;color:${on?'#0F6E56':'#8C857B'};white-space:nowrap;">${on?'● auto Friday':(e.tier?escHtml(e.tier):'')}</span></div>
-    <div style="font-size:11px;color:#8C857B;">${r.clients} client${r.clients!==1?'s':''}${r.csms.size?' · '+[...r.csms].join(', '):''}${r.mine?'':' · covering'}</div></div>`;}).join('');
+    <div style="font-size:11px;color:#8C857B;">${r.clients} client${r.clients!==1?'s':''}${r.csms.size?' · '+[...r.csms].join(', '):''}${r.mine?'':' · covering'}${hasContacts?'':' · <b style="color:#92580B;">needs contacts</b>'}</div></div>`;}).join('');
 }
-function selectEmailComm(n){_ecSel=n;_ecDraft=null;renderEmailCommList();renderEmailCommDetail();ecLoadDraft(false);}
+function selectEmailComm(n){
+  _ecSel=n;_ecDraft=null;_cmDirSel=n;
+  renderEmailCommList();renderEmailCommDetail();ecLoadDraft(false);
+  // The directory used to be a different list on a different page, so picking
+  // a community in one told the other nothing. One pick now fills both.
+  const w=document.getElementById('cm-dir-wrap');if(w)w.style.display='';
+  renderCommunityDetail();
+}
 function _ecSettingsHtml(){
   const d=((DATA.shared&&DATA.shared.communities)||{})[_ecSel]||{};const e=d.email||{};
   const clientsHere=[];PROFILES.forEach(p=>get('clients',p.id).forEach(c=>{if((c.loc||'').trim()===_ecSel)clientsHere.push({name:c.name,vivId:c.vivId||'',csm:p});}));
@@ -9058,13 +9106,13 @@ try{ const cur=document.querySelector('.page.active'); TributeUsage.start({ app:
 <script src="./brand.js?v=e644f4fe"></script>
 <script src="./icons.js?v=b1158bce"></script>
 <script src="./bridge.js?v=a1526feb"></script>
-<script src="./redesign.js?v=551e4521"></script>
+<script src="./redesign.js?v=5fd419e1"></script>
 <script src="./workflows.js?v=4e454e33"></script>
 <script src="./router.js?v=4cec1446"></script>
 <script src="./v2-policy.js?v=cc28be25"></script>
 <script src="./v2-chrome.js?v=95dc3458"></script>
 <script src="./v2-feedback.js?v=21363902"></script>
-<script src="./guide-content.js?v=0a9a17cc"></script>
+<script src="./guide-content.js?v=0b54fff9"></script>
 <script src="./guide-views.js?v=53a150d5"></script>
 <script src="./v2-guide.js?v=1eb03f56"></script>
 <script src="./v2-help.js?v=919875d4"></script>

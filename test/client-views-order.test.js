@@ -9,13 +9,18 @@
 // "Success in 30" rather than "Onboarding" is deliberate and comes from her
 // other ticket: the PAGE became Onboarding, and she asked to keep the Success
 // in 30 plan at the client level, which is what this view is.
+//
+// FOUR VIEWS, NOT FIVE, SINCE 17 NOVEMBER. She asked for "coverage updates" on
+// 3 Nov and asked for it back out two weeks later, with the reason: "Coverage
+// updates duplicates the Coverage page. One home for coverage." This test used
+// to assert the fifth tab; it now asserts its removal, and that nothing went
+// with it. Both are her instruction, a fortnight apart.
 const fs = require('fs'), path = require('path');
 let pass = 0, fail = 0;
 const ok = (n, c) => { if (c) { pass++; console.log('  PASS  ' + n); } else { fail++; console.log('  FAIL  ' + n); } };
 
 const WANT = [['all', 'All clients'], ['attention', 'Needs attention'],
-              ['onboarding', 'Success in 30'], ['soon', 'Due soon'],
-              ['coverage', 'Coverage updates']];
+              ['onboarding', 'Success in 30'], ['soon', 'Due soon']];
 
 // v2/redesign.js is GENERATED from the prototype by build-v2.py. Assert both,
 // or an edit to the generated copy alone is reverted by the next build with
@@ -32,7 +37,16 @@ for (const [label, p] of FILES) {
   ok(label + ': the view list is readable', !!m);
   if (!m) continue;
   const got = [...m[1].matchAll(/\['([a-z0-9]+)',\s*'([^']+)'\]/g)].map(x => [x[1], x[2]]);
-  ok(label + ': five views, in her order', JSON.stringify(got) === JSON.stringify(WANT));
+  ok(label + ': four views, in her order', JSON.stringify(got) === JSON.stringify(WANT));
+  // Removing a tab must not leave its filter, its count or its empty state
+  // behind: an unreachable branch is how a view comes back by accident.
+  ok(label + ': the coverage view is gone root and branch',
+     !/_view === 'coverage'/.test(SRC) && !/coverage: all\.filter/.test(SRC) &&
+     !/No coverage notes/.test(SRC));
+  ok(label + ': coverage is still a destination in the rail',
+     /\['coverage', 'Coverage'\]/.test(SRC));
+  ok(label + ': ...and Communities is its own, under Operations',
+     /\['emailcomm', 'Communities'\]/.test(SRC));
   // The filters are keyed on the view id, so a rename must not touch them.
   for (const [id] of WANT.filter(v => v[0] !== 'all')) {
     ok(label + ': the "' + id + '" filter still exists',

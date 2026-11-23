@@ -29,7 +29,7 @@
   const NAV_ICON = {
     home: 'home', priority: 'fill', clients: 'client', pulse: 'pulse',
     s60: 'onboarding', ltc: 'ltc', md: 'compliance', coverage: 'coverage',
-    emailcomm: 'communication', assistant: 'sparkle', expectations: 'flag',
+    emailcomm: 'community', assistant: 'sparkle', expectations: 'flag',
     kpi: 'chart', team: 'team', comms: 'conversation'
   };
 
@@ -75,7 +75,7 @@
     ['Work', [['home', 'Home'], ['clients', 'Clients'], ['coverage', 'Coverage'],
               ['s60', 'Onboarding'], ['priority', 'Fill Priority'], ['pulse', 'Client Pulse']]],
     ['Operations', [['md', 'Maryland Compliance'], ['ltc', 'LTC'],
-                    ['emailcomm', 'Community Email'], ['team', 'Team'],
+                    ['emailcomm', 'Communities'], ['team', 'Team'],
                     ['__metrics', 'Daily Metrics'], ['__sereview', 'Exception Review']]],
     ['Tools', [['assistant', 'Assistant'], ['kpi', 'KPI Tracker'],
                ['expectations', 'Role Expectations'],
@@ -391,12 +391,17 @@
      The landing view stays Needs attention. She asked where the tabs sit,
      not which one opens, and opening on what needs action is the more useful
      default. Easy to flip if she wants the first tab to lead. */
+  /* COVERAGE UPDATES IS GONE (Courtney, 17 Nov). She asked for it on 3 Nov
+     and asked for it back out two weeks later, with the reason: "Coverage
+     updates duplicates the Coverage page. One home for coverage." That is the
+     same rule as the rest of her review, applied to a tab she had asked for,
+     so it goes. Coverage readiness lives on the Coverage page, which now also
+     holds handing off, and the client's own coverage note is on Summary. */
   const VIEWS = [
     ['all', 'All clients'],
     ['attention', 'Needs attention'],
     ['onboarding', 'Success in 30'],
-    ['soon', 'Due soon'],
-    ['coverage', 'Coverage updates']
+    ['soon', 'Due soon']
   ];
   let _view = 'attention';
   /* Urgency is the default sort and stays it; a column the reader picked beats
@@ -503,7 +508,6 @@
     if (_view === 'attention') list = list.filter(function (r) { return r.ex && r.ex.tone === 'bad'; });
     else if (_view === 'soon') list = list.filter(function (r) { return r.ex && r.ex.tone === 'warn'; });
     else if (_view === 'onboarding') list = list.filter(function (r) { return r.c.startDate && (daysSince(r.c.startDate) || 999) <= 30; });
-    else if (_view === 'coverage') list = list.filter(function (r) { return !!r.c.vacation; });
 
     /* SORTING. Urgency first is the right default and stays the default, but
        she asked to be able to sort by next visit due, start date and A to Z
@@ -620,8 +624,7 @@
       all: all.length,
       attention: all.filter(function (c) { const e = exceptionFor(c); return e && e.tone === 'bad'; }).length,
       soon: all.filter(function (c) { const e = exceptionFor(c); return e && e.tone === 'warn'; }).length,
-      onboarding: all.filter(function (c) { return c.startDate && (daysSince(c.startDate) || 999) <= 30; }).length,
-      coverage: all.filter(function (c) { return !!c.vacation; }).length
+      onboarding: all.filter(function (c) { return c.startDate && (daysSince(c.startDate) || 999) <= 30; }).length
     };
     const rows = trackerRows();
 
@@ -1919,8 +1922,9 @@
           'scribe-open': function () {
             if (window.TributeScribeReview) TributeScribeReview.open(c, b.dataset.enc); },
           'community': function () {
-            const nv = $('.nav-item[data-page="coverage"]'); if (nv) nv.click();
-            setTimeout(function () { const g = call('selectCommunity'); if (g) g(c.loc); }, 120);
+            // Communities became its own page on 17 Nov; selectCommunity()
+            // routes there itself, so this no longer opens Coverage first.
+            const g = call('selectCommunity'); if (g) g(c.loc);
           },
           'compliance': function () {
             const nv = $('#nav-md'); if (nv) nv.click();
@@ -1968,8 +1972,6 @@
       'You are ahead of every cadence on this caseload.');
     if (_view === 'onboarding') return illustration('calm', 'No one in their first 30 days',
       'New clients appear here the day care starts.');
-    if (_view === 'coverage') return illustration('calm', 'No coverage notes',
-      'Vacations and cover arrangements you record will show here.');
     return illustration('search', 'No clients match', 'Try another view, or clear the search and filters.');
   }
 
@@ -2552,8 +2554,7 @@
         const multi = Array.isArray(p.hub) && p.hub.length > 1;
         if (!p.isManager && !multi && cm.market && p.market && cm.market !== p.market) return;
         add('Communities', n, cm.market || '', function () {
-          const nv = $('.nav-item[data-page="coverage"]'); if (nv) nv.click();
-          setTimeout(function () { if (typeof window.selectCommunity === 'function') selectCommunity(n); }, 80);
+          if (typeof window.selectCommunity === 'function') selectCommunity(n);
         }, 'community');
       });
       if (p.isManager) (app.profiles || []).forEach(function (pr) {

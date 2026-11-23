@@ -77,7 +77,7 @@ window.GUIDE = (function () {
         caption: 'The rail on a desk. You only see what your role allows.' },
       body: [
         { h: 'Work', p: 'Home, Clients, Coverage, Success in 30, Fill Priority and Client Pulse. This is the day.' },
-        { h: 'Operations', p: 'Maryland Compliance, LTC, Community Email and Team. The machinery behind the caseload.' },
+        { h: 'Operations', p: 'Maryland Compliance, LTC, Communities and Team. The machinery behind the caseload.' },
         { h: 'Tools', p: 'Assistant, KPI Tracker, Role Expectations, Guide and Feedback.' },
         { h: 'On a phone', p: 'Four destinations along the bottom — Home, Clients, Coverage and More. ' +
           'More opens the same list, in the same three groups, scrolling down. Nothing is hidden sideways ' +
@@ -487,17 +487,18 @@ window.GUIDE = (function () {
       related: ['find-client', 'coverage', 'priority']
     },
 
+    /* Restructured 17 Nov: handing off moved to a bar at the top and the
+       community directory moved to its own page, so the screenshot showing
+       four tabs described a page that no longer exists. Dropped rather than
+       left to mislead a reader or a screen reader, and it needs retaking. */
     coverage: {
       title: 'Coverage',
       lede: 'What a colleague needs to know about your clients while you are out.',
-      shot: { src: 'guide-shots/guide-coverage.png',
-        alt: 'The Coverage page showing coverage notes, team coverage, handoffs and communities.',
-        caption: 'My clients, team coverage, handoffs and the community directory.' },
       body: [
-        { h: 'My clients', p: 'What you write. One note per client, for whoever covers you.' },
-        { h: 'Team coverage', p: 'What everyone else wrote.' },
-        { h: 'Handoffs', p: 'Hand your caseload to a covering CSM for a period. They get your clients and a banner on their Home.' },
-        { h: 'Communities', p: 'The shared directory: main contact and who to call, per community.' }
+        { h: 'Going out?', p: 'The bar at the top. Pick who is covering and through when, and hand over your caseload. They get your clients and a banner on their Home. Handing off is something you do on your way out, so it is not a tab.' },
+        { h: 'My clients', p: 'Who still needs a note, and the note itself. The list is on the left, the form on the right, and the form follows you down the list.' },
+        { h: 'Clients I’m covering', p: 'The coverage profile for every client handed to you: contacts, community numbers, Pulse and the owner’s note.' },
+        { h: 'Team notes', p: 'What everyone else wrote.' }
       ],
       know: ['Coverage notes are shared with the whole team by design. If two people edit the same note at the same moment, the Hub keeps the other person’s version, tells you which, and saves the rest of your work.'],
       related: ['ltc-other']
@@ -577,14 +578,17 @@ window.GUIDE = (function () {
       related: ['ltc-other']
     },
 
+    /* Was 'Community Email'. The community directory and the on-site tracker
+       moved here from Coverage on 17 Nov, so one page now answers everything
+       about a community. Screenshot dropped for the same reason as Coverage's. */
     emailcomm: {
-      title: 'Community Email',
-      lede: 'The weekly schedule a senior living community gets from us.',
-      shot: { src: 'guide-shots/guide-email-community.png',
-        alt: 'The Email Community page showing the drafted weekly schedule for a community.' },
+      title: 'Communities',
+      lede: 'Who to call at a community, when we were last there, and the Friday email already written.',
       body: [
-        { p: 'A week of visits for the clients in one community, drafted for their team. ' +
+        { h: 'Who to call', p: 'The shared directory: the main contact and the person to call for each level of care, plus parking, entry codes and best times.' },
+        { h: 'The Friday email', p: 'A week of visits for the clients in one community, drafted for their team. ' +
              'Review it before sending — you are the last person who sees it.' },
+        { h: 'Last on site', p: 'When a Tribute CSM was last in the building and when we last wrote, against the cadence we committed to. Open the list at the top of the page.' },
         { h: 'Times', p: 'Every time in the email is the community’s own local time, not yours.' }
       ],
       know: ['Nothing client-identifying beyond what the community already holds goes into these emails, and no internal status, Pulse or staffing information appears in one.'],
