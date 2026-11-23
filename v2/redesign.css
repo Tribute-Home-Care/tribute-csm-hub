@@ -2691,6 +2691,21 @@ input[type="email"], select { min-height: var(--h-ctl); }
 .rd-cbtn:hover { border-color: var(--accent); color: var(--accent); }
 .rd-cbtn svg { width: 11px; height: 11px; }
 
+/* HOME IS TWO COLUMNS, as her picture draws it: the list on the left, a
+   narrow rail on the right. Below 1080px the rail drops under the list,
+   because at that width a 320px column leaves the list unreadable. */
+#rd-home-cols { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
+#rd-home-cols .rd-hl { min-width: 0; }
+#rd-home-cols .rd-hr { min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+/* The rail's sections are cards in a column, not full-width page sections. */
+#rd-home-cols .rd-hr .rd-sec { margin: 0; }
+#rd-home-cols .rd-hr .rd-sec-h h3 { font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); }
+#rd-home-cols .rd-hr .rd-sec-h .lede { font-size: 11px; }
+#rd-home-cols .rd-hr .g2 { display: flex; flex-direction: column; gap: 12px; }
+@media (max-width: 1080px) {
+  #rd-home-cols { grid-template-columns: minmax(0, 1fr); }
+}
+
 /* The page head the redesign draws in place of V1's: the title and its one
    line, with the page's actions on the right. */
 .rd-pagehead { display: flex; align-items: flex-start; gap: 16px; margin: 0 0 14px; }

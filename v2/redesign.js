@@ -2797,11 +2797,26 @@
     /* One heading over the tiles AND the list, because they are one thought:
        the tiles are the filters and the list is what they filter. */
     const sAttn = sec('rd-s-attn', 'Needs attention', 'What is new, and not yet sorted');
-    sAttn.insertAdjacentHTML('beforeend', '<div id="rd-attn"></div><div id="rd-today"></div>');
+    /* HER HOME IS TWO COLUMNS, and that is the whole difference between her
+       picture and what shipped. Hers fits a screen: the tiles across the top,
+       Today's list on the left, and a narrow rail on the right holding the
+       next visits, the to-do list, the 1:1 notes and caseload health.
+
+       Ours stacked all four of those BELOW the list, so a CSM scrolled past
+       twenty-five rows to reach their own to-do list. Same sections, same
+       order in the markup, read as a different page.
+
+       The tiles stay full width above both columns, because they filter the
+       left one. Following up inserts itself after this section, so it lands
+       under both columns, which is where she draws it. */
+    sAttn.insertAdjacentHTML('beforeend',
+      '<div id="rd-attn"></div>' +
+      '<div id="rd-home-cols"><div class="rd-hl"><div id="rd-today"></div></div>' +
+      '<div class="rd-hr"></div></div>');
     // Today first, because the question a CSM opens the Hub with is "what is
     // happening today", not "how is my caseload trending". The numbers still
     // come, under Caseload health, where they inform rather than greet.
-    const sNext = sec('rd-s-next', 'Today', 'And the next two weeks');
+    const sNext = sec('rd-s-next', 'Visits', 'Next two weeks');
     const sCase = sec('rd-s-case', 'Caseload health');
     const sTools = sec('rd-s-tools', 'Your work');
     sTools.className = 'rd-sec quiet';
@@ -2815,7 +2830,10 @@
        she found, because High touch and the 30-day touch count were only ever
        confusing next to High Need and the compliance figure. */
     if (ph && ph.nextSibling) page.insertBefore(sAttn, ph.nextSibling); else page.appendChild(sAttn);
-    sAttn.after(sNext); sNext.after(sTools); sTools.after(sCase);
+    /* The rail, in her order: visits, then the CSM's own work, then caseload
+       health last and closed. */
+    const rail = sAttn.querySelector('.rd-hr');
+    rail.appendChild(sNext); rail.appendChild(sTools); rail.appendChild(sCase);
     sCase.classList.add('rd-sec-fold');
     if (upcoming) sNext.appendChild(upcoming);
     sNext.insertAdjacentHTML('beforeend', '<div class="card" id="rd-next"></div>');

@@ -20,7 +20,11 @@ ok('the shipped copy and the build source agree',
    SRC === fs.readFileSync(path.join(process.env.HOME, 'tribute-csm-hub-redesign/prototype/redesign.js'), 'utf8'));
 
 ok('the list is mounted on Home under the tiles',
-   /<div id="rd-attn"><\/div><div id="rd-today"><\/div>/.test(CODE));
+   /'<div id="rd-attn"><\/div>' \+/.test(CODE) && /<div class="rd-hl"><div id="rd-today"><\/div>/.test(CODE));
+/* The tiles stay full width ABOVE both columns, because they filter the left
+   one. A tile inside the left column would read as part of the list. */
+ok('...with the tiles spanning both columns, since they filter the left one',
+   CODE.indexOf('id="rd-attn"') < CODE.indexOf('id="rd-home-cols"'));
 ok('the tiles and the list sit under one heading, because they are one thing',
    /sec\('rd-s-attn', 'Needs attention', 'What is new, and not yet sorted'\)/.test(CODE));
 /* Three of the four names are hers. The second is not: she wrote "Due this

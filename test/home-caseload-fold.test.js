@@ -18,8 +18,17 @@ const CSS = fs.readFileSync(path.join(__dirname, '../v2/redesign.css'), 'utf8');
 ok('the shipped copy and the build source agree',
    SRC === fs.readFileSync(path.join(process.env.HOME, 'tribute-csm-hub-redesign/prototype/redesign.js'), 'utf8'));
 
-ok('Home reads attention, today, your work, then caseload health last',
-   /sAttn\.after\(sNext\); sNext\.after\(sTools\); sTools\.after\(sCase\);/.test(CODE));
+/* HER HOME IS TWO COLUMNS. The order is unchanged, but visits, the CSM's
+   own work and caseload health are now a RAIL beside the list rather than
+   three full-width sections stacked below it. Stacked, a CSM scrolled past
+   twenty-five rows to reach their own to-do list; hers fits a screen. */
+ok('visits, your work and caseload health are a rail, in that order',
+   /rail\.appendChild\(sNext\); rail\.appendChild\(sTools\); rail\.appendChild\(sCase\);/.test(CODE));
+ok('...and the rail is the right-hand column of Home',
+   /const rail = sAttn\.querySelector\('\.rd-hr'\);/.test(CODE) &&
+   /#rd-home-cols \{ display: grid; grid-template-columns: minmax\(0, 1fr\) 320px;/.test(CSS));
+ok('...and it drops under the list on a narrow screen, rather than squeezing it',
+   /@media \(max-width: 1080px\) \{\s*\n\s*#rd-home-cols \{ grid-template-columns: minmax\(0, 1fr\); \}/.test(CSS));
 ok('caseload health is the folding one', /sCase\.classList\.add\('rd-sec-fold'\);/.test(CODE));
 ok('it is closed on arrival', /caseH\.setAttribute\('aria-expanded', 'false'\);/.test(CODE) &&
    /\.rd-sec-fold:not\(\[data-open\]\) > \*:not\(\.rd-sec-h\) \{ display: none; \}/.test(CSS));
