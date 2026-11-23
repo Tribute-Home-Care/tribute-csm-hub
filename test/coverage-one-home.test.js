@@ -52,6 +52,11 @@ for (const [label, SRC] of [['V1', V1], ['V2', V2]]) {
   // somebody clicked the Handoffs tab. On a bar, that is an empty dropdown.
   ok(label + ': the covering-CSM dropdown is filled when the page opens',
      /coverage:\(\)=>\{syncCov\(\);renderCovSummary\(\);renderTeamCoverage\(\);renderHandoffPicker\(\);\}/.test(SRC));
+  // ...and it must survive being called before anyone has signed in, or the
+  // whole page render goes down with it. Found by opening the page, not by
+  // reading the diff.
+  ok(label + ': filling it cannot throw when no profile is chosen',
+     /if\(typeof P==='undefined'\|\|!P\)return;\n  const sel=document\.getElementById\('ho-csm'\);/.test(SRC));
   ok(label + ': the client picker is folded, not dropped',
      /<details class="cov-going-which">/.test(SRC) && /id="ho-picker"/.test(SRC));
   ok(label + ': "Clients I\'m covering" kept its list',
@@ -90,6 +95,14 @@ for (const [label, SRC] of [['V1', V1], ['V2', V2]]) {
      /_ecFellBack=true;_ecOwnerFilter='all';/.test(SRC));
   ok(label + ': selectCommunity routes to the page rather than assuming it is open',
      /function selectCommunity\(name\)\{[\s\S]{0,260}showPage\('emailcomm'/.test(SRC));
+  // "Other" and "Community at Large" are Viv SERVICE TYPES, not buildings.
+  // The tracker had always hidden Private Home; the list had not, so Other sat
+  // near the top of it with eight clients behind it and no one to call.
+  ok(label + ': Viv service types are not listed as communities',
+     /function _cmIsServiceType\(n\)\{/.test(SRC) &&
+     /\^\(other\|community at large\|private home\|home\)\$/.test(SRC));
+  ok(label + ': ...in the tracker and in the list, from one definition',
+     (SRC.match(/_cmIsServiceType\(/g) || []).length === 3);
   ok(label + ': the contacts panel stays shut until a community is picked',
      /dw\.style\.display=_ecSel\?'':'none'/.test(SRC));
 }
