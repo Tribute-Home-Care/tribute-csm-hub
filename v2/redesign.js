@@ -512,6 +512,34 @@
     const pp = pulseFor(c);
     return !!(pp && pp.level && pp.level !== 'green');
   }
+  /* WHY A PULSE-FLAGGED CLIENT IS ON THE LIST.
+     Needs attention now includes an unsorted Pulse flag, which is right: a
+     client taken by paramedics needs the CSM whatever their cadence says. But
+     the Status column reads exceptionFor(), and a flagged client with a
+     healthy cadence has no exception — so they appeared in Needs attention
+     with an EMPTY status cell, which is worse than not appearing at all. A
+     row in a list of problems has to say what the problem is.
+
+     THE WORDS ARE THE HUB'S OWN. Courtney's section 9 asks for plain labels
+     ("Safety, Family not told, Coverage at risk, Care plan out of date, No
+     recent contact") and in the same breath makes agreeing them a next step
+     we do together. So this uses the reason codes Pulse already emits and the
+     wording Home has always shown for them, and the new taxonomy waits for
+     that conversation rather than being guessed at here.
+
+     The sentence goes in the row's title, not the cell: she asked for one-line
+     rows, and said herself that "the full read goes on the client page under
+     the Pulse banner". */
+  const PULSE_REASON = { L1: 'Safety or disclosure', L2: 'Escalation chain broke',
+                         L3: 'Health trend' };
+  function pulseStatus(c) {
+    if (!pulseOpen(c)) return null;
+    const pp = pulseFor(c);
+    const why = PULSE_REASON[pp.flagReason] || 'Flagged by Pulse';
+    return { tone: pp.level === 'red' ? 'bad' : 'warn', text: why,
+             note: String(pp.headline || '') };
+  }
+
   function needsAction(c) {
     const e = exceptionFor(c);
     if (e && e.tone === 'bad') return true;
@@ -856,11 +884,18 @@
       const soonAsmt = newish && until !== null && until >= 0 && until <= 7;
       const mail = c.contactEmail
         ? '<a href="mailto:' + esc(c.contactEmail) + '" onclick="event.stopPropagation()">Email</a>' : '';
-      return '<tr class="rd-clt-row' + (soonAsmt ? ' due' : '') + '" data-cid="' + esc(c.id) + '" tabindex="0">' +
+      /* The cadence exception leads where there is one, because it is the
+         thing with a date on it. A client whose cadence is fine and whose
+         Pulse is flagged shows the flag instead of nothing at all. */
+      const ps = pulseStatus(c);
+      const st = ex || ps;
+      const tip = ps && ps.note ? ps.note : '';
+      return '<tr class="rd-clt-row' + (soonAsmt ? ' due' : '') + '" data-cid="' + esc(c.id) + '" tabindex="0"' +
+        (tip ? ' title="' + esc(tip) + '"' : '') + '>' +
         '<th scope="row"><span class="rd-clt-n">' + esc(c.name) + '</span>' +
           (soonAsmt ? '<span class="rd-clt-tag">Assessment due</span>' : '') + '</th>' +
         '<td>' + (c.tier ? esc(c.tier) : '<span class="rd-ws-quiet">—</span>') + '</td>' +
-        '<td>' + (ex ? '<span class="rd-cl-ex ' + ex.tone + '">' + esc(ex.text) + '</span>' : '') + '</td>' +
+        '<td>' + (st ? '<span class="rd-cl-ex ' + st.tone + '">' + esc(st.text) + '</span>' : '') + '</td>' +
         '<td>' + (c.lastVisit ? esc(fmtShort(c.lastVisit)) : '<span class="rd-ws-quiet">None</span>') + '</td>' +
         '<td>' + (nv ? esc(fmtShort(nv)) : (c.freq === 'NA' ? '<span class="rd-ws-quiet">No cadence</span>' : '')) + '</td>' +
         '<td class="rd-clt-con">' + (c.contact ? esc(c.contact) : '') +

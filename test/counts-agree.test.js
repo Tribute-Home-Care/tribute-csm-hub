@@ -160,6 +160,28 @@ ok('a row can match more than one filter',
    the Clients page; letting both match on Home put its Due soon at 6 against
    the tab's 4. First 30 days and Open visits are a different axis and still
    overlap. */
+/* A ROW IN A LIST OF PROBLEMS HAS TO SAY WHAT THE PROBLEM IS. Needs attention
+   now includes an unsorted Pulse flag, and the Status column reads
+   exceptionFor(), so a flagged client with a healthy cadence appeared there
+   with an EMPTY status cell: worse than not appearing at all. */
+ok('a Pulse-flagged client with no cadence problem still says why',
+   /function pulseStatus\(c\) \{/.test(CODE) && /const st = ex \|\| ps;/.test(CODE));
+ok('...and the cadence exception still leads where there is one',
+   /const st = ex \|\| ps;/.test(CODE));
+ok('...the Status cell reads whichever it is',
+   /'<td>' \+ \(st \? '<span class="rd-cl-ex ' \+ st\.tone \+ '">' \+ esc\(st\.text\)/.test(CODE));
+/* Courtney asks for plain labels in section 9 and in the same breath makes
+   agreeing them a next step we do together, so this uses the reason codes
+   Pulse already emits and the wording Home has always shown for them. */
+ok('the wording is the Hub\'s existing reason labels, not a new taxonomy',
+   /const PULSE_REASON = \{ L1: 'Safety or disclosure', L2: 'Escalation chain broke',/.test(CODE));
+ok('an unrecognised reason still says something true',
+   /PULSE_REASON\[pp\.flagReason\] \|\| 'Flagged by Pulse'/.test(CODE));
+// One-line rows: the sentence goes in the title, and she said herself the
+// full read belongs on the client page under the banner.
+ok('the sentence is on the row, not in the cell',
+   /const tip = ps && ps\.note \? ps\.note : '';/.test(CODE));
+
 ok('needing action today cancels merely due soon',
    /if \(b\.indexOf\('action'\) > -1\) \{\n\s*const i = b\.indexOf\('week'\);/.test(CODE));
 const buckets = bs => { const b = bs.slice();
