@@ -113,8 +113,75 @@
     return { state: e.state, data: e.data, error: e.error, retryable: e.retryable !== false };
   }
 
+  /* ── The caseload's contacts, in one read ───────────────────────────────
+     Courtney, priority 12: "Search covers family contacts, GCMs, caregivers
+     and phone numbers, not just clients. When a daughter calls, the CSM knows
+     her name, not always the client's."
+
+     The Hub's own roster cannot answer that. Measured on a real 42-client
+     caseload, the `contact`, `contactEmail`, `caregivers` and `gcm` fields
+     are empty on every single record, because CSMs keep that in Viv. So the
+     search had nothing to search.
+
+     The per-client read above would be one Viv call per client per keystroke,
+     which is not a search. endpoint=csm_contacts answers for a whole caseload
+     at once from a cache the survey crawl already builds, and carries names,
+     relationships and phone numbers only.
+
+     Asked for ONCE per session and never on a keystroke. A 202 means the
+     cache is warming, so it is tried again later rather than treated as an
+     empty answer: "no contacts" and "not yet" are different, and rendering
+     the second as the first is how a search quietly lies. */
+  var bulk = {};            // vivId -> [{n, r, p}]
+  var bulkState = 'idle';   // idle | loading | ready | warming | failed
+
+  function primeContacts(cids) {
+    var want = (cids || []).filter(function (c) { return /^[a-f0-9]{24}$/i.test(String(c || '')); });
+    if (!want.length) return Promise.resolve(bulk);
+    if (bulkState === 'loading' || bulkState === 'ready') return Promise.resolve(bulk);
+    var base = proxy();
+    if (!base) { bulkState = 'failed'; return Promise.resolve(bulk); }
+    bulkState = 'loading';
+    return (async function () {
+      try {
+        var h = await headers();
+        var r = await fetch(base + '?endpoint=csm_contacts&cids=' +
+                            encodeURIComponent(want.slice(0, 500).join(',')), { headers: h });
+        if (r.status === 202) { bulkState = 'warming'; return bulk; }
+        if (!r.ok) { bulkState = 'failed'; return bulk; }
+        var j = await r.json();
+        var by = (j && j.byClient) || {};
+        Object.keys(by).forEach(function (k) { bulk[k] = by[k]; });
+        bulkState = 'ready';
+      } catch (e) {
+        bulkState = 'failed';
+      }
+      announce('*', 'contacts');
+      return bulk;
+    })();
+  }
+
   window.TributeClientData = {
     client:   function (cid) { return snapshot(cid, 'client'); },
+    /* Contacts for one client, from whichever source has them. The full
+       client read wins when it is loaded, because it is this client's record
+       as it stands rather than a nightly crawl; the bulk answer is the
+       fallback that makes the other forty-one searchable. */
+    contacts: function (cid) {
+      var e = store[cid] && store[cid].client;
+      var d = e && e.state === 'ready' && e.data;
+      if (d) {
+        var out = [];
+        if (d.primaryContact) out.push(d.primaryContact);
+        (d.contacts || []).forEach(function (x) { if (x) out.push(x); });
+        if (out.length) return out;
+      }
+      return (bulk[cid] || []).map(function (x) {
+        return { name: x.n, relation: x.r, phone: x.p };
+      });
+    },
+    primeContacts: primeContacts,
+    contactsState: function () { return bulkState; },
     // The snapshot is for rendering: it returns whatever is in hand right
     // now. A caller that has to WAIT for the record (the weekly-email
     // recipient chooser) needs the promise, not a state flag.

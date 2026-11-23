@@ -423,17 +423,47 @@
      than papering over here. */
   function vivContactsFor(c) {
     if (!c || !c.vivId || !window.TributeClientData) return [];
-    let snap = null;
-    try { snap = TributeClientData.client(c.vivId); } catch (e) { return []; }
-    const d = snap && snap.state === 'ready' && snap.data;
-    if (!d) return [];
     const out = [];
-    if (d.primaryContact) out.push(d.primaryContact);
-    (d.contacts || []).forEach(function (x) { if (x) out.push(x); });
-    (d.careTeam || []).forEach(function (x) {
+    /* The whole caseload's contacts, from one read primed at startup. Without
+       it this function could only answer for clients already opened, and the
+       Hub's own contact fields are empty on every record, so the search had
+       nothing to find. TributeClientData.contacts() prefers the full client
+       read where one is loaded and falls back to the bulk answer. */
+    try {
+      (TributeClientData.contacts(c.vivId) || []).forEach(function (x) {
+        if (x && (x.name || x.phone)) out.push(x);
+      });
+    } catch (e) { /* a search that finds less beats a list that throws */ }
+    // The care team only comes from the full read: it is the schedule
+    // grouped, and no crawl carries it.
+    let snap = null;
+    try { snap = TributeClientData.client(c.vivId); } catch (e) { snap = null; }
+    const d = snap && snap.state === 'ready' && snap.data;
+    if (d) (d.careTeam || []).forEach(function (x) {
       if (x && x.name) out.push({ name: x.name, role: 'caregiver' });
     });
     return out;
+  }
+
+  /* Asked once, when the roster is known, and never on a keystroke. A warming
+     cache is asked again on the next render rather than taken for an empty
+     answer. */
+  let _primed = false;
+  function primeContacts() {
+    if (!window.TributeClientData || !TributeClientData.primeContacts) return;
+    const st = TributeClientData.contactsState ? TributeClientData.contactsState() : '';
+    if (_primed && st !== 'warming') return;
+    let cl = [];
+    try { cl = A().fn.get('clients') || []; } catch (e) { return; }
+    const ids = cl.map(function (c) { return c.vivId; }).filter(Boolean);
+    if (!ids.length) return;
+    _primed = true;
+    try {
+      TributeClientData.primeContacts(ids).then(function () {
+        // The list may be on screen with a search already typed in it.
+        if (_view !== undefined) renderTrackerList();
+      });
+    } catch (e) {}
   }
   // Digits only, so 617-555-0142, (617) 555 0142 and 6175550142 all match.
   const digits = function (v) { return String(v == null ? '' : v).replace(/\D+/g, ''); };
@@ -638,6 +668,7 @@
 
     mountSplit();
     syncSplitPanes();
+    primeContacts();
 
     /* A search people do not know they can run is a search that does not
        exist. The box reaches family contacts, care managers and caregivers

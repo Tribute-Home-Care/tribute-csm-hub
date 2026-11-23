@@ -45,13 +45,41 @@ ok('617-555-0142, (617) 555 0142 and 6175550142 are one number',
    digits('(617) 555 0142') === '6175550142' &&
    digits('6175550142') === '6175550142');
 
-// ── nothing is fetched in order to be searched ───────────────────────────
-ok('the Viv read is used only when it is already in hand',
-   /snap\.state === 'ready' && snap\.data/.test(CODE));
-ok('...and a client with no Viv record searches on the Hub record alone',
+/* ── THE ROSTER HOLDS NOTHING, SO THE SEARCH HAD NOTHING ──────────────────
+   Measured on a real 42-client caseload: `contact`, `contactEmail`,
+   `caregivers` and `gcm` are empty on EVERY record, because CSMs keep that
+   information in Viv and not in the Hub's own form. Searching those four
+   fields worked perfectly and found nobody.
+
+   endpoint=csm_contacts answers for a whole caseload at once, from the cache
+   the survey crawl already builds, so the fix is at the source rather than
+   asking the CSM to retype what Viv already knows. */
+const CLIENTJS = strip(fs.readFileSync(path.join(__dirname, '../v2/v2-client.js'), 'utf8'));
+ok('there is a bulk contacts read', /endpoint=csm_contacts&cids=/.test(CLIENTJS));
+ok('it is asked once, not on every keystroke',
+   /if \(bulkState === 'loading' \|\| bulkState === 'ready'\) return Promise\.resolve\(bulk\);/.test(CLIENTJS) &&
+   /let _primed = false;/.test(CODE));
+// A cache still warming is not an empty caseload. Rendering the second as the
+// first is how a search quietly lies about who it could not find.
+ok('a warming cache is asked again rather than taken for an empty answer',
+   /if \(r\.status === 202\) \{ bulkState = 'warming'; return bulk; \}/.test(CLIENTJS) &&
+   /if \(_primed && st !== 'warming'\) return;/.test(CODE));
+ok('the ids are checked before they go in a URL',
+   /\/\^\[a-f0-9\]\{24\}\$\/i\.test\(String\(c \|\| ''\)\)/.test(CLIENTJS));
+ok('the read carries names, relationships and phones, and nothing else',
+   /return \{ name: x\.n, relation: x\.r, phone: x\.p \};/.test(CLIENTJS));
+ok('an open client prefers its own record over the nightly crawl',
+   /if \(d\) \{\n\s*var out = \[\];/.test(CLIENTJS));
+ok('the list repaints when the answer lands, in case a search is already typed',
+   /TributeClientData\.primeContacts\(ids\)\.then\(function \(\) \{/.test(CODE));
+
+// ── nothing is fetched on a keystroke ────────────────────────────────────
+ok('...and a client with no Viv id searches on the Hub record alone',
    /if \(!c \|\| !c\.vivId \|\| !window\.TributeClientData\) return \[\];/.test(CODE));
 ok('a failed or absent read cannot break the list',
-   /try \{ snap = TributeClientData\.client\(c\.vivId\); \} catch \(e\) \{ return \[\]; \}/.test(CODE));
+   /catch \(e\) \{ \/\* a search that finds less beats a list that throws \*\//.test(SRC));
+ok('the care team still comes from the full read, since no crawl carries it',
+   /\(d\.careTeam \|\| \[\]\)\.forEach/.test(CODE));
 
 // ── the palette rows ──────────────────────────────────────────────────────
 ok('a family contact is a row of their own',

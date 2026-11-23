@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub · V2 Preview</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="../entra-auth.js?v=2026-11-23T12:36"></script>
+<script src="../entra-auth.js?v=2026-11-23T12:45"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1941,7 +1941,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-11-23T12:37';
+const HUB_BUILD='2026-11-23T12:46';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -9124,7 +9124,7 @@ try{ const cur=document.querySelector('.page.active'); TributeUsage.start({ app:
 <script src="./brand.js?v=e644f4fe"></script>
 <script src="./icons.js?v=b1158bce"></script>
 <script src="./bridge.js?v=651faac6"></script>
-<script src="./redesign.js?v=e7c7a737"></script>
+<script src="./redesign.js?v=bdd55055"></script>
 <script src="./workflows.js?v=2b42285f"></script>
 <script src="./router.js?v=8cfbdc4c"></script>
 <script src="./v2-policy.js?v=b568b24d"></script>
@@ -9135,7 +9135,7 @@ try{ const cur=document.querySelector('.page.active'); TributeUsage.start({ app:
 <script src="./v2-guide.js?v=1eb03f56"></script>
 <script src="./v2-help.js?v=919875d4"></script>
 <script src="./v2-fullcap.js?v=6cb34bb0"></script>
-<script src="./v2-client.js?v=b1de2fc2"></script>
+<script src="./v2-client.js?v=485b9483"></script>
 <script src="./v2-scribe-review.js?v=ed2140b1"></script>
 <script src="./v2-scribe.js?v=4031b28f"></script>
 <script src="./v2-pto.js?v=b8531a0a"></script>
