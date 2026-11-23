@@ -74,8 +74,16 @@ ok('...and only until it is finished', /if \(!k \|\| k\.finished\) return '';/.t
 // A finished checklist is history and belongs in Activity, not on the page a
 // CSM reads before a call.
 ok('...and not at all past the window', /if \(k\.daysIn > 30\) return '';/.test(RD));
-ok('finished weeks are collapsed and the current one is open',
-     /'<details class="rd-s30-w' \+ \(w\.finished \? ' fin' : ''\) \+ '"' \+ \(open \? ' open' : ''\)/.test(RD));
+ok('finished weeks are collapsed and the rest are open',
+     /'<details class="rd-s30-w' \+ \(w\.finished \? ' fin' : ''\) \+ '"' \+ \(open \? ' open' : ''\)/.test(RD) &&
+     /const open = !w\.finished;/.test(RD));
+/* The first cut opened only the FIRST unfinished week, and on a real client
+   that hid the thing the status line was pointing at: the header read
+   "assessment completed is 4 days overdue" while the week holding the
+   assessment was shut. A status that names what you cannot see is worse than
+   no status. Found by opening the page. */
+ok('...so the item the status names is never hidden',
+   !/const open = w\.id === k\.currentWeek;/.test(RD));
 ok('a Viv-confirmed item says so', /\(r\.viv \? 'picked up from Viv ' : ''\)/.test(RD));
 ok('...and is marked differently from one a person ticked',
    /\.rd-s30-r\.done\.viv \.rd-s30-b \{ color: var\(--brand-blue/.test(CSS));

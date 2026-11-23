@@ -1537,7 +1537,16 @@
         '<span class="rd-s30-o">' + esc(r.owner) + '</span>' + when + '</li>';
     };
     const weeks = k.weeks.map(function (w) {
-      const open = w.id === k.currentWeek;
+      /* FINISHED PHASES COLLAPSE. Everything else is open, which is what she
+         wrote: "Finished phases collapse with a green count (8 of 8). The
+         phase in progress sits on top."
+
+         The first cut opened only the first unfinished week, and on a real
+         client that hid the thing the status line was pointing at: the header
+         read "assessment completed is 4 days overdue" while the week holding
+         the assessment was shut. A status that names what you cannot see is
+         worse than no status. */
+      const open = !w.finished;
       return '<details class="rd-s30-w' + (w.finished ? ' fin' : '') + '"' + (open ? ' open' : '') + '>' +
         '<summary>' + esc(w.label) +
         '<span class="n' + (w.finished ? ' fin' : '') + '">' + w.done + ' of ' + w.total + '</span>' +
