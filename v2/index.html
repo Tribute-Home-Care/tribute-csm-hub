@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub · V2 Preview</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="../entra-auth.js?v=2026-11-23T15:53"></script>
+<script src="../entra-auth.js?v=2026-11-23T16:02"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -199,6 +199,10 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
 .ob-by{width:100%;font-size:11px;text-align:center;text-transform:uppercase;padding:3px 4px;
   border:1px solid #EAE6DF;border-radius:6px;background:#fff;}
 .ob-at{font-size:11px;color:#0F8F6B;text-align:right;white-space:nowrap;padding-top:2px;}
+/* The proof on a ticked row. She asked for checked items to show it rather
+   than just a check mark, so a manager or covering CSM can see it was done
+   the right way. */
+.ob-proof{font-size:11px;color:#0F6E56;margin-top:3px;line-height:1.45;}
 @media (max-width:900px){
   .ob-row{grid-template-columns:16px minmax(0,1fr);row-gap:3px;}
   .ob-own,.ob-hub,.ob-due,.ob-by,.ob-at{grid-column:2;text-align:left;}
@@ -1545,6 +1549,48 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
      One tap opens this; the outcome buttons are the second tap and the last
      one. The note is optional and stays optional: a required note is how a
      list stops being ticked off. -->
+<!-- Proof on a checklist tick (Courtney, section 7): "Checking it off asks
+     for proof. Who they talked to, the date, and a one-line note." -->
+<div class="mo" id="m-ob-proof">
+  <div class="md" style="width:430px;">
+    <div class="mt" style="margin-bottom:2px;">Mark it done</div>
+    <p id="obp-task" style="font-size:13px;color:#1C1A17;margin:6px 0 2px;line-height:1.45;"></p>
+    <p id="obp-owner" style="font-size:11px;color:#8C857B;margin:0 0 14px;letter-spacing:.03em;"></p>
+    <div class="g2">
+      <div class="fg"><label class="fl">Who did you speak to?</label>
+        <input type="text" class="fc" id="obp-who" placeholder="Name, or leave blank"></div>
+      <div class="fg"><label class="fl">When</label><input type="date" class="fc" id="obp-date"></div>
+    </div>
+    <div class="fg"><label class="fl">One line on what happened</label>
+      <input type="text" class="fc" id="obp-note" placeholder="Optional, but it is what a covering CSM reads"></div>
+    <button class="btn btn-o" id="obp-draft" style="width:100%;margin-bottom:10px;" onclick="openObDraft()"></button>
+    <div style="display:flex;gap:8px;align-items:center;border-top:1px solid var(--line-soft);padding-top:12px;">
+      <button class="btn btn-p" style="flex:1;" onclick="saveObProof(false)">Done</button>
+      <button class="btn btn-o" id="obp-na" onclick="saveObProof(true)"></button>
+      <button class="btn btn-o" onclick="closeObProof()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- A draft. Nothing here sends: it is copied and sent from the person's own
+     account, which is her first guardrail. -->
+<div class="mo" id="m-ob-draft">
+  <div class="md" style="width:560px;">
+    <div class="mt" id="obd-name" style="margin-bottom:2px;"></div>
+    <p id="obd-to" style="font-size:11.5px;color:#8C857B;margin:4px 0 10px;"></p>
+    <div id="obd-warn" style="display:none;font-size:12px;line-height:1.5;color:#7A3B12;background:#FBEADF;border-radius:8px;padding:9px 12px;margin-bottom:12px;"></div>
+    <ul id="obd-guide" style="display:none;font-size:12.5px;color:#3D3833;line-height:1.55;margin:0 0 12px;padding-left:18px;"></ul>
+    <div class="fg"><label class="fl">Subject</label><input type="text" class="fc" id="obd-subj"></div>
+    <div class="fg"><label class="fl">Body</label>
+      <textarea class="fc" id="obd-body" style="min-height:260px;font-family:inherit;line-height:1.55;"></textarea></div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button class="btn btn-p" onclick="copyObDraft()">Copy</button>
+      <span style="flex:1;font-size:11.5px;color:#8C857B;">Send it from your own account. Nothing is sent from here.</span>
+      <button class="btn btn-o" onclick="closeM('m-ob-draft')">Close</button>
+    </div>
+  </div>
+</div>
+
 <div class="mo" id="m-todo-finish">
   <div class="md" style="width:430px;">
     <div class="mt" style="margin-bottom:2px;">What happened?</div>
@@ -2011,7 +2057,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-11-23T15:54';
+const HUB_BUILD='2026-11-23T16:03';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -6099,6 +6145,7 @@ function renderObChecklist(cid){
       <div class="ob-t">
         <div class="ob-l">${i.isNew?'<span class="ob-new">New</span>':''}${escHtml(i.label)}</div>
         ${i.hint?`<div class="ob-h">${escHtml(i.hint)}</div>`:''}
+        ${d&&(d.who||d.note||d.na)?`<div class="ob-proof">${d.na?'Not applicable':''}${d.who?escHtml('with '+d.who):''}${d.note?(d.who?' \u00b7 ':'')+escHtml(d.note):''}${d.when?' \u00b7 '+new Date(d.when+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}):''}</div>`:''}
         ${blocked?`<div class="ob-h ob-block">Waiting on: ${escHtml((OB_CHECKLIST.flatMap(g=>g.items).find(x=>x.id===i.needs)||{}).label||'the step above')}</div>`:''}
         ${due.note?`<div class="ob-h ob-rule">${escHtml(due.note)}</div>`:''}
       </div>
@@ -6134,14 +6181,116 @@ const OB_HUB_HELP={
   'EMAIL+AUTO':'A draft opens to send yourself; the Hub confirms the rest from Viv.',
   'EMAIL+ALERT':'A draft opens to send yourself. Past its due date the owner is told.'
 };
+/* ── Ticking an item ──────────────────────────────────────────────────────
+   "Checking it off asks for proof. Who they talked to, the date, and a
+   one-line note. Visits need to be logged as in person. Checked items show
+   that proof on the checklist, not just a check mark, so a manager or
+   covering CSM can see it was done the right way."
+
+   Un-ticking does not ask anything: taking a tick off is correcting a
+   mistake, and making somebody justify a correction is how wrong ticks stay
+   on the board. */
+let _obProofFor=null;
 function toggleObTask(cid,id){
   const rows=get('s60_ob');
   const i=rows.findIndex(r=>r.clientId===cid&&r.id===id);
-  if(i>-1){ rows.splice(i,1); }
-  // Initials default to whoever is signed in, and stay editable: the person
-  // ticking it is often not the person who did it.
-  else { rows.push({clientId:cid,id,by:_initialsOf((P&&P.name)||''),at:new Date().toISOString()}); }
-  set('s60_ob',rows); renderObChecklist(cid);
+  if(i>-1){ rows.splice(i,1); set('s60_ob',rows); renderObChecklist(cid); return; }
+  const item=OB_CHECKLIST.flatMap(g=>g.items).find(x=>x.id===id)||{};
+  if(item.needs&&!rows.some(r=>r.clientId===cid&&r.id===item.needs)){
+    showToast('That step is waiting on the one before it.');
+    renderObChecklist(cid); return;
+  }
+  _obProofFor={cid,id,item};
+  openObProof();
+}
+function openObProof(){
+  const {item}=_obProofFor;
+  const d=item.draft?draftById(item.draft):null;
+  document.getElementById('obp-task').textContent=item.label;
+  document.getElementById('obp-owner').textContent=(item.owner||'')+(item.hub?'  \u00b7  '+item.hub:'');
+  document.getElementById('obp-who').value='';
+  document.getElementById('obp-date').value=new Date().toISOString().slice(0,10);
+  document.getElementById('obp-note').value='';
+  const na=document.getElementById('obp-na');
+  na.style.display=item.na?'':'none';
+  na.textContent=item.na?('Not applicable: '+item.na):'';
+  const db=document.getElementById('obp-draft');
+  if(d&&!d.locked){ db.style.display=''; db.textContent='Open the '+d.name.toLowerCase()+' draft'; }
+  else if(d&&d.locked){ db.style.display=''; db.textContent='Locked until a manager approves'; db.disabled=true; }
+  else db.style.display='none';
+  openM('m-ob-proof');
+}
+function saveObProof(na){
+  if(!_obProofFor)return;
+  const {cid,id,item}=_obProofFor;
+  const rows=get('s60_ob');
+  const who=(document.getElementById('obp-who').value||'').trim();
+  const when=(document.getElementById('obp-date').value||'').slice(0,10);
+  const note=(document.getElementById('obp-note').value||'').trim();
+  rows.push({clientId:cid,id,by:_initialsOf((P&&P.name)||''),at:new Date().toISOString(),
+             who,when,note,na:!!na});
+  set('s60_ob',rows);
+  /* The whole point of proof: it lands on the CLIENT, not only on the
+     checklist, so a covering CSM and a manager can see it was done the right
+     way without opening the checklist at all. */
+  if(!na){
+    const tasks=get('tasks')||[];
+    tasks.unshift(Object.assign({id:'task'+Date.now(),clientId:cid,date:when||new Date().toISOString().slice(0,10),
+      text:item.label, outcome:'Onboarding step completed',
+      note:[who?('with '+who):'',note].filter(Boolean).join(' \u00b7 '),
+      source:'onboarding', by:P?P.name:'', at:new Date().toISOString()},
+      typeof actorStamp==='function'?actorStamp():{}));
+    set('tasks',tasks);
+  }
+  closeObProof();
+  renderObChecklist(cid);
+  try{ if(typeof renderClientMaster==='function')renderClientMaster(); }catch(e){}
+}
+function closeObProof(){ document.getElementById('m-ob-proof').classList.remove('open'); _obProofFor=null; }
+function openObDraft(){
+  if(!_obProofFor)return;
+  const d=draftById(_obProofFor.item.draft);
+  if(!d)return;
+  if(d.locked){ showToast('This draft is locked until a manager approves the discharge.'); return; }
+  const cl=get('clients')||[], c=cl.find(x=>x.id===_obProofFor.cid)||{};
+  openDraftFor(d,c);
+}
+/* Fills what the Hub knows and leaves the rest in brackets for the sender.
+   Nothing sends: this opens the draft, the person edits it and sends it from
+   their own account. Her first guardrail, and the reason there is no send
+   button anywhere in here. */
+function openDraftFor(d,c){
+  const first=String(c.name||'').trim().split(/\s+/)[0]||'';
+  const last=String(c.name||'').trim().split(/\s+/).slice(-1)[0]||'';
+  const fill=t=>String(t||'')
+    .replace(/\[Client first name\]/g,first)
+    .replace(/\[Client last name\]/g,last)
+    .replace(/\[Client name\]/g,c.name||'')
+    .replace(/\[Contact first name\]/g,String(c.contact||'').trim().split(/\s+/)[0]||'[Contact first name]')
+    .replace(/\[Community name\]/g,c.loc||'[Community name]')
+    .replace(/\[CSM name\]/g,(P&&P.name)||'')
+    .replace(/\[CSP name\]/g,(P&&P.name)||'');
+  document.getElementById('obd-name').textContent=d.name;
+  document.getElementById('obd-to').textContent='To: '+d.to;
+  const warn=document.getElementById('obd-warn');
+  const notes=[];
+  if(d.suggestionsOnly)notes.push('Suggestions only. This is never sent as written, and it comes after your call.');
+  if(d.phiConsentOnly)notes.push('Only to contacts with PHI consent recorded.');
+  if(d.minimumNecessary)notes.push('Share only what they need to know.');
+  if(d.internal)notes.push('Internal. This goes to the Teams channel, not to a family.');
+  warn.innerHTML=notes.length?notes.map(n=>escHtml(n)).join('<br>'):'';
+  warn.style.display=notes.length?'':'none';
+  document.getElementById('obd-subj').value=fill(d.subj);
+  document.getElementById('obd-body').value=fill(d.body);
+  const g=document.getElementById('obd-guide');
+  g.innerHTML=(d.guide||[]).map(x=>'<li>'+escHtml(x)+'</li>').join('');
+  g.style.display=(d.guide||[]).length?'':'none';
+  openM('m-ob-draft');
+}
+function copyObDraft(){
+  const t=document.getElementById('obd-subj').value+'\n\n'+document.getElementById('obd-body').value;
+  try{ navigator.clipboard.writeText(t); showToast('Copied. Paste it into your own email and send it yourself.'); }
+  catch(e){ showToast('Select the text and copy it.'); }
 }
 function setObBy(cid,id,v){
   const rows=get('s60_ob');
@@ -8371,6 +8520,268 @@ const TPLS=[
   {cat:"Community Partners",name:"New Partner Introduction",desc:"Introducing yourself to an ALF, GCM, or external partner",subj:"Introduction — Tribute Home Care, Massachusetts",body:`Dear [Partner Name],\n\nI hope this message finds you well. My name is [Your Name], and I'm a Client Solutions Manager with Tribute Home Care in Massachusetts.\n\nAt Tribute, our mission is to provide exceptional, relationship-driven home care that supports both our clients and their families. I'd love to learn more about your work and explore how we might support each other.\n\nWould you be open to a brief call or coffee sometime soon?\n\nWarmly,\n[Your Name]\nClient Solutions Manager | Tribute Home Care\n[Your phone] | [Your email]`},
   {cat:"Internal",name:"Vacation Coverage Handoff",desc:"Briefing your backup CSM before PTO",subj:"PTO Coverage — [Your Name] | [Start] – [Return]",body:`Hi [Backup CSM Name],\n\nThank you for covering while I'm out from [Start Date] to [Return Date]. I've updated coverage notes in the dashboard for each client.\n\nHIGH-NEED CLIENTS TO WATCH:\n• [Client Name] — [Brief context, active concerns, upcoming visits]\n• [Client Name] — [Brief context]\n\nPENDING TASKS:\n• [Task 1]\n• [Task 2]\n\nVISITS SCHEDULED DURING MY ABSENCE:\n• [Client] — [Date] — [Purpose]\n\nFor anything urgent, please loop in [Senior CSM or MD name].\n\nThank you!\n[Your Name]`}
 ];
+/* ═══════════════ THE EMAIL DRAFT LIBRARY ════════════════════════════════
+   Courtney's Part 4: "Checking an EMAIL item opens a draft that is filled in
+   with the client's details and written in Tribute's voice. Drafts only.
+   Nothing external sends on its own. The sender reviews and edits each draft,
+   sends it from their own account, and the Hub logs it to Viv."
+
+   And from section 9 of her review: "templates live where they're used... One
+   library." So these are not a second set of templates beside the Assistant's:
+   they join TPLS, and the checklist items point at them by id.
+
+   HER GUARDRAILS ARE FIELDS, NOT ADVICE. A guardrail written only in a comment
+   is one refactor from being gone, so each one that constrains a draft is on
+   the draft:
+     suggestionsOnly  never sent as written; offered as wording after a call
+     locked           cannot open until a manager has approved
+     phiConsentOnly   only to contacts with PHI consent recorded
+     minimumNecessary shares only what the recipient needs
+     internal         goes to a Teams channel, not to a family
+   Two apply to every draft and so are not fields: nothing sends on its own,
+   and no draft promises a caregiver, a visit or a service the CSM has not
+   confirmed. */
+const DRAFTS = [
+  // ── Onboarding ─────────────────────────────────────────────────────────
+  {id:'welcome', cat:'Onboarding', name:'Welcome after assessment', to:'Family or primary contact',
+   desc:'What we discussed, what happens next, and who to call',
+   subj:'Welcome to Tribute, [Client first name]',
+   body:`Hi [Contact first name],
+
+Thank you for your time today. It was good to meet you and [Client first name], and to hear what matters most day to day.
+
+Here is what we agreed:
+[Care summary in one or two lines, as discussed]
+
+What happens next:
+[Caregiver name] is scheduled to start on [date]. I will be in touch after the first visit to see how it went, and I will come out again within the first two weeks.
+
+Who to call:
+During the day, call me on [CSM phone]. Evenings, weekends and holidays, our after-hours team is on 617-517-5400 and always answers.
+
+If anything changes before we start, tell me and we will sort it.
+
+Warmly,
+[CSM name]`},
+
+  {id:'csa', cat:'Onboarding', name:'Client Service Agreement', to:'Family',
+   desc:'Sent in DocuSign. Why the signature matters before start of care.',
+   subj:'Your Tribute Client Service Agreement',
+   body:`Hi [Contact first name],
+
+Your Client Service Agreement is on its way by DocuSign. It sets out the rate, the schedule we discussed and how billing works, so there are no surprises.
+
+We do need it signed before care begins. If anything in it does not match what we talked about, tell me before you sign and I will get it corrected.
+
+Any questions at all, call me on [CSM phone].
+
+Thank you,
+[CSP name]`},
+
+  {id:'app_access', cat:'Onboarding', name:'Viv app access', to:'Contacts with PHI consent only',
+   desc:'App download, username, and the standard family password',
+   phiConsentOnly:true,
+   subj:'Your Tribute family app login',
+   body:`Hi [Contact first name],
+
+You can now see [Client first name]'s schedule and visit notes in the Tribute family app.
+
+To get started:
+1. Download the Viv Family app from the App Store or Google Play.
+2. Sign in with this email address.
+3. Use the standard family password we provide, then set your own.
+
+If you would rather not use the app, that is completely fine. Call me and I will keep you updated the way you prefer.
+
+[CSP name]`},
+
+  {id:'soc_update', cat:'Onboarding', name:'Start of care update', to:'GCM or community partner',
+   desc:'Thanks them for the referral. Only what they need to know.',
+   minimumNecessary:true,
+   subj:'[Client last name] care has started',
+   body:`Hi [Partner first name],
+
+Thank you for thinking of us for [Client first name]. Care started on [date] and the first visits are in place.
+
+[One line on the shape of the care, no clinical detail beyond what they need]
+
+I will keep you posted on anything you would want to know. If you hear something from the family that we should know about, call me on [CSM phone].
+
+Thanks again,
+[CSM name]`},
+
+  {id:'cg_prep', cat:'Onboarding', name:'Caregiver prep talking points', to:'Caregiver, by call or text',
+   desc:'A call guide, plus an optional text to follow it',
+   guide:[
+     'Walk through the care plan highlights, not the whole document',
+     'What the client likes and does not like, in their own words where you have them',
+     'Safety: entry, pets, mobility, anything in the home to know about',
+     'Who else is around, and who the family contact is',
+     'What to do if something is not as expected, and who to call'],
+   subj:'Before your first visit with [Client first name]',
+   body:`Hi [Caregiver first name],
+
+Looking forward to you starting with [Client first name] on [date].
+
+A few things worth knowing before you go:
+[Two or three lines from the call: preferences, routine, safety]
+
+The care plan is in the app. If anything you see does not match what you find in the home, tell me and we will update it.
+
+Call me any time on [CSM phone].
+
+[CSM name]`},
+
+  {id:'week1', cat:'Onboarding', name:'Weekly family check-in', to:'Family',
+   desc:'Short and warm. Invites feedback early. Week 1 and the weeks after.',
+   subj:'Checking in on [Client first name]',
+   body:`Hi [Contact first name],
+
+Just checking in. How is it going so far with [Caregiver first name]?
+
+Anything at all we should adjust, tell me now rather than later. Small things are easy to fix early.
+
+[CSM name]`},
+
+  {id:'d30', cat:'Onboarding', name:'Day 30 check-in follow-up', to:'Family',
+   desc:'Summarises the conversation and the month, and sets the cadence from here',
+   subj:'[Client first name]’s first month with Tribute',
+   body:`Hi [Contact first name],
+
+Thank you for the conversation today. Here is what I took away:
+
+What is working:
+[From the call]
+
+What we are changing:
+[From the call, or "Nothing right now, which is good news"]
+
+Over the first month, [Client first name] had [N] visits with [care team names]. [One line on consistency or anything notable.]
+
+From here I will be in touch [cadence], and you can reach me on [CSM phone] during the day or our after-hours team on 617-517-5400 any time.
+
+Warmly,
+[CSM name]`},
+
+  // ── Offboarding ────────────────────────────────────────────────────────
+  {id:'final_date', cat:'Offboarding', name:'Final date notice', to:'Scheduling, internal Teams post',
+   desc:'Final date, caregivers affected, and the type of ending', internal:true,
+   subj:'Final date of service: [Client name]',
+   body:`Final date of service: [date]
+Client: [Client name]
+Type of ending: [voluntary / hospitalisation / higher level of care / hospice / death / Tribute-initiated]
+Caregivers affected: [names]
+
+Please remove or inactivate visits after the final date. I have told the family and the caregivers.
+
+[CSM name]`},
+
+  {id:'discharge_notice', cat:'Offboarding', name:'Discharge notice', to:'Manager and Market Director, internal',
+   desc:'Type of ending, reason, and anything unusual', internal:true,
+   subj:'Discharge: [Client name]',
+   body:`Client: [Client name]
+Final date: [date]
+Type of ending: [type]
+Reason recorded on the Service Cancellation Pending Form: [reason]
+
+Anything unusual:
+[Concerns about quality of care, or "None"]
+
+[CSM name]`},
+
+  {id:'closing', cat:'Offboarding', name:'Closing note', to:'Family',
+   desc:'Voluntary endings. Thanks them and leaves the door open, with no sales language.',
+   subj:'Thank you, from all of us at Tribute',
+   body:`Hi [Contact first name],
+
+I wanted to say thank you for trusting us with [Client first name]'s care.
+
+[One line that is specific to them, from something you know]
+
+If anything changes and we can help again, you know where we are. I would be glad to hear from you either way.
+
+Warmly,
+[CSM name]`},
+
+  {id:'ref_thanks', cat:'Offboarding', name:'Referral partner thank-you', to:'GCM or community partner',
+   desc:'Within 24 hours, and logged in HubSpot', minimumNecessary:true,
+   subj:'Thank you for [Client last name]',
+   body:`Hi [Partner first name],
+
+[Client first name]'s care with us has come to an end as of [date].
+
+Thank you for the introduction. [One line on how it went, only what they need.]
+
+Always glad to help if you have someone else who needs support.
+
+[CSM name]`},
+
+  {id:'community_intro', cat:'Offboarding', name:'Community introduction', to:'Community contact or RCD',
+   desc:'Higher level of care moves only. Builds the relationship.',
+   minimumNecessary:true,
+   subj:'[Client first name] moving to [Community name]',
+   body:`Hi [Contact first name],
+
+[Client first name] is moving to you on [date], and I wanted to introduce myself. I am their Client Solutions Manager at Tribute and have been working with the family for [length of time].
+
+[One or two lines that would help them settle, with the family's agreement.]
+
+If extra support would help during the transition, we can often provide that alongside you. Either way, I am glad to be a phone call away: [CSM phone].
+
+[CSM name]`},
+
+  {id:'hospital_checkin', cat:'Offboarding', name:'Hospital check-in', to:'Family',
+   desc:'A mid-stay check-in, offering help with discharge planning',
+   subj:'Thinking of [Client first name]',
+   body:`Hi [Contact first name],
+
+I have been thinking about [Client first name] and wanted to check in. How are things going?
+
+When you start talking about going home, let me know. We can usually have care in place quickly, and I am happy to talk to the discharge planner directly if that helps.
+
+No rush, and no pressure. Just here.
+
+[CSM name]`},
+
+  {id:'condolence', cat:'Offboarding', name:'Condolence wording', to:'Family',
+   desc:'Suggestions only, after the personal call. A handwritten card follows.',
+   suggestionsOnly:true,
+   subj:'',
+   body:`These are suggestions, not a template, and they come after your call. Take what fits and change the rest. A handwritten card should follow.
+
+If you knew them well:
+"I am so sorry. It was a privilege to know [Client first name], and I will remember [one specific thing]. Please pass my sympathy to everyone."
+
+If the care was short:
+"I am so sorry for your loss. Even in a short time, it was clear how much [Client first name] was loved."
+
+If a caregiver was close to them:
+"[Caregiver first name] asked me to pass on how much [Client first name] meant to her. She is thinking of you."
+
+Never: anything about what happens next, billing, or paperwork.`},
+
+  {id:'tribute_discharge', cat:'Offboarding', name:'Tribute-initiated discharge notice', to:'Family',
+   desc:'Locked until a manager approves. The manager reviews the draft.',
+   locked:true,
+   subj:'A change to [Client first name]’s care with Tribute',
+   body:`Hi [Contact first name],
+
+I am writing to let you know that Tribute will not be able to continue providing care for [Client first name] after [date], which gives you [notice period] from today.
+
+[The reason, factual and without blame. Agreed with your manager.]
+
+We do not want to leave you without support. Here are other providers who may be able to help:
+[Referrals]
+
+I am happy to talk this through. You can reach me on [CSM phone].
+
+[CSM name]`}
+];
+
+/* One library, so the Assistant shows these too rather than keeping a second
+   set of templates nobody maintains. */
+function draftById(id){ return DRAFTS.find(d=>d.id===id)||null; }
+
 function renderTemplates(){
   _updateAsstAdminBars();
   const isMgr=!!(P?.isManager||P?.isCSC);

@@ -29,18 +29,44 @@ function lift(decl) {
   }
   return null;
 }
-const decls = ['const OB_CHECKLIST =', 'function _obMap(', 'function renderObChecklist(',
-               'function toggleObTask(', 'function setObBy(', 'function _initialsOf('].map(lift);
+/* renderObChecklist is lifted and RUN, not stubbed, which is why its
+   dependencies come with it. That is deliberate: the real render is what
+   caught _obMap being deleted by a rewrite of the data above it. */
+const decls = ['const OB_OWNERS =', 'const OB_MARKET_RULES =', 'const OB_CHECKLIST =',
+               'function _obMarket(', 'function _obPlus(', 'function obDueFor(',
+               'function _obMap(', 'function renderObChecklist(', 'const OB_HUB_HELP=',
+               'let _obProofFor=null', 'function toggleObTask(', 'function openObProof(',
+               'function saveObProof(', 'function closeObProof(',
+               'function setObBy(', 'function _initialsOf('].map(lift);
 ok('the checklist and its handlers are liftable', decls.every(Boolean));
 
-let store = [];
-const env = new Function('get', 'set', 'P', 'document', 'escHtml',
-  decls.join(';') + ';return {OB_CHECKLIST,_obMap,toggleObTask,setObBy,_initialsOf};')(
-  () => JSON.parse(JSON.stringify(store)),
-  (k, v) => { store = v; },
+/* Ticking an item opens a proof dialog rather than writing straight to the
+   store, so the harness has to stand in for the few DOM reads that collects.
+   A field that was never filled comes back empty, which is the real case when
+   somebody ticks a box and tells us nothing. */
+let store = {}, opened = [], toasts = [];
+const fields = {};
+const el = id => ({
+  get value() { return fields[id] === undefined ? '' : fields[id]; },
+  set value(v) { fields[id] = v; },
+  textContent: '', innerHTML: '', disabled: false, style: {},
+  classList: { remove() {}, add() {} }
+});
+const decl = decls.join(';');
+const env = new Function('get', 'set', 'P', 'document', 'escHtml', 'openM', 'showToast',
+  'draftById', 'actorStamp', 'renderObChecklist', 'renderClientMaster', 'openDraftFor',
+  decl + ';return {OB_CHECKLIST,_obMap,toggleObTask,openObProof,saveObProof,closeObProof,setObBy,_initialsOf};')(
+  (k) => JSON.parse(JSON.stringify(store[k] || [])),
+  (k, v) => { store[k] = v; },
   { name: 'Emily Willson' },
-  { getElementById: () => null }, s => s);
-const { OB_CHECKLIST, toggleObTask, setObBy, _initialsOf, _obMap } = env;
+  { getElementById: el }, s => s,
+  (id) => opened.push(id), (t) => toasts.push(t),
+  () => null, () => ({}), () => {}, () => {}, () => {});
+const { OB_CHECKLIST, toggleObTask, openObProof, saveObProof, closeObProof,
+        setObBy, _initialsOf, _obMap } = env;
+// The old harness kept one flat array; the store is keyed now because ticking
+// writes to two of them, s60_ob and the client's tasks.
+Object.defineProperty(globalThis, 'rows', { get: () => store.s60_ob || [] });
 
 // ── the content, against the document ─────────────────────────────────────
 const items = OB_CHECKLIST.flatMap(g => g.items);
@@ -152,25 +178,74 @@ ok('the Geo step keeps its ordering warning', items.some(i => /BEFORE the workfl
 ok('the Add CSM step keeps what to leave blank',
    items.some(i => /Billing Assignee and Scheduling Partner blank/.test(i.hint || '')));
 
-// ── ticking, initials and dates ───────────────────────────────────────────
-store = [];
+/* ── ticking asks for proof ───────────────────────────────────────────────
+   "Checking it off asks for proof. Who they talked to, the date, and a
+   one-line note... Checked items show that proof on the checklist, not just a
+   check mark, so a manager or covering CSM can see it was done the right
+   way." */
+const tick = (cid, id, proof) => {
+  toggleObTask(cid, id);
+  if (!proof) return;
+  fields['obp-who'] = proof.who || '';
+  fields['obp-date'] = proof.when || '2026-11-23';
+  fields['obp-note'] = proof.note || '';
+  saveObProof(!!proof.na);
+};
+store = {}; opened = [];
 toggleObTask('c1', 'ob_welcome');
-ok('ticking records the client, the task and a date',
-   store.length === 1 && store[0].clientId === 'c1' && store[0].id === 'ob_welcome' && !!store[0].at);
-ok('initials default to whoever is signed in', store[0].by === 'EW');
+ok('ticking opens the proof dialog instead of writing straight away',
+   opened.includes('m-ob-proof') && rows.length === 0);
+fields['obp-who'] = 'Dana Example'; fields['obp-date'] = '2026-11-20'; fields['obp-note'] = 'Left the packet';
+saveObProof(false);
+ok('saving records the client, the task and a date',
+   rows.length === 1 && rows[0].clientId === 'c1' && rows[0].id === 'ob_welcome' && !!rows[0].at);
+ok('initials default to whoever is signed in', rows[0].by === 'EW');
+ok('the proof is kept: who, when and the note',
+   rows[0].who === 'Dana Example' && rows[0].when === '2026-11-20' && rows[0].note === 'Left the packet');
+/* And it lands on the CLIENT, which is the point: a covering CSM should not
+   have to open the checklist to see that it was done properly. */
+ok('the proof also lands on the client record',
+   (store.tasks || []).length === 1 && store.tasks[0].clientId === 'c1' &&
+   /Dana Example/.test(store.tasks[0].note) && /Left the packet/.test(store.tasks[0].note));
+
 setObBy('c1', 'ob_welcome', ' jh ');
-ok('initials are trimmed and upper-cased', store[0].by === 'JH');
+ok('initials are trimmed and upper-cased', rows[0].by === 'JH');
+
+// Taking a tick off is correcting a mistake. Making somebody justify a
+// correction is how wrong ticks stay on the board.
+opened = [];
 toggleObTask('c1', 'ob_welcome');
-ok('unticking removes the row', store.length === 0);
+ok('unticking removes the row and asks nothing',
+   rows.length === 0 && !opened.includes('m-ob-proof'));
 
-store = [];
+store = {};
 setObBy('c1', 'ob_welcome', 'JH');
-ok('initials on an unticked task are ignored rather than creating a row', store.length === 0);
+ok('initials on an unticked task are ignored rather than creating a row', rows.length === 0);
 
-store = [];
-toggleObTask('c1', 'ob_csa'); toggleObTask('c2', 'ob_csa');
+// N/A is her option on the items that carry one, and it records that it was
+// considered without claiming the work was done.
+store = {};
+tick('c1', 'ob_comm', { na: true });
+ok('an N/A is recorded as not applicable', rows.length === 1 && rows[0].na === true);
+ok('...and does not land on the client record as work done', !(store.tasks || []).length);
+
+/* "Steps that have to happen in order stay locked until the step before is
+   done." The checkbox is disabled in the page, and the handler refuses too,
+   so a stale render cannot get round it. */
+store = {}; toasts = []; opened = [];
+toggleObTask('c1', 'ob_wf');
+ok('a gated step cannot be ticked before the one it waits on',
+   rows.length === 0 && !opened.includes('m-ob-proof') &&
+   toasts.some(t => /waiting on the one before it/.test(t)));
+tick('c1', 'ob_geo', { note: 'Geo set' });
+toggleObTask('c1', 'ob_wf');
+ok('...and can be once that step is done', opened.includes('m-ob-proof'));
+closeObProof();
+
+store = {};
+tick('c1', 'ob_csa', {}); tick('c2', 'ob_csa', {});
 ok('two clients keep separate checklists',
-   Object.keys(_obMap('c1')).length === 1 && Object.keys(_obMap('c2')).length === 1 && store.length === 2);
+   Object.keys(_obMap('c1')).length === 1 && Object.keys(_obMap('c2')).length === 1 && rows.length === 2);
 toggleObTask('c1', 'ob_csa');
 ok('unticking one client leaves the other alone',
    Object.keys(_obMap('c1')).length === 0 && Object.keys(_obMap('c2')).length === 1);
