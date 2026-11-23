@@ -1130,6 +1130,42 @@
   }
 
   /* ── OVERVIEW — what do I need to know about this client right now? ───── */
+  /* CADENCE: am I on track with this client?
+     Courtney, 17 Nov: "No cadence anywhere. Last visit, next visit due, next
+     touchpoint due and care conversation due aren't on the client page. In the
+     original Hub this was the Check-Ins view, and it's how CSMs know if
+     they're on track with a client."
+
+     Nothing new is computed. visitSt, tpSt, ciSt and nextVisit have always
+     been here, driving the exception on the list; they were simply never shown
+     on the client they describe. Each row carries its own state, because "last
+     visit 40 days ago" means nothing until you know the cadence is 30. */
+  function wsCadence(c) {
+    const tpCad = (A().tpCadence || {})[c.tier] || 30;
+    const ciCad = (A().ciCadence || {})[c.tier] || 180;
+    const tone = { overdue: 'bad', soon: 'warn', never: 'bad', none: '', ok: 'ok' };
+    const row = function (label, state, when, due) {
+      const t = tone[state] || '';
+      return '<div class="rd-cad' + (t ? ' ' + t : '') + '">' +
+        '<dt>' + esc(label) + '</dt>' +
+        '<dd>' + (when ? esc(when) : '<span class="rd-ws-quiet">Nothing on record</span>') +
+        (due ? '<span class="rd-sub">' + esc(due) + '</span>' : '') + '</dd></div>';
+    };
+    const vs = visitSt(c), ts = tpSt(c), cs = ciSt(c);
+    const lastV = c.lastVisit ? fmtShort(c.lastVisit) + ' · ' + plural(daysSince(c.lastVisit), 'day') + ' ago' : '';
+    const lastT = lastOf('touchpoints', c.id), lastC = lastOf('checkins', c.id);
+    return block('Cadence',
+      '<dl class="rd-cads">' +
+      row('Last visit', vs, lastV,
+          c.freq === 'NA' ? 'No visit cadence set'
+            : (vs === 'overdue' ? 'Overdue' : nextVisit(c) ? 'Next due ' + fmtShort(nextVisit(c)) : '')) +
+      row('Touchpoint', ts, lastT ? fmtShort(lastT) + ' · ' + plural(daysSince(lastT), 'day') + ' ago' : '',
+          'Every ' + plural(tpCad, 'day') + (c.tier ? ' · ' + esc(c.tier) + ' need' : '')) +
+      row('Care conversation', cs, lastC ? fmtShort(lastC) + ' · ' + plural(daysSince(lastC), 'day') + ' ago' : '',
+          'Every ' + plural(ciCad, 'day')) +
+      '</dl>');
+  }
+
   function wsOverview(c, ex, pp, snap) {
     let out = '';
 
@@ -1204,6 +1240,81 @@
     if (acts.length) out += block('Recent', activityLines(acts.slice(0, 4)) +
       '<button type="button" class="rd-link" data-go="activity">View all activity →</button>');
 
+    /* TWO COLUMNS, which is what the Summary is for.
+       Courtney, 17 Nov: "Summary is one page you can read top to bottom
+       before a call." Left is what you are tracking, right is what you need in
+       your hand: contacts, the few care facts, where they live, and a coverage
+       note if somebody is covering.
+
+       The right column is assembled from the views that sat under More, which
+       is why they can stop being separate destinations. Nothing is removed
+       from the Hub, it is moved to where it gets read. */
+    return '<div class="rd-sum">' +
+      '<div class="rd-sum-l">' + wsCadence(c) + out + '</div>' +
+      '<div class="rd-sum-r">' + wsSummaryRight(c, snap) + '</div>' +
+      '</div>';
+  }
+
+  /* The right-hand column: Contacts, Quick care facts, Community and LTC, and
+     the coverage note. Each is the useful part of a former More view, not the
+     whole of it: the full detail still has a home on its own tab. */
+  function wsSummaryRight(c, snap) {
+    const d = snap.data || {};
+    const tel = function (p) { return p ? '<a href="tel:' + esc(String(p).replace(/[^\d+]/g, '')) + '">' + esc(p) + '</a>' : ''; };
+    const mail = function (e) { return e ? '<a href="mailto:' + esc(e) + '">' + esc(e) + '</a>' : ''; };
+    let out = '';
+
+    /* CONTACTS, which she found buried under More > Client Information: "For
+       this client there was no Call button on the page at all because the
+       client has no phone of their own." The family contact is often the only
+       number that reaches anybody. */
+    const pc = d.primaryContact;
+    const others = (d.contacts || []).filter(function (x) { return !pc || x.name !== pc.name; });
+    const ct = d.contact || {};
+    if (pc || others.length || ct.phone) {
+      out += block('Contacts',
+        (pc ? '<div class="rd-con"><dt>' + esc(pc.name || 'Primary contact') +
+            (pc.relationship ? '<span class="rd-sub">' + esc(pc.relationship) + '</span>' : '') + '</dt>' +
+            '<dd>' + [tel(pc.phone), mail(pc.email)].filter(Boolean).join('<span class="rd-sub"></span>') + '</dd></div>' : '') +
+        (ct.phone ? '<div class="rd-con"><dt>Client' + (ct.otherPhone ? '' : '') + '</dt><dd>' + tel(ct.phone) + '</dd></div>' : '') +
+        (others.length
+          ? '<details class="rd-more"><summary>' + plural(others.length, 'other contact') + '</summary>' +
+            others.map(function (x) {
+              return '<div class="rd-con"><dt>' + esc(x.name) +
+                (x.relationship ? '<span class="rd-sub">' + esc(x.relationship) + '</span>' : '') +
+                (x.emergency ? '<span class="rd-sub">Emergency</span>' : '') + '</dt>' +
+                '<dd>' + [tel(x.phone), mail(x.email)].filter(Boolean).join('<span class="rd-sub"></span>') + '</dd></div>';
+            }).join('') + '</details>'
+          : ''));
+    } else {
+      out += block('Contacts', unread(snap, 'contact details') || quiet('No family contact is on file in Viv.'));
+    }
+
+    out += wsSnapshot(c);                 // Quick care facts, from the care plan
+
+    /* Where they live, and who pays. */
+    const sv = d.service || {};
+    const comm = sv.community || c.loc;
+    if (comm || c.tributeSecure || sv.clientNum || c.vivNum) {
+      out += block('Community and LTC',
+        '<dl class="rd-kvs">' +
+        kv('Community', comm) +
+        kv('Unit', ct.unit) +
+        kv('Start of care', (sv.careStarted || c.startDate) ? fmtShort(sv.careStarted || c.startDate) : '') +
+        kv('Client number', sv.clientNum || c.vivNum) +
+        kv('Tribute Secure', (sv.tributeSecure || c.tributeSecure) ? 'Yes' : '') +
+        '</dl>' +
+        (comm ? '<button type="button" class="rd-link" data-act="community">View community</button>' : ''));
+    }
+
+    /* Only when somebody is actually covering. */
+    const cov = c.coverage;
+    if (cov && (cov.coveredBy || cov.to || cov.note)) {
+      out += block('Coverage',
+        '<p class="rd-ws-plain">' + esc(cov.to || cov.coveredBy || 'Covered') +
+        (cov.since ? '<span class="rd-sub">since ' + esc(fmtShort(cov.since)) + '</span>' : '') + '</p>' +
+        (cov.note ? '<p class="rd-ws-quiet">' + esc(cov.note) + '</p>' : ''));
+    }
     return out;
   }
 

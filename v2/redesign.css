@@ -2414,3 +2414,42 @@ input[type="email"], select { min-height: var(--h-ctl); }
   .rd-pb { flex-direction: column; gap: 4px; }
   .rd-pb-k { padding-top: 0; }
 }
+
+/* ── Summary: two columns ──────────────────────────────────────────────────
+   Courtney, 17 Nov: "Summary is one page you can read top to bottom before a
+   call." Left is what you are tracking about this client, right is what you
+   need in your hand on the call: who to ring, the few care facts, where they
+   live, and whether somebody is covering.
+
+   It collapses to one column on a phone in the order she asked for, which is
+   contacts before cadence: in the car, the number matters more than whether
+   the touchpoint is four days late. */
+.rd-sum { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: var(--s4); align-items: start; }
+.rd-sum-l, .rd-sum-r { min-width: 0; }
+
+/* Cadence. Each row says when it last happened and what the cadence is,
+   because "40 days ago" means nothing until you know the target is 30. */
+.rd-cads { margin: 0; display: flex; flex-direction: column; gap: 9px; }
+.rd-cad { display: flex; justify-content: space-between; align-items: baseline; gap: var(--s3); }
+.rd-cad dt { font-size: 13px; color: var(--ink-2); flex: 0 0 auto; }
+.rd-cad dd { margin: 0; font-size: 13px; color: var(--ink); text-align: right; min-width: 0; }
+.rd-cad dd .rd-sub { display: block; font-size: 11.5px; color: var(--ink-3); margin-top: 1px; }
+/* Only what is actually late is marked. On track is the absence of a colour. */
+.rd-cad.bad dd { color: var(--bad); font-weight: 600; }
+.rd-cad.warn dd { color: var(--warn); }
+
+/* A contact is a name and a way to reach them, nothing else. */
+.rd-con { display: flex; flex-direction: column; gap: 1px; padding: 6px 0; border-top: 1px solid var(--line); }
+.rd-con:first-child { border-top: 0; padding-top: 0; }
+.rd-con dt { font-size: 13px; font-weight: 600; color: var(--ink); }
+.rd-con dd { margin: 0; font-size: 13px; }
+.rd-con .rd-sub { font-weight: 400; color: var(--ink-3); font-size: 11.5px; margin-left: 6px; }
+
+@media (max-width: 900px) {
+  .rd-sum { grid-template-columns: 1fr; gap: var(--s3); }
+  /* Her phone order: contacts and care facts first, what you are tracking after. */
+  .rd-sum-r { order: 1; }
+  .rd-sum-l { order: 2; }
+  .rd-cad { flex-direction: column; align-items: flex-start; gap: 1px; }
+  .rd-cad dd { text-align: left; }
+}
