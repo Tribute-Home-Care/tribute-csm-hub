@@ -71,15 +71,33 @@
      destinations was the rail describing itself; three is the rail getting
      out of the way. Visibility is still decided by the application's own
      role rules — nothing here grants or hides a capability. */
+  /* COURTNEY'S RAIL, from the pictures in her 17 November review.
+
+     Four groups, and the point of the fourth is that a CSM's rail should end
+     at the work they do. Team, Client Pulse, Daily Metrics and Exception
+     Review are already manager-gated, so a CSM has never seen them; they were
+     just scattered through Operations and Tools as though everyone did. Named
+     and grouped as Manager, the rail a CSM opens is ten items long and every
+     one of them is theirs.
+
+     Client Pulse stays here rather than being deleted. Her callout reads "no
+     separate Pulse page to check", and in the view she drew, a CSM's, there
+     isn't one: Pulse is a filter on the client list. The page behind it is the
+     manager read of the same scoring, and removing it would take that with it
+     for no gain to the people she is designing for.
+
+     Her shorter labels, as drawn: Clients, Coverage, Team, and My KSFs for
+     what the Hub had been calling the KPI Tracker. */
   const GROUPS = [
     ['Work', [['home', 'Home'], ['clients', 'Clients'], ['coverage', 'Coverage'],
-              ['s60', 'Onboarding'], ['priority', 'Fill Priority'], ['pulse', 'Client Pulse']]],
-    ['Operations', [['md', 'Maryland Compliance'], ['ltc', 'LTC'],
-                    ['emailcomm', 'Communities'], ['team', 'Team'],
-                    ['__metrics', 'Daily Metrics'], ['__sereview', 'Exception Review']]],
-    ['Tools', [['assistant', 'Assistant'], ['kpi', 'KPI Tracker'],
-               ['expectations', 'Role Expectations'],
-               ['__guide', 'Guide'], ['__feedback', 'Feedback']]]
+              ['s60', 'Onboarding'], ['priority', 'Fill Priority']]],
+    ['Operations', [['ltc', 'LTC'], ['emailcomm', 'Communities'],
+                    ['md', 'Maryland Compliance']]],
+    ['Resources', [['assistant', 'Assistant'], ['kpi', 'My KSFs'],
+                   ['expectations', 'Role Expectations'],
+                   ['__guide', 'Guide'], ['__feedback', 'Feedback']]],
+    ['Manager', [['team', 'Team'], ['pulse', 'Client Pulse'],
+                 ['__metrics', 'Daily Metrics'], ['__sereview', 'Exception Review']]]
   ];
   /* Two rail entries that are not pages. They open the capability the Hub
      already has — one Guide, one Feedback sheet — rather than a second
@@ -397,11 +415,28 @@
      same rule as the rest of her review, applied to a tab she had asked for,
      so it goes. Coverage readiness lives on the Coverage page, which now also
      holds handing off, and the client's own coverage note is on Summary. */
+/* HER TABS, from the two Clients pictures in the 17 November review:
+   All 42 / Needs action 9 / Watch 10 / Success in 30 3 / Due this week 6 /
+   Covering 0.
+
+   I had collapsed Watch and Due this week into one "Due soon", and argued
+   that her label was a week out from the thing it named, because that bucket
+   was a fourteen-day warning. Her pictures have both, doing different jobs,
+   and reading them that way makes the argument go away:
+
+     Watch        something is off, nothing is due. An amber Pulse flag, or a
+                  client with no touchpoint on record at all.
+     Due this week  a DATE lands inside seven days.
+
+   So "Due this week" now means seven days and counts dates, which is what it
+   says, and the fourteen-day fudge is gone rather than relabelled. */
   const VIEWS = [
     ['all', 'All clients'],
-    ['attention', 'Needs attention'],
+    ['attention', 'Needs action'],
+    ['watch', 'Watch'],
     ['onboarding', 'Success in 30'],
-    ['soon', 'Due soon']
+    ['soon', 'Due this week'],
+    ['covering', 'Covering']
   ];
   const CM_SEARCH_PLACEHOLDER = 'Search a client, a family contact, a caregiver, a care manager\u2026';
   let _view = 'attention';
@@ -577,12 +612,61 @@
     if (e && e.tone === 'bad') return true;
     return pulseLevel(c) === 'red';
   }
-  function dueSoonOnly(c) {
+  /* DAYS UNTIL THE NEXT DATE FALLS DUE, across the three cadences, or null
+     when the client is on no clock at all. A tab that says "this week" has to
+     be able to answer "how many days", and visitSt / tpSt / ciSt only go as
+     far as "soon" — which is fourteen days for a visit, seven for a
+     touchpoint and thirty for a care conversation. One tab cannot be built
+     out of three different meanings of soon. */
+  function daysUntilDue(c) {
+    const app = A(), out = [];
+    if (c.freq !== 'NA') {
+      const cad = parseInt(c.freq) || 90, d = daysSince(c.lastVisit);
+      if (d !== null) out.push(cad - d);
+    }
+    const tc = (app.tpCadence || {})[c.tier] || 30, td = daysSince(lastOf('touchpoints', c.id));
+    if (td !== null) out.push(tc - td);
+    const cc = (app.ciCadence || {})[c.tier] || 180, cd = daysSince(lastOf('checkins', c.id));
+    if (cd !== null) out.push(cc - cd);
+    const ahead = out.filter(function (n) { return n >= 0; });
+    return ahead.length ? Math.min.apply(null, ahead) : null;
+  }
+  /* A date inside seven days, on a client who is not already in trouble. */
+  function dueThisWeek(c) {
+    if (needsAction(c) || pulseLevel(c) === 'amber') return false;
+    const n = daysUntilDue(c);
+    return n !== null && n <= 7;
+  }
+  /* Something is off and nothing is due: an amber Pulse flag, or one of the
+     two exceptions that describe a gap rather than a deadline. */
+  function onWatch(c) {
     if (needsAction(c)) return false;
     if (pulseLevel(c) === 'amber') return true;
+    if (dueThisWeek(c)) return false;
     const e = exceptionFor(c);
-    return !!(e && e.tone === 'warn');
+    return !!(e && e.tone === 'warn' && (e.rank === 4 || e.rank === 5));
   }
+  /* Clients somebody else owns and I am covering right now. They are not in
+     my caseload, so they have to be read across profiles the way the Coverage
+     page reads them. */
+  function coveringRows() {
+    const app = A(), me = (app.profile || {}).id;
+    if (!me) return [];
+    const today = todayISO(), out = [];
+    (app.profiles || []).forEach(function (pr) {
+      if (pr.id === me) return;
+      (((app.data.profiles || {})[pr.id] || {}).clients || []).forEach(function (c) {
+        const h = c && c.coverage;
+        if (!h || h.coveredBy !== me) return;
+        if (h.to && h.to < today) return;
+        out.push({ c: c, owner: pr });
+      });
+    });
+    return out;
+  }
+  // Kept as the union of the two, for anything that wants "notable but not
+  // urgent" without caring which kind of trouble it is.
+  function dueSoonOnly(c) { return dueThisWeek(c) || onWatch(c); }
 
   function visitSt(c) {
     if (c.freq === 'NA') return 'none';
@@ -688,7 +772,18 @@
     // Same partition as the counts above: the list under a tab has to hold
     // exactly what the tab's number says.
     if (_view === 'attention') list = list.filter(function (r) { return needsAction(r.c); });
-    else if (_view === 'soon') list = list.filter(function (r) { return dueSoonOnly(r.c); });
+    else if (_view === 'watch') list = list.filter(function (r) { return onWatch(r.c); });
+    else if (_view === 'soon') list = list.filter(function (r) { return dueThisWeek(r.c); });
+    else if (_view === 'covering') {
+      /* The one tab whose clients are not mine, so it replaces the list
+         rather than filtering it. Search and the tier filter are re-applied
+         by hand, because they ran above against my own caseload. */
+      list = coveringRows().map(function (x) {
+        return { c: x.c, ex: exceptionFor(x.c), cov: x.owner };
+      });
+      if (q) list = list.filter(function (r) { return clientHaystack(r.c).indexOf(q) > -1; });
+      if (tf) list = list.filter(function (r) { return r.c.tier === tf; });
+    }
     else if (_view === 'onboarding') list = list.filter(function (r) { return r.c.startDate && (daysSince(r.c.startDate) || 999) <= 30; });
 
     /* SORTING. Urgency first is the right default and stays the default, but
@@ -815,8 +910,10 @@
     const counts = {
       all: all.length,
       attention: all.filter(needsAction).length,
-      soon: all.filter(dueSoonOnly).length,
-      onboarding: all.filter(function (c) { return c.startDate && (daysSince(c.startDate) || 999) <= 30; }).length
+      watch: all.filter(onWatch).length,
+      soon: all.filter(dueThisWeek).length,
+      onboarding: all.filter(function (c) { return c.startDate && (daysSince(c.startDate) || 999) <= 30; }).length,
+      covering: coveringRows().length
     };
     const rows = trackerRows();
 
@@ -2351,8 +2448,12 @@
       'Clients arrive from Viv on the next sync. You can also add one by hand.');
     if (_view === 'attention') return illustration('allclear', 'Everyone is caught up',
       'Every client is inside cadence for visits, touchpoints and care conversations.');
-    if (_view === 'soon') return illustration('allclear', 'Nothing due in the next two weeks',
-      'You are ahead of every cadence on this caseload.');
+    if (_view === 'soon') return illustration('allclear', 'Nothing due this week',
+      'No visit, touchpoint or care conversation falls due in the next seven days.');
+    if (_view === 'watch') return illustration('allclear', 'Nothing on watch',
+      'No open Pulse flags, and every client has a touchpoint on record.');
+    if (_view === 'covering') return illustration('calm', 'You are not covering anyone',
+      'Clients appear here while another CSM has handed them to you.');
     if (_view === 'onboarding') return illustration('calm', 'No one in their first 30 days',
       'New clients appear here the day care starts.');
     return illustration('search', 'No clients match', 'Try another view, or clear the search and filters.');
@@ -2566,7 +2667,9 @@
     // One definition, asked three ways: these two, the Clients tabs and the
     // Today's list all route through needsAction / dueSoonOnly.
     const bad = real.filter(needsAction);
-    const warn = real.filter(dueSoonOnly);
+    // Dates, not watch items: the tile says "Due this week" and her subtitle
+    // under it names visits, touchpoints and care conversations.
+    const warn = real.filter(dueThisWeek);
 
     /* CHANGE OF CONDITION FIRST. Everything else on this row is a cadence
        falling behind; this one is a person whose health has altered, and it
@@ -2594,7 +2697,9 @@
         (bad.length > 2 ? ' and ' + (bad.length - 2) + ' more' : ''),
       tone: 'bad', go: 'clients', view: 'attention', badge: true, bucket: 'action'
     });
-    if (warn.length) out.push({ n: warn.length, label: 'Due soon', sub: 'Within two weeks', tone: 'warn', go: 'clients', view: 'soon', bucket: 'week' });
+    if (warn.length) out.push({ n: warn.length, label: 'Due this week',
+                                sub: 'Visits, touchpoints, care convos',
+                                tone: 'warn', go: 'clients', view: 'soon', bucket: 'week' });
     const t = todayISO();
     const ovTodo = todos.filter(function (x) { return !x.done && x.due && x.due < t; });
     if (ovTodo.length) out.push({ n: ovTodo.length, label: 'Tasks past due', sub: String(ovTodo[0].text || '').slice(0, 44), tone: 'warn', go: 'home' });
@@ -2605,15 +2710,24 @@
          by CLIENT, so this was the one tile on Home that disagreed with its
          own list. Both sides read openVisitsSoon() now, so they cannot drift.
 
-         badge: false. This signal put its number on the Fill Priority rail
-         item, and Fill Priority ranks the WHOLE caseload for a coverage event
-         rather than listing open visits, so no number here was ever one you
-         could go and count there. */
+         THE OPEN VISITS TILE IS A DOORWAY, not a filter, and it was wrong
+         to make it one. Her Home picture reads "38 / Open visits / Goes to
+         Fill Priority", and both her pictures keep "Fill Priority 38" on the
+         rail. I had taken that number off, arguing that Fill Priority ranks
+         the whole caseload for a coverage event rather than listing open
+         visits, so the number was not one you could go and count there.
+
+         Her model is the coherent one: the badge counts the open visits, and
+         Fill Priority is where you go to do something about them. Counting
+         the rows on the page you land on is the right rule for the three
+         tiles that filter the list below them, and the wrong rule for the one
+         tile she drew as a way OUT of the page. So this one carries its own
+         number, says where it goes, and puts the same figure on the rail. */
       const ovs = openVisitsSoon();
-      const ovN = Object.keys(ovs.byClient).length;
-      if (ovN) out.push({ n: ovN, label: 'Open visits',
-                          sub: 'Within 48 hours \u00b7 ' + plural(ovs.total, 'visit') + ' unfilled in all',
-                          tone: 'warn', go: 'priority', badge: false, bucket: 'open' });
+      if (ovs.total) out.push({ n: ovs.total, label: 'Open visits',
+                          sub: 'Goes to Fill Priority',
+                          tone: 'warn', go: 'priority', badge: true,
+                          bucket: 'open', doorway: true });
     } catch (e) {}
     const onb = real.filter(function (c) { return c.startDate && (daysSince(c.startDate) || 999) <= 30; });
     if (onb.length) out.push({ n: onb.length, label: 'In first 30 days', sub: 'Onboarding milestones', tone: 'info', go: 's60', bucket: 'onboarding' });
@@ -2681,16 +2795,15 @@
      to Home. */
   /* ONE NAME PER BUCKET, USED EVERYWHERE. The tile took its label from the
      signal and the filter line took it from here, so the same six clients
-     were "Due soon · within two weeks" on the tile and "due this week" on the
-     line under it. These names are now the only ones.
+     were "Due soon" on the tile and "due this week" on the line under it.
+     These names are now the only ones, and all four are her words from
+     section 2 and her Home picture.
 
-     Three are Courtney's words from section 2. The second is not: she wrote
-     "Due this week", and the data behind it is the warn-tone exception, which
-     is due within FOURTEEN days and is what the Clients page has always
-     called Due soon. Her label would have been a week's difference from the
-     thing it names, so the accurate word wins and this note records the
-     deviation rather than hiding it. */
-  const TODAY_BUCKETS = [['action', 'Need action today'], ['week', 'Due soon'],
+     "Due this week" was the one I argued with, on the grounds that the data
+     behind it was a fourteen-day warning and her label would have been a
+     week out from the thing it named. The answer was to fix the data, not
+     the label: see dueThisWeek(), which counts seven days. */
+  const TODAY_BUCKETS = [['action', 'Need action today'], ['week', 'Due this week'],
                          ['onboarding', 'In first 30 days'], ['open', 'Open visits']];
   let _todayFilter = '';
 
@@ -2743,7 +2856,7 @@
         // Red is today's work, amber is this week's. The same split as the
         // tabs, so a tile and a tab cannot disagree about one client.
         out.push({ rank: lvl === 'red' ? 0 : 3,
-                   bucket: lvl === 'red' ? 'action' : 'week',
+                   bucket: lvl === 'red' ? 'action' : 'watch',
                    cid: c.id, name: c.name,
                    why: pulseFirst(pp.headline), step: 'Read the Pulse and sort it',
                    tone: lvl === 'red' ? 'bad' : 'warn' });
@@ -2759,7 +2872,8 @@
       // 3 and 4. The cadence exception, which already knows overdue from due.
       const ex = exceptionFor(c);
       if (ex) out.push({ rank: ex.tone === 'bad' ? 2 : 3,
-                         bucket: ex.tone === 'bad' ? 'action' : 'week',
+                         bucket: ex.tone === 'bad' ? 'action'
+                                 : (ex.rank === 4 || ex.rank === 5) ? 'watch' : 'week',
                          cid: c.id, name: c.name, why: ex.text,
                          step: ex.tone === 'bad' ? 'Book it or defer it' : 'Get it in the diary',
                          tone: ex.tone });
@@ -2975,19 +3089,21 @@
            the month, because Scheduling fills the near days first. "Nothing
            right now" would have been an all-clear nobody earned. */
         const emptySub = function (k) {
-          if (k === 'open') {
-            const t = openVisitsSoon().total;
-            if (t) return plural(t, 'visit') + ' unfilled, none in the next 48 hours';
-          }
+          if (k === 'open') return 'None open right now';
           return 'Nothing right now';
         };
         el.innerHTML = TODAY_BUCKETS.map(function (b) {
           const k = b[0], x = byBucket[k];
-          const n = tn[k] || 0;
-          const on = _todayFilter === k;
+          /* A doorway tile counts what is behind the door, not what is in the
+             list below it, and pressing it opens that door. */
+          const door = !!(x && x.doorway);
+          const n = door ? x.n : (tn[k] || 0);
+          const on = !door && _todayFilter === k;
           return '<button type="button" class="rd-attn-card' + (x ? ' ' + x.tone : ' none') +
-            (on ? ' on' : '') + '" data-td="' + k + '"' + (n ? '' : ' disabled') +
-            ' aria-pressed="' + on + '">' +
+            (on ? ' on' : '') + '"' +
+            (door ? ' data-go="' + esc(x.go) + '"' : ' data-td="' + k + '"') +
+            (n ? '' : ' disabled') +
+            (door ? '' : ' aria-pressed="' + on + '"') + '>' +
             '<span class="rd-attn-n">' + n + '</span>' +
             '<span class="rd-attn-l">' + esc(b[1]) + '</span>' +
             '<span class="rd-attn-s">' + esc(x ? x.sub : emptySub(k)) + '</span></button>';
@@ -3005,7 +3121,7 @@
         $$('.rd-attn-card[data-td]', el).forEach(function (c) {
           c.addEventListener('click', function () { setTodayFilter(c.dataset.td); });
         });
-        $$('.rd-attn-link', el).forEach(function (c) {
+        $$('.rd-attn-card[data-go], .rd-attn-link', el).forEach(function (c) {
           c.addEventListener('click', function () {
             if (c.dataset.view) _view = c.dataset.view;
             const n = $('.nav-item[data-page="' + c.dataset.go + '"]');

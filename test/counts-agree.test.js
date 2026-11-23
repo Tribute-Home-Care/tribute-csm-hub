@@ -43,12 +43,20 @@ for (const [label, p] of [['shipped', '../v2/redesign.js'],
   ok(label + ': the LIST asks it',
      /if \(_view === 'attention'\) list = list\.filter\(function \(r\) \{ return needsAction\(r\.c\); \}\);/.test(CODE));
   ok(label + ': the Home tile asks it', /const bad = real\.filter\(needsAction\);/.test(CODE));
-  // Due soon has to be what is LEFT, or the two overlap again.
-  ok(label + ': Due soon excludes anything already needing action',
-     /function dueSoonOnly\(c\) \{\n\s*if \(needsAction\(c\)\) return false;/.test(CODE));
-  ok(label + ': ...and the count and the list both ask that',
-     /soon: all\.filter\(dueSoonOnly\)\.length/.test(CODE) &&
-     /_view === 'soon'\) list = list\.filter\(function \(r\) \{ return dueSoonOnly\(r\.c\); \}\)/.test(CODE));
+  /* THE PARTITION IS THREE WAYS SINCE 23 NOVEMBER, because her pictures
+     have both a Watch chip and a Due this week chip. The rule is unchanged:
+     no client may be counted twice. Each of the two lower buckets refuses a
+     client the one above it has already claimed. */
+  ok(label + ': Due this week excludes anything already needing action, or on watch',
+     /function dueThisWeek\(c\) \{\n\s*if \(needsAction\(c\) \|\| pulseLevel\(c\) === 'amber'\) return false;/.test(CODE));
+  ok(label + ': Watch excludes anything already needing action, or due this week',
+     /function onWatch\(c\) \{\n\s*if \(needsAction\(c\)\) return false;/.test(CODE) &&
+     /function onWatch\(c\) \{[\s\S]*?if \(dueThisWeek\(c\)\) return false;/.test(CODE));
+  ok(label + ': ...and each count and each list asks its own question',
+     /watch: all\.filter\(onWatch\)\.length/.test(CODE) &&
+     /soon: all\.filter\(dueThisWeek\)\.length/.test(CODE) &&
+     /_view === 'watch'\) list = list\.filter\(function \(r\) \{ return onWatch\(r\.c\); \}\)/.test(CODE) &&
+     /_view === 'soon'\) list = list\.filter\(function \(r\) \{ return dueThisWeek\(r\.c\); \}\)/.test(CODE));
   ok(label + ': nothing still counts every exception as needing attention',
      !/attention: all\.filter\(function \(c\) \{ return !!exceptionFor\(c\); \}\)/.test(CODE));
 }
@@ -106,12 +114,22 @@ const CODE = strip(fs.readFileSync(path.join(__dirname, '../v2/redesign.js'), 'u
 // tab agree" is true by construction rather than by two regexes matching.
 ok('Home counts needing action the one way it is defined',
    /const bad = real\.filter\(needsAction\);/.test(CODE));
-ok('Home counts due soon as what is left over',
-   /const warn = real\.filter\(dueSoonOnly\);/.test(CODE));
+ok('Home counts due this week as dates, the same way its tab does',
+   /const warn = real\.filter\(dueThisWeek\);/.test(CODE));
 ok('the old inline copies are gone',
    !/exc\.filter\(function \(r\) \{ return r\.ex\.tone/.test(CODE));
 ok('Home sends you to the tab that now agrees with it',
-   /tone: 'bad', go: 'clients', view: 'attention'/.test(CODE) && /label: 'Due soon'[\s\S]{0,80}view: 'soon'/.test(CODE));
+   /tone: 'bad', go: 'clients', view: 'attention'/.test(CODE) &&
+   /label: 'Due this week'[\s\S]{0,200}view: 'soon'/.test(CODE));
+/* An amber Pulse flag is a watch item on both pages. Left in the week bucket
+   it would have been counted by a Home tile whose Clients tab of the same
+   name excluded it, which is the exact disagreement this file exists to
+   catch. There is no Watch tile on Home, by her design, so the row shows in
+   the unfiltered list and is filtered on the Clients page instead. */
+ok('an amber flag is a watch item on Home too, not a date',
+   /bucket: lvl === 'red' \? 'action' : 'watch',/.test(CODE));
+ok('...and so is an exception that describes a gap rather than a deadline',
+   /\(ex\.rank === 4 \|\| ex\.rank === 5\) \? 'watch' : 'week'/.test(CODE));
 
 /* ── THE RAIL BADGE ───────────────────────────────────────────────────────
    Courtney, section 1: "The Clients badge (18) doesn't match anything a CSM
@@ -127,9 +145,18 @@ ok('one signal owns the Clients badge rather than the rail summing them',
 ok('a claimed badge is not added to', /if \(s\.badge\) by\[s\.go\] = \{ n: s\.n, owned: true \};/.test(CODE));
 ok('...and nothing after it can overwrite the claim',
    /if \(by\[s\.go\] && by\[s\.go\]\.owned\) return;/.test(CODE));
-ok('a signal with no list behind it carries no badge at all',
-   /if \(s\.badge === false\) return;/.test(CODE) &&
-   /go: 'priority', badge: false/.test(CODE));
+/* THE SUPPRESSION RULE STAYS, AND NOTHING USES IT TODAY. I had used it to
+   strip the number off Fill Priority, arguing that the page ranks the whole
+   caseload for a coverage event rather than listing open visits. Both of
+   Courtney's pictures keep "Fill Priority 38" on the rail beside a Home tile
+   reading "38 Open visits / Goes to Fill Priority", and her model is the
+   coherent one: the badge counts the open visits and the page is where you
+   go to deal with them. The mechanism is kept because a future signal may
+   genuinely have no list behind it. */
+ok('the rail can still suppress a badge', /if \(s\.badge === false\) return;/.test(CODE));
+ok('...and Fill Priority is not using it any more',
+   !/go: 'priority', badge: false/.test(CODE) &&
+   /tone: 'warn', go: 'priority', badge: true,/.test(CODE));
 // Behavioural: the two rules, over the shape the real signals have.
 const badgeOf = (sigs, key) => {
   const by = {};
@@ -143,24 +170,37 @@ const badgeOf = (sigs, key) => {
 };
 const REAL = [{ go: 'clients', n: 2 },                       // changes of condition
               { go: 'clients', n: 16, badge: true },          // needs action
-              { go: 'clients', n: 6 },                        // due soon
-              { go: 'priority', n: 14, badge: false },        // open visits
+              { go: 'clients', n: 6 },                        // due this week
+              { go: 'priority', n: 38, badge: true },         // open visits
               { go: 's60', n: 3 }];
-ok('the Clients badge is the Needs attention count, not the sum',
+ok('the Clients badge is the Needs action count, not the sum',
    badgeOf(REAL, 'clients') === 16);
-ok('Fill Priority carries no number it cannot show you', badgeOf(REAL, 'priority') === '');
+ok('Fill Priority carries the open visit count, as her pictures do',
+   badgeOf(REAL, 'priority') === 38);
 ok('a page with one signal is unaffected', badgeOf(REAL, 's60') === 3);
 ok('a page with no signal stays blank', badgeOf(REAL, 'ltc') === '');
 
-/* ── THE OPEN VISITS TILE ─────────────────────────────────────────────────
-   "The number on each tile is the number of rows you get when you click it."
-   The tile counted VISITS and the Today's list groups them by CLIENT, so on
-   a real caseload the tile said 53 and its own list said 14. */
-ok('the tile counts the clients it will show you',
-   /const ovN = Object\.keys\(ovs\.byClient\)\.length;/.test(CODE) &&
-   /if \(ovN\) out\.push\(\{ n: ovN, label: 'Open visits'/.test(CODE));
-ok('...and the visit total is kept, not dropped',
-   /plural\(ovs\.total, 'visit'\) \+ ' unfilled in all'/.test(CODE));
+/* ── THE OPEN VISITS TILE IS A DOORWAY ────────────────────────────────────
+   "The number on each tile is the number of rows you get when you click it"
+   is the right rule for the three tiles that filter the list below them. Her
+   fourth tile does not filter anything: she drew it reading "38 / Open visits
+   / Goes to Fill Priority", with 38 on the rail beside it. So it counts what
+   is behind the door, says where the door goes, and opens it when pressed. */
+ok('the doorway tile counts every open visit, which is what is behind the door',
+   /if \(ovs\.total\) out\.push\(\{ n: ovs\.total, label: 'Open visits'/.test(CODE));
+ok('...and says where it goes, in her words', /sub: 'Goes to Fill Priority'/.test(CODE));
+ok('...and is marked a doorway, so the tile reads its own number',
+   /bucket: 'open', doorway: true/.test(CODE) &&
+   /const door = !!\(x && x\.doorway\);/.test(CODE) &&
+   /const n = door \? x\.n : \(tn\[k\] \|\| 0\);/.test(CODE));
+ok('...and pressing it navigates rather than filtering',
+   /door \? ' data-go="' \+ esc\(x\.go\) \+ '"' : ' data-td="' \+ k \+ '"'/.test(CODE) &&
+   /\.rd-attn-card\[data-go\], \.rd-attn-link/.test(CODE));
+/* The other three must keep counting their own rows, or the doorway becomes
+   a licence for any tile to invent a number. */
+ok('the three filtering tiles still count the rows they will show',
+   /const tn = \{\}; TODAY_BUCKETS\.forEach/.test(CODE) &&
+   /\(r\.buckets \|\| \[r\.bucket\]\)\.forEach\(function \(b\) \{ if \(tn\[b\] !== undefined\) tn\[b\]\+\+; \}\)/.test(CODE));
 // One helper, read by both, so they cannot drift apart again. The earlier fix
 // made them agree; this makes them the same arithmetic.
 ok('the tile and the list group by the same key',

@@ -28,8 +28,8 @@ ok('the tiles and the list sit under one heading, because they are one thing',
    due within FOURTEEN days and is what the Clients page has always called Due
    soon. Her label would have been a week out from the thing it names. The
    deviation is deliberate and recorded in the source beside the list. */
-ok('her four buckets are the filters',
-   /\['action', 'Need action today'\], \['week', 'Due soon'\],[\s\S]{0,80}\['onboarding', 'In first 30 days'\], \['open', 'Open visits'\]/.test(CODE));
+ok('her four buckets, worded as her Home picture words them',
+   /\['action', 'Need action today'\], \['week', 'Due this week'\],[\s\S]{0,80}\['onboarding', 'In first 30 days'\], \['open', 'Open visits'\]/.test(CODE));
 // The tile and the filter line under it took their label from different
 // places, so the same six clients read "Due soon" above and "due this week"
 // below. One source now.
@@ -44,7 +44,14 @@ ok('a row is a client, a why and a next step',
 // the Today's list and the Clients tabs cannot disagree about one client.
 ok('a red Pulse flag ranks first',
    /rank: lvl === 'red' \? 0 : 3,/.test(CODE) &&
-   /bucket: lvl === 'red' \? 'action' : 'week',/.test(CODE));
+   /bucket: lvl === 'red' \? 'action' : 'watch',/.test(CODE));
+/* An amber flag is a watch item, not a date. There is no Watch tile here, by
+   her design: Home has her four. The row still appears in the unfiltered
+   list, and Watch is a chip on the Clients page. Leaving it in the week
+   bucket would have made the "Due this week" tile count a client its own tab
+   on Clients excluded. */
+ok('...and an amber one is a watch item, so no tile claims it',
+   !/\['watch',/.test(CODE.match(/const TODAY_BUCKETS = \[[\s\S]*?\];/)[0]));
 ok('...and the headline is still what the row says', /why: pulseFirst\(pp\.headline\)/.test(CODE));
 ok('Success in 30 ranks second', /rank: 1, bucket: 'onboarding'/.test(CODE));
 ok('overdue ranks above due-soon',
@@ -157,7 +164,7 @@ ok('the tile number IS the row count, not a second count of its own',
    /todayRows\(\)\.forEach\(function \(r\) \{\n\s*\(r\.buckets \|\| \[r\.bucket\]\)\.forEach\(function \(b\) \{ if \(tn\[b\] !== undefined\) tn\[b\]\+\+; \}\);/.test(CODE));
 ok('a signal that is not one of her buckets keeps its own line and its page',
    /const rest = sig\.filter\(function \(x\) \{ return !x\.bucket; \}\);/.test(CODE) &&
-   /\$\$\('\.rd-attn-link', el\)\.forEach/.test(CODE));
+   /\$\$\('\.rd-attn-card\[data-go\], \.rd-attn-link', el\)\.forEach/.test(CODE));
 
 /* ── OPEN VISITS ON HOME ARE THE URGENT ONES ──────────────────────────────
    Section 9: "Open visits on a CSM's clients show on the client's Schedule
@@ -169,16 +176,26 @@ ok('only the next 48 hours reach the list',
    /if \(!d \|\| d\.getTime\(\) > cutoff\) return;/.test(CODE));
 ok('the row says the window it is talking about',
    /' unfilled in the next 48 hours'/.test(CODE));
-ok('the full total is kept on the tile rather than dropped',
-   /plural\(ovs\.total, 'visit'\) \+ ' unfilled in all'/.test(CODE));
+/* THE TILE IS A DOORWAY SINCE 23 NOVEMBER. Her Home picture reads "38 /
+   Open visits / Goes to Fill Priority", with 38 on the rail beside it, so the
+   tile counts every open visit rather than the clients with one in the next
+   48 hours. Today's LIST still shows only the urgent ones, which is section 9
+   unchanged: the two numbers answer different questions and both say which. */
+ok('the tile counts every open visit, because that is what is behind the door',
+   /if \(ovs\.total\) out\.push\(\{ n: ovs\.total, label: 'Open visits'/.test(CODE));
+ok('...and says where it goes', /sub: 'Goes to Fill Priority'/.test(CODE));
 ok('one definition of an urgent open visit, read by both the tile and the list',
-   (CODE.match(/openVisitsSoon\(\)/g) || []).length === 4);
-/* The zero case is the one that can lie. On this caseload today it is 0
-   within 48 hours and 53 unfilled across the month, because Scheduling fills
-   the near days first; "Nothing right now" would be an all-clear nobody
-   earned. Every other bucket at zero really is nothing. */
-ok('an empty Open visits tile still says what is unfilled later',
-   /if \(k === 'open'\) \{[\s\S]{0,200}' unfilled, none in the next 48 hours'/.test(CODE));
+   (CODE.match(/openVisitsSoon\(\)/g) || []).length === 3);
+ok('the LIST is still the 48-hour one, which is her section 9',
+   /const cutoff = Date\.now\(\) \+ 48 \* 3600 \* 1000;/.test(CODE));
+/* The zero case used to be the one that could lie: the tile counted the next
+   48 hours, so it read 0 while 53 visits sat unfilled across the month, and
+   "Nothing right now" would have been an all-clear nobody earned. The doorway
+   counts every open visit, so zero on this tile now means zero open visits
+   and the hedge is no longer needed. It still gets its own words rather than
+   the generic ones, because "none open right now" is the true sentence. */
+ok('an empty Open visits tile says the true thing about open visits',
+   /if \(k === 'open'\) return 'None open right now';/.test(CODE));
 ok('...and the other buckets say nothing, because nothing is true of them',
    /return 'Nothing right now';/.test(CODE));
 ok('rows are reachable by keyboard', /ev\.key === 'Enter' \|\| ev\.key === ' '/.test(CODE) && /tabindex="0"/.test(CODE));
