@@ -2697,6 +2697,23 @@
       const isAct = function (x) { return x.bucket === 'action' ? 0 : 1; };
       if (isAct(r) < isAct(best[k])) { const b = best[k].buckets; best[k] = r; r.buckets = b; }
     });
+    /* TWO URGENCY FILTERS CANNOT BOTH HOLD THE SAME CLIENT. Needs attention
+       and Due soon were made to stop counting the same people on the Clients
+       page (her priority 3), and they are two readings of one cadence: a
+       client who needs action today is not also merely due soon. Letting both
+       match put Home's Due soon at 6 against the Clients tab's 4.
+
+       "In first 30 days" and "Open visits" are a different axis — how new the
+       client is, what Scheduling owes them — so those still overlap, which is
+       why the three onboarding clients appear under their own filter as well
+       as under Need action today. */
+    order.forEach(function (k) {
+      const b = best[k].buckets;
+      if (b.indexOf('action') > -1) {
+        const i = b.indexOf('week');
+        if (i > -1) b.splice(i, 1);
+      }
+    });
     const one = order.map(function (k) { return best[k]; });
     one.sort(function (a, b) { return a.rank - b.rank || String(a.name).localeCompare(String(b.name)); });
     return one;

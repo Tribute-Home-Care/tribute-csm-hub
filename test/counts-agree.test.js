@@ -155,6 +155,20 @@ ok('the tile numbers are counted off the list itself',
 // may overlap and need not sum to the Everything count.
 ok('a row can match more than one filter',
    /if \(best\[k\]\.buckets\.indexOf\(r\.bucket\) < 0\) best\[k\]\.buckets\.push\(r\.bucket\);/.test(CODE));
+/* Except the two URGENCY filters, which are two readings of one cadence.
+   Needs attention and Due soon were made to stop counting the same people on
+   the Clients page; letting both match on Home put its Due soon at 6 against
+   the tab's 4. First 30 days and Open visits are a different axis and still
+   overlap. */
+ok('needing action today cancels merely due soon',
+   /if \(b\.indexOf\('action'\) > -1\) \{\n\s*const i = b\.indexOf\('week'\);/.test(CODE));
+const buckets = bs => { const b = bs.slice();
+  if (b.indexOf('action') > -1) { const i = b.indexOf('week'); if (i > -1) b.splice(i, 1); } return b; };
+ok('a client who is both reads as needing action only',
+   buckets(['action', 'week']).join() === 'action');
+ok('a client who is only due soon is unaffected', buckets(['week']).join() === 'week');
+ok('a new client who needs action keeps both of those',
+   buckets(['action', 'onboarding']).sort().join() === 'action,onboarding');
 ok('each of her four buckets has a signal that names it',
    /bucket: 'action'/.test(CODE) && /bucket: 'week'/.test(CODE) &&
    /bucket: 'onboarding'/.test(CODE) && /bucket: 'open'/.test(CODE));
