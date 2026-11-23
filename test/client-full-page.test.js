@@ -68,6 +68,15 @@ ok('...and every path that changes the selection calls it',
    (CODE.match(/syncSplitPanes\(\);/g) || []).length === 3 &&
    !/classList\.add\('has-sel'\)/.test(CODE) && !/classList\.remove\('has-sel'\)/.test(CODE));
 
+// The 760px measure is right for one column of prose and wrong for a pair:
+// applied to Summary it halved both columns, so on a wide screen Contacts and
+// Quick care facts wrapped every few words beside 500px of empty page. The
+// workspace only became this wide when the client stopped sharing the screen.
+ok('Summary gets a measure per column, not one shared between two',
+   /\.rd-ws-body:has\(\.rd-sum\) \{ max-width: 1100px; \}/.test(CSS));
+ok('...and the single-column tabs keep the narrow one',
+   /\.rd-ws-body, \.rd-cw-acts, \.rd-cw-addr, \.rd-cw-meta \{ max-width: 760px; \}/.test(CSS));
+
 // ── the bar ───────────────────────────────────────────────────────────────
 ok('the bar is on the page from the start, not only once scrolled',
    /\.rd-cw-bar \{ display: flex; \}/.test(CSS) &&

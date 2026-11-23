@@ -2355,6 +2355,14 @@ input[type="email"], select { min-height: var(--h-ctl); }
    to 140 without being told not to. */
 @media (min-width: 1400px) {
   .rd-ws-body, .rd-cw-acts, .rd-cw-addr, .rd-cw-meta { max-width: 760px; }
+  /* Except Summary, which is TWO columns. The cap is a measure for one column
+     of prose; applied to a pair it halves both, and on a wide screen that left
+     Contacts and Quick care facts wrapping every four or five words beside
+     500px of empty page. 1100 gives each column its own comfortable measure
+     rather than one shared between them. The client workspace only became
+     this wide on 17 Nov, when the client stopped sharing the screen with the
+     list, so this rule had never had to tell the two cases apart. */
+  .rd-ws-body:has(.rd-sum) { max-width: 1100px; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
