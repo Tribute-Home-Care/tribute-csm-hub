@@ -92,6 +92,54 @@ ok('...and Viv\'s placement words never reach the bracket',
 ok('...and an unknown relationship is printed, not dropped',
    /return String\(r\)\.trim\(\);/.test(CODE));
 
+/* ── HER DESIGN, NOT JUST HER COLUMNS ─────────────────────────────────────
+   The columns matched her picture and the page still did not look like it.
+   Four reasons, all of them V1 bleeding through the redesign layer, and each
+   one is asserted here because each came back once already.
+
+   1. V1 carries a bare `th { text-transform: uppercase; font-size: 10.5px;
+      background: #F7F4EF }` written for column HEADINGS. The client name is a
+      `<th scope="row">`, correctly, for screen readers. So every client was
+      printed SHOUTING, small and on a tinted cell: "NANCY MUNSON" where her
+      picture has "Nancy Munson". Reset on the redesign table rather than by
+      weakening V1's rule, which other tables rely on. */
+ok('the client name is not styled as a column heading',
+   /\.rd-clt th\[scope="row"\] \{[\s\S]{0,200}text-transform: none;/.test(CSS) &&
+   /\.rd-clt th\[scope="row"\] \{[\s\S]{0,200}background: none;/.test(CSS));
+
+// 2. Tier is a category, not a word you read. Her picture pills it.
+ok('tier is a pill with a tone', /class="rd-tier ' \+ esc\(String\(c\.tier\)\.toLowerCase\(\)\)/.test(CODE) &&
+   /\.rd-tier\.high \{/.test(CSS) && /\.rd-tier\.medium \{/.test(CSS) && /\.rd-tier\.low \{/.test(CSS));
+
+// 3. Her Status column leads with a coloured dot, so a red row is findable
+//    without reading a word. The dot inherits the tone, so there is still
+//    exactly one place deciding what tone a row is.
+ok('the status leads with a dot', /<i class="rd-dot"><\/i>/.test(CODE));
+ok('...and the dot takes its colour from the tone, not a second rule',
+   /\.rd-dot \{[\s\S]{0,200}background: currentColor;/.test(CSS));
+
+// 4. Call and Email are buttons in her picture. A bare link under a name
+//    reads as part of the name; a button reads as a thing you press.
+ok('call and email are buttons', /class="rd-cbtn" href="tel:/.test(CODE) &&
+   /class="rd-cbtn" href="mailto:/.test(CODE) && /\.rd-cbtn \{/.test(CSS));
+
+/* ONE FILTER ROW, her words: "One filter row. Replaces 2 dropdowns + 5 tabs +
+   market chips + unused legend." The market sat in a chip bar of its own
+   ABOVE the chips and the tier in a select above that, so the page carried
+   three rows of filters where she drew one. */
+ok('the market is a dropdown at the end of the chip row, not a row of its own',
+   /vb\.appendChild\(bar\);/.test(CODE) && /id="rd-mkt-sel"/.test(CODE));
+ok('...and the tier select is moved into the same row',
+   /const sel = document\.getElementById\('cm-tier'\);/.test(CODE) &&
+   /vb\.appendChild\(sel\);/.test(CODE));
+ok('...with V1\'s inline width stripped, since inline beats any stylesheet',
+   /sel\.removeAttribute\('style'\);/.test(CODE));
+ok('...and the chip row lays out as one row', /#rd-views \{ display: flex;/.test(CSS));
+/* The market buttons stay in the DOM, hidden: V1 writes to #mfb-all and
+   friends when it resets the filter, and removing them would throw there. */
+ok('the market buttons V1 writes to are kept, not deleted',
+   /id="mfb-all" hidden/.test(CODE) && /id="mfb-chi" hidden/.test(CODE));
+
 /* Her client-page callout: "Call" dials the family contact, not just the
    client, and the button says whose number it is. On a client living in a
    community the first number on the record is often the community's. */

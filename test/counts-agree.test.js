@@ -230,7 +230,7 @@ ok('a Pulse-flagged client with no cadence problem still says why',
 ok('...and the cadence exception still leads where there is one',
    /const st = ex \|\| ps;/.test(CODE));
 ok('...the Status cell reads whichever it is',
-   /'<td>' \+ \(st \? '<span class="rd-cl-ex ' \+ st\.tone \+ '">' \+ esc\(st\.text\)/.test(CODE));
+   /'<td>' \+ \(st \? '<span class="rd-cl-ex ' \+ st\.tone \+ '"><i class="rd-dot"><\/i>' \+ esc\(st\.text\)/.test(CODE));
 /* THE EVIDENCE, NOT THE CODE. The first pass mapped flagReason through
    {L1,L2,L3}, copied from Home's own map. Checked against the live feed: the
    Pulse emits EIGHT codes, L1 to L8, and carries no label for any of them, so

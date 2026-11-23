@@ -2647,7 +2647,64 @@ input[type="email"], select { min-height: var(--h-ctl); }
 .rd-clt tbody tr:hover { background: var(--line-3, var(--line-2)); }
 .rd-clt tbody tr:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .rd-clt th[scope="row"], .rd-clt td { padding: 8px 10px 8px 0; vertical-align: top; text-align: left; font-weight: 400; }
-.rd-clt-n { font-weight: 600; color: var(--ink); display: block; }
+/* V1 STYLES EVERY <th>, INCLUDING THE ONES THAT ARE NOT HEADINGS.
+   index.html carries a bare `th { text-transform: uppercase; font-size:
+   10.5px; background: #F7F4EF; letter-spacing: .4px }` written for column
+   headings. The client name is a `<th scope="row">`, correctly, for screen
+   readers. So every client on the page was printed SHOUTING, small, and on a
+   tinted cell: "NANCY MUNSON". Her picture has "Nancy Munson".
+   Reset here rather than weakening the V1 rule, which other tables rely on. */
+.rd-clt th[scope="row"] {
+  text-transform: none; letter-spacing: 0; background: none;
+  font-size: 13px; color: var(--ink);
+}
+.rd-clt-n { font-weight: 600; color: var(--ink); display: block; font-size: 13px; }
+
+/* Tier is a pill, per her picture, because it is a category and not a word
+   you read. Three tiers, three tones, matched to how the rest of the Hub
+   already colours urgency. */
+.rd-tier {
+  display: inline-block; padding: 2px 9px; border-radius: 99px;
+  font-size: 11px; font-weight: 600; line-height: 1.5;
+  background: var(--line-2); color: var(--ink-2);
+}
+.rd-tier.high { background: #FBEAE8; color: #A4271E; }
+.rd-tier.medium { background: #FDF3E2; color: #92580B; }
+.rd-tier.low { background: #EEF6EE; color: #2F6B37; }
+
+/* Her status column leads with a coloured dot, so the eye finds the red rows
+   without reading a word of it. */
+.rd-cl-ex { display: inline-flex; align-items: baseline; gap: 6px; }
+.rd-dot {
+  flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%;
+  background: currentColor; transform: translateY(-1px);
+}
+
+/* Call and Email are buttons in her picture, not bare links. A link under a
+   name reads as part of the name; a button reads as a thing you press. */
+.rd-cbtn {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border: 1px solid var(--line); border-radius: 7px;
+  font-size: 11px; font-weight: 600; color: var(--ink-2); text-decoration: none;
+  background: var(--card, #FFFDFA);
+}
+.rd-cbtn:hover { border-color: var(--accent); color: var(--accent); }
+.rd-cbtn svg { width: 11px; height: 11px; }
+
+/* The filter row is one row: chips, then the two dropdowns at its end. */
+#rd-views { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.rd-inrow { margin: 0 0 0 auto !important; padding: 0 !important; border: 0 !important;
+  background: none !important; display: flex; align-items: center; gap: 6px; }
+.rd-fsel {
+  appearance: none; -webkit-appearance: none;
+  padding: 5px 26px 5px 11px; border: 1px solid var(--line); border-radius: 99px;
+  font-size: 12px; font-weight: 600; color: var(--ink-2); background: var(--card, #FFFDFA);
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink-3) 50%),
+                    linear-gradient(135deg, var(--ink-3) 50%, transparent 50%);
+  background-position: calc(100% - 14px) 52%, calc(100% - 9px) 52%;
+  background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+  cursor: pointer; width: auto; min-width: 0; height: auto; margin: 0;
+}
 /* An assessment due inside a week is the one row state worth catching at a
    glance, which was an action item from 12 Nov. */
 .rd-clt-row.due th[scope="row"] { box-shadow: inset 2px 0 0 var(--warn); padding-left: 8px; }

@@ -881,17 +881,48 @@
     const sEl = $('#cm-search');
     if (sEl && sEl.placeholder !== CM_SEARCH_PLACEHOLDER) sEl.placeholder = CM_SEARCH_PLACEHOLDER;
 
+    /* ONE FILTER ROW (her Clients callout): "One filter row. Replaces 2
+       dropdowns + 5 tabs + market chips + unused legend."
+
+       The market lived in a chip bar of its own ABOVE the chips, and the tier
+       in a select above that, so the page carried three rows of filters where
+       she drew one. Both are dropdowns at the end of the chip row now, which
+       is how her picture draws them: "Tier v" and "Market v".
+
+       The bar keeps its id and its setJuliaFilter calls, because V1 writes to
+       #mfb-all and friends when it resets the filter. */
     if (app.profile.dualMarket && !$('#julia-mkt-bar')) {
       const bar = document.createElement('div');
       bar.id = 'julia-mkt-bar';
-      bar.className = 'market-filter-bar';
-      bar.innerHTML = '<span class="mfb-lab">Market</span>' +
-        '<button class="mfb-btn active" id="mfb-all" onclick="setJuliaFilter(\'all\',this)">All</button>' +
-        '<button class="mfb-btn" id="mfb-ma" onclick="setJuliaFilter(\'Massachusetts\',this)">Massachusetts</button>' +
-        '<button class="mfb-btn" id="mfb-chi" onclick="setJuliaFilter(\'Chicago\',this)">Chicago</button>';
+      bar.className = 'market-filter-bar rd-inrow';
+      bar.innerHTML = '<button class="mfb-btn active" id="mfb-all" hidden onclick="setJuliaFilter(\'all\',this)">All</button>' +
+        '<button class="mfb-btn" id="mfb-ma" hidden onclick="setJuliaFilter(\'Massachusetts\',this)">Massachusetts</button>' +
+        '<button class="mfb-btn" id="mfb-chi" hidden onclick="setJuliaFilter(\'Chicago\',this)">Chicago</button>' +
+        '<select class="rd-fsel" id="rd-mkt-sel" aria-label="Market">' +
+        '<option value="all">All markets</option>' +
+        '<option value="Massachusetts">Massachusetts</option>' +
+        '<option value="Chicago">Chicago</option></select>';
       const vb = $('#rd-views');
-      if (vb) vb.parentElement.insertBefore(bar, vb);
+      if (vb) vb.appendChild(bar);
+      $('#rd-mkt-sel').addEventListener('change', function () {
+        const v = this.value;
+        const btn = v === 'all' ? $('#mfb-all') : v === 'Chicago' ? $('#mfb-chi') : $('#mfb-ma');
+        try { setJuliaFilter(v, btn); } catch (e) {}
+      });
     }
+    /* The tier select is V1's, sitting in the search row. Moved rather than
+       rebuilt: it already drives the filter and the sort. */
+    (function () {
+      const sel = document.getElementById('cm-tier');
+      const vb = $('#rd-views');
+      if (sel && vb && sel.parentElement !== vb) {
+        // V1 pins it to 130px inline, which beats any stylesheet.
+        sel.removeAttribute('style');
+        sel.classList.remove('fc');
+        sel.classList.add('rd-fsel');
+        vb.appendChild(sel);
+      }
+    })();
 
     const all = app.fn.get('clients') || [];
     /* THE NUMBERS HAVE TO MATCH, which is Courtney's third rule (17 Nov):
@@ -1053,10 +1084,10 @@
     }
     const who = esc(f.name) + (f.rel ? ' <span class="rd-clt-rel">(' + esc(f.rel) + ')</span>' : '');
     const acts = [];
-    if (f.phone) acts.push('<a href="tel:' + esc(String(f.phone).replace(/[^\d+]/g, '')) +
-      '" onclick="event.stopPropagation()">Call</a>');
-    if (f.email) acts.push('<a href="mailto:' + esc(f.email) +
-      '" onclick="event.stopPropagation()">Email</a>');
+    if (f.phone) acts.push('<a class="rd-cbtn" href="tel:' + esc(String(f.phone).replace(/[^\d+]/g, '')) +
+      '" onclick="event.stopPropagation()">' + I('phone') + 'Call</a>');
+    if (f.email) acts.push('<a class="rd-cbtn" href="mailto:' + esc(f.email) +
+      '" onclick="event.stopPropagation()">' + I('mail') + 'Email</a>');
     return who + (acts.length ? '<span class="rd-clt-act">' + acts.join('') + '</span>' : '');
   }
 
@@ -1089,8 +1120,9 @@
         (tip ? ' title="' + esc(tip) + '"' : '') + '>' +
         '<th scope="row"><span class="rd-clt-n">' + esc(c.name) + '</span>' +
           (soonAsmt ? '<span class="rd-clt-tag">Assessment due</span>' : '') + '</th>' +
-        '<td>' + (c.tier ? esc(c.tier) : '<span class="rd-ws-quiet">—</span>') + '</td>' +
-        '<td>' + (st ? '<span class="rd-cl-ex ' + st.tone + '">' + esc(st.text) + '</span>' : '') + '</td>' +
+        '<td>' + (c.tier ? '<span class="rd-tier ' + esc(String(c.tier).toLowerCase()) + '">' +
+          esc(c.tier) + '</span>' : '<span class="rd-ws-quiet">—</span>') + '</td>' +
+        '<td>' + (st ? '<span class="rd-cl-ex ' + st.tone + '"><i class="rd-dot"></i>' + esc(st.text) + '</span>' : '') + '</td>' +
         '<td>' + (c.lastVisit ? esc(fmtShort(c.lastVisit)) : '<span class="rd-ws-quiet">None</span>') + '</td>' +
         '<td>' + (nv ? esc(fmtShort(nv)) : (c.freq === 'NA' ? '<span class="rd-ws-quiet">No cadence</span>' : '')) + '</td>' +
         '<td class="rd-clt-con">' + contactCell(c) + '</td>' +

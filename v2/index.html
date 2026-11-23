@@ -470,7 +470,7 @@ mark{background:#F8EEDB;color:inherit;border-radius:2px;padding:0 1px;}
 
 <!-- CLIENTS HUB — TRACKER STYLE -->
 <div id="page-clients" class="page">
-  <div class="ph"><h2>Client Tracker</h2><p>Your full caseload — click any row to expand visits, touchpoints, care conversations, and LTC details.</p></div>
+  <div class="ph"><h2>Clients</h2><p>Click a row to open the client.</p></div>
 
   <!-- Filter + action bar -->
   <div style="display:flex;gap:9px;margin-bottom:10px;align-items:center;flex-wrap:wrap;">
@@ -2151,7 +2151,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-11-23T17:58';
+const HUB_BUILD='2026-11-23T18:30';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -10901,7 +10901,7 @@ window.addEventListener('DOMContentLoaded',async()=>{
 try{ const cur=document.querySelector('.page.active'); TributeUsage.start({ app:'csm', getToken:()=>window.tributeKsfGate.getToken(), view:cur?_pageLabel(cur.id.replace(/^page-/,'')):'Home' }); }catch(e){}
 </script>
 
-<link rel="stylesheet" href="./redesign.css?v=b957d368">
+<link rel="stylesheet" href="./redesign.css?v=c44f1551">
 <link rel="stylesheet" href="./v2.css?v=90ba8325">
 <link rel="stylesheet" href="./v2-mobile.css?v=9b3cf4a3">
 <link rel="stylesheet" href="./guide.css?v=cc4ff549">
@@ -10912,7 +10912,7 @@ try{ const cur=document.querySelector('.page.active'); TributeUsage.start({ app:
 <script src="./brand.js?v=e644f4fe"></script>
 <script src="./icons.js?v=b1158bce"></script>
 <script src="./bridge.js?v=651faac6"></script>
-<script src="./redesign.js?v=327b4d11"></script>
+<script src="./redesign.js?v=ab11615a"></script>
 <script src="./workflows.js?v=2b42285f"></script>
 <script src="./router.js?v=8cfbdc4c"></script>
 <script src="./v2-policy.js?v=b568b24d"></script>
