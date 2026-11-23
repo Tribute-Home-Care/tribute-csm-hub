@@ -2512,6 +2512,55 @@ input[type="email"], select { min-height: var(--h-ctl); }
    It collapses to one column on a phone in the order she asked for, which is
    contacts before cadence: in the car, the number matters more than whether
    the touchpoint is four days late. */
+/* ── First 30 days, as a checklist ────────────────────────────────────────
+   Courtney, section 7. Phases as sections, finished ones collapsed with their
+   count; the week in progress open on top; overdue rows red and first. The
+   left border carries the status so the state is readable before the words
+   are, and nothing else in the card is coloured. */
+.rd-s30 {
+  margin: 0 0 var(--s4); padding: 14px 16px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-left: 3px solid var(--line-2); border-radius: var(--r);
+}
+.rd-s30.ok   { border-left-color: var(--pos, #0F6E56); }
+.rd-s30.warn { border-left-color: var(--warn); }
+.rd-s30.bad  { border-left-color: var(--bad); }
+.rd-s30 header { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.rd-s30 h4 { margin: 0; font-size: 14px; font-weight: 600; color: var(--ink); }
+.rd-s30-st { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.rd-s30.ok .rd-s30-st   { color: var(--pos, #0F6E56); }
+.rd-s30.warn .rd-s30-st { color: var(--warn); }
+.rd-s30.bad .rd-s30-st  { color: var(--bad); }
+.rd-s30-n { margin-left: auto; font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.rd-s30-why { margin: 4px 0 10px; font-size: 12.5px; color: var(--ink-2); }
+.rd-s30-w > summary {
+  cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--ink-2);
+  padding: 6px 0; display: flex; align-items: baseline; gap: 8px;
+}
+.rd-s30-w > summary .n { margin-left: auto; font-weight: 400; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.rd-s30-w > summary .n.fin { color: var(--pos, #0F6E56); }
+.rd-s30-l { list-style: none; margin: 0 0 8px; padding: 0; }
+.rd-s30-r {
+  display: grid; grid-template-columns: 18px minmax(0, 1fr) 42px auto;
+  gap: 10px; align-items: baseline; padding: 5px 0; font-size: 12.5px;
+  border-top: 1px solid var(--line-soft);
+}
+.rd-s30-b { color: var(--line-2); text-align: center; }
+.rd-s30-r.done .rd-s30-b { color: var(--pos, #0F6E56); }
+/* Blue where Viv confirmed it, green where a person did. Her rule. */
+.rd-s30-r.done.viv .rd-s30-b { color: var(--brand-blue, #2C5689); }
+.rd-s30-t { color: var(--ink); min-width: 0; }
+.rd-s30-r.done .rd-s30-t { color: var(--ink-2); }
+.rd-s30-r.late .rd-s30-t { color: var(--bad); font-weight: 600; }
+.rd-s30-p { display: block; font-size: 11.5px; color: var(--ink-3); }
+.rd-s30-o { font-size: 10.5px; font-weight: 700; letter-spacing: .05em; color: var(--ink-3); }
+.rd-s30-due, .rd-s30-done { font-size: 11.5px; color: var(--ink-3); white-space: nowrap; }
+.rd-s30-r.late .rd-s30-due { color: var(--bad); }
+@media (max-width: 700px) {
+  .rd-s30-r { grid-template-columns: 18px minmax(0, 1fr); row-gap: 2px; }
+  .rd-s30-o, .rd-s30-due, .rd-s30-done { grid-column: 2; }
+}
+
 .rd-sum { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: var(--s4); align-items: start; }
 .rd-sum-l, .rd-sum-r { min-width: 0; }
 

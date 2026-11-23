@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-11-23T13:51"></script>
+<script src="./entra-auth.js?v=2026-11-23T14:02"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1969,7 +1969,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-11-23T13:51';
+const HUB_BUILD='2026-11-23T14:02';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -5571,6 +5571,87 @@ const S30_MILESTONES = [
   {id:'viv_req',label:'Requirements page updated with detailed blurb',target:'After assessment', type:'VIV'},
   {id:'viv_icd',label:'Important Client Details updated in Viv',     target:'After assessment', type:'VIV'},
 ];
+
+/* ═══════════════ SUCCESS IN 30, AS A CHECKLIST ══════════════════════════
+   Courtney, 17 Nov, section 7: "Success in 30 should be a checklist like the
+   other two, so CSMs and CSPs work it the same way... Grouped by week: Before
+   Start of Care, Days 1-7, Days 8-14, Days 15-21, Days 22-30. Finished weeks
+   collapse. The current week sits on top... Status sits in the header with the
+   reason: On Track, Watch or At Risk, with one plain line on why ('caregiver
+   week-1 check-in is 1 day overdue')."
+
+   WHAT IS HERE AND WHAT IS NOT. Her layout rules are fully specified, so they
+   are built. The CONTENT of all three checklists comes from a document
+   ("You have the checklist document with what goes on each checklist, who
+   owns each item and when it's due") that is not in SharePoint or in mail
+   from here, so Offboarding is not built at all rather than invented, and
+   this one runs on S30_MILESTONES, which the Hub already had and which the
+   team already works to.
+
+   OWNERS ARE DERIVED, NOT GUESSED. Her rule says every row carries an owner.
+   The real assignment is in that document. Two are derivable without it and
+   only two: the Viv setup items belong to the CSP because the Viv onboarding
+   checklist already files them there, and the touchpoint milestones belong to
+   the CSM because they are measured off the CSM's own touchpoint log. No row
+   claims an owner the Hub cannot stand behind.
+
+   ITEMS VIV CAN CONFIRM TICK THEMSELVES, which is her rule and was already
+   true: a milestone is done when a touchpoint of its type is logged, so this
+   reads the log rather than asking anyone to tick twice. That is why checking
+   one by hand is the exception and carries proof. */
+const S30_WEEKS = [
+  { id:'pre',  label:'Before Start of Care', upto:0  },
+  { id:'w1',   label:'Days 1\u20137',        upto:7  },
+  { id:'w2',   label:'Days 8\u201314',       upto:14 },
+  { id:'w3',   label:'Days 15\u201321',      upto:21 },
+  { id:'w4',   label:'Days 22\u201330',      upto:30 }
+];
+function _s30Owner(m){ return m.type==='VIV' ? 'CSP' : 'CSM'; }
+function _s30Week(m){
+  if(/before day 1/i.test(m.target||'')) return 'pre';
+  const d=TODO_MS_DAYS[m.id]||7;
+  return (S30_WEEKS.find(w=>w.upto>=d)||S30_WEEKS[S30_WEEKS.length-1]).id;
+}
+function s30Checklist(c){
+  const daysIn=daysAgo(c.startDate);
+  if(daysIn===null) return null;
+  const ms=(get('s60')||[]).filter(x=>x.clientId===c.id);
+  const today=new Date().toISOString().slice(0,10);
+  const rows=S30_MILESTONES.map(m=>{
+    const hit=ms.find(x=>x.id===m.id);
+    const due=_todoDay(c.startDate,TODO_MS_DAYS[m.id]||7);
+    return { id:m.id, label:m.label, owner:_s30Owner(m), week:_s30Week(m),
+             due, done:!!hit, at:hit?hit.date:'', by:hit?(hit.by||''):'',
+             proof:hit?(hit.proof||''):'', viv:hit?hit.type!=='TASK':false,
+             overdue:!hit&&due<today };
+  });
+  const done=rows.filter(r=>r.done).length, total=rows.length;
+  const late=rows.filter(r=>r.overdue);
+  /* On Track, Watch or At Risk, with one plain line on why. Watch is a single
+     thing a day or two late; At Risk is more than one, or one badly late. The
+     line names the oldest, because that is the one to pick up first. */
+  let state='ontrack', why='Every milestone so far is logged.';
+  if(late.length){
+    const oldest=late.slice().sort((a,b)=>a.due.localeCompare(b.due))[0];
+    const by=Math.max(0,Math.round((new Date(today+'T12:00:00')-new Date(oldest.due+'T12:00:00'))/864e5));
+    state=(late.length>1||by>3)?'atrisk':'watch';
+    why=oldest.label.charAt(0).toLowerCase()+oldest.label.slice(1)+' is '+
+        (by===0?'due today':(by+' day'+(by===1?'':'s')+' overdue'));
+  }else if(done===total){ state='done'; why='All '+total+' milestones logged.'; }
+  const weeks=S30_WEEKS.map(w=>{
+    const items=rows.filter(r=>r.week===w.id);
+    // Overdue first within a phase, then by due date. Her rule.
+    items.sort((a,b)=>(b.overdue-a.overdue)||a.due.localeCompare(b.due));
+    const d=items.filter(r=>r.done).length;
+    return { ...w, items, done:d, total:items.length,
+             finished:items.length>0&&d===items.length };
+  }).filter(w=>w.items.length);
+  // The week in progress sits on top of the ones already finished.
+  const current=weeks.find(w=>!w.finished);
+  return { daysIn, done, total, state, why, weeks,
+           currentWeek:current?current.id:null,
+           finished:done===total };
+}
 
 /* THE VIV ONBOARDING CHECKLIST, as the team actually works it.
    Source: SharePoint, Home Office > CSM Resources > Operational Documents and

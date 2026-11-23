@@ -1504,6 +1504,52 @@
      been here, driving the exception on the list; they were simply never shown
      on the client they describe. Each row carries its own state, because "last
      visit 40 days ago" means nothing until you know the cadence is 30. */
+  /* THE OPEN CHECKLIST, AT THE TOP OF SUMMARY (Courtney, section 7): "The
+     open checklist sits at the top of the Summary tab until it's finished. No
+     extra tab, so the client page stays at 4 tabs."
+
+     Until it is finished, exactly: a client past their first thirty days with
+     everything logged gets nothing here, because a finished checklist is
+     history and belongs in Activity, not at the top of the page a CSM reads
+     before a call.
+
+     Finished weeks collapse with their count, the week in progress is open,
+     and an overdue row is red and first in its phase. The status line names
+     the oldest overdue thing rather than counting them, because that is the
+     one to pick up first. */
+  function wsS30(c) {
+    let k = null;
+    try { k = typeof s30Checklist === 'function' ? s30Checklist(c) : null; } catch (e) { return ''; }
+    if (!k || k.finished) return '';
+    if (k.daysIn > 30) return '';          // past the window: the Onboarding page keeps the tail
+    const TONE = { ontrack: 'ok', watch: 'warn', atrisk: 'bad', done: 'ok' };
+    const WORD = { ontrack: 'On track', watch: 'Watch', atrisk: 'At risk', done: 'Complete' };
+    const row = function (r) {
+      const when = r.done
+        ? '<span class="rd-s30-done">' + (r.viv ? 'picked up from Viv ' : '') + esc(fmtShort(r.at)) +
+          (r.by ? ' \u00b7 ' + esc(r.by) : '') + '</span>'
+        : '<span class="rd-s30-due">Due ' + esc(fmtShort(r.due)) + '</span>';
+      return '<li class="rd-s30-r' + (r.done ? ' done' : '') + (r.overdue ? ' late' : '') +
+        (r.done && r.viv ? ' viv' : '') + '">' +
+        '<span class="rd-s30-b" aria-hidden="true">' + (r.done ? '\u2713' : '') + '</span>' +
+        '<span class="rd-s30-t">' + esc(r.label) +
+          (r.proof ? '<span class="rd-s30-p">' + esc(r.proof) + '</span>' : '') + '</span>' +
+        '<span class="rd-s30-o">' + esc(r.owner) + '</span>' + when + '</li>';
+    };
+    const weeks = k.weeks.map(function (w) {
+      const open = w.id === k.currentWeek;
+      return '<details class="rd-s30-w' + (w.finished ? ' fin' : '') + '"' + (open ? ' open' : '') + '>' +
+        '<summary>' + esc(w.label) +
+        '<span class="n' + (w.finished ? ' fin' : '') + '">' + w.done + ' of ' + w.total + '</span>' +
+        '</summary><ul class="rd-s30-l">' + w.items.map(row).join('') + '</ul></details>';
+    }).join('');
+    return '<section class="rd-s30 ' + TONE[k.state] + '">' +
+      '<header><h4>First 30 days \u00b7 day ' + (k.daysIn + 1) + '</h4>' +
+      '<span class="rd-s30-st">' + esc(WORD[k.state]) + '</span>' +
+      '<span class="rd-s30-n">' + k.done + ' of ' + k.total + '</span></header>' +
+      '<p class="rd-s30-why">' + esc(k.why) + '</p>' + weeks + '</section>';
+  }
+
   function wsCadence(c) {
     const tpCad = (A().tpCadence || {})[c.tier] || 30;
     const ciCad = (A().ciCadence || {})[c.tier] || 180;
@@ -1615,6 +1661,7 @@
        is why they can stop being separate destinations. Nothing is removed
        from the Hub, it is moved to where it gets read. */
     return '<div class="rd-sum">' +
+      wsS30(c) +
       '<div class="rd-sum-l">' + wsCadence(c) + out + '</div>' +
       '<div class="rd-sum-r">' + wsSummaryRight(c, snap) + '</div>' +
       '</div>';
