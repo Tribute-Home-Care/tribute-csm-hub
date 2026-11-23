@@ -150,7 +150,11 @@ ok('the tile and the list group by the same key',
    taken FROM the list rather than computed a second time beside it. */
 ok('the tile numbers are counted off the list itself',
    /const tn = \{\}; TODAY_BUCKETS\.forEach\(function \(b\) \{ tn\[b\[0\]\] = 0; \}\);/.test(CODE) &&
-   /todayRows\(\)\.forEach\(function \(r\) \{ if \(tn\[r\.bucket\] !== undefined\) tn\[r\.bucket\]\+\+; \}\);/.test(CODE));
+   /todayRows\(\)\.forEach\(function \(r\) \{\n\s*\(r\.buckets \|\| \[r\.bucket\]\)\.forEach/.test(CODE));
+// The four tiles are filters over one list, not a partition of it, so they
+// may overlap and need not sum to the Everything count.
+ok('a row can match more than one filter',
+   /if \(best\[k\]\.buckets\.indexOf\(r\.bucket\) < 0\) best\[k\]\.buckets\.push\(r\.bucket\);/.test(CODE));
 ok('each of her four buckets has a signal that names it',
    /bucket: 'action'/.test(CODE) && /bucket: 'week'/.test(CODE) &&
    /bucket: 'onboarding'/.test(CODE) && /bucket: 'open'/.test(CODE));

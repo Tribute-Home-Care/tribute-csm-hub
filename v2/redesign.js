@@ -2673,7 +2673,14 @@
     const best = {}, order = [];
     out.forEach(function (r) {
       const k = r.cid || ('name:' + r.name);
-      if (!best[k]) { best[k] = r; order.push(k); return; }
+      /* A ROW CAN MATCH MORE THAN ONE FILTER. The four tiles are filters over
+         one list, not a partition of it, so a client in their first thirty
+         days who also needs action today belongs under BOTH. Bucketing them
+         exclusively made Home read "0 In first 30 days" on a caseload with
+         three clients in their first thirty days: true of the list, false of
+         the world, and the kind of zero a CSM would believe. */
+      if (!best[k]) { best[k] = r; r.buckets = [r.bucket]; order.push(k); return; }
+      if (best[k].buckets.indexOf(r.bucket) < 0) best[k].buckets.push(r.bucket);
       /* WHICH OF A CLIENT'S REASONS TO SHOW. Her sort order is "Pulse flags,
          then Success in 30 milestones, then overdue visits and touchpoints,
          then due this week", so Success in 30 outranks an overdue visit. That
@@ -2688,7 +2695,7 @@
          an overdue visit those are usually the same obligation anyway: the
          second in-person visit by day fourteen. */
       const isAct = function (x) { return x.bucket === 'action' ? 0 : 1; };
-      if (isAct(r) < isAct(best[k])) best[k] = r;
+      if (isAct(r) < isAct(best[k])) { const b = best[k].buckets; best[k] = r; r.buckets = b; }
     });
     const one = order.map(function (k) { return best[k]; });
     one.sort(function (a, b) { return a.rank - b.rank || String(a.name).localeCompare(String(b.name)); });
@@ -2709,7 +2716,9 @@
     if (!el) return;
     const rows = todayRows();
     const n = {}; TODAY_BUCKETS.forEach(function (b) { n[b[0]] = 0; });
-    rows.forEach(function (r) { if (n[r.bucket] !== undefined) n[r.bucket]++; });
+    rows.forEach(function (r) {
+      (r.buckets || [r.bucket]).forEach(function (b) { if (n[b] !== undefined) n[b]++; });
+    });
 
     // Nothing to sort is worth saying plainly, and is not the same as a source
     // that failed: that distinction is renderAttention's and is kept there.
@@ -2722,7 +2731,9 @@
        twice: once as a tile that navigated away, once as a chip that
        filtered. The tiles do the filtering now, so all that is needed here is
        a way back to everything when one of them is pressed. */
-    const shown = _todayFilter ? rows.filter(function (r) { return r.bucket === _todayFilter; }) : rows;
+    const shown = _todayFilter
+      ? rows.filter(function (r) { return (r.buckets || [r.bucket]).indexOf(_todayFilter) > -1; })
+      : rows;
     const lab = (TODAY_BUCKETS.filter(function (b) { return b[0] === _todayFilter; })[0] || [])[1];
     el.innerHTML =
       (_todayFilter
@@ -2760,7 +2771,9 @@
     // The bucket counts come from the list itself, so the tiles and the rows
     // under them can never disagree: one is a count of the other.
     const tn = {}; TODAY_BUCKETS.forEach(function (b) { tn[b[0]] = 0; });
-    todayRows().forEach(function (r) { if (tn[r.bucket] !== undefined) tn[r.bucket]++; });
+    todayRows().forEach(function (r) {
+      (r.buckets || [r.bucket]).forEach(function (b) { if (tn[b] !== undefined) tn[b]++; });
+    });
     // _todayFilter belongs in the key now that it decides which tile is lit:
     // without it, pressing a tile repainted the list and left the row above
     // it looking untouched.

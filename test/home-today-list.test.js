@@ -62,7 +62,16 @@ ok('a client appears once, however many reasons they have',
    is the most urgent one the client has; her rank still places it. */
 ok('...the row kept is the most urgent, not merely the highest-sorted',
    /const isAct = function \(x\) \{ return x\.bucket === 'action' \? 0 : 1; \};/.test(CODE) &&
-   /if \(isAct\(r\) < isAct\(best\[k\]\)\) best\[k\] = r;/.test(CODE));
+   /if \(isAct\(r\) < isAct\(best\[k\]\)\) \{ const b = best\[k\]\.buckets; best\[k\] = r; r\.buckets = b; \}/.test(CODE));
+/* The four tiles filter one list; they are not a partition of it. A client in
+   their first thirty days who also needs action today belongs under both.
+   Bucketing exclusively made Home read "0 In first 30 days" on a caseload
+   with three of them: true of the list, false of the world, and exactly the
+   kind of zero a CSM would believe. */
+ok('a row carries every filter it matches',
+   /r\.buckets = \[r\.bucket\]; order\.push\(k\);/.test(CODE) &&
+   /if \(best\[k\]\.buckets\.indexOf\(r\.bucket\) < 0\) best\[k\]\.buckets\.push\(r\.bucket\);/.test(CODE));
+ok('...and the filter reads the set', /\(r\.buckets \|\| \[r\.bucket\]\)\.indexOf\(_todayFilter\) > -1/.test(CODE));
 ok('...and the list is still ordered the way she asked',
    /one\.sort\(function \(a, b\) \{ return a\.rank - b\.rank \|\| String\(a\.name\)\.localeCompare\(String\(b\.name\)\); \}\);/.test(CODE));
 ok('an open visit with no matching client is not folded into another',
@@ -140,7 +149,7 @@ ok('...and the filter is part of the repaint key',
    /failedSources\(\)\.join\(','\) \+ '#' \+ _todayFilter/.test(CODE));
 ok('a pressed tile looks pressed', /\.rd-attn-card\.on \{/.test(CSS));
 ok('the tile number IS the row count, not a second count of its own',
-   /todayRows\(\)\.forEach\(function \(r\) \{ if \(tn\[r\.bucket\] !== undefined\) tn\[r\.bucket\]\+\+; \}\);/.test(CODE));
+   /todayRows\(\)\.forEach\(function \(r\) \{\n\s*\(r\.buckets \|\| \[r\.bucket\]\)\.forEach\(function \(b\) \{ if \(tn\[b\] !== undefined\) tn\[b\]\+\+; \}\);/.test(CODE));
 ok('a signal that is not one of her buckets keeps its own line and its page',
    /const rest = sig\.filter\(function \(x\) \{ return !x\.bucket; \}\);/.test(CODE) &&
    /\$\$\('\.rd-attn-link', el\)\.forEach/.test(CODE));
