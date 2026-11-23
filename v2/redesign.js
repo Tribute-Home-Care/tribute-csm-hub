@@ -593,9 +593,7 @@
     }
 
     mountSplit();
-    // Nothing selected means no second pane at all, so the border and the
-    // empty illustration that used to sit beside the list are gone with it.
-    (function () { const sp = $('#rd-split'); if (sp) sp.classList.toggle('no-ws', !_selected); })();
+    syncSplitPanes();
 
     if (app.profile.dualMarket && !$('#julia-mkt-bar')) {
       const bar = document.createElement('div');
@@ -803,6 +801,18 @@
       esc(word + ': ' + c.name) + '">' + label + '</button>';
   }
 
+  /* ONE PLACE DECIDES WHAT PANES EXIST, and everything that changes the
+     selection calls it. When only renderTrackerList set `no-ws`, selecting a
+     client left it on: the workspace rendered its 8KB of HTML into a pane the
+     stylesheet had hidden, so the page went blank with the client's own route
+     in the address bar. Found by opening it. */
+  function syncSplitPanes() {
+    const sp = $('#rd-split');
+    if (!sp) return;
+    sp.classList.toggle('no-ws', !_selected);
+    sp.classList.toggle('has-sel', !!_selected);
+  }
+
   function selectClient(cid) {
     _selected = cid;
     _section = 'overview';
@@ -821,9 +831,9 @@
       b.classList.toggle('sel', on);
       b.setAttribute('aria-selected', String(on));
     });
+    syncSplitPanes();
     renderWorkspace();
     announceSelection(cid);
-    const sp = $('#rd-split'); if (sp) sp.classList.add('has-sel');
     if (window.TributeRouter) TributeRouter.push({ page: 'clients', client: cid, section: null, layer: null });
     if (window.innerWidth <= 980) {
       const ws = $('#rd-ws'); if (ws && ws.scrollIntoView) ws.scrollIntoView({ block: 'start', behavior: 'smooth' });
@@ -837,7 +847,7 @@
       try { toggleClientDetail(prev); } catch (e) {}
     }
     $$('#client-master-table [data-cid]').forEach(function (b) { b.classList.remove('sel'); b.setAttribute('aria-selected', 'false'); });
-    const sp = $('#rd-split'); if (sp) sp.classList.remove('has-sel');
+    syncSplitPanes();
     renderWorkspace();
     announceSelection(null);
   }

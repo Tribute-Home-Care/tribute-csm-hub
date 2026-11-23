@@ -45,8 +45,12 @@ ok('the workspace drops the sticky column it no longer sits in',
    /#rd-split\.has-sel \.rd-split-ws \{[\s\S]{0,140}border-left: none/.test(CSS));
 // The marking already existed for the phone layer; what was missing was using
 // it at every width, which is where "halfway down the screen" came from.
+// !important, not for emphasis: the filter row carries an inline
+// style="display:flex" from index.html, so an ordinary rule lost to it. The
+// title obeyed and the filters did not, which is how a client first opened
+// with the search bar still sitting on top of it.
 ok('the page title and filter row stand down too',
-   /#page-clients\.rd-client-open > \.rd-list-chrome \{ display: none; \}/.test(CSS));
+   /#page-clients\.rd-client-open > \.rd-list-chrome \{ display: none !important; \}/.test(CSS));
 ok('...and something actually sets that class',
    /page\.classList\.toggle\('rd-client-open', !!_selected\)/.test(CODE));
 ok('the legend is marked as chrome, which needs an id to find it',
@@ -54,7 +58,15 @@ ok('the legend is marked as chrome, which needs an id to find it',
 ok('the empty "choose a client" panel is gone',
    !/Choose a client to see how they are doing/.test(CODE));
 ok('...and the pane is hidden rather than left holding nothing',
-   /classList\.toggle\('no-ws', !_selected\)/.test(CODE));
+   /sp\.classList\.toggle\('no-ws', !_selected\);/.test(CODE));
+// no-ws and has-sel contradict each other: one hides the workspace, the other
+// gives it the width. Setting them in different places left no-ws on through
+// a selection and the client page rendered into a hidden pane, blank.
+ok('one function owns both pane classes',
+   /function syncSplitPanes\(\) \{[\s\S]{0,260}toggle\('no-ws', !_selected\);[\s\S]{0,80}toggle\('has-sel', !!_selected\);/.test(CODE));
+ok('...and every path that changes the selection calls it',
+   (CODE.match(/syncSplitPanes\(\);/g) || []).length === 3 &&
+   !/classList\.add\('has-sel'\)/.test(CODE) && !/classList\.remove\('has-sel'\)/.test(CODE));
 
 // ── the bar ───────────────────────────────────────────────────────────────
 ok('the bar is on the page from the start, not only once scrolled',

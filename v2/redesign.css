@@ -934,8 +934,14 @@ input[type="email"], select { min-height: var(--h-ctl); }
    So the list, the view tabs, the market chips and the page's own title and
    filter row all stand down while a client is open, at every width rather
    than only on a phone. The table stays in the DOM, hidden, which is what
-   makes Back instant and keeps deep links resolvable. */
-#page-clients.rd-client-open > .rd-list-chrome { display: none; }
+   makes Back instant and keeps deep links resolvable.
+
+   !important because the filter row carries an inline style="display:flex"
+   from index.html, which beats an ordinary rule: the title obeyed and the
+   filters did not, which is how a client opened with the search bar still
+   sitting on top of it. The phone layer carries the same !important for the
+   same reason. */
+#page-clients.rd-client-open > .rd-list-chrome { display: none !important; }
 
 /* THREE FILTER SYSTEMS, STACKED (Courtney, priority 4): "the Tier and Status
    dropdowns, the Market chips, and the five tabs. The Status dropdown ('Any
