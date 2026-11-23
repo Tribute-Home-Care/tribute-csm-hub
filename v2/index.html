@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub · V2 Preview</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="../entra-auth.js?v=2026-11-23T16:16"></script>
+<script src="../entra-auth.js?v=2026-11-23T16:18"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2119,7 +2119,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-11-23T16:17';
+const HUB_BUILD='2026-11-23T16:19';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -5945,9 +5945,9 @@ const OB_MARKET_RULES = {
   MD: { hrs:48, virtual:false,
         note:'48 hr MD rule — state regulation. Best practice is before start of care.' },
   MA: { hrs:null, virtual:true,
-        note:'Before start of care or Day 1 for high utilisation; short-hour may be reviewed virtually.' },
+        note:'Before start of care or Day 1 for high utilization; short-hour may be reviewed virtually.' },
   IL: { hrs:null, virtual:true,
-        note:'Before start of care or Day 1 for high utilisation; short-hour may be reviewed virtually.' }
+        note:'Before start of care or Day 1 for high utilization; short-hour may be reviewed virtually.' }
 };
 
 const OB_CHECKLIST = [
@@ -6069,10 +6069,10 @@ const OFF_TYPES = [
     'Acknowledge the decision warmly and thank them for trusting Tribute',
     'Ask the reason for cancellation and record it on the Service Cancellation Pending Form',
     'Log the outcome in HubSpot and tag RDMs if applicable']},
-  {id:'hosp', label:'Hospitalisation, return expected',
+  {id:'hosp', label:'Hospitalization, return expected',
    rule:'The client goes to Hospitalized on the Viv Timeline, not Discharged. They are often still receiving care from us, and a day-to-day cancellation still counts as Hospitalized.',
    steps:[
-    'Confirm the hospitalisation with the family and update the schedule',
+    'Confirm the hospitalization with the family and update the schedule',
     'Tell caregivers and the Scheduling and Client Solutions channel about the hold and the expected return',
     'Check in with the family at least once during the stay if services are on hold',
     'Coordinate discharge planning with the family and any GCM',
@@ -8978,7 +8978,7 @@ Warmly,
    subj:'Final date of service: [Client name]',
    body:`Final date of service: [date]
 Client: [Client name]
-Type of ending: [voluntary / hospitalisation / higher level of care / hospice / death / Tribute-initiated]
+Type of ending: [voluntary / hospitalization / higher level of care / hospice / death / Tribute-initiated]
 Caregivers affected: [names]
 
 Please remove or inactivate visits after the final date. I have told the family and the caregivers.
@@ -9381,7 +9381,7 @@ function calcPartB(c){
   if(c.pulseReason==='L2') add(2,'Escalation chain break','open L2 flag');
   if((parseInt(c.carePlanEdits30)||0)>=3) add(1,'Care plan churn',c.carePlanEdits30+' versions in 30 days');
   if(c.visitsOverdue) add(1,'Visits overdue','behind the cadence for this tier');
-  if((parseInt(c.externalOrgs)||0)>1) add(1,'Multiple organisations',c.externalOrgs+' external organisations involved');
+  if((parseInt(c.externalOrgs)||0)>1) add(1,'Multiple organizations',c.externalOrgs+' external organizations involved');
   if(c.matchFailure) add(2,'Match failure complaint','a care-skill or connection match failure on file');
   if(c.commUnanswered) add(1,'Communication unanswered',(c.commUnansweredDays||'>5')+' days without a reply');
   return {total:Math.min(12,t),breakdown:b,unmeasured:[]};
@@ -9652,7 +9652,7 @@ const TIER_ORD=['Low','Medium','High'];
 //
 // Two things from earlier conversations are deliberately NOT here, because Part 3
 // supersedes them: the GCM dropdown no longer sets a High floor (GCM load is
-// scored as an external organisation under Part B), and the 7-day "4 service
+// scored as an external organization under Part B), and the 7-day "4 service
 // events bumps a band" burst is dropped as double counting — the 30-day banded
 // events plus Part B already lift a volatile client.
 function computedTierFor(c){
