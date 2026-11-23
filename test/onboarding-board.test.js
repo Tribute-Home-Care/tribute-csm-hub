@@ -48,7 +48,7 @@ ok('an ending with no type recorded says so rather than guessing',
 
    What shipped was "n of 29" and "n items overdue", which tells a manager that
    something is behind without telling them what or where. */
-ok('the row carries the start of care and the day', /_cmDate\(r\.c\.startDate\)/.test(CODE) && /Day \$\{r\.daysIn\}/.test(CODE));
+ok('the row carries the start of care and the day', /_cmDate\(r\.c\.startDate\)/.test(CODE) && /\('Day '\+r\.daysIn\)/.test(CODE));
 ok('...and a bar for each phase', /r\.pr\.phases\.map\(ph=>_obBar\(ph\.done,ph\.total\)\)/.test(CODE) &&
    /function _obProgress[\s\S]*?const phases=OB_CHECKLIST\.map/.test(CODE));
 ok('...and the one thing due next, with its owner',
@@ -72,6 +72,21 @@ ok('...and overdue beats near, which is the ordering everywhere else',
    /open\.sort\(\(a,b\)=>\(b\.late-a\.late\)\|\|a\.date\.localeCompare\(b\.date\)\)/.test(CODE));
 ok('...and a client with nothing dated outstanding says so',
    /'Nothing dated outstanding'/.test(CODE));
+/* obDueFor returns {date, note} with no text for a market-rule item, which
+   is right for the checklist where the date and the rule note are separate
+   columns. The board wants one phrase, so it builds it rather than joining
+   label and text blindly: doing that printed "Complete the assessment .
+   undefined" at a manager on the live page. */
+ok('the board builds its own phrase rather than printing an absent field',
+   /const when=d\.date\?\('due '\+_cmDate\(d\.date\)\):'';/.test(CODE) &&
+   /const say=\[d\.note,when\|\|d\.text\]\.filter\(Boolean\)\.join/.test(CODE));
+ok('...and never concatenates an undefined into the cell',
+   !/nd\.item\.label\+' \\u00b7 '\+nd\.text/.test(CODE));
+
+/* daysAgo is NEGATIVE before the start of care, and the column counts days
+   SINCE the start. "Day -1" is not a day of care that has happened. */
+ok('a client who has not started yet says when they do, not a negative day',
+   /r\.daysIn<0\?\('Starts in '/.test(CODE));
 
 /* Her two filters. The market list is built from the caseload, so it can
    never offer a market with nothing behind it, and one market is not a
