@@ -191,13 +191,31 @@ ok('...and the cadence exception still leads where there is one',
    /const st = ex \|\| ps;/.test(CODE));
 ok('...the Status cell reads whichever it is',
    /'<td>' \+ \(st \? '<span class="rd-cl-ex ' \+ st\.tone \+ '">' \+ esc\(st\.text\)/.test(CODE));
-/* Courtney asks for plain labels in section 9 and in the same breath makes
-   agreeing them a next step we do together, so this uses the reason codes
-   Pulse already emits and the wording Home has always shown for them. */
-ok('the wording is the Hub\'s existing reason labels, not a new taxonomy',
-   /const PULSE_REASON = \{ L1: 'Safety or disclosure', L2: 'Escalation chain broke',/.test(CODE));
-ok('an unrecognised reason still says something true',
-   /PULSE_REASON\[pp\.flagReason\] \|\| 'Flagged by Pulse'/.test(CODE));
+/* THE EVIDENCE, NOT THE CODE. The first pass mapped flagReason through
+   {L1,L2,L3}, copied from Home's own map. Checked against the live feed: the
+   Pulse emits EIGHT codes, L1 to L8, and carries no label for any of them, so
+   three read as words and five fell through to a generic line. That is the
+   raw-system-text fault Courtney caught as "aware_none", wearing different
+   clothes.
+
+   The feed already carries the sentence: `reasons` is the rule evidence in
+   English, "1 safety incident (45d)". No map to go stale when a ninth code
+   arrives, and something a CSM can act on rather than a letter and a number. */
+ok('the row shows the Pulse evidence, not a reason code',
+   /const first = \(pp\.reasons \|\| \[\]\)\.map\(function \(r\) \{ return String\(r \|\| ''\)\.trim\(\); \}\)/.test(CODE));
+ok('...and a client with no evidence line still says something true',
+   /text: first \|\| 'Flagged by Pulse',/.test(CODE));
+ok('the stale three-code map is gone', !/PULSE_REASON/.test(CODE));
+/* Home's own subtitle had the same bug in a place nobody looked: its map
+   covered L1 to L3, so on a real caseload the High need line read
+   "41 L4 · 23 L5 · 38 L8". The codes are opaque to the Hub and the feed
+   carries no label, so it says the one thing it can stand behind. */
+const V1H = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+ok('Home no longer prints Pulse reason codes at a CSM',
+   !/const LBL=\{L1:'safety or disclosure'/.test(V1H));
+ok('...it counts what needs action and what is a watch',
+   /if\(red\)out\.push\(red\+' needing action'\);/.test(V1H) &&
+   /if\(amber\)out\.push\(amber\+' to watch'\);/.test(V1H));
 // One-line rows: the sentence goes in the title, and she said herself the
 // full read belongs on the client page under the banner.
 ok('the sentence is on the row, not in the cell',

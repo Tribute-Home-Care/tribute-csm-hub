@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-11-23T14:25"></script>
+<script src="./entra-auth.js?v=2026-11-23T14:29"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1969,7 +1969,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-11-23T14:25';
+const HUB_BUILD='2026-11-23T14:29';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -3347,8 +3347,27 @@ function updateHome(){
       const r=p&&p.flagReason;
       if(r)reasons[r]=(reasons[r]||0)+1;
     });
-    const LBL={L1:'safety or disclosure',L2:'escalation chain broke',L3:'health trend'};
-    const parts=Object.keys(reasons).sort().map(k=>reasons[k]+' '+(LBL[k]||k));
+    /* THIS WAS PRINTING THE CODES. The map covered L1, L2 and L3; the Pulse
+       emits L1 to L8, so on a real caseload this line read "41 L4 · 23 L5 ·
+       38 L8" and had done for as long as the extra codes have existed. Same
+       fault as the raw "aware_none" Courtney caught on the client page, in a
+       place nobody looked.
+
+       The codes are opaque to the Hub and the feed carries no label for them,
+       so the subtitle stops trying to name them and says the one thing it can
+       stand behind: how many need action now and how many are a watch. */
+    const parts=(()=>{
+      let red=0,amber=0;
+      _highNeed.forEach(c=>{
+        const p=c.vivId?_pByCid[c.vivId]:null;
+        if(!p||!p.level||p.level==='green')return;
+        if(p.level==='red')red++; else amber++;
+      });
+      const out=[];
+      if(red)out.push(red+' needing action');
+      if(amber)out.push(amber+' to watch');
+      return out;
+    })();
     hSub.textContent = parts.length ? (parts.join(' · ')+' · tap for detail')
       : (openCoC ? (openCoC+' open change of condition'+(openCoC>1?'s':'')+' · tap for detail')
                  : 'Nothing open · tap to see what was checked');

@@ -548,13 +548,27 @@
      The sentence goes in the row's title, not the cell: she asked for one-line
      rows, and said herself that "the full read goes on the client page under
      the Pulse banner". */
-  const PULSE_REASON = { L1: 'Safety or disclosure', L2: 'Escalation chain broke',
-                         L3: 'Health trend' };
+  /* THE EVIDENCE, NOT THE CODE. This first mapped flagReason through
+     {L1,L2,L3}, copied from Home's own map. Checked against the live feed:
+     the Pulse emits EIGHT codes, L1 to L8, and carries no label for any of
+     them. Three of the eight read as words and five fell through to a
+     generic line, which is the same raw-system-text fault as "aware_none"
+     wearing different clothes.
+
+     The feed already carries the sentence: `reasons` is the rule evidence in
+     English, "1 safety incident (45d)", "3 reliability complaints (45d)". So
+     the row shows that, which needs no map, cannot go stale when a ninth code
+     is added, and says something a CSM can act on rather than a letter and a
+     number. Courtney's plain labels sit on top of this later, once they are
+     agreed; this is the honest floor until then. */
   function pulseStatus(c) {
-    if (!pulseOpen(c)) return null;
+    const lvl = pulseLevel(c);
+    if (!lvl) return null;
     const pp = pulseFor(c);
-    const why = PULSE_REASON[pp.flagReason] || 'Flagged by Pulse';
-    return { tone: pp.level === 'red' ? 'bad' : 'warn', text: why,
+    const first = (pp.reasons || []).map(function (r) { return String(r || '').trim(); })
+                                    .filter(Boolean)[0];
+    return { tone: lvl === 'red' ? 'bad' : 'warn',
+             text: first || 'Flagged by Pulse',
              note: String(pp.headline || '') };
   }
 
