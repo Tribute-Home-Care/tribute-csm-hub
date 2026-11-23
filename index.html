@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-11-23T12:17"></script>
+<script src="./entra-auth.js?v=2026-11-23T12:36"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1621,7 +1621,7 @@ const PROFILES=[
   {id:'ramya',name:'Ramya Ramakrishna',role:'CSM',initials:'RR',color:'#9D2667',hub:'MA',market:'Massachusetts'},
   {id:'emily',name:'Emily Willson',role:'CSM',initials:'EW',color:'#0F8F6B',hub:'MA',market:'Massachusetts'},
   {id:'tracy',name:'Tracy DuBois',role:'CSM',initials:'TD',color:'#C2710C',hub:'MA',market:'Massachusetts'},
-  {id:'sam',name:'Sam Noren',role:'CSC',initials:'SN',color:'#E25309',hub:'MA',market:'Massachusetts',isCSC:true,ltcPrimary:true},
+  {id:'sam',name:'Sam Noren',role:'CSP',initials:'SN',color:'#E25309',hub:'MA',market:'Massachusetts',isCSC:true,ltcPrimary:true},
   {id:'chelsea',name:'Chelsea Hancock',role:'Massachusetts Market Director',initials:'CH',color:'#6B4E9E',hub:'MA',market:'Massachusetts',isDirector:true},
   // ─── MARYLAND ──────────────────────────────────────────────────────
   {id:'jada',name:'Jada Tiglao',role:'Senior CSM · Manager',initials:'JT',color:'#92580B',hub:'MD',market:'Maryland',isManager:true},
@@ -1629,7 +1629,7 @@ const PROFILES=[
   {id:'tina',name:'Tina Merklinger',role:'CSM',initials:'TM',color:'#8A1A57',hub:'MD',market:'Maryland'},
   {id:'kristen',name:'Kristen Mayhew',role:'CSM',initials:'KM',color:'#2C5689',hub:'MD',market:'Maryland'},
   {id:'rachel',name:'Rachel Kruger',role:'Maryland Market Director',initials:'RK',color:'#0E7490',hub:'MD',market:'Maryland',isDirector:true},
-  {id:'michelle',name:'Michelle Hejduk',role:'CSC',initials:'MH',color:'#C8362B',hub:'MD',market:'Maryland',isCSC:true},
+  {id:'michelle',name:'Michelle Hejduk',role:'CSP',initials:'MH',color:'#C8362B',hub:'MD',market:'Maryland',isCSC:true},
   // ─── CHICAGO ───────────────────────────────────────────────────────
   {id:'carrie',name:'Carrie Faerber',role:'Illinois Market Director',initials:'CF',color:'#C2710C',hub:'CHI',market:'Chicago',coverageMarketOnly:true,isDirector:true},
   // ─── ALL MARKETS ───────────────────────────────────────────────────
@@ -1930,7 +1930,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-11-23T12:17';
+const HUB_BUILD='2026-11-23T12:36';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -2609,8 +2609,8 @@ async function renderLtc(force){
 function _ltcMineName(){return (P&&P.name?P.name.split(' ')[0]:'').toLowerCase();}
 
 /* WHOSE ROWS ARE "MINE" DEPENDS ON WHO IS ASKING.
-   The Maryland tracker names the CSC on every record, so Michelle's Mine
-   worked. The Massachusetts tracker names the individual CSM, so the CSC who
+   The Maryland tracker names the CSP on every record, so Michelle's Mine
+   worked. The Massachusetts tracker names the individual CSM, so the CSP who
    actually sends those packets never appears on a single row and Mine was
    empty for her. Reported 2026-11-22: "Michelle is listed with all the MD
    clients, but for MA the CSM is listed, so I can't use the mine button."
@@ -3598,7 +3598,7 @@ function toggleLTCPanel(){
 }
 
 function getAllHubClients(){
-  // For CSC/manager views — read clients from all non-CSC profiles in the same hub
+  // For CSP/manager views — read clients from all non-CSP profiles in the same hub
   const hub=selectedHub||(Array.isArray(P?.hub)?P.hub[0]:P?.hub);
   const csmProfiles=PROFILES.filter(pr=>!pr.isCSC&&(Array.isArray(pr.hub)?pr.hub.includes(hub):pr.hub===hub));
   return csmProfiles.flatMap(pr=>(DATA.profiles[pr.id]?.clients||[]).map(c=>({...c,_profileId:pr.id,csm:c.csm||pr.name})));
@@ -3622,7 +3622,7 @@ function _renderClientMasterInner(){
     if(old) old.remove();
   }
 
-  // Restore the tier dropdown to its normal options if we're not in CSC view
+  // Restore the tier dropdown to its normal options if we're not in CSP view
   if(!P?.isCSC){
     const tierSel=document.getElementById('cm-tier');
     if(tierSel){
@@ -3635,11 +3635,11 @@ function _renderClientMasterInner(){
     }
   }
 
-  // ── CSC view: show market-wide clients with CSM filter ───────────────
+  // ── CSP view: show market-wide clients with CSM filter ───────────────
   if(P?.isCSC){
     const allClients=getAllHubClients();
     const csmSel=document.getElementById('cm-tier');
-    // Repurpose the tier filter as a CSM filter for CSC view
+    // Repurpose the tier filter as a CSM filter for CSP view
     const hub=selectedHub||(Array.isArray(P.hub)?P.hub[0]:P.hub);
     const csmProfiles=PROFILES.filter(pr=>!pr.isCSC&&(Array.isArray(pr.hub)?pr.hub.includes(hub):pr.hub===hub));
     const prevCSM=csmSel.value; // save before rebuilding
@@ -5468,7 +5468,7 @@ const OB_CHECKLIST = [
 /* Each row is a tick, the initials of whoever did it, and the date, which is
    the three columns the Word template has. Initials rather than a name because
    that is what the team already writes, and because an item is often done by
-   the CSC on the CSM\'s behalf. */
+   the CSP on the CSM\'s behalf. */
 function _obMap(cid){
   const out={};
   for(const r of get('s60_ob')) if(r.clientId===cid) out[r.id]=r;
@@ -6206,7 +6206,7 @@ function renderHandoffPicker(){
   if(typeof P==='undefined'||!P)return;
   const sel=document.getElementById('ho-csm');
   if(sel&&sel.options.length===0){
-    sel.innerHTML=PROFILES.filter(p=>p.id!==P.id&&!p.coverageMarketOnly).map(p=>`<option value="${p.id}">${escHtml(p.name)}${p.isCSC?' (CSC)':''}</option>`).join('');
+    sel.innerHTML=PROFILES.filter(p=>p.id!==P.id&&!p.coverageMarketOnly).map(p=>`<option value="${p.id}">${escHtml(p.name)}${p.isCSC?' (CSP)':''}</option>`).join('');
   }
   const all=document.getElementById('ho-all').checked;
   const el=document.getElementById('ho-picker');
@@ -6943,7 +6943,7 @@ function workloadFor(pid){
     avgTouch:clients.length?Math.round(touches/clients.length*10)/10:0};
 }
 
-// ── CSC support activity: coordinators (Sam MA, Michelle MD) touch clients
+// ── CSP support activity: coordinators (Sam MA, Michelle MD) touch clients
 // across their whole market, so their work lands on OTHER CSMs' clients —
 // credited via the touchpoint's `contact` (who made the touch). Their measure
 // is therefore: every touchpoint in the last 30 days across all profiles in
@@ -7076,7 +7076,7 @@ function renderTeamOverview(){
             <div style="height:100%;width:${compliance}%;background:${cmpClr};"></div>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:9px;margin-bottom:3px;">
-            <span style="font-size:10.5px;color:#8C857B;" title="${csc?'Coordinator support: touchpoints they generated across the whole market in the last 30 days':'Every client counts once, plus up to 2 extra points for communication volume (touchpoints in the last 30 days)'}">${csc?'Support activity (market-wide)':'Workload (clients + touch)'}</span>
+            <span style="font-size:10.5px;color:#8C857B;" title="${csc?'Partner support: touchpoints they generated across the whole market in the last 30 days':'Every client counts once, plus up to 2 extra points for communication volume (touchpoints in the last 30 days)'}">${csc?'Support activity (market-wide)':'Workload (clients + touch)'}</span>
             <span style="font-size:11px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;">${csc?csc.touches:wk.weighted}</span>
           </div>
           <div style="height:5px;background:#F1EEE8;border-radius:3px;overflow:hidden;">
@@ -7091,7 +7091,7 @@ function renderTeamOverview(){
   // ── Workload distribution: ranked stacked bars (clients base + touch weight) ──
   const wlEl=document.getElementById('team-workload');
   if(wlEl){
-    // CSMs rank on the client+touch model; coordinators (CSCs) support the
+    // CSMs rank on the client+touch model; coordinators (CSPs) support the
     // whole market so they get their own scale below — market-wide touches.
     const rows=[...filtered].filter(p=>!p.isCSC).sort((a,b)=>W[b.id].weighted-W[a.id].weighted);
     const cscRows=filtered.filter(p=>p.isCSC).map(p=>({p,s:cscSupport30(p)})).sort((a,b)=>b.s.touches-a.s.touches);
@@ -7125,8 +7125,8 @@ function renderTeamOverview(){
       <p style="font-size:11px;color:#8C857B;margin-top:8px;">tp = touchpoints across the caseload in the last 30 days · a red total is ≥20% above the team average</p>
       ${cscRows.length?`
       <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line-soft);">
-        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:#8C857B;margin-bottom:8px;">Coordinators — market-wide support</div>
-        <p style="font-size:11.5px;color:#6B655C;margin-bottom:10px;">Coordinators touch clients across the whole market, so their measure is different: every touchpoint <strong>they generated</strong> in the last 30 days, on anyone's caseload.</p>
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:#8C857B;margin-bottom:8px;">Client Solutions Partners — market-wide support</div>
+        <p style="font-size:11.5px;color:#6B655C;margin-bottom:10px;">Client Solutions Partners touch clients across the whole market, so their measure is different: every touchpoint <strong>they generated</strong> in the last 30 days, on anyone's caseload.</p>
         ${cscRows.map(({p,s})=>`<div style="display:flex;align-items:center;gap:10px;padding:5px 0;">
           <div class="pav" style="background:${p.color};width:26px;height:26px;font-size:10px;flex-shrink:0;">${p.initials}</div>
           <div style="width:110px;flex-shrink:0;font-size:12px;font-weight:500;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name.split(' ')[0]} ${p.name.split(' ').slice(1).join(' ').charAt(0)||''}.</div>
@@ -7495,7 +7495,7 @@ const KB=[
   {title:"Out-of-Scope Requests",tags:["out of scope","request","boundary","decline"],content:"Out-of-scope requests are almost never malicious — families are stressed. Decline clearly with empathy. Always offer an alternative. 'That's outside what our caregivers are authorized to do, but here's who can help...' Document the conversation. Bring patterns to Senior CSM."},
   {title:"Emergency Sequence",tags:["emergency","fall","911","hospital","urgent"],content:"1. Safety first — 911 before anything else. 2. Notify Tribute — 617-517-5400. 3. CSM in the loop same day. 4. Family/GCM hears from you directly. 5. Document in Viv same day. 6. Notify Senior CSM and Market Director same day."},
   {title:"Service Exception (SE) Guide",tags:["service exception","SE","Viv","documentation","complaint","rise"],content:"One complaint = one SE. Multiple complaints about same caregiver = separate SEs. Never combine types. Field visits: begin note with 'FIELD VISIT:'. Rise Standards — Connection: warm, engages, follows care plan. Communication: 24hr response, appropriate channels. Reliability: 7+ days notice for call-outs, 95%+ on-time. Flexibility: accepts last-minute, visits any client within skill level."},
-  {title:"After-Hours Boundaries",tags:["after hours","on call","availability"],content:"CSMs are not on call. The AHSM line (617-517-5400) exists so families have 24/7 support and CSMs can recharge. Set this expectation clearly at the start of the relationship. Introduce the full support team — CSC, after-hours line, scheduling — so families don't feel you're their only lifeline."},
+  {title:"After-Hours Boundaries",tags:["after hours","on call","availability"],content:"CSMs are not on call. The AHSM line (617-517-5400) exists so families have 24/7 support and CSMs can recharge. Set this expectation clearly at the start of the relationship. Introduce the full support team — CSP, after-hours line, scheduling — so families don't feel you're their only lifeline."},
   {title:"Assessment Best Practices",tags:["assessment","new client","onboarding","intake","lead"],content:"Lead with the person. Flow: 1) Introductions and rapport. 2) Social history. 3) Personality and preferences. 4) Reason for services. 5) Medical history and functional needs. 6) Logistics. Before leaving: no blank sections, clarify next steps, enter Viv notes promptly, share red flags with Senior CSM or MD."},
   {title:"Success in 30 — New Client Onboarding",tags:["success in 30","new client","onboarding","touchpoints","first 30 days","viv checklist"],content:"Track required touchpoints for new clients in their first 30 days using the Success in 30 section. Required milestones: Assessment (Day 0-1), all caregivers prepped before Day 1, 2nd in-person visit within 14 days, caregiver week-1 check-in, weekly family/GCM contact throughout, Requirements page and Important Client Details updated in Viv, MA tracker up to date. Touchpoint types: ASMT = Assessment, VISIT = 2nd In-Person Visit, CG-PREP = Caregiver Prep Call, CG-CHK = Caregiver Week 1 Check-In, PHONE = Phone/Virtual with Family or GCM, VIV = Viv/Tracker Update. Logging a touchpoint auto-checks the matching milestone."},
   {title:"Paired CSM Model",tags:["paired","partner","CSM pair","collaboration"],content:"Each CSM maintains their own caseload but operates as a clinical partner team. The pair meets weekly to coordinate priorities, identify shared high-risk clients, divide responsibilities, review emerging risks and caregiver concerns, and provide coverage for each other during PTO or heavy caseload moments."},
@@ -7583,7 +7583,7 @@ const SCENARIOS=[
   {title:"Caregiver & Family Tension",icon:"⚖️",steps:["Document the caregiver's concern in Viv before contacting the family.","Address the behavior without revealing exactly what the caregiver told you.","'I want to make sure [Caregiver] feels supported and set up for success in [Client]'s home.'","Be clear but not punitive.","If serious or repeated, talk to Senior CSM first.","Document the family conversation in Viv."]},
   {title:"Out-of-Scope Request",icon:"🚫",steps:["Recognize that out-of-scope requests are almost never malicious — families are stressed.","Decline clearly but with empathy. Acknowledge the need before redirecting.","Always offer an alternative: who can help, what resource exists.","'That's outside what our caregivers are authorized to do, but here's who can help...'","Document the conversation. Bring patterns to Senior CSM."]},
   {title:"Emergency During a Visit",icon:"🚨",steps:["SAFETY FIRST — 911 before anything else if there is any immediate threat.","If caregiver calls mid-emergency: 'Has 911 been called?' If not, direct them to call immediately.","Stay calm. Walk the caregiver through the next few minutes. Remind them to unlock the door.","Notify Tribute: 617-517-5400.","Contact the family directly — not through the caregiver, not voicemail. From you.","Document in Viv same day. Notify Senior CSM and Market Director same day."]},
-  {title:"When a Family is Overrelying on You",icon:"🧭",steps:["Set response time expectations early — easiest at the start before patterns form.","Introduce the full support team: CSC, 617-517-5400, scheduling.","Redirect gently when a pattern starts forming, and give them something structured in return.","'For anything after hours, our team at 617-517-5400 is always available.'","Maintain the boundary consistently. You can be warm and firm at the same time."]}
+  {title:"When a Family is Overrelying on You",icon:"🧭",steps:["Set response time expectations early — easiest at the start before patterns form.","Introduce the full support team: CSP, 617-517-5400, scheduling.","Redirect gently when a pattern starts forming, and give them something structured in return.","'For anything after hours, our team at 617-517-5400 is always available.'","Maintain the boundary consistently. You can be warm and firm at the same time."]}
 ];
 function renderScenarios(){
   _updateAsstAdminBars();
@@ -8155,7 +8155,7 @@ const VIV_PROXY='https://tribute-api-prod-bkc4hfcwf3f2f6bf.centralus-01.azureweb
 /* ── CSM KSF, live (Andrew, 2026-11-18) ──────────────────────────────────
    The same numbers as the CSM KSF dashboard (TributeKSFs csm.html), read from
    vivProxy?endpoint=csm_ksf. A CSM sees their own caseload's role-expectation
-   metrics; a manager, director or CSC sees their market. Read only: nothing
+   metrics; a manager, director or CSP sees their market. Read only: nothing
    here is typed in, so the KPI log below stays for reflection notes. */
 let _ksfLive=null,_ksfLiveAt=0;
 const KSF_LIVE_METRICS=[
@@ -8488,7 +8488,7 @@ function tpAutoChip(t){
 // warmed 3x/day): caregiver visit notes (14d), change-of-condition reports,
 // service exceptions (45d), communications (30d), hosp risk, client notes,
 // plus an optional Claude read per attention client. CSMs see their own
-// caseload; managers and CSCs see everyone with a CSM filter. Held in memory
+// caseload; managers and CSPs see everyone with a CSM filter. Held in memory
 // only — never written into the shared document.
 // Viv raises change-of-condition as a TASK assigned to the account manager
 // only, so a covering CSM never sees it. Pulled here and shown for BOTH your
@@ -8726,11 +8726,11 @@ function pulseDot(c){
   return ` <span title="Pulse: ${p.level==='red'?'needs attention':'watch'} — ${escHtml((p.reasons||[]).join('; '))}" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${col};vertical-align:1px;"></span>`;
 }
 // Scope follows the ACTIVE PROFILE, not the signed-in account: viewing Ramya's
-// profile shows Ramya's caseload even for an admin login. Only manager/CSC
+// profile shows Ramya's caseload even for an admin login. Only manager/CSP
 // profiles get the all-clients view + CSM filter. (Andrew hit this: his admin
 // account made every CSM's pulse page show all 253 clients.)
 function _pulseIsMgrView(){return !!(P&&(P.isManager||P.isCSC||P.isDirector));}
-// Managers/CSCs see their MARKET'S clients, not the whole company: Courtney →
+// Managers/CSPs see their MARKET'S clients, not the whole company: Courtney →
 // all MA (incl. her own + Julia's), Jada → all MD, Carrie → all Chicago,
 // Sam/Michelle → their market. Everyone else sees their own roster.
 const PULSE_MKT_STATE={'Boston':'MA','MetroWest Boston':'MA','Metro West Boston':'MA','North of Boston':'MA','North Boston':'MA','South of Boston':'MA','South Boston':'MA','Massachusetts':'MA','Baltimore':'MD','Bethesda':'MD','Annapolis':'MD','Maryland':'MD','Chicago':'IL','Illinois':'IL'};

@@ -82,7 +82,7 @@ window.GUIDE = (function () {
         { h: 'On a phone', p: 'Four destinations along the bottom — Home, Clients, Coverage and More. ' +
           'More opens the same list, in the same three groups, scrolling down. Nothing is hidden sideways ' +
           'and nothing is reachable on a desk but not on a phone.' },
-        { h: 'Your role decides what you see', p: 'A CSM, a CSC and a director do not see the same rail. ' +
+        { h: 'Your role decides what you see', p: 'A CSM, a CSP and a director do not see the same rail. ' +
           'Nothing in the Hub lets you reach a page your role does not have — including a link somebody sends you.' }
       ],
       know: ['The market you are in is shown in the Hub chrome and scopes everything: clients, coverage, communities and times.'],
@@ -905,7 +905,7 @@ window.GUIDE = (function () {
   /* ── Glossary ──────────────────────────────────────────────────────── */
   const glossary = [
     ['CSM', 'Client Solutions Manager. Owns a caseload of clients and the relationship with each family.'],
-    ['CSC', 'Client Solutions Coordinator. Works across a market rather than a single caseload.'],
+    ['CSP', 'Client Solutions Partner. Works across a market rather than a single caseload.'],
     ['Pulse', 'A read on how a client is doing, drawn from caregiver notes, changes of condition, incidents and recent communication. Three levels: Needs attention, Monitor, Status quo.'],
     ['Needs attention', 'The most pressing Pulse level. Something in the recent record suggests looking now.'],
     ['Touchpoint', 'A recorded contact with a client or family. Cadence follows tier: High every 14 days, Medium 30, Low 60.'],

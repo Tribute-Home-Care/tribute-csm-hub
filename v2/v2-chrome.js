@@ -270,10 +270,21 @@
     if (!brand) return;
     const m = document.createElement('div');
     m.id = 'v2-mark';
+    /* "1 saved · 0 notes" (Courtney, section 1): "isn't clear. I don't know
+       what it's counting and I don't think CSMs will either. I'd remove it or
+       label it."
+
+       She is right about the counters and not about the first word: whether
+       this account can write is worth a CSM knowing, and "read-only" says it
+       plainly. The two counts were pilot instrumentation wearing the clothes
+       of a status line. The saved-writes tally moves into the diagnostics
+       panel, where it is explained; the anomaly count appears only when there
+       is an anomaly, and then says what it is rather than counting "notes". */
     m.innerHTML =
       '<span class="v2-tag">V2 Preview</span>' +
-      '<span class="v2-state"><span id="v2-blocked-count">read-only</span>' +
-      '<span class="v2-sep">·</span><span id="v2-anom">0 notes</span></span>';
+      '<span class="v2-state" title="How this account can use V2. Click for the pilot diagnostics.">' +
+      '<span id="v2-blocked-count">read-only</span>' +
+      '<span id="v2-anom"></span></span>';
     brand.appendChild(m);
     m.addEventListener('click', function () { App.showDiagnostics(); });
     paint();
@@ -282,7 +293,12 @@
   function paint() {
     if (App.updateWriteBadge) App.updateWriteBadge();
     const a = document.getElementById('v2-anom');
-    if (a) a.textContent = anomalies.length + (anomalies.length === 1 ? ' note' : ' notes');
+    // Nothing wrong, nothing said. The separator lives inside this span so it
+    // cannot be left dangling after a count that is no longer there.
+    if (a) a.innerHTML = anomalies.length
+      ? '<span class="v2-sep">·</span>' + anomalies.length +
+        (anomalies.length === 1 ? ' thing to look at' : ' things to look at')
+      : '';
   }
 
   App.showDiagnostics = function () {

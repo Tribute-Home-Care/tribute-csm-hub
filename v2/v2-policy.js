@@ -382,7 +382,10 @@
     if (!sw.known)        el.textContent = 'checking\u2026';
     else if (!sw.enabled) el.textContent = 'writes off';
     else if (!sw.isPilotWriter) el.textContent = 'read-only';
-    else el.textContent = writes.length ? writes.length + ' saved' : 'write pilot';
+    // Was "N saved", which Courtney read as an unexplained counter and she
+    // was right: the number means nothing without the panel that lists them.
+    // It is in the diagnostics panel, which this strip opens.
+    else el.textContent = 'write pilot';
   }
   App.updateWriteBadge = updateBadge;
 

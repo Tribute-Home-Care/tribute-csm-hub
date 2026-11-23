@@ -403,6 +403,7 @@
     ['onboarding', 'Success in 30'],
     ['soon', 'Due soon']
   ];
+  const CM_SEARCH_PLACEHOLDER = 'Search a client, a family contact, a caregiver, a care manager\u2026';
   let _view = 'attention';
   /* Urgency is the default sort and stays it; a column the reader picked beats
      a ranking they cannot see, so these hold what they picked. */
@@ -410,6 +411,40 @@
   let _selected = null;
   let _section = 'overview';
   let _showAdmin = false;
+
+  /* EVERYTHING KNOWN ABOUT A CLIENT THAT A CSM MIGHT TYPE. Built in one
+     place so the list and the search palette cannot disagree about what is
+     findable, which was the whole shape of the counts problem a week ago.
+
+     vivContactsFor() returns only what is already in hand. It never triggers
+     a read: forty clients fetched on every keystroke would be forty Viv calls
+     per letter. So phone search is complete for clients opened this session
+     and partial otherwise, which is a limit worth fixing at the source rather
+     than papering over here. */
+  function vivContactsFor(c) {
+    if (!c || !c.vivId || !window.TributeClientData) return [];
+    let snap = null;
+    try { snap = TributeClientData.client(c.vivId); } catch (e) { return []; }
+    const d = snap && snap.state === 'ready' && snap.data;
+    if (!d) return [];
+    const out = [];
+    if (d.primaryContact) out.push(d.primaryContact);
+    (d.contacts || []).forEach(function (x) { if (x) out.push(x); });
+    (d.careTeam || []).forEach(function (x) {
+      if (x && x.name) out.push({ name: x.name, role: 'caregiver' });
+    });
+    return out;
+  }
+  // Digits only, so 617-555-0142, (617) 555 0142 and 6175550142 all match.
+  const digits = function (v) { return String(v == null ? '' : v).replace(/\D+/g, ''); };
+  function clientHaystack(c) {
+    const parts = [c.name, c.loc, c.city, c.notes, c.contact, c.contactEmail,
+                   c.caregivers, (c.gcm && c.gcm !== 'none' ? c.gcm : ''), c.address, c.csm];
+    vivContactsFor(c).forEach(function (x) {
+      parts.push(x.name, x.email, x.relation || x.relationship, x.phone, digits(x.phone));
+    });
+    return parts.filter(Boolean).join(' ').toLowerCase();
+  }
 
   function visitSt(c) {
     if (c.freq === 'NA') return 'none';
@@ -499,9 +534,18 @@
     const q = (qEl ? qEl.value : '').toLowerCase().trim();
     const tf = tEl ? tEl.value : '';
     let list = clients.map(function (c) { return { c: c, ex: exceptionFor(c) }; });
-    if (q) list = list.filter(function (r) {
-      return ((r.c.name || '') + ' ' + (r.c.loc || '') + ' ' + (r.c.city || '') + ' ' + (r.c.notes || '')).toLowerCase().indexOf(q) > -1;
-    });
+    /* SEARCH REACHES THE PEOPLE AROUND THE CLIENT (Courtney, priority 12):
+       "Search covers family contacts, GCMs, caregivers and phone numbers, not
+       just clients. When a daughter calls, the CSM knows her name, not always
+       the client's."
+
+       A daughter's name typed here now finds her mother. So does a care
+       manager's name, a caregiver's, and any phone number the Viv read has
+       already brought back for a client this session. The Hub's own record
+       (contact, contactEmail, caregivers, gcm) is always searchable; Viv's
+       fuller contact list is searchable for clients that have been opened,
+       and clientHaystack() says which is which. */
+    if (q) list = list.filter(function (r) { return clientHaystack(r.c).indexOf(q) > -1; });
     if (tf) list = list.filter(function (r) { return r.c.tier === tf; });
     // Same partition as the counts above: the list under a tab has to hold
     // exactly what the tab's number says.
@@ -581,8 +625,8 @@
       return;
     }
 
-    // The CSC branch of the original renderer repurposes #cm-tier as a CSM
-    // filter and its non-CSC branch restores it; the override skips the
+    // The CSP branch of the original renderer repurposes #cm-tier as a CSM
+    // filter and its non-CSP branch restores it; the override skips the
     // original, so restore it here exactly as the application does.
     const tierSel = $('#cm-tier');
     if (tierSel && !Array.prototype.some.call(tierSel.options, function (o) { return o.value === 'High'; })) {
@@ -594,6 +638,14 @@
 
     mountSplit();
     syncSplitPanes();
+
+    /* A search people do not know they can run is a search that does not
+       exist. The box reaches family contacts, care managers and caregivers
+       now, so it has to say so. Set from here rather than in index.html,
+       because V1 runs its own renderer and there the old wording is still
+       the truth. */
+    const sEl = $('#cm-search');
+    if (sEl && sEl.placeholder !== CM_SEARCH_PLACEHOLDER) sEl.placeholder = CM_SEARCH_PLACEHOLDER;
 
     if (app.profile.dualMarket && !$('#julia-mkt-bar')) {
       const bar = document.createElement('div');
@@ -1825,6 +1877,47 @@
 
      No flag, no banner. A green client is not news, and a banner that is
      always there stops being read. */
+  /* WHOSE CALL IS THIS (Courtney, section 9, Client Pulse): "Add the
+     escalation paths to Pulse's sources so 'whose call' matches who handles
+     it now: MA and Chicago come to me, Maryland goes to the Senior CSM."
+
+     A red flag is the moment a CSM asks who to take this to, so the answer
+     is on the flag rather than in a document. Only on red: an amber is a
+     watch, and telling someone to escalate a watch would teach them to
+     ignore the line.
+
+     Derived from PROFILES by ROLE, never a typed-in name. The two routes she
+     gave are roles, not people, and a hardcoded name goes stale the day
+     somebody changes job while the role stays true. If no profile holds the
+     role, the line is absent rather than wrong.
+
+     NOT DONE: she also asks for the escalation paths in the Assistant's
+     sources. That needs the escalation paths document itself, which this does
+     not have; what is here is only the two routes she wrote down. */
+  function escalateTo(c) {
+    const app = A();
+    const all = app.profiles || [];
+    // PULSE_MKT_STATE and PULSE_HUB_STATE are top-level `const` in the Hub, so
+    // they are global BINDINGS and not window properties: reached bare behind
+    // a guard. Reading them off window returns undefined and the line would
+    // simply never appear, which is how this class of bug hides.
+    const mkt = function (o, k) { try { return o[k] || ''; } catch (e) { return ''; } };
+    const st = (typeof PULSE_MKT_STATE !== 'undefined'
+                 ? mkt(PULSE_MKT_STATE, String(c.market || '').trim()) : '') ||
+               (typeof PULSE_HUB_STATE !== 'undefined'
+                 ? mkt(PULSE_HUB_STATE, app.selectedHub) : '');
+    const byRole = function (re, hub) {
+      return all.filter(function (p) {
+        if (!re.test(String(p.role || ''))) return false;
+        if (!hub) return true;
+        return Array.isArray(p.hub) ? p.hub.indexOf(hub) > -1 : p.hub === hub;
+      })[0];
+    };
+    if (st === 'MD') return byRole(/^Senior CSM/i, 'MD');
+    if (st === 'MA' || st === 'IL') return byRole(/Director of Client Solutions/i);
+    return null;
+  }
+
   function wsPulseBanner(c, pp) {
     if (!pp || !pp.level || pp.level === 'green') return '';
     const tone = pp.level === 'red' ? 'bad' : 'warn';
@@ -1835,6 +1928,12 @@
         ((pp.aiWatch && pp.aiWatch.length)
           ? '<ul class="rd-ul">' + pp.aiWatch.map(function (w) { return '<li>' + esc(w) + '</li>'; }).join('') + '</ul>'
           : '') +
+        (function () {
+          if (pp.level !== 'red') return '';
+          const e = escalateTo(c);
+          return e ? '<p class="rd-pb-esc">Escalate to ' + esc(e.name) +
+            ' \u00b7 ' + esc(e.role) + '</p>' : '';
+        })() +
         (ack
           ? '<p class="rd-pb-ack">' + esc(ackLabel(ack.state)) +
             (ack.by ? ' &middot; ' + esc(ack.by) : '') +
@@ -2685,7 +2784,7 @@
     d.id = 'rd-pal';
     d.innerHTML = '<div class="rd-pal-box" role="dialog" aria-modal="true" aria-label="Search">' +
       '<div class="rd-pal-top ti-skip">' + I('search') +
-      '<input id="rd-pal-input" type="text" placeholder="Search clients, communities, pages…" autocomplete="off" role="combobox" aria-expanded="true" aria-controls="rd-pal-results">' +
+      '<input id="rd-pal-input" type="text" placeholder="Search clients, family, caregivers, communities…" autocomplete="off" role="combobox" aria-expanded="true" aria-controls="rd-pal-results">' +
       '<kbd>esc</kbd></div><div id="rd-pal-results" role="listbox"></div></div>';
     document.body.appendChild(d);
     d.addEventListener('click', function (e) { if (e.target === d) closePalette(); });
@@ -2710,7 +2809,7 @@
   }
 
   // Permission scoping mirrors the application's own: a CSM sees their own
-  // caseload, a CSC or director their market, a manager everything.
+  // caseload, a CSP or director their market, a manager everything.
   function paletteItems() {
     const app = A();
     const items = [];
@@ -2730,12 +2829,27 @@
     const p = app.profile;
     try {
       const seen = {};
+      /* WHO ELSE IS FINDABLE (Courtney, priority 12): "Search covers family
+         contacts, GCMs, caregivers and phone numbers, not just clients. When
+         a daughter calls, the CSM knows her name, not always the client's."
+
+         A family contact gets a row of their own, because the CSM is typing
+         HER name and wants to see it come back, not guess which client row
+         hides it. GCMs and caregivers get one row each however many clients
+         they touch, and open the list filtered to them, because the useful
+         answer to "Hallowell Associates" is all five of those clients rather
+         than an arbitrary one.
+
+         The whole client record is in `match` either way, so a phone number
+         or an email finds the client even where no row names it. */
+      const mine = [];
       const pushClient = function (c) {
         if (!c || seen[c.id || c.name]) return;
         seen[c.id || c.name] = 1;
+        mine.push(c);
         add('Clients', c.name, [c.loc, c.city].filter(Boolean).join(' · '),
           function () { openClient(c.id); }, 'person',
-          [c.address, c.city, c.loc, c.csm, c.vivNum].filter(Boolean).join(' '));
+          clientHaystack(c) + ' ' + (c.vivNum || ''));
       };
       if (p.isManager) {
         (app.profiles || []).forEach(function (pr) { (((app.data.profiles || {})[pr.id] || {}).clients || []).forEach(pushClient); });
@@ -2746,6 +2860,54 @@
       } else {
         (app.fn.get('clients') || []).forEach(pushClient);
       }
+      /* One row per contact, naming the client they belong to, because the
+         row has to answer "whose daughter is this?" on sight. The Hub's own
+         recorded contact is always here; Viv's fuller list joins it for any
+         client already read this session, which is where the phone numbers
+         and relationships come from. */
+      const contactSeen = {};
+      mine.forEach(function (c) {
+        const rows = [];
+        if (c.contact) rows.push({ name: c.contact, email: c.contactEmail || '', relation: '' });
+        vivContactsFor(c).forEach(function (x) {
+          if (x && x.name && x.role !== 'caregiver') rows.push(x);
+        });
+        rows.forEach(function (x) {
+          const k = c.id + '|' + String(x.name).toLowerCase();
+          if (contactSeen[k]) return;
+          contactSeen[k] = 1;
+          const rel = x.relation || x.relationship || '';
+          add('Family contacts', x.name,
+            (rel ? rel + ' \u00b7 ' : '') + c.name,
+            function () { openClient(c.id); }, 'person',
+            [x.email, x.phone, digits(x.phone), c.name].filter(Boolean).join(' '));
+        });
+      });
+
+      /* A GCM or a caregiver is not a page, so the row does the only useful
+         thing: it puts their name in the client list's search box, which now
+         matches these fields, and shows every client they touch. */
+      const spread = function (grp, icon, pick) {
+        const by = {};
+        mine.forEach(function (c) {
+          pick(c).forEach(function (nm) {
+            const k = String(nm).trim();
+            if (!k || /^none$/i.test(k)) return;
+            (by[k] = by[k] || []).push(c);
+          });
+        });
+        Object.keys(by).sort().forEach(function (nm) {
+          const n = by[nm].length;
+          add(grp, nm, plural(n, 'client'), function () { searchClients(nm); }, icon, nm);
+        });
+      };
+      spread('Care managers', 'person', function (c) { return c.gcm ? [c.gcm] : []; });
+      spread('Caregivers', 'person', function (c) {
+        const out = String(c.caregivers || '').split(/[,;\n]+/);
+        vivContactsFor(c).forEach(function (x) { if (x.role === 'caregiver') out.push(x.name); });
+        return out;
+      });
+
       const comms = (app.data.shared && app.data.shared.communities) || {};
       Object.keys(comms).forEach(function (n) {
         const cm = comms[n] || {};
@@ -2766,6 +2928,22 @@
       }
     } catch (e) { /* a partial palette beats a broken one */ }
     return items;
+  }
+
+  /* Put a name in the list's own search box and show everything it matches.
+     The view widens to All first, because a caregiver's clients are not all
+     going to be in whichever tab happened to be open. */
+  function searchClients(q) {
+    const nv = $('.nav-item[data-page="clients"]');
+    if (nv) nv.click();
+    setTimeout(function () {
+      const el = $('#cm-search');
+      if (el) { el.value = q; }
+      _view = 'all';
+      _selected = null;
+      renderTrackerList();
+      if (el && el.focus) el.focus();
+    }, 90);
   }
 
   function openClient(id) {

@@ -1928,7 +1928,7 @@
     return p && p.id ? p.id : null;
   }
 
-  /* Is this row mine? Managers, directors and CSCs are deliberately NOT
+  /* Is this row mine? Managers, directors and CSPs are deliberately NOT
      given everything by this predicate — "Mine" means mine for them too.
      Their wider view is the "All" view, which is a different question and
      is already scoped by the application's own permission rules. */

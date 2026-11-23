@@ -152,7 +152,7 @@
     enumerable: true
   });
   // The caseload this profile may see, honouring the app's own scoping rules:
-  // a CSC sees the market roster, everyone else sees their own pocket.
+  // a CSP sees the market roster, everyone else sees their own pocket.
   app.myClients = function () {
     const p = app.profile;
     if (!p) return [];

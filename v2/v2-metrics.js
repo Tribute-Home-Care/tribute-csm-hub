@@ -96,7 +96,7 @@
     var nextDue = a.nextDue || function () { return null; };
     var out = [];
     profiles.forEach(function (pr) {
-      if (pr.isCSC) return;                       // CSCs carry no caseload of their own
+      if (pr.isCSC) return;                       // CSPs carry no caseload of their own
       var pocket = DATA.profiles[pr.id] || {};
       var tps = pocket.touchpoints || [], cis = pocket.checkins || [];
       (pocket.clients || []).forEach(function (c) {

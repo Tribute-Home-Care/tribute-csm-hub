@@ -38,10 +38,16 @@ function lift(decl) {
   }
   return null;
 }
-const env = new Function('esc', 'pulseHeadline', 'PULSE_ACK_LABEL',
+/* escalateTo is injected rather than lifted: it reads PROFILES through the
+   app bridge, which does not exist here, and what matters at this level is
+   that the banner asks it and obeys the answer. Where it routes to is
+   roles-and-escalation.test.js's job. */
+let escalateArg = null, escalateAnswer = null;
+const env = new Function('esc', 'pulseHeadline', 'PULSE_ACK_LABEL', 'escalateTo',
   lift('const ACK_WORDS =') + ';' + lift('function ackLabel(state)') + ';' +
   lift('function wsPulseBanner(c, pp)') + ';return {ackLabel, wsPulseBanner};')(
-  s => String(s == null ? '' : s), h => '<p>' + String(h) + '</p>', undefined);
+  s => String(s == null ? '' : s), h => '<p>' + String(h) + '</p>', undefined,
+  c => { escalateArg = c; return escalateAnswer; });
 const { ackLabel, wsPulseBanner } = env;
 
 // ── the raw-key bug, which is what she actually saw ───────────────────────
@@ -64,6 +70,23 @@ ok('an unacknowledged flag offers the three marks',
 const amber = wsPulseBanner({}, { level: 'amber', headline: 'Watch' });
 ok('amber is toned differently and worded differently',
    amber.includes('rd-pb warn') && amber.includes('Watch') && !amber.includes('Needs attention'));
+
+/* ── whose call is this (Courtney, section 9) ─────────────────────────────
+   "Add the escalation paths to Pulse's sources so 'whose call' matches who
+   handles it now." The banner is where a CSM is deciding, so the answer is
+   on it. */
+escalateAnswer = { name: 'Dana Example', role: 'Director of Client Solutions' };
+const redEsc = wsPulseBanner({ market: 'Boston' }, { level: 'red', headline: 'x' });
+ok('a red flag says who to escalate to',
+   redEsc.includes('Escalate to Dana Example') && redEsc.includes('Director of Client Solutions'));
+ok('...and it was asked about THIS client', (escalateArg || {}).market === 'Boston');
+const amberEsc = wsPulseBanner({ market: 'Boston' }, { level: 'amber', headline: 'x' });
+ok('an amber watch is not something to escalate', !amberEsc.includes('Escalate to'));
+escalateAnswer = null;
+ok('a market with nobody to escalate to says nothing rather than something wrong',
+   !wsPulseBanner({ market: 'Nowhere' }, { level: 'red', headline: 'x' }).includes('Escalate to'));
+ok('...and the rest of the banner is unharmed',
+   wsPulseBanner({ market: 'Nowhere' }, { level: 'red', headline: 'x' }).includes('rd-pb'));
 
 // Acknowledged: settled, not a second alarm, and never a raw key.
 const done = wsPulseBanner({ pulseAck: { state: 'aware_working', by: 'Emily Willson' } },
