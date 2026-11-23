@@ -41,9 +41,49 @@ ok('the Offboarding rows carry the type of ending and the final date',
    /OFF_TYPES\.find\(x=>x\.id===r\.off\.type\)/.test(CODE) && /Final \$\{escHtml\(new Date\(r\.off\.end/.test(CODE));
 ok('an ending with no type recorded says so rather than guessing',
    /\|\|'Type not recorded'/.test(CODE));
-ok('the Onboarding rows say how much is overdue',
-   /r\.late\+\(r\.late===1\?' item overdue':' items overdue'\)/.test(CODE));
-ok('...and say so plainly when nothing is', /'On time so far'/.test(CODE));
+/* ── her onboarding columns ────────────────────────────────────────────────
+   The picture in Part 4 gives the row nine columns: client with community and
+   market under it, SOC, day, a status, a progress bar PER PHASE, the one thing
+   due next, and who owns it.
+
+   What shipped was "n of 29" and "n items overdue", which tells a manager that
+   something is behind without telling them what or where. */
+ok('the row carries the start of care and the day', /_cmDate\(r\.c\.startDate\)/.test(CODE) && /Day \$\{r\.daysIn\}/.test(CODE));
+ok('...and a bar for each phase', /r\.pr\.phases\.map\(ph=>_obBar\(ph\.done,ph\.total\)\)/.test(CODE) &&
+   /function _obProgress[\s\S]*?const phases=OB_CHECKLIST\.map/.test(CODE));
+ok('...and the one thing due next, with its owner',
+   /const nd=_obNextDue\(r\.c\);/.test(CODE) && /escHtml\(nd\?nd\.item\.owner:''\)/.test(CODE));
+ok('...and where the client lives', /\[r\.c\.loc,r\.c\.market\]\.filter\(Boolean\)/.test(CODE));
+
+/* Her callout: "Same three statuses as Success in 30 rules in Part 3." One
+   rule, read twice, so the board and the client page cannot disagree about a
+   client. The board must not compute a status of its own. */
+ok('the status is the Success in 30 state, not a second rule',
+   /const st=r\.k\?r\.k\.state:'ontrack';[\s\S]{0,400}class="obb-r obb-ob \$\{st\}"/.test(CODE));
+ok('...and is spelled the way she spells it',
+   /const S30_STATE_LABEL=\{ontrack:'On Track',watch:'Watch',atrisk:'At Risk'/.test(CODE));
+
+/* NEXT DUE NEVER GUESSES A DATE. obDueFor refuses to invent one when the Hub
+   has no anchor, and a row that announced an undated item as "due next" would
+   be inventing urgency out of a missing field. */
+ok('an item the Hub cannot date is not offered as due next',
+   /function _obNextDue[\s\S]*?if\(!d\.date\)return;/.test(CODE));
+ok('...and overdue beats near, which is the ordering everywhere else',
+   /open\.sort\(\(a,b\)=>\(b\.late-a\.late\)\|\|a\.date\.localeCompare\(b\.date\)\)/.test(CODE));
+ok('...and a client with nothing dated outstanding says so',
+   /'Nothing dated outstanding'/.test(CODE));
+
+/* Her two filters. The market list is built from the caseload, so it can
+   never offer a market with nothing behind it, and one market is not a
+   choice worth showing. */
+ok('the board filters to mine and to a market',
+   /id="s60-mine"/.test(CODE) && /id="s60-market"/.test(CODE));
+ok('the market list comes from the clients on the board',
+   /\[\.\.\.new Set\(\(get\('clients'\)\|\|\[\]\)\.filter\(c=>!c\.isOffice\)[\s\S]{0,80}\.map\(c=>c\.market/.test(CODE));
+ok('...and one market is not offered as a choice',
+   /mk\.style\.display=seen\.length>1\?'':'none';/.test(CODE));
+ok('...and the chosen market survives the list being rebuilt',
+   /if\(seen\.indexOf\(keep\)>-1\)mk\.value=keep;/.test(CODE));
 
 // ── behavioural: the ordering and the tabs ───────────────────────────────
 const sortRows = rs => rs.slice().sort((a, b) =>

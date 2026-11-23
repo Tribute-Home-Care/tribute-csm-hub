@@ -34,7 +34,9 @@ function lift(decl) {
    caught _obMap being deleted by a rewrite of the data above it. */
 const decls = ['const OB_OWNERS =', 'const OB_MARKET_RULES =', 'const OB_CHECKLIST =',
                'function _obMarket(', 'function _obPlus(', 'function obDueFor(',
-               'function _obMap(', 'function renderObChecklist(', 'const OB_HUB_HELP=',
+               'function _obMap(', 'const OB_WHO=', 'let _obWho=',
+               'function _obWhoMatch(', 'function setObWho(',
+               'function renderObChecklist(', 'const OB_HUB_HELP=',
                'let _obProofFor=null', 'function toggleObTask(', 'function openObProof(',
                'function saveObProof(', 'function closeObProof(',
                'function setObBy(', 'function _initialsOf('].map(lift);
@@ -258,6 +260,36 @@ ok('the checklist renders above the touchpoint card',
    CODE.indexOf('id="s60-ob"') > -1 && CODE.indexOf('id="s60-ob"') < CODE.indexOf('id="s60-milestones"'));
 ok('the milestones card is now named for what it holds', /Touchpoint Tasks/.test(CODE));
 ok('it is drawn whenever a client is opened', /renderObChecklist\(cid\);/.test(CODE));
+
+/* ── her checklist header ──────────────────────────────────────────────────
+   The picture: "19 of 27 done" with a bar, "1 overdue" beside it in red, and
+   All / Mine (CSM) / CSP. */
+ok('the header carries a progress bar', /class="ob-prog"><i style="width:\$\{pct\}%"/.test(CODE));
+ok('...and the overdue count, when there is one', /\$\{lateN\}\s*overdue/.test(CODE));
+ok('...and her three owner filters', /const OB_WHO=\[\['all','All'\],\['CSM','Mine \(CSM\)'\],\['CSP','CSP'\]\]/.test(CODE));
+
+/* THE FILTER HIDES ROWS, IT DOES NOT CHANGE THE COUNTS. A CSP looking at
+   their own six items should still see that the client is nineteen of
+   twenty-seven through onboarding. A bar that moved with the filter would be
+   measuring the filter, not the client. */
+ok('the totals are the whole checklist, not the filtered view',
+   /const total=OB_CHECKLIST\.reduce\(\(n,g\)=>n\+g\.items\.length,0\);/.test(CODE) &&
+   /const ticked=OB_CHECKLIST\.reduce\(\(n,g\)=>n\+g\.items\.filter\(i=>done\[i\.id\]\)\.length,0\);/.test(CODE));
+ok('...and the overdue count is too',
+   /const lateN=OB_CHECKLIST\.reduce\([\s\S]{0,160}d\.date&&d\.date<today/.test(CODE));
+ok('the filter is applied to the ROWS of each phase',
+   /const items=g\.items\.filter\(i=>_obWhoMatch\(i\)\);/.test(CODE));
+ok('...and a phase with nothing left in it is dropped, not shown empty',
+   /if\(!items\.length\)return '';/.test(CODE));
+
+/* A jointly owned item belongs on BOTH lists, not neither. The document owns
+   several as "CSP + CSM", so equality would hide them from everybody. */
+{
+  const shared = OB_CHECKLIST.flatMap(g => g.items).filter(i => /\+/.test(i.owner || ''));
+  ok('the document really does own items jointly', shared.length > 0);
+  ok('...and the match is a substring, so both see them',
+     /String\(i\.owner\|\|''\)\.toUpperCase\(\)\.indexOf\(_obWho\)>-1/.test(CODE));
+}
 
 console.log('\n' + (fail ? 'FAILED ' + fail : 'PASSED all ' + pass));
 process.exit(fail ? 1 : 0);
