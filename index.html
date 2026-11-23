@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-11-18T16:26"></script>
+<script src="./entra-auth.js?v=2026-11-22T22:01"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1863,7 +1863,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-11-18T16:26';
+const HUB_BUILD='2026-11-22T22:01';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -6260,7 +6260,8 @@ function renderEmailCommList(){
 function selectEmailComm(n){_ecSel=n;_ecDraft=null;renderEmailCommList();renderEmailCommDetail();ecLoadDraft(false);}
 function _ecSettingsHtml(){
   const d=((DATA.shared&&DATA.shared.communities)||{})[_ecSel]||{};const e=d.email||{};
-  const clientsHere=[];PROFILES.forEach(p=>get('clients',p.id).forEach(c=>{if((c.loc||'').trim()===_ecSel)clientsHere.push({name:c.name,csm:p});}));
+  const clientsHere=[];PROFILES.forEach(p=>get('clients',p.id).forEach(c=>{if((c.loc||'').trim()===_ecSel)clientsHere.push({name:c.name,vivId:c.vivId||'',csm:p});}));
+  clientsHere.sort((a,b)=>String(a.name).localeCompare(String(b.name)));
   const cnt={};clientsHere.forEach(c=>cnt[c.csm.id]=(cnt[c.csm.id]||0)+1);const defCsm=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0]||P?.id||'';
   const csmOpts=PROFILES.filter(p=>!p.isManager||cnt[p.id]).map(p=>`<option value="${p.id}" ${(e.csmId||defCsm)===p.id?'selected':''}>${escHtml(p.name)}</option>`).join('');
   const today=new Date().toISOString().slice(0,10);const skipping=e.skipUntil&&e.skipUntil>=today;
@@ -6285,7 +6286,65 @@ function _ecSettingsHtml(){
       <button class="btn btn-sm btn-o" onclick="ecSkipWeek(${skipping?'false':'true'})">${skipping?'Un-skip this week':'Skip this week'}</button>
       <button class="btn btn-sm btn-p" onclick="saveEmailComm()">Save settings</button>
     </div>
+    ${_ecWhoHtml(clientsHere,e,today)}
   </div>`;
+}
+
+/* WHO THIS COMMUNITY HEARS ABOUT.
+   Everyone living here is included unless somebody says otherwise, which is
+   the right default: a community that stops hearing about a resident still
+   receiving care is the worse mistake.
+
+   Pausing asks for an end date, and says so when there isn't one. A resident
+   who winters away comes back; a pause that expires on its own means nobody
+   has to remember. An open-ended pause is allowed, because sometimes you
+   genuinely do not know, and it is labelled every time it is shown. */
+function _ecWhoHtml(list,e,today){
+  if(!list.length) return '';
+  const ex=(e.exclude&&typeof e.exclude==='object')?e.exclude:{};
+  const live=c=>{const r=ex[c.vivId];if(!r)return null;const u=String(r.until||'').slice(0,10);return (u&&u<today)?null:{until:u};};
+  const out=list.filter(c=>c.vivId&&live(c));
+  const open=document.getElementById('ec-who-body');
+  const isOpen=out.length>0||(open&&open.style.display!=='none');
+  return `<div style="border-top:1px solid #F1EEE8;margin-top:12px;padding-top:10px;">
+    <button type="button" onclick="ecToggleWho()" style="background:none;border:0;padding:0;font:inherit;cursor:pointer;display:flex;align-items:center;gap:7px;color:#3D3833;">
+      <span style="font-size:12.5px;font-weight:600;">Who this community hears about</span>
+      <span style="font-size:11.5px;color:#8C857B;">${list.length-out.length} of ${list.length} included${out.length?' · '+out.length+' paused':''}</span>
+    </button>
+    <div id="ec-who-body" style="display:${isOpen?'block':'none'};margin-top:8px;">
+      ${list.map(c=>{
+        if(!c.vivId) return `<div style="display:flex;align-items:center;gap:9px;padding:5px 0;border-bottom:1px solid #F1EEE8;font-size:12.5px;color:#B7B0A6;">${escHtml(c.name)} <span style="font-size:11px;">not linked to Viv, so it cannot be paused</span></div>`;
+        const l=live(c);
+        return `<div style="display:flex;align-items:center;gap:9px;padding:5px 0;border-bottom:1px solid #F1EEE8;">
+          <input type="checkbox" ${l?'':'checked'} onchange="ecSetIncluded('${c.vivId}',this.checked)" style="width:14px;height:14px;accent-color:var(--navy);cursor:pointer;flex-shrink:0;">
+          <div style="flex:1;min-width:0;font-size:12.5px;color:${l?'#8C857B':'#3D3833'};">${escHtml(c.name)}<span style="color:#B7B0A6;"> · ${escHtml(c.csm.name)}</span></div>
+          ${l?`<label style="font-size:11px;color:#8C857B;display:flex;align-items:center;gap:5px;">back on
+            <input type="date" value="${escHtml(l.until)}" onchange="ecSetUntil('${c.vivId}',this.value)" style="font-size:11px;padding:2px 5px;border:1px solid #EAE6DF;border-radius:6px;">
+          </label>${l.until?'':'<span style="font-size:11px;color:#92580B;white-space:nowrap;">no end date</span>'}`:''}
+        </div>`;
+      }).join('')}
+      <div style="font-size:11px;color:#8C857B;margin-top:7px;line-height:1.5;">Unticking someone leaves them out of this community's email. They come back on their own once the date passes. Their care, their Pulse and every other board are untouched.</div>
+    </div>
+  </div>`;
+}
+function ecToggleWho(){const b=document.getElementById('ec-who-body');if(b)b.style.display=b.style.display==='none'?'block':'none';}
+function _ecEmail(){const d=DATA.shared.communities[_ecSel]||(DATA.shared.communities[_ecSel]={levels:[]});d.email=d.email||{};d.email.exclude=d.email.exclude||{};return d.email;}
+function ecSetIncluded(cid,included){
+  if(!_ecSel||!cid)return;
+  const em=_ecEmail();
+  if(included) delete em.exclude[cid];
+  else em.exclude[cid]={until:'',by:(P&&P.name)||'',at:new Date().toISOString()};
+  queueSave();
+  // The draft is rebuilt from the server with the exclusion applied, rather
+  // than filtered here, so what you see is what would actually send.
+  renderEmailCommDetail();ecLoadDraft(false);
+}
+function ecSetUntil(cid,v){
+  if(!_ecSel||!cid)return;
+  const em=_ecEmail();
+  if(!em.exclude[cid])return;
+  em.exclude[cid].until=String(v||'').slice(0,10);
+  queueSave();renderEmailCommDetail();ecLoadDraft(false);
 }
 function renderEmailCommDetail(){
   const el=document.getElementById('ec-detail');if(!el||!_ecSel)return;
