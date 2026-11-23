@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="./entra-auth.js?v=2026-11-23T16:06"></script>
+<script src="./entra-auth.js?v=2026-11-23T16:08"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2081,7 +2081,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-11-23T16:06';
+const HUB_BUILD='2026-11-23T16:08';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -6206,6 +6206,14 @@ function renderObBoard(){
   const tabs=document.getElementById('s60-tabs');
   if(tabs)tabs.innerHTML=OB_BOARD_TABS.map(t=>
     `<div class="tab${_obTab===t[0]?' active':''}" onclick="setObTab('${t[0]}')">${escHtml(t[1])}${n[t[0]]?` <span style="opacity:.6;">${n[t[0]]}</span>`:''}</div>`).join('');
+  /* The old "Select a client to view their onboarding tracker" empty state
+     sits below this board and is now wrong: you do not have to select
+     anybody, the list IS the page. It only still means something when there
+     is nothing in any tab. */
+  const emp=document.getElementById('s60-empty');
+  if(emp&&!document.getElementById('s60-content').style.display)
+    emp.style.display=all.length?'none':'';
+  if(emp&&all.length)emp.style.display='none';
   const rows=all.filter(r=>r.tab===_obTab);
   const cnt=document.getElementById('s60-board-n');
   if(cnt)cnt.textContent=rows.length?(rows.length+(rows.length===1?' client':' clients')):'';
