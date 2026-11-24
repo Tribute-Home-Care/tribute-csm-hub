@@ -94,8 +94,15 @@ ok('a row carries every filter it matches',
    /r\.buckets = \[r\.bucket\]; order\.push\(k\);/.test(CODE) &&
    /if \(best\[k\]\.buckets\.indexOf\(r\.bucket\) < 0\) best\[k\]\.buckets\.push\(r\.bucket\);/.test(CODE));
 ok('...and the filter reads the set', /\(r\.buckets \|\| \[r\.bucket\]\)\.indexOf\(_todayFilter\) > -1/.test(CODE));
-ok('...and the list is still ordered the way she asked',
-   /one\.sort\(function \(a, b\) \{ return a\.rank - b\.rank \|\| String\(a\.name\)\.localeCompare\(String\(b\.name\)\); \}\);/.test(CODE));
+/* HER ORDER: Pulse, then Success in 30, then overdue, then due this week,
+   and inside each group the highest tier first. rank carries the first half;
+   tier is the tiebreak that was missing, so a High need client no longer sat
+   below a Low one because of the alphabet. Name stays last, so the order is
+   stable between renders and the list does not reshuffle under the reader. */
+ok('...and the list is ordered by urgency, then tier, then name',
+   /const TIER_RANK = \{ High: 0, Medium: 1, Low: 2 \};/.test(CODE) &&
+   /return a\.rank - b\.rank \|\|/.test(CODE) &&
+   /String\(a\.name\)\.localeCompare\(String\(b\.name\)\);/.test(CODE));
 ok('an open visit with no matching client is not folded into another',
    /\('name:' \+ r\.name\)/.test(CODE));
 // Behavioural: the collapse, over a client who qualifies three ways.
@@ -235,8 +242,8 @@ ok('...so nothing is left reaching for a token that is not there',
 /* AND IT STOPS AT FIVE. Hers shows five and offers the rest. A caseload like
    Julia s puts twenty-five rows here, which is the wall she complained about:
    "it is easy to miss cards below the fold". */
-ok('the list stops at five and offers the rest',
-   /const LIMIT = 5;/.test(CODE) &&
+ok('the list stops at eight and offers the rest',
+   /const LIMIT = 8;/.test(CODE) &&
    /const vis = _todayAll \? shown : shown\.slice\(0, LIMIT\);/.test(CODE) &&
    /rd-td-more/.test(CODE) && /Show fewer/.test(CODE));
 ok('...and pressing a tile is a new question, so it resets',

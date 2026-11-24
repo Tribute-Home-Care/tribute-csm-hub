@@ -42,7 +42,10 @@ const FILES = [
 const WANT = {
   Work: ['home', 'clients', 'coverage', 's60', 'priority'],
   Operations: ['ltc', 'emailcomm', 'md'],
-  Resources: ['assistant', 'kpi', 'expectations', '__guide', '__feedback'],
+  /* Her section 1: Guide and Feedback are already on every page through the
+     ? link and the sidebar's own Send feedback button, and Role Expectations
+     folds into My KSFs. The rail is the work, not everything that exists. */
+  Resources: ['assistant', 'kpi'],
   Manager: ['team', 'pulse', '__metrics', '__sereview']
 };
 const LABELS = {

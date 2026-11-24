@@ -29,10 +29,13 @@
 (function () {
   'use strict';
 
+  /* HER ORDER, left to right: what I am doing, what I am escalating, what
+     needed nothing. Nothing needed was first, so the column a CSM never acts
+     on sat where the eye lands. It is last now, and collapsed to one card. */
   var STATES = [
-    ['aware_none', 'Nothing needed'],
     ['aware_working', 'Working on it'],
-    ['aware_1to1', 'Raising in 1:1']
+    ['aware_1to1', 'Raising in 1:1'],
+    ['aware_none', 'Nothing needed']
   ];
   var LABEL = {};
   STATES.forEach(function (s) { LABEL[s[0]] = s[1]; });
@@ -127,12 +130,18 @@
   function html(list) {
     return '<div class="fup-cols">' + STATES.map(function (s) {
       var mine = list.filter(function (r) { return r.state === s[0]; });
-      return '<div class="fup-col" data-state="' + s[0] + '">' +
+      /* Nothing needed is a record, not a worklist: it is the column you
+         scroll past. One card and a count, opened on demand. */
+      var fold = s[0] === 'aware_none' && mine.length > 1;
+      var hidden = fold ? mine.length - 1 : 0;
+      return '<div class="fup-col' + (fold ? ' fup-fold' : '') + '" data-state="' + s[0] + '">' +
         '<h4>' + esc(s[1]) + (mine.length ? ' <em>' + mine.length + '</em>' : '') + '</h4>' +
         '<div class="fup-drop">' +
           (mine.length ? mine.map(card).join('')
                        : '<div class="fup-empty">Nothing here</div>') +
-        '</div></div>';
+        '</div>' +
+        (hidden ? '<button type="button" class="fup-more">+ ' + hidden + ' more</button>' : '') +
+        '</div>';
     }).join('') + '</div>';
   }
 
@@ -169,6 +178,14 @@
 
   function wire(sec) {
     sec.addEventListener('click', function (ev) {
+      var moreBtn = ev.target.closest('.fup-more');
+      if (moreBtn && sec.contains(moreBtn)) {
+        var fc = moreBtn.closest('.fup-col');
+        var open = fc.classList.toggle('fup-open');
+        var n = fc.querySelectorAll('.fup-card').length - 1;
+        moreBtn.textContent = open ? 'Show fewer' : '+ ' + n + ' more';
+        return;
+      }
       var t = ev.target.closest('[data-open],[data-move],[data-clear]');
       if (!t || !sec.contains(t)) return;
       if (t.dataset.open) return openClient(t.dataset.open);

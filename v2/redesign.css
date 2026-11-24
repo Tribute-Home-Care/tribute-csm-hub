@@ -2699,6 +2699,23 @@ input[type="email"], select { min-height: var(--h-ctl); }
 .rd-cbtn:hover { border-color: var(--accent); color: var(--accent); }
 .rd-cbtn svg { width: 11px; height: 11px; }
 
+/* MY TO-DO HOLDS WHAT THE CSM TYPED. The generated items are the rows of
+   Today's list, so printing them here too made Home ask the same question
+   twice, and the 260px inner scroll hid the CSM's own tasks underneath a
+   queue they had already read above. Both come off.
+
+   The list markup is V1's, so this hides rather than re-renders; the filter
+   that stops them being generated into this list at all is in the layer's
+   renderTodos wrapper. */
+#todo-list { max-height: none !important; overflow: visible !important; }
+#todo-list .todo-text { font-size: 14px; }
+
+/* ONE SYNC LINE, in the page header. There were three: two in the sidebar and
+   one in the top bar, none of them where a CSM looks. */
+#sb-sync, #sb-viv { display: none !important; }
+#home-d { font-size: 14.5px; }
+#home-d .rd-stale { color: var(--bad); font-weight: 600; }
+
 /* HOME IS A PAGE OF CARDS, which is what "more organization" means here.
    Every section bled into the page with no edge, so the list, the visits and
    the CSM's own work floated in one field with nothing grouping them. Her
@@ -2732,6 +2749,12 @@ input[type="email"], select { min-height: var(--h-ctl); }
 /* Caseload health is the one that folds, so its heading has to look pressable
    rather than like the two above it that do not. */
 #rd-home-cols .rd-hr > .rd-sec.rd-sec-fold > .rd-sec-h { cursor: pointer; margin: 0; }
+/* Caseload health is manager information, so it is one closed line until
+   asked for. Open, it is two columns: a single column of stat cards in a
+   320px rail is a ladder nobody reads. */
+#rd-home-cols .rd-hr > .rd-sec.rd-sec-fold > .g4 {
+  display: grid !important; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px;
+}
 
 /* TODAY'S LIST, as her Home picture draws it: a titled card with three
    column headings, the tier under the name, the reason labelled, and an Open
@@ -2741,7 +2764,12 @@ input[type="email"], select { min-height: var(--h-ctl); }
   font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
   color: var(--ink-3); padding: 13px 16px 9px;
 }
-.rd-td-t { width: 100%; border-collapse: collapse; }
+/* Fixed columns, so a long reason cannot squeeze the client name into a
+   column one word wide. The widths are the preview's. */
+.rd-td-t { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.rd-td-t th:nth-child(1) { width: 21%; }
+.rd-td-t th:nth-child(2) { width: 37%; }
+.rd-td-t th:nth-child(4) { width: 80px; }
 .rd-td-t thead th {
   text-align: left; padding: 0 14px 7px; white-space: nowrap;
   font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
@@ -2751,11 +2779,24 @@ input[type="email"], select { min-height: var(--h-ctl); }
 .rd-td-t tbody tr:last-child { border-bottom: 0; }
 .rd-td-t tbody tr:hover { background: var(--line-3, var(--line-2)); }
 .rd-td-t tbody tr:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.rd-td-t td { padding: 11px 14px; vertical-align: top; font-size: 13px; line-height: 1.45; }
+.rd-td-t td { padding: 12px 14px; vertical-align: top; font-size: 14px; line-height: 1.45; }
+.rd-td-t thead th { font-size: 11px; }
+.rd-td-head { font-size: 11.5px; }
+/* The reason clamps to two lines and the step to three. Both carry the full
+   text on the title, because a reason worth reading in full should not cost
+   a page load. */
+.rd-c2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.rd-c3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.rd-td-s30 { margin-top: 3px; font-size: 13px; }
+.rd-td-s30 b { color: #2E5E9E; font-weight: 600; }
+/* A cadence exception leads with its own words, so it is toned rather than
+   labelled. */
+.rd-td-over { color: var(--bad); font-weight: 600; }
+.rd-td-due { color: var(--warn); font-weight: 600; }
 .rd-td-n span { font-weight: 600; color: var(--ink); display: block; }
 .rd-td-tier {
-  display: inline-block; margin-top: 3px; padding: 1px 8px; border-radius: 99px;
-  font-size: 10.5px; font-weight: 600; background: var(--line-2); color: var(--ink-2);
+  display: block; width: fit-content; margin-top: 3px; padding: 1px 8px; border-radius: 99px;
+  font-size: 11.5px; font-weight: 600; background: var(--line-2); color: var(--ink-2);
 }
 .rd-td-tier.high { background: #FBEAE8; color: #A4271E; }
 .rd-td-tier.medium { background: #FDF3E2; color: #92580B; }
@@ -2766,7 +2807,8 @@ input[type="email"], select { min-height: var(--h-ctl); }
 .rd-td-r.warn .rd-td-k { color: var(--warn); }
 .rd-td-r.info .rd-td-k { color: #2E5E9E; }
 .rd-td-s { color: var(--ink-2); }
-.rd-td-o { text-align: right; width: 1%; }
+.rd-td-o { text-align: right; width: 80px; padding-left: 0; }
+.rd-td-s { color: var(--ink); }
 .rd-td-b {
   display: inline-block; padding: 5px 13px; border-radius: 8px;
   background: var(--accent); color: #fff; font-size: 12px; font-weight: 600; white-space: nowrap;
@@ -2774,7 +2816,7 @@ input[type="email"], select { min-height: var(--h-ctl); }
 .rd-td-r.warn .rd-td-b, .rd-td-r.info .rd-td-b { background: none; color: var(--ink-2); border: 1px solid var(--line); }
 .rd-td-foot {
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  padding: 10px 16px; font-size: 11.5px; color: var(--ink-3); border-top: 1px solid var(--line-2);
+  padding: 10px 16px; font-size: 12.5px; color: var(--ink-3); border-top: 1px solid var(--line-2);
 }
 .rd-td-more {
   appearance: none; background: none; border: 0; padding: 0; cursor: pointer;

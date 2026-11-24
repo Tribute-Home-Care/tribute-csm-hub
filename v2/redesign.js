@@ -93,9 +93,14 @@
               ['s60', 'Onboarding'], ['priority', 'Fill Priority']]],
     ['Operations', [['ltc', 'LTC'], ['emailcomm', 'Communities'],
                     ['md', 'Maryland Compliance']]],
-    ['Resources', [['assistant', 'Assistant'], ['kpi', 'My KSFs'],
-                   ['expectations', 'Role Expectations'],
-                   ['__guide', 'Guide'], ['__feedback', 'Feedback']]],
+    /* Her section 1: "Guide and Feedback are already on every page through
+       the ? link and the Feedback button", and Role Expectations folds into
+       My KSFs. The rail is the work, not everything that exists.
+
+       FEEDBACK IS NOT LOST. The sidebar keeps its own Send feedback button
+       below the nav, which is how the production Hub got one at all; the
+       entry removed here is the duplicate in the list. */
+    ['Resources', [['assistant', 'Assistant'], ['kpi', 'My KSFs']]],
     ['Manager', [['team', 'Team'], ['pulse', 'Client Pulse'],
                  ['__metrics', 'Daily Metrics'], ['__sereview', 'Exception Review']]]
   ];
@@ -355,12 +360,9 @@
     const bits = [];
     const app = A(), p = app.profile, data = app.data;
     if (p && p.market) bits.push('<b>' + esc(p.market) + '</b>');
-    const gen = data && data.shared && data.shared.viv && data.shared.viv.generatedAt;
-    if (gen) {
-      const hrs = (Date.now() - new Date(gen).getTime()) / 36e5;
-      const label = hrs < 1 ? 'just now' : hrs < 24 ? Math.round(hrs) + 'h ago' : Math.round(hrs / 24) + 'd ago';
-      bits.push('<span class="' + (hrs > 36 ? 'stale' : '') + '">Synced ' + label + '</span>');
-    }
+    /* The sync used to be said three times: twice in the sidebar and once
+       here, none of them where a CSM looks. It is said once now, on the line
+       under the greeting. See renderSyncLine(). */
     const html = bits.join('<span class="sep"></span>');
     if (ctx.innerHTML !== html) ctx.innerHTML = html;
   }
@@ -2706,6 +2708,32 @@
       '<div class="rd-empty-b">' + esc(body) + '</div></div>';
   }
 
+  /* MY TO-DO HOLDS ONLY WHAT THE CSM TYPED.
+     The generated items -- From Pulse, Success in 30, Overdue -- ARE the rows
+     of Today's list. Printing them here as well made Home ask the same
+     question twice in two different shapes, and buried the CSM's own tasks
+     under a queue they had already read at the top of the page.
+
+     Done by neutralising generatedTodos for the duration of V1's render
+     rather than by editing V1: renderTodos is index.html's, and index.html is
+     V1. A function declaration's global binding IS its window property, so
+     swapping it is enough for the bare call inside renderTodos to see it.
+     Restored in a finally, because everything else that asks for the
+     generated list -- the Today's list itself, the counts -- still needs it. */
+  function installTodos() {
+    if (typeof window.renderTodos !== 'function' || window.renderTodos.__rd) return;
+    const orig = window.renderTodos;
+    const wrapped = function () {
+      const gen = window.generatedTodos;
+      if (typeof gen === 'function') window.generatedTodos = function () { return []; };
+      try { return orig.apply(this, arguments); }
+      finally { if (typeof gen === 'function') window.generatedTodos = gen; }
+    };
+    wrapped.__rd = true;
+    wrapped.original = orig;
+    window.renderTodos = wrapped;
+  }
+
   function installTracker() {
     if (_origRenderClientMaster || typeof window.renderClientMaster !== 'function') return;
     if (window.renderClientMaster.__rd) return;
@@ -2837,7 +2865,7 @@
     // Today first, because the question a CSM opens the Hub with is "what is
     // happening today", not "how is my caseload trending". The numbers still
     // come, under Caseload health, where they inform rather than greet.
-    const sNext = sec('rd-s-next', 'Visits', 'Next two weeks');
+    const sNext = sec('rd-s-next', 'Visits', 'Next 7 days');
     const sCase = sec('rd-s-case', 'Caseload health');
     const sTools = sec('rd-s-tools', 'Your work');
     sTools.className = 'rd-sec quiet';
@@ -3075,6 +3103,60 @@
     return { byClient: byClient, total: ov.length };
   }
 
+  /* HOW MANY SUCCESS IN 30 MILESTONES ARE OPEN. Past their day and not
+     logged, which is the same test generatedTodos() applies before it writes
+     one. Read here so the row can say "3 milestones open" beside the reason,
+     rather than making the CSM open the client to find out. */
+  function s30Open(c) {
+    const age = c.startDate ? daysSince(c.startDate) : null;
+    if (age === null || age > 30) return 0;
+    let done = [];
+    try { done = rowsFor('s60', c.id) || []; } catch (e) { return 0; }
+    let ms = [];
+    try { ms = (typeof S30_MILESTONES !== 'undefined' && S30_MILESTONES) || []; } catch (e) { return 0; }
+    let n = 0;
+    ms.forEach(function (m) {
+      let due = 7;
+      try { due = (typeof TODO_MS_DAYS !== 'undefined' && TODO_MS_DAYS[m.id]) || 7; } catch (e) {}
+      if (age <= due) return;                                        // not due yet
+      if (done.some(function (x) { return x.id === m.id; })) return; // already logged
+      n++;
+    });
+    return n;
+  }
+
+  /* THE NEXT STEP IS THE STEP FOR THIS CLIENT, not a label for the row.
+     "Read the Pulse and sort it" is the same sentence on every flagged
+     client, which makes the column worthless: the CSM has to open each one to
+     learn what to do. Pulse already writes a recommended action, so that is
+     what goes here.
+
+     shortStep IS A STOPGAP. It trims a paragraph written for a human reading
+     the flag into something that fits a table cell, by cutting at the first
+     dash and turning a gerund into an imperative. It will read oddly on
+     sentences shaped differently from today's.
+
+     THE REAL FIX IS UPSTREAM: Pulse should write a short imperative next step
+     of about ten words onto the flag, beside the long recommendedAction, and
+     this should read that field and delete the trimming below. That is a
+     change to the Pulse builder in tribute-api, not to the Hub. */
+  const STEP_VERB = {
+    checking: 'Check', confirming: 'Confirm', clarifying: 'Clarify', calling: 'Call',
+    scheduling: 'Schedule', asking: 'Ask', 'a call': 'Call', 'a conversation': 'Talk',
+    'a quick check': 'Check'
+  };
+  function shortStep(t) {
+    let s = String(t || '').trim().replace(/^Worth\s+/i, '');
+    s = s.split(/\s[\u2014\u2013-]\s/)[0];
+    if (s.length > 95) { const cut = s.indexOf(', ', 45); if (cut > 0) s = s.slice(0, cut); }
+    s = s.replace(/[.,;]$/, '');
+    s = s.replace(/^a call to\b/i, 'Call');
+    s = s.replace(/^(a quick check|a call|a conversation|\w+ing)\b/i, function (m) {
+      return STEP_VERB[m.toLowerCase()] || m;
+    });
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+
   function todayRows() {
     const app = A();
     if (!app.ready) return [];
@@ -3092,7 +3174,11 @@
         out.push({ rank: lvl === 'red' ? 0 : 3, tier: c.tier, kind: 'Pulse',
                    bucket: lvl === 'red' ? 'action' : 'watch',
                    cid: c.id, name: c.name,
-                   why: pulseFirst(pp.headline), step: 'Read the Pulse and sort it',
+                   why: pulseFirst(pp.headline),
+                   step: (pp && pp.card && pp.card.recommendedAction)
+                     ? shortStep(pp.card.recommendedAction) : 'Read the Pulse and sort it',
+                   full: (pp && pp.card && pp.card.recommendedAction) || '',
+                   s30: s30Open(c),
                    tone: lvl === 'red' ? 'bad' : 'warn' });
       }
       // 2. Success in 30, for anyone inside their first month.
@@ -3102,7 +3188,8 @@
         out.push({ rank: 1, bucket: 'onboarding', cid: c.id, name: c.name,
                    tier: c.tier, kind: 'Success in 30',
                    why: 'Day ' + (age + 1) + ' of 30' + (done ? ' · ' + plural(done, 'milestone') + ' logged' : ' · nothing logged yet'),
-                   step: 'Work the onboarding checklist', tone: done ? 'info' : 'warn' });
+                   step: 'Work the onboarding checklist', s30: s30Open(c),
+                   tone: done ? 'info' : 'warn' });
       }
       // 3 and 4. The cadence exception, which already knows overdue from due.
       const ex = exceptionFor(c);
@@ -3110,7 +3197,11 @@
                          bucket: ex.tone === 'bad' ? 'action'
                                  : (ex.rank === 4 || ex.rank === 5) ? 'watch' : 'week',
                          cid: c.id, name: c.name, why: ex.text, tier: c.tier,
-                         step: ex.tone === 'bad' ? 'Book it or defer it' : 'Get it in the diary',
+                         s30: s30Open(c),
+                         step: /no visit on record|visit overdue/i.test(ex.text) ? 'Schedule in-person visit'
+                               : /touchpoint/i.test(ex.text) ? 'Check-in call or email'
+                               : /^visit due/i.test(ex.text) ? 'Confirm the visit is booked'
+                               : ex.tone === 'bad' ? 'Book it or defer it' : 'Get it in the diary',
                          tone: ex.tone });
     });
 
@@ -3194,7 +3285,19 @@
       }
     });
     const one = order.map(function (k) { return best[k]; });
-    one.sort(function (a, b) { return a.rank - b.rank || String(a.name).localeCompare(String(b.name)); });
+    /* HER ORDER: Pulse, then Success in 30, then overdue, then due this week,
+       and inside each group the highest tier first. rank already carries the
+       first half of that; tier is the tiebreak that was missing, so a High
+       need client no longer sat below a Low one just because of the alphabet.
+       Name stays as the last resort, so the order is stable between renders
+       and the list does not reshuffle under the reader. */
+    const TIER_RANK = { High: 0, Medium: 1, Low: 2 };
+    one.sort(function (a, b) {
+      return a.rank - b.rank ||
+             ((TIER_RANK[a.tier] === undefined ? 3 : TIER_RANK[a.tier]) -
+              (TIER_RANK[b.tier] === undefined ? 3 : TIER_RANK[b.tier])) ||
+             String(a.name).localeCompare(String(b.name));
+    });
     return one;
   }
 
@@ -3208,6 +3311,20 @@
     renderAttention();
   }
 
+  /* THE LIST REDREW ABOUT ONCE A SECOND WHILE NOTHING HAPPENED.
+     boot()'s MutationObserver schedules a tick on any DOM change outside its
+     ignore list; tick calls renderAttention, which calls this. renderAttention
+     is guarded by a content key, but this was called OUTSIDE that guard on
+     purpose, because sorting an item changes the list without changing a
+     single tile number. So every tick rewrote #rd-today, and rewriting it is
+     itself a mutation.
+
+     The fix is the same guard, applied here: identical content is not
+     rewritten, so there is nothing for the observer to see and the loop has
+     nothing to feed on. #rd-today is in the observer's ignore list as well,
+     because one of the two should not be the only thing standing between the
+     page and a spin. */
+  let _todayKey = '';
   function renderToday() {
     const el = $('#rd-today');
     if (!el) return;
@@ -3220,6 +3337,8 @@
     // Nothing to sort is worth saying plainly, and is not the same as a source
     // that failed: that distinction is renderAttention's and is kept there.
     if (!rows.length) {
+      if (_todayKey === 'empty') return;      // same guard; see above
+      _todayKey = 'empty';
       el.innerHTML = '<p class="rd-ws-quiet">Nothing new to sort. Anything you have already sorted is in Following up below.</p>';
       return;
     }
@@ -3232,6 +3351,16 @@
       ? rows.filter(function (r) { return (r.buckets || [r.bucket]).indexOf(_todayFilter) > -1; })
       : rows;
     const lab = (TODAY_BUCKETS.filter(function (b) { return b[0] === _todayFilter; })[0] || [])[1];
+
+    /* Identical content is not rewritten. Everything the markup below depends
+       on goes into the key, including the filter and the expansion, or the
+       list would ignore a press. */
+    const key = _todayFilter + '|' + _todayAll + '|' + rows.length + '|' +
+      shown.map(function (r) {
+        return [r.cid, r.name, r.tone, r.kind, r.why, r.step, r.s30, r.tier].join('\u0001');
+      }).join('\u0002');
+    if (key === _todayKey) return;
+    _todayKey = key;
     /* HER CARD, from the Home picture: a titled card, three column headings,
        the tier under the client's name, the reason labelled and coloured, and
        an Open button on the row.
@@ -3240,7 +3369,7 @@
        caseload like Julia's puts twenty-five rows here, which is the wall she
        was complaining about: "it's easy to miss cards below the fold". The
        whole point of the list is that you work the top of it. */
-    const LIMIT = 5;
+    const LIMIT = 8;
     const more = Math.max(0, shown.length - LIMIT);
     const vis = _todayAll ? shown : shown.slice(0, LIMIT);
     const tierPill = function (t) {
@@ -3260,11 +3389,20 @@
           '<th scope="col">Next step</th><th scope="col"><span class="rd-sr">Open</span></th>' +
           '</tr></thead><tbody>' +
           vis.map(function (r) {
+            /* A cadence exception leads with its own words, so it is toned
+               rather than labelled; Pulse and the rest carry a label. Both
+               clamp, and the full text is on the title, because a reason
+               worth reading in full is worth reading without opening the
+               client. */
+            const why = r.kind
+              ? '<b class="rd-td-k">' + esc(r.kind) + ':</b> ' + esc(r.why)
+              : '<span class="' + (r.tone === 'bad' ? 'rd-td-over' : 'rd-td-due') + '">' + esc(r.why) + '</span>';
             return '<tr class="rd-td-r ' + r.tone + '"' + (r.cid ? ' data-cid="' + esc(r.cid) + '" tabindex="0"' : '') + '>' +
               '<td class="rd-td-n"><span>' + esc(r.name) + '</span>' + tierPill(r.tier) + '</td>' +
-              '<td class="rd-td-w">' +
-                (r.kind ? '<b class="rd-td-k">' + esc(r.kind) + ':</b> ' : '') + esc(r.why) + '</td>' +
-              '<td class="rd-td-s">' + esc(r.step) + '</td>' +
+              '<td class="rd-td-w"><div class="rd-c2" title="' + esc(r.why) + '">' + why + '</div>' +
+                (r.s30 ? '<div class="rd-td-s30"><b>Success in 30:</b> ' + r.s30 +
+                         ' milestone' + (r.s30 > 1 ? 's' : '') + ' open</div>' : '') + '</td>' +
+              '<td class="rd-td-s"><div class="rd-c3" title="' + esc(r.full || r.step) + '">' + esc(r.step) + '</div></td>' +
               '<td class="rd-td-o">' + (r.cid ? '<span class="rd-td-b">Open</span>' : '') + '</td></tr>';
           }).join('') +
           '</tbody></table>' +
@@ -3403,16 +3541,68 @@
     // changes without any of the tile numbers changing.
     renderToday();
     renderComingUp();
+    renderSyncLine();
   }
 
   let _nextKey = '';
+  /* ONE SYNC LINE, under the greeting, which is the only place on Home a
+     CSM actually reads before starting.
+
+     It carries the date V1 already wrote, how many clients are in the
+     caseload, when Viv last answered, and -- loudly -- when the Hub's OWN
+     data is hours old. That last part is the one that matters: a stale Viv
+     pull is a number being old, but stale Hub data means everything on the
+     page is describing yesterday, and until now the only hint was a quiet
+     "Synced 2h ago" in a corner. */
+  let _syncKey = '';
+  function renderSyncLine() {
+    const el = $('#home-d');
+    if (!el) return;
+    const app = A();
+    const base = (el.dataset.rdBase !== undefined)
+      ? el.dataset.rdBase
+      : (el.dataset.rdBase = (el.textContent || '').split(' \u00b7 ')[0].trim());
+
+    let n = 0;
+    try { n = (app.fn.get('clients') || []).filter(function (c) { return !c.isOffice; }).length; } catch (e) {}
+
+    let viv = '';
+    try {
+      const v = app.data && app.data.profiles && app.profile && app.data.profiles[app.profile.id];
+      const at = v && v.vivSyncedAt;
+      if (at) viv = new Date(at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    } catch (e) {}
+
+    let stale = '';
+    try {
+      const gen = app.data && app.data.shared && app.data.shared.viv && app.data.shared.viv.generatedAt;
+      if (gen) {
+        const hrs = (Date.now() - new Date(gen).getTime()) / 36e5;
+        if (hrs >= 2) {
+          stale = hrs < 24 ? Math.round(hrs) + 'h ago' : Math.round(hrs / 24) + 'd ago';
+        }
+      }
+    } catch (e) {}
+
+    const key = base + '|' + n + '|' + viv + '|' + stale;
+    if (key === _syncKey) return;
+    _syncKey = key;
+    el.innerHTML = esc(base) +
+      (n ? ' \u00b7 ' + plural(n, 'client') : '') +
+      (viv ? ' \u00b7 Viv synced ' + esc(viv) : '') +
+      (stale ? ' \u00b7 <span class="rd-stale">Hub data ' + esc(stale) + '</span>' : '');
+  }
+
   function renderComingUp() {
     const el = $('#rd-next');
     const app = A();
     if (!el || !app.ready) return;
     let cl = [], todos = [];
     try { cl = app.fn.get('clients') || []; todos = app.fn.get('todos') || []; } catch (e) { return; }
-    const t = todayISO(), in14 = new Date(Date.now() + 14 * DAY).toISOString().slice(0, 10);
+    /* SEVEN DAYS, not fourteen. The rail card is "what is coming up this
+       week"; a fortnight of rows pushed the CSM's own to-do list off the
+       screen and nothing in the next seven days stood out among them. */
+    const t = todayISO(), in14 = new Date(Date.now() + 7 * DAY).toISOString().slice(0, 10);
     const rows = [];
     cl.filter(function (c) { return !c.isOffice && c.freq !== 'NA' && c.lastVisit; }).forEach(function (c) {
       const s = nextVisit(c);
@@ -3424,9 +3614,15 @@
     const key = rows.map(function (r) { return r.when + r.who; }).join('|');
     if (key === _nextKey) return;
     _nextKey = key;
-    if (!rows.length) { el.innerHTML = '<div class="rd-quiet">Nothing scheduled in the next two weeks.</div>'; return; }
+    if (!rows.length) { el.innerHTML = '<div class="rd-quiet">Nothing scheduled in the next seven days.</div>'; return; }
     el.innerHTML = rows.slice(0, 10).map(function (r) {
-      return '<div class="rd-next-row"><span class="d">' + fmtShort(r.when) + '</span>' +
+      /* The weekday, because "Dec 1" does not tell a CSM whether that is
+         tomorrow or next Monday, and planning the week is the whole job of
+         this card. */
+      const d = new Date(String(r.when).slice(0, 10) + 'T12:00:00');
+      const when = isNaN(d) ? fmtShort(r.when)
+        : d.toLocaleDateString('en-US', { weekday: 'short' }) + ' ' + (d.getMonth() + 1) + '/' + d.getDate();
+      return '<div class="rd-next-row"><span class="d">' + esc(when) + '</span>' +
         '<span class="w">' + esc(r.who) + '</span><span class="k">' + esc(r.what) + '</span></div>';
     }).join('') + (rows.length > 10 ? '<div class="rd-quiet">and ' + (rows.length - 10) + ' more</div>' : '');
   }
@@ -3884,6 +4080,7 @@
       tidyNav();
       mountTop();
       installTracker();
+      installTodos();
       if (window.TributeWorkflows) window.TributeWorkflows.install();
       restructureHome();
       refreshTop();
@@ -3952,7 +4149,9 @@
       for (let i = 0; i < muts.length; i++) {
         const tgt = muts[i].target;
         if (!tgt || !tgt.closest) continue;
-        if (tgt.closest('#rd-pal, #rd-top, #proto-bar, .rd-dlg, .rd-cw-rail, #rd-views')) continue;
+        // #rd-today is the Today's list. tick() renders it, so watching it
+        // means the renderer wakes itself. See renderToday's content key.
+        if (tgt.closest('#rd-pal, #rd-top, #proto-bar, .rd-dlg, .rd-cw-rail, #rd-views, #rd-today')) continue;
         relevant = true;
         // Record the subtree so the icon pass can be scoped to it.
         _dirty.add(tgt.nodeType === 1 ? tgt : tgt.parentElement);

@@ -98,3 +98,32 @@
   .fup-cols { grid-template-columns: 1fr; }
   .fup-acts { opacity: 1; }
 }
+
+/* ── HER FOLLOWING UP ──────────────────────────────────────────────────────
+   One line per card, so the three columns can be read at a glance instead of
+   scrolled inside a page that also scrolls. Name, what, when; the actions
+   appear on hover or keyboard focus rather than taking a row of their own. */
+.fup-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.fup-col { min-width: 0; }
+.fup-drop { max-height: none; overflow: visible; }
+.fup-card {
+  position: relative; display: flex; align-items: baseline; gap: 8px;
+  flex-wrap: nowrap; padding: 9px 12px;
+}
+.fup-card .fup-name { white-space: nowrap; flex: 0 0 auto; font-size: 14px; }
+.fup-card .fup-what {
+  flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; font-size: 13.5px; color: var(--ink-2);
+}
+.fup-card .fup-when { flex: 0 0 auto; font-size: 12px; color: var(--ink-3); white-space: nowrap; }
+.fup-card .fup-acts {
+  display: none; position: absolute; right: 6px; top: 4px;
+  background: var(--card, #FFFDFA); padding: 2px 0 2px 10px;
+}
+.fup-card:hover .fup-acts, .fup-card:focus-within .fup-acts { display: flex; gap: 6px; }
+/* Nothing needed: one card until asked. */
+.fup-col.fup-fold:not(.fup-open) .fup-card:nth-child(n+2) { display: none; }
+.fup-more {
+  appearance: none; background: none; border: 0; padding: 6px 4px 0; cursor: pointer;
+  font: inherit; font-size: 12.5px; color: var(--ink-3);
+}
