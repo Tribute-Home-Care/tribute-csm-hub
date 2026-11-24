@@ -61,6 +61,14 @@ ok('a Viv-synced tick is shown but cannot be pressed',
 ok('ticking opens the same proof dialog the onboarding board uses',
    /window\.openS30Proof\(c\.id, id,/.test(CODE) && /function openS30Proof\(cid,id,label,owner\)\{/.test(OB) &&
    /_obProofFor=\{cid,id,kind:'s30'/.test(OB));
+/* THE DIALOG IS MOUNTED BY THE ONBOARDING PAGE, and the client page is
+   reachable without ever opening it. Caught live: the first tick of a
+   session threw on a null #obp-task and did nothing at all unless the CSM
+   had been to Onboarding first. */
+ok('ticking mounts the dialog if the onboarding page never has',
+   /if\(!document\.getElementById\('m-ob-proof'\)\)\{ try\{ mountObUI\(\); \}catch\(e\)\{\} \}/.test(OB));
+ok('...and says so rather than failing silently if it still is not there',
+   /The onboarding module is still loading\. Try again in a moment\./.test(OB));
 ok('...and the dialog knows which list it is saving to',
    /if\(_obProofFor\.kind==='s30'\)\{ saveS30Proof\(na\); return; \}/.test(OB));
 /* s30Checklist matches a milestone by `id` on an s60 row and reads

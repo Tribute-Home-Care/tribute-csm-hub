@@ -716,6 +716,16 @@ function toggleObTask(cid,id){
    "0 of 10" and "At risk". This opens the same dialog and writes the
    milestone log instead of the onboarding log. */
 function openS30Proof(cid,id,label,owner){
+  /* THE DIALOG IS MOUNTED BY THE ONBOARDING PAGE, and the client page is
+     reachable without ever opening it. Caught live: ticking a milestone on a
+     client threw on a null #obp-task, so the first tick of a session did
+     nothing at all unless the CSM had been to Onboarding first. mountObUI is
+     idempotent, so asking for it here costs nothing when it has already run. */
+  if(!document.getElementById('m-ob-proof')){ try{ mountObUI(); }catch(e){} }
+  if(!document.getElementById('m-ob-proof')){
+    if(typeof showToast==='function')showToast('The onboarding module is still loading. Try again in a moment.');
+    return;
+  }
   _obProofFor={cid,id,kind:'s30',item:{id,label,owner,hub:'',na:''}};
   openObProof();
 }
