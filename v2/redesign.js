@@ -5108,6 +5108,68 @@
     renderSyncLine();
   }
 
+  /* ── KEEPING VIV DATA FRESH WHILE THE HUB IS OPEN ────────────────────────
+     CSMs work in this all day, so the data has to refresh itself.
+
+     THE SIGN-IN SYNC ASKS THE WRONG QUESTION. V1 syncs when
+     localStorage.viv_last_sync is over 30 minutes old -- when THIS BROWSER
+     last asked -- which is not the same as whether the DATA is old. Traced
+     on 24 November: a browser synced at 6:45 AM, was handed the blob built
+     the previous evening, and that read triggered the server's detached
+     rebuild, which finished at 6:47. Nobody came back for it. The API held
+     this morning's data and the Hub held Monday 5:13 PM, and every CSM
+     opening Home on Tuesday was reading Monday evening.
+
+     The code even says the rebuild is detached on purpose, because a cold
+     build runs past Azure's 230s gateway. What was missing is the other
+     half: something has to collect the result.
+
+     So freshness is measured on the DATA, and a stale read is retried until
+     the rebuild lands. The retry IS the collection.
+
+     WRITE AMPLIFICATION IS SELF-LIMITING. applyVivData writes the shared
+     file, so in principle every open Hub could write. But the test is the
+     age of the shared data: once one browser refreshes it, the others see
+     fresh data and do nothing. Two tabs noticing at the same moment write
+     the same payload twice, which is harmless. */
+  const VIV_MAX_AGE = 30 * 60 * 1000;
+  const VIV_RETRY = 3 * 60 * 1000;      // the rebuild took about two minutes
+  const VIV_MAX_TRIES = 10;             // a dead feed must not be hammered
+  let _vivKickAt = 0, _vivTries = 0;
+  function vivDataAge() {
+    try {
+      const app = A();
+      const gen = app.data && app.data.shared && app.data.shared.viv && app.data.shared.viv.generatedAt;
+      if (!gen) return null;
+      const t = new Date(gen).getTime();
+      return isNaN(t) ? null : Date.now() - t;
+    } catch (e) { return null; }
+  }
+  function ensureFreshViv() {
+    // A background tab refreshing nothing anybody is looking at is pure cost.
+    if (document.hidden) return;
+    if (typeof vivSyncNow !== 'function') return;
+    if (window._vivSyncing) return;
+    const age = vivDataAge();
+    if (age === null || age < VIV_MAX_AGE) { _vivTries = 0; return; }
+    if (_vivTries >= VIV_MAX_TRIES) return;
+    if (Date.now() - _vivKickAt < VIV_RETRY) return;
+    _vivKickAt = Date.now();
+    _vivTries++;
+    // Never interactive: this must not open a key modal at somebody mid-call.
+    try { vivSyncNow(false); } catch (e) {}
+  }
+  function installVivFreshness() {
+    if (window.__rdVivFresh) return;
+    window.__rdVivFresh = true;
+    setInterval(ensureFreshViv, 60 * 1000);
+    // Coming back to the tab is exactly when a CSM is about to read it.
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) { _vivTries = 0; ensureFreshViv(); }
+    });
+    ensureFreshViv();
+  }
+
   let _nextKey = '';
   /* ONE SYNC LINE, under the greeting, which is the only place on Home a
      CSM actually reads before starting.
@@ -5757,6 +5819,7 @@
   function boot() {
     mountPalette();
     hookShowPage();
+    installVivFreshness();
     tick('boot');
     let t = null;
     const mo = new MutationObserver(function (muts) {
