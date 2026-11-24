@@ -3183,4 +3183,21 @@ button.rd-s30-b.done { background: var(--accent, #C95018); border-color: var(--a
     justify-self: stretch; width: 100%;
   }
   .rd-td-t .rd-td-sort, .rd-td-t .rd-td-b { flex: none; font-size: 10.5px; padding: 2px 7px; }
+  /* THE WIDE RULE OUT-RANKS THE RESET. ".rd-td-t thead th" (0,1,2) beats
+     ".rd-td-t th" (0,1,1), so every heading kept its own border-bottom and
+     the 10px grid gap broke it into short dashes. One line, on the row. */
+  .rd-td-t thead th { border-bottom: 0; padding: 0; }
+  /* The tone stripe is an inset box-shadow on the row; with padding 0 the
+     name sat flush against it. 14px, the same as the wide table. */
+  .rd-td-t thead th:first-child, .rd-td-t tbody td:first-child { padding-left: 14px; }
+}
+
+/* THE FOUR TILES, 2 x 2 BETWEEN PHONE AND 1100px. auto-fit at 172px put
+   three on the first row and "Open visits" alone on the second around
+   960px. Four across above 1100px; one column at phone width (760px). */
+@media (min-width: 761px) and (max-width: 1100px) {
+  #rd-attn { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1101px) {
+  #rd-attn { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
