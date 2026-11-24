@@ -719,7 +719,12 @@
   function exceptionFor(c) {
     const vst = String(c.vivStatus || '').toLowerCase();
     if (vst && vst !== 'active') {
-      const label = { 'pending-discharge': 'Pending discharge', 'onhold': 'On hold', 'on-hold': 'On hold', 'processing': 'Processing' }[vst]
+      /* VIV'S OWN WORDS ARE NOT THE HUB'S. 'Processing' is the status
+         string Viv sets while a client is being set up; it appeared on the
+         Clients list as a status and means nothing to a CSM reading it.
+         Said plainly here. If Scheduling calls it something else, this is
+         the one line to change. */
+      const label = { 'pending-discharge': 'Pending discharge', 'onhold': 'On hold', 'on-hold': 'On hold', 'processing': 'Being set up in Viv' }[vst]
         || (vst.indexOf('hospital') > -1 ? 'In hospital' : vst.indexOf('facility') > -1 ? 'In facility' : c.vivStatus);
       return { tone: 'bad', text: label + (c.vivDischarged ? ' · ' + fmtShort(c.vivDischarged) : ''), rank: 0 };
     }
@@ -985,8 +990,17 @@
     el.innerHTML = clientListTable(rows);
 
     rows.forEach(function (r) { ensureCompat(r.c.id); });
-    $$('[data-cid]', el).forEach(function (b) {
+    /* A ROW opens a client. This used to bind every [data-cid] in the table,
+       which now includes the Email link inside a row: pressing Email would
+       have opened the draft AND navigated away from the list. */
+    $$('tr[data-cid]', el).forEach(function (b) {
       b.addEventListener('click', function () { selectClient(b.dataset.cid); });
+    });
+    $$('.rd-mailbtn', el).forEach(function (b) {
+      b.addEventListener('click', function (ev) {
+        ev.stopPropagation();                 // not a navigation
+        logEmailTouchpoint(b.dataset.cid);    // the draft opens via the href
+      });
     });
     $$('[data-sort]', el).forEach(function (b) {
       b.addEventListener('click', function () {
@@ -1073,8 +1087,18 @@
     const acts = [];
     if (f.phone) acts.push('<a class="rd-cbtn" href="tel:' + esc(String(f.phone).replace(/[^\d+]/g, '')) +
       '" onclick="event.stopPropagation()">' + I('phone') + 'Call</a>');
-    if (f.email) acts.push('<a class="rd-cbtn" href="mailto:' + esc(f.email) +
-      '" onclick="event.stopPropagation()">' + I('mail') + 'Email</a>');
+    /* EMAILING THE FAMILY FROM THE LIST COUNTS. Her section 3: "Call and
+       Email buttons under the family contact... Both log to the client's
+       Activity automatically, so a quick call from the list still counts as a
+       touchpoint."
+
+       The draft opens in whatever handles mail, and the touchpoint is written
+       here rather than waiting for the CSM to come back and log it, because
+       the one they do not come back for is the one that stops counting.
+       data-cid carries the client, because the row's own handler is a
+       navigation and must not fire. */
+    if (f.email) acts.push('<a class="rd-cbtn rd-mailbtn" href="mailto:' + esc(f.email) +
+      '" data-cid="' + esc(c.id) + '">' + I('mail') + 'Email</a>');
     return who + (acts.length ? '<span class="rd-clt-act">' + acts.join('') + '</span>' : '');
   }
 
@@ -1184,6 +1208,26 @@
     }
   }
 
+  /* One listener on the table rather than one per row: the table is
+     rewritten on every render, and a listener per row would be rebound with
+     it. Logging is a write, so it refuses in a read-only View as session for
+     the same reason queueSave does. */
+  function logEmailTouchpoint(cid) {
+    const app = A();
+    try {
+      if (typeof writesBlocked === 'function' && writesBlocked()) return;
+      const now = new Date(), day = now.toISOString().slice(0, 10);
+      const tps = app.fn.get('touchpoints') || [];
+      tps.unshift(Object.assign({
+        id: 'tp' + now.getTime(), clientId: cid, date: day, type: 'EMAIL',
+        note: 'Emailed the family from the client list',
+        by: (typeof P !== 'undefined' && P) ? P.name : '', auto: false
+      }, typeof actorStamp === 'function' ? actorStamp() : {}));
+      if (typeof set === 'function') set('touchpoints', tps);
+      if (typeof showToast === 'function') showToast('Draft opened. Logged as a touchpoint.');
+    } catch (e) {}
+  }
+
   function clientListTable(rows) {
     const head = CL_COLS.map(function (col) {
       const k = col[0];
@@ -1215,7 +1259,16 @@
           (soonAsmt ? '<span class="rd-clt-tag">Assessment due</span>' : '') + '</th>' +
         '<td>' + (c.tier ? '<span class="rd-tier ' + esc(String(c.tier).toLowerCase()) + '">' +
           esc(c.tier) + '</span>' : '<span class="rd-ws-quiet">—</span>') + '</td>' +
-        '<td>' + (st ? '<span class="rd-cl-ex ' + st.tone + '"><i class="rd-dot"></i>' + esc(st.text) + '</span>' : '') + '</td>' +
+        /* C2. THE PULSE REASON ON THE ROW. Her section 9 wants one line per
+           client saying what happened, so a CSM can triage the list without
+           opening every flagged one. The cadence exception still leads, since
+           it is the thing with a date on it; the flag goes underneath.
+
+           Joined here, in the data layer, rather than scraped off Home: the
+           Clients page has to be right when Home has never been opened. */
+        '<td>' + (st ? '<span class="rd-cl-ex ' + st.tone + '"><i class="rd-dot"></i>' + esc(st.text) + '</span>' : '') +
+          (ps && ex ? '<div class="rd-clt-pl" title="' + esc(ps.note || ps.text) + '">' +
+                      '<b>Pulse:</b> ' + esc(ps.text) + '</div>' : '') + '</td>' +
         '<td>' + (c.lastVisit ? esc(fmtShort(c.lastVisit)) : '<span class="rd-ws-quiet">None</span>') + '</td>' +
         '<td>' + (nv ? esc(fmtShort(nv)) : (c.freq === 'NA' ? '<span class="rd-ws-quiet">No cadence</span>' : '')) + '</td>' +
         '<td class="rd-clt-con">' + contactCell(c) + '</td>' +
