@@ -3327,3 +3327,8 @@ button.rd-s30-b.done { background: var(--accent, #C95018); border-color: var(--a
 #md-views.rd-md-superseded .rd-views,
 #md-views.rd-md-superseded #md-mine { display: none !important; }
 #md-views.rd-md-superseded { margin: 0; padding: 0; border: 0; }
+
+
+/* The owner chip on the Clients list, same shape as the one on Today's
+   list, so a flag reads the same on either page. */
+.rd-clt-ow { margin-top: 5px; font-size: 11px; }

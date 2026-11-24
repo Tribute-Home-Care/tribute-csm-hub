@@ -1515,9 +1515,17 @@
          Pulse is flagged shows the flag instead of nothing at all. */
       const ps = pulseStatus(c);
       const st = ex || ps;
+      /* HER PLAIN LABEL HERE TOO. "The Clients list still shows only the
+         sentence." Today's list has carried the label, the audience and the
+         owner since the 23rd; this row carried the word "Pulse" and the
+         sentence, so the same flag read as two different things depending
+         on which page you were on. One vocabulary. */
+      const pp = pulseFor(c);
+      const plab = ps ? pulseLabel(pp) : null;
+      const powner = ps ? pulseOwner(pp, plab) : '';
       // The cadence exception leads where there is one, because it has a date
-      // on it. Where there is not, the flag is named rather than quoted.
-      const stText = ex ? ex.text : (ps ? 'Pulse flag' : '');
+      // on it. Where there is not, the flag is named by her label.
+      const stText = ex ? ex.text : (ps ? ((plab && plab.label) || 'Pulse flag') : '');
       const stTone = ex ? ex.tone : (ps ? ps.tone : '');
       const tip = ps && ps.note ? ps.note : '';
       return '<tr class="rd-clt-row' + (soonAsmt ? ' due' : '') + '" data-cid="' + esc(c.id) + '" tabindex="0"' +
@@ -1545,7 +1553,8 @@
            uses. Every row with a flag now reads the same way. */
         '<td>' + (stText ? '<span class="rd-cl-ex ' + stTone + '"><i class="rd-dot"></i>' + esc(stText) + '</span>' : '') +
           (ps ? '<div class="rd-clt-pl" title="' + esc(ps.note || ps.text) + '">' +
-                '<b>Pulse:</b> ' + esc(ps.text) + '</div>' : '') + '</td>' +
+                '<b>' + esc((plab && plab.label) || 'Pulse') + ':</b> ' + esc(ps.text) + '</div>' +
+                (powner ? '<span class="rd-td-ow rd-clt-ow">' + esc(powner) + '</span>' : '') : '') + '</td>' +
         '<td>' + (c.lastVisit ? esc(fmtShort(c.lastVisit)) : '<span class="rd-ws-quiet">None</span>') + '</td>' +
         '<td>' + (nv ? esc(fmtShort(nv)) : (c.freq === 'NA' ? '<span class="rd-ws-quiet">No cadence</span>' : '')) + '</td>' +
         '<td class="rd-clt-con">' + contactCell(c) + '</td>' +

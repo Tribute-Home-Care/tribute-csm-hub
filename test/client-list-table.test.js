@@ -232,8 +232,17 @@ ok('...and the Email link does not also navigate',
 
 /* C2. THE PULSE REASON ON THE ROW, joined here rather than scraped off Home:
    the Clients page has to be right when Home has never been opened. */
+/* HER PLAIN LABEL HERE TOO. "The Clients list still shows only the
+   sentence." Today's list has carried the label, the audience and the owner
+   since the 23rd, while this row carried the word "Pulse" and the sentence,
+   so one flag read as two different things depending on which page you were
+   on. One vocabulary, one owner, both pages. */
 ok('a flagged client says why, under the status',
-   /class="rd-clt-pl"/.test(CODE) && /<b>Pulse:<\/b>/.test(CODE));
+   /class="rd-clt-pl"/.test(CODE) &&
+   /'<b>' \+ esc\(\(plab && plab\.label\) \|\| 'Pulse'\) \+ ':<\/b> ' \+ esc\(ps\.text\)/.test(CODE));
+ok('...and carries the owner, the same chip Today\'s list uses',
+   /const powner = ps \? pulseOwner\(pp, plab\) : '';/.test(CODE) &&
+   /rd-td-ow rd-clt-ow/.test(CODE) && /\.rd-clt-ow \{/.test(CSS));
 ok('...clamped to two lines, with the rest on hover',
    /\.rd-clt-pl \{[\s\S]{0,200}-webkit-line-clamp: 2;/.test(CSS));
 /* THE STATUS CELL HOLDS A LABEL, NEVER A SENTENCE. A client flagged by
@@ -242,7 +251,8 @@ ok('...clamped to two lines, with the rest on hover',
    stretched the column to about 800px and pushed Last visit, Next due, Family
    contact and Community off the screen. */
 ok('the status says what kind of thing it is, not the whole sentence',
-   /const stText = ex \? ex\.text : \(ps \? 'Pulse flag' : ''\);/.test(CODE));
+   /const stText = ex \? ex\.text : \(ps \? \(\(plab && plab\.label\) \|\| 'Pulse flag'\) : ''\);/.test(CODE));
+ok('...and that kind is her label, not the word Pulse', !/\? 'Pulse flag' : ''\);/.test(CODE.replace(/\(\(plab && plab\.label\) \|\| 'Pulse flag'\)/g, 'X')));
 ok('...and every flagged row carries the sentence on the clamped line',
    /\(ps \? '<div class="rd-clt-pl"/.test(CODE));
 ok('...and nothing in that cell can widen the column again',
