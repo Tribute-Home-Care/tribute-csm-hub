@@ -4319,7 +4319,8 @@
           '<div class="rd-td-head">Today\u2019s list \u2014 work top to bottom</div>' +
           '<table class="rd-td-t"><thead><tr>' +
           '<th scope="col">Client</th><th scope="col">Why it\u2019s here</th>' +
-          '<th scope="col">Who needs to know</th><th scope="col" class="rd-td-own">Owner</th>' +
+          '<th scope="col" class="rd-td-tell">Who needs to know</th>' +
+          '<th scope="col" class="rd-td-own">Owner</th>' +
           '<th scope="col">Next step</th><th scope="col"><span class="rd-sr">Sort and open</span></th>' +
           '</tr></thead><tbody>' +
           vis.map(function (r) {
@@ -4333,9 +4334,23 @@
               : '<span class="' + (r.tone === 'bad' ? 'rd-td-over' : 'rd-td-due') + '">' + esc(r.why) + '</span>';
             return '<tr class="rd-td-r ' + r.tone + '"' + (r.cid ? ' data-cid="' + esc(r.cid) + '" tabindex="0"' : '') + '>' +
               '<td class="rd-td-n"><span>' + esc(r.name) + '</span>' + tierPill(r.tier) + '</td>' +
+              /* BELOW 1100px THERE IS NO ROOM FOR SIX COLUMNS. Who needs to
+                 know and Next step were getting 109px each in a fixed-layout
+                 table, the two headers overlapped and Sort and Open spilled
+                 out of the card. At that width the row becomes a four-column
+                 grid and the audience moves under the reason, in this cell,
+                 with the owner chip below it. A dash is not worth a line, so
+                 nothing is written when there is nobody to tell. */
               '<td class="rd-td-w"><div class="rd-c2" title="' + esc(r.why) + '">' + why + '</div>' +
                 (r.s30 ? '<div class="rd-td-s30"><b>Success in 30:</b> ' + r.s30 +
-                         ' milestone' + (r.s30 > 1 ? 's' : '') + ' open</div>' : '') + '</td>' +
+                         ' milestone' + (r.s30 > 1 ? 's' : '') + ' open</div>' : '') +
+                (r.tell || r.owner
+                  ? '<div class="rd-td-tell-in">' +
+                    (r.tell ? '<span class="rd-td-tl" title="' + esc(r.tell) + '">' +
+                              '<b>Tell:</b> ' + esc(r.tell) + '</span>' : '') +
+                    (r.owner ? '<span class="rd-td-ow">' + esc(r.owner) + '</span>' : '') +
+                    '</div>'
+                  : '') + '</td>' +
               /* The owner rides inside this cell as well, hidden until the
                  Owner column itself is folded away. Six columns do not fit
                  Home's left column below about 1500px, and dropping the

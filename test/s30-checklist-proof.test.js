@@ -96,6 +96,25 @@ ok('un-ticking asks for nothing', /function untickS30\(cid,id\)\{/.test(OB) &&
 ok('...and removes the one client\'s row, not every client\'s',
    /r\.clientId===cid&&r\.id===id/.test(OB));
 
+/* ── TODAY, WHERE THE CSM IS STANDING ────────────────────────────────────
+   Caught live: the proof dialog prefilled 2026-11-24 at 22:26 on the 23rd.
+   new Date().toISOString() is UTC, so after about 7pm Eastern every one of
+   these rolled over to tomorrow -- the dialog offered tomorrow's date, a
+   saved milestone was dated a day ahead on the client record, and an item
+   due today read as overdue from the evening before. Eight places in
+   v2-onboarding.js carried the same line. */
+ok('there is one local-day helper', /function _obToday\(\)\{/.test(OB) &&
+   /d\.getFullYear\(\)\+'-'\+String\(d\.getMonth\(\)\+1\)\.padStart\(2,'0'\)/.test(OB));
+ok('...and no UTC day is left in the module',
+   !/new Date\(\)\.toISOString\(\)\.slice\(0,10\)/.test(OB));
+ok('the proof dialog prefills from it', /document\.getElementById\('obp-date'\)\.value=_obToday\(\);/.test(OB));
+// Behavioural: the local helper and the UTC one disagree exactly when they should.
+const localDay = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+const evening = new Date(2026, 10, 23, 22, 26);   // 23 Nov, 22:26 local
+ok('an evening in the local zone is still that day', localDay(evening) === '2026-11-23');
+const morning = new Date(2026, 10, 23, 9, 0);
+ok('...and so is the morning', localDay(morning) === '2026-11-23');
+
 /* ── 4. it repaints without the modules knowing about each other ─────── */
 ok('the layer exposes a repaint the onboarding module can call',
    /repaintClient: function \(\) \{ try \{ renderWorkspace\(\); \} catch \(e\) \{\} \}/.test(CODE));

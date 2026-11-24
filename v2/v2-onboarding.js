@@ -44,6 +44,15 @@
    standing password does not belong in a repository, so the step says to send
    the standard family password and does not repeat it. */
 
+/* TODAY, WHERE THE CSM IS STANDING. new Date().toISOString() is UTC, so
+   after about 7pm Eastern every one of these rolled over to tomorrow: the
+   proof dialog prefilled tomorrow's date, a saved milestone was dated a day
+   ahead on the client record, and an item due today read as overdue from the
+   evening before. Eight places in this file had the same line. */
+function _obToday(){
+  const d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
 const OB_OWNERS = { CSM:'CSM', CSP:'CSP', SP:'Scheduling Partner', RDM:'RDM' };
 
 /* Her market rules table, which decides when the assessment is due.
@@ -309,7 +318,7 @@ function setObTab(t){ _obTab=t; renderObBoard(); }
    sentence that makes the row actionable. */
 function _obProgress(c){
   const done=_obMap(c.id), items=OB_CHECKLIST.flatMap(g=>g.items);
-  const today=new Date().toISOString().slice(0,10);
+  const today=_obToday();
   let late=0;
   items.forEach(i=>{ if(done[i.id])return; const d=obDueFor(c,i); if(d.date&&d.date<today)late++; });
   const n=items.filter(i=>done[i.id]).length;
@@ -323,7 +332,7 @@ function _obProgress(c){
    Hub cannot date is not a candidate: obDueFor refuses to guess, and a row
    that announced an undated item as "due next" would be inventing urgency. */
 function _obNextDue(c){
-  const done=_obMap(c.id), today=new Date().toISOString().slice(0,10);
+  const done=_obMap(c.id), today=_obToday();
   const open=[];
   OB_CHECKLIST.forEach(g=>g.items.forEach(i=>{
     if(done[i.id])return;
@@ -506,7 +515,7 @@ function obApprove(cid){
    divides by a denominator it does not have. */
 function obMetrics(){
   const all=_obAllClients();
-  const today=new Date().toISOString().slice(0,10);
+  const today=_obToday();
   const out=[];
 
   // 1. Success in 30 rate: On Track at day 30, of those who reached day 30.
@@ -607,7 +616,7 @@ function renderObChecklist(cid){
   const el=document.getElementById('s60-ob'); if(!el)return;
   const done=_obMap(cid);
   const cl=get('clients')||[], c=cl.find(x=>x.id===cid)||{};
-  const today=new Date().toISOString().slice(0,10);
+  const today=_obToday();
   const total=OB_CHECKLIST.reduce((n,g)=>n+g.items.length,0);
   const ticked=OB_CHECKLIST.reduce((n,g)=>n+g.items.filter(i=>done[i.id]).length,0);
 
@@ -744,7 +753,7 @@ function openObProof(){
   document.getElementById('obp-task').textContent=item.label;
   document.getElementById('obp-owner').textContent=(item.owner||'')+(item.hub?'  \u00b7  '+item.hub:'');
   document.getElementById('obp-who').value='';
-  document.getElementById('obp-date').value=new Date().toISOString().slice(0,10);
+  document.getElementById('obp-date').value=_obToday();
   document.getElementById('obp-note').value='';
   const na=document.getElementById('obp-na');
   na.style.display=item.na?'':'none';
@@ -781,7 +790,7 @@ function saveObProof(na){
      way without opening the checklist at all. */
   if(!na){
     const tasks=get('tasks')||[];
-    tasks.unshift(Object.assign({id:'task'+Date.now(),clientId:cid,date:when||new Date().toISOString().slice(0,10),
+    tasks.unshift(Object.assign({id:'task'+Date.now(),clientId:cid,date:when||_obToday(),
       text:item.label, outcome:'Onboarding step completed',
       note:[who?('with '+who):'',note].filter(Boolean).join(' \u00b7 '),
       source:'onboarding', by:P?P.name:'', at:new Date().toISOString()},
@@ -800,7 +809,7 @@ function saveS30Proof(na){
   if(!_obProofFor)return;
   const {cid,id,item}=_obProofFor;
   const who=(document.getElementById('obp-who').value||'').trim();
-  const when=(document.getElementById('obp-date').value||'').slice(0,10)||new Date().toISOString().slice(0,10);
+  const when=(document.getElementById('obp-date').value||'').slice(0,10)||_obToday();
   const note=(document.getElementById('obp-note').value||'').trim();
   const proof=[who?('with '+who):'',note].filter(Boolean).join(' \u00b7 ');
   const rows=get('s60')||[];
@@ -1195,7 +1204,7 @@ function saveD30(){
   const answers=[...document.querySelectorAll('#m-d30 .d30-a')].map(a=>({
     kind:a.dataset.kind, q:(a.closest('.d30-q').querySelector('.d30-l').textContent||''),
     a:(a.value||'').trim()})).filter(x=>x.a);
-  const day=new Date().toISOString().slice(0,10);
+  const day=_obToday();
   const tasks=get('tasks')||[];
   tasks.unshift(Object.assign({id:'task'+Date.now(),clientId:c.id,date:day,
     text:'Day 30 check-in', outcome:'Spoke with family',

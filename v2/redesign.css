@@ -3128,3 +3128,45 @@ button.rd-s30-b {
 button.rd-s30-b:hover { border-color: var(--accent, #C95018); }
 button.rd-s30-b.done { background: var(--accent, #C95018); border-color: var(--accent, #C95018); color: #fff; }
 .rd-s30-b.viv { opacity: .75; cursor: default; }
+
+
+/* -- TODAY'S LIST BELOW 1100px ---------------------------------------------
+   Six columns in a fixed-layout table left 109px each for "Who needs to
+   know" and "Next step": the two headers overlapped and Sort and Open
+   spilled out of the card. Below 1100px the row is a four-column grid --
+   client, why, next step, buttons -- and the audience moves under the
+   reason in the why column, with the owner chip below it.
+
+   The borders go on the ROW, not on each cell: once the cells are grid
+   items a per-cell border draws a box round every one of them. */
+.rd-td-tell-in { display: none; margin-top: 6px; }
+.rd-td-tl {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; font-size: 12px; color: var(--ink-2, #5C554C); line-height: 1.4;
+}
+.rd-td-tl b { font-weight: 600; color: var(--ink-3, #8C857B); }
+.rd-td-tell-in .rd-td-ow { margin-top: 5px; }
+
+@media (max-width: 1099px) {
+  .rd-td-t, .rd-td-t thead, .rd-td-t tbody, .rd-td-t tr, .rd-td-t th, .rd-td-t td {
+    display: block;
+  }
+  .rd-td-t tr {
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1.3fr) minmax(0, 1fr) 128px;
+    gap: 10px; align-items: start;
+  }
+  .rd-td-t th, .rd-td-t td { border: 0; padding: 0; min-width: 0; }
+  .rd-td-t thead tr { border-bottom: 1px solid var(--line, #E7E2DA); padding-bottom: 7px; }
+  .rd-td-t tbody tr { border-bottom: 1px solid var(--line-2, #EFEAE2); padding: 11px 0; }
+  .rd-td-t tbody tr:last-child { border-bottom: 0; }
+  /* These two are folded into the why column, headers and cells together. */
+  .rd-td-t .rd-td-tell, .rd-td-t .rd-td-own { display: none; }
+  .rd-td-tell-in { display: block; }
+  /* Side by side, and small enough that 128px holds both. */
+  .rd-td-t .rd-td-o {
+    display: flex; flex-direction: row; align-items: center; gap: 6px;
+    flex-wrap: nowrap; justify-content: flex-start;
+  }
+  .rd-td-t .rd-td-sort, .rd-td-t .rd-td-b { flex: none; font-size: 10.5px; padding: 2px 7px; }
+}

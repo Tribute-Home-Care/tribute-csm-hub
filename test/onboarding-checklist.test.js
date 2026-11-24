@@ -63,7 +63,11 @@ function lift(decl) {
 /* renderObChecklist is lifted and RUN, not stubbed, which is why its
    dependencies come with it. That is deliberate: the real render is what
    caught _obMap being deleted by a rewrite of the data above it. */
-const decls = ['const OB_OWNERS =', 'const OB_MARKET_RULES =', 'const OB_CHECKLIST =',
+/* _obToday() replaced eight copies of new Date().toISOString().slice(0,10),
+   which is UTC and therefore tomorrow after about 7pm Eastern. The lifted
+   functions call it, so it is lifted too rather than stubbed: a stub here
+   would hide the very thing it exists to fix. */
+const decls = ['function _obToday(', 'const OB_OWNERS =', 'const OB_MARKET_RULES =', 'const OB_CHECKLIST =',
                'function _obMarket(', 'function _obPlus(', 'function obDueFor(',
                'function _obMap(', 'const OB_WHO=', 'let _obWho=',
                'function _obWhoMatch(', 'function setObWho(',
