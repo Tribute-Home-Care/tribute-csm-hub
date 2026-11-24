@@ -2965,3 +2965,19 @@ input[type="email"], select { min-height: var(--h-ctl); }
    right: only what is actually urgent carries a mark. */
 .rd-td-t tbody tr.bad { box-shadow: inset 2px 0 0 var(--bad); }
 .rd-td-t tbody tr.warn { box-shadow: inset 2px 0 0 var(--warn); }
+
+/* P5. The next step, on the row. A pill rather than a link, because it is a
+   thing you press and the row already carries two spans of text. */
+.rd-s30-step {
+  display: block; width: fit-content; margin: 4px 0 0; padding: 2px 10px;
+  border: 1px solid var(--line); border-radius: 99px;
+  background: var(--surface, #fff); font: inherit; font-size: 12px; font-weight: 600;
+  color: var(--ink-2); cursor: pointer;
+}
+.rd-s30-step:hover { border-color: var(--accent); color: var(--accent); }
+/* Log family call is an action among filing decisions, so it reads as one. */
+.rd-ack .rd-ack-do { font-weight: 600; }
+/* The log and more menus moved into the header action row. */
+.rd-act-menu { position: relative; display: inline-flex; }
+.rd-act-menu .rd-menu-list { top: 100%; left: 0; }
+.rd-act-menu .rd-menu-list.right { left: auto; right: 0; }

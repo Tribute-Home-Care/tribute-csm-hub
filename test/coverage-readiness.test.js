@@ -51,7 +51,24 @@ ok('a client needing a note outranks one whose note is current',
 // ── pre-fill, without overwriting anybody ─────────────────────────────────
 ok('it reads the same Viv data the client page does', /const S=window\.TributeClientData;/.test(CODE));
 ok('an open Pulse flag seeds Active concerns', /out\.concerns=\(Array\.isArray\(p\.headline\)/.test(CODE));
-ok('it only ever fills a field that is empty', /if\(el&&!el\.value&&pre\[f\]\)/.test(CODE));
+ok('it only ever fills a field that is empty', /if\(!el\.value&&pre\[f\]\)/.test(CODE));
+
+/* ASK FOR THE READ, DO NOT HOPE IT IS CACHED.
+   covPrefill uses TributeClientData.client(), which is a SNAPSHOT: it returns
+   what is already loaded and never fetches. So caregivers and the family
+   contact filled in only for clients whose page had been opened this session
+   and stayed blank for everyone else, which read as a bug in the form rather
+   than a cache nobody had asked. */
+ok('selecting a client asks Viv for that client, rather than hoping',
+   /S\.ready\(c\.vivId\)\.then/.test(CODE));
+ok('...the snapshot still paints first, so the fields are never empty while waiting',
+   /_covFill\(c\);[\s\S]{0,900}S\.ready\(c\.vivId\)/.test(CODE));
+ok('...and the late answer is dropped if the CSM has moved on',
+   /if\(document\.getElementById\('cov-sel'\)\.value===id\)_covFill\(c\)/.test(CODE));
+/* The caseload-wide contacts crawl already holds a family contact for every
+   client, so a blank field is filled from there rather than left blank. */
+ok('the family contact falls back to the caseload crawl',
+   /if\(!out\.fam&&S&&c\.vivId&&S\.contacts\)/.test(CODE));
 ok('a filled field is marked as having come from the sync',
    /el\.dataset\.prefilled='1'/.test(CODE) && /\[data-prefilled\]/.test(CSS));
 ok('the Hub record is the fallback, not the first choice',

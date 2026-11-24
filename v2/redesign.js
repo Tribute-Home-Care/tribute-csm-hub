@@ -1730,7 +1730,30 @@
     const rest = addr ? addr.split(',').slice(1).join(',').trim().replace(/,\s*(United States|USA)$/i, '') : '';
     const status = (c.vivStatus && String(c.vivStatus).toLowerCase() !== 'active')
       ? c.vivStatus : (d.service && d.service.status) || 'Active';
-    const meta = [c.market || (d.market || ''), status].filter(Boolean).join(' · ');
+    /* P1. ONE HEADER LINE, her section 4: "name, tier, status, market,
+       community and unit, start of care, CSM, client number on one line."
+       It carried only the market and the status, so everything else was a
+       card away: a CSM on the phone had to scroll to say which community the
+       client is in or read back a client number.
+
+       Anything the Hub does not know is left out rather than printed as a
+       blank or a dash, so the line is short when the record is thin instead
+       of being a row of holes. */
+    const ok = function (v) {
+      return v && !/^(none|n\/a|\u2014|-|not on file|unknown)$/i.test(String(v).trim());
+    };
+    const unit = c.unit || (d.service && d.service.unit) || '';
+    const soc = c.startDate || (d.service && d.service.startDate) || '';
+    const csmName = c.csm || ((A().profile || {}).name) || '';
+    const num = c.clientNo || c.vivNo || (d.service && d.service.clientNumber) || '';
+    const meta = [
+      c.market || (d.market || ''),
+      status,
+      ok(c.loc) ? (c.loc + (ok(unit) ? ', ' + unit : '')) : '',
+      ok(soc) ? 'Start of care ' + fmtShort(soc) : '',
+      ok(csmName) ? 'CSM ' + csmName : '',
+      ok(num) ? '#' + num : ''
+    ].filter(Boolean).join(' · ');
 
     const acts = [];
     /* "Call" DIALS THE FAMILY CONTACT, NOT JUST THE CLIENT, and says whose
@@ -1753,9 +1776,32 @@
     if (addr) acts.push('<a class="rd-act" target="_blank" rel="noreferrer"' +
       ' href="https://maps.apple.com/?q=' + encodeURIComponent(addr) + '">' +
       I('pin') + '<span>Directions</span></a>');
-    acts.push('<button type="button" class="rd-act" data-act="log-tp">' + I('conversation') + '<span>Log contact</span></button>');
+    /* P2. ONE LOG BUTTON, AT THE TOP. Her section 4: "One Log button at the
+       top. Remove Log activity and '...' at the bottom."
+
+       The footer is gone, so what it could do comes here rather than being
+       deleted with it: logging a VISIT and a CARE CONVERSATION lived only in
+       that menu, and dropping them would have taken the only way to record a
+       visit off the client page. Same for Edit client, Draft update, Fill
+       priority and Add LTC record, which are now behind the one small menu
+       at the end of the row. */
+    acts.push('<div class="rd-menu rd-act-menu"><button type="button" class="rd-act" data-menu="log">' +
+      I('conversation') + '<span>Log contact</span>' + I('chevronDown') + '</button>' +
+      '<div class="rd-menu-list" data-for="log">' +
+      '<button type="button" data-act="log-tp">Touchpoint</button>' +
+      '<button type="button" data-act="log-visit">Visit</button>' +
+      '<button type="button" data-act="log-ci">Care conversation</button>' +
+      '</div></div>');
     // Scribe. The reserved placeholder is now the real thing: one tap from
     // the client, because that is where a CSM is standing when they need it.
+    acts.push('<div class="rd-menu rd-act-menu"><button type="button" class="rd-act" data-menu="more" aria-label="More actions">' +
+      I('more') + '</button>' +
+      '<div class="rd-menu-list right" data-for="more">' +
+      '<button type="button" data-act="edit">Edit client</button>' +
+      '<button type="button" data-act="draft">Draft update</button>' +
+      '<button type="button" data-act="fill">Fill priority</button>' +
+      '<button type="button" data-act="ltc-add">Add LTC record</button>' +
+      '</div></div>');
     if (window.TributeScribe && c.vivId) {
       acts.push('<button type="button" class="rd-act scribe" data-act="scribe">' +
         I('mic') + '<span>Scribe</span></button>');
@@ -1923,6 +1969,30 @@
      and an overdue row is red and first in its phase. The status line names
      the oldest overdue thing rather than counting them, because that is the
      one to pick up first. */
+  /* P5. THE BUTTON IS THE NEXT STEP. Her section 7: "The button is the next
+     step: Draft email, Schedule visit, Log check-in, Open call guide, or
+     N/A." A checklist that only offers a tick makes the CSM go and find the
+     thing themselves, which is how a checklist turns into paperwork.
+
+     VIV SETUP ITEMS GET NO BUTTON, which is also hers: those carry the Viv
+     location instead, because the step is "go to this screen in Viv" and a
+     button cannot do it for you.
+
+     The mapping is the preview's, by the words the document uses. It is not
+     a guess about intent: every phrase here appears in Courtney's own
+     checklist labels. An item that matches nothing gets no button rather
+     than a wrong one. */
+  function s30Step(label) {
+    const t = String(label || '');
+    if (/\bviv\b|workflow|payor|located in|rate rule|authorization/i.test(t)) return null;
+    if (/day 30/i.test(t)) return { act: 'd30', word: 'Open call guide' };
+    if (/family\/gcm contact|family contact|update the referral|referral partner|welcome/i.test(t))
+      return { act: 'draft', word: 'Draft email' };
+    if (/assessment|in-person visit|second visit/i.test(t)) return { act: 'visit', word: 'Schedule visit' };
+    if (/prepped by phone|check-in|check in|touch base/i.test(t)) return { act: 'checkin', word: 'Log check-in' };
+    return null;
+  }
+
   function wsS30(c) {
     let k = null;
     try { k = typeof s30Checklist === 'function' ? s30Checklist(c) : null; } catch (e) { return ''; }
@@ -1939,7 +2009,13 @@
         (r.done && r.viv ? ' viv' : '') + '">' +
         '<span class="rd-s30-b" aria-hidden="true">' + (r.done ? '\u2713' : '') + '</span>' +
         '<span class="rd-s30-t">' + esc(r.label) +
-          (r.proof ? '<span class="rd-s30-p">' + esc(r.proof) + '</span>' : '') + '</span>' +
+          (r.proof ? '<span class="rd-s30-p">' + esc(r.proof) + '</span>' : '') +
+          (function () {
+            if (r.done) return '';
+            const s = s30Step(r.label);
+            return s ? '<button type="button" class="rd-s30-step" data-step="' + s.act +
+              '" data-ms="' + esc(r.id || '') + '">' + esc(s.word) + '</button>' : '';
+          })() + '</span>' +
         '<span class="rd-s30-o">' + esc(r.owner) + '</span>' + when + '</li>';
     };
     const weeks = k.weeks.map(function (w) {
@@ -1997,9 +2073,18 @@
     /* Attention. Rendered only when something is actually wrong: an empty
        "all clear" card every day teaches people to stop reading the one that
        matters. */
+    /* P4. THE BANNER AND THIS BLOCK WERE SAYING THE SAME THING.
+       When a Pulse banner is showing, it carries the flag, the detail and the
+       triage buttons; repeating it in a card below made the page look like
+       two problems where there is one, and the card said it with less. So the
+       block is only built when there is no banner.
+
+       The CADENCE exception still earns a place: it is a different fact from
+       the flag, it has a date on it, and it is not in the banner. */
+    const banner = !!(pp && pp.level && pp.level !== 'green' && !c.pulseAck);
     const attn = [];
     if (ex) attn.push({ tone: ex.tone, text: ex.text });
-    if (pp && pp.level && pp.level !== 'green' && !c.pulseAck)
+    if (pp && pp.level && pp.level !== 'green' && !c.pulseAck && !banner)
       attn.push({ tone: pp.level === 'red' ? 'bad' : 'warn',
                   text: pulseFirst(pp.headline) + '.', go: 'care' });
     const openToday = visitsOn(snap, localDay(0)).filter(function (v) { return v.open; });
@@ -2525,7 +2610,14 @@
           ? '<p class="rd-pb-ack">' + esc(ackLabel(ack.state)) +
             (ack.by ? ' &middot; ' + esc(ack.by) : '') +
             ' <button type="button" class="rd-link" data-act="ack-clear">Undo</button></p>'
+          /* P3. LOG FAMILY CALL IS THE FIRST TRIAGE BUTTON. Her Home picture
+             puts it first on the banner, and it is the only one of the four
+             that is an ACTION rather than a filing decision: the other three
+             say what you intend to do, this one is you having done it. It
+             opens the Log contact form already on the page rather than a
+             second way to write a touchpoint. */
           : '<div class="rd-ack"><span>Mark it</span>' +
+            '<button type="button" class="rd-link rd-ack-do" data-act="log-tp">Log family call</button>' +
             '<button type="button" class="rd-link" data-act="ack" data-state="aware_working">Working on it</button>' +
             '<button type="button" class="rd-link" data-act="ack" data-state="aware_1to1">Raising in 1:1</button>' +
             '<button type="button" class="rd-link" data-act="ack" data-state="aware_none">Nothing needed</button></div>') +
@@ -2622,23 +2714,50 @@
   // One primary action and one overflow. Every item calls the application's
   // own function; nothing was reimplemented and nothing was removed.
   function wsActions(c) {
-    return '<footer class="rd-ws-actions">' +
-      '<div class="rd-menu"><button type="button" class="btn btn-p" data-menu="log">Log activity' + I('chevronDown') + '</button>' +
-      '<div class="rd-menu-list" data-for="log">' +
-      '<button type="button" data-act="log-visit">Visit</button>' +
-      '<button type="button" data-act="log-tp">Touchpoint</button>' +
-      '<button type="button" data-act="log-ci">Care conversation</button>' +
-      '</div></div>' +
-      '<div class="rd-menu"><button type="button" class="btn btn-icon" data-menu="more" aria-label="More actions">' + I('more') + '</button>' +
-      '<div class="rd-menu-list right" data-for="more">' +
-      '<button type="button" data-act="edit">Edit client</button>' +
-      '<button type="button" data-act="draft">Draft update</button>' +
-      '<button type="button" data-act="fill">Fill priority</button>' +
-      '<button type="button" data-act="ltc-add">Add LTC record</button>' +
-      '</div></div></footer>';
+    /* THE FOOTER IS GONE. Three ways to log on one page was her complaint:
+       "Log contact at the top, Log activity at the bottom, and a '...' menu
+       next to it." Both of the bottom two are in the header row now, so
+       nothing that was reachable has become unreachable. */
+    return '';
+  }
+
+  /* Each button opens the thing that already exists rather than a second
+     implementation of it: the Day 30 guide the onboarding layer owns, the
+     draft library, and V1's own log panels. An action whose function is not
+     on the page says so instead of failing silently. */
+  function wireS30Steps(ws, c) {
+    $$('.rd-s30-step', ws).forEach(function (b) {
+      b.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        const act = b.dataset.step;
+        const fn = function (n) { return typeof window[n] === 'function' ? window[n] : null; };
+        try {
+          if (act === 'd30') {
+            const f = fn('openD30Guide');
+            if (f) return f(c.id);
+          } else if (act === 'draft') {
+            const byId = fn('draftById'), open = fn('openDraftFor');
+            const d = byId && (byId('week1') || byId('welcome'));
+            if (d && open) return open(d, c);
+          } else if (act === 'visit') {
+            // openLogPanel(type, clientId, clientName) — same call the header
+            // Log menu makes, so there is one way to open the form.
+            const f = fn('openLogPanel');
+            if (f) return f('visit', c.id, c.name);
+          } else if (act === 'checkin') {
+            const f = fn('openLogPanel');
+            if (f) return f('touchpoint', c.id, c.name);
+          }
+          if (typeof showToast === 'function') showToast('That step is not wired up yet.');
+        } catch (e) {
+          if (typeof showToast === 'function') showToast('Could not open that step.');
+        }
+      });
+    });
   }
 
   function wireWsActions(ws, c) {
+    wireS30Steps(ws, c);
     const call = function (fn) { const f = window[fn]; return typeof f === 'function' ? f : null; };
     $$('[data-menu]', ws).forEach(function (b) {
       b.addEventListener('click', function (e) {
@@ -3643,11 +3762,15 @@
     let n = 0;
     try { n = (app.fn.get('clients') || []).filter(function (c) { return !c.isOffice; }).length; } catch (e) {}
 
+    /* WHEN VIV LAST ANSWERED. The Hub keeps this in localStorage under
+       viv_last_sync, which is what the sidebar line read before it was
+       removed; there is no field for it on the profile, which is where the
+       first version of this looked and found nothing. */
     let viv = '';
     try {
-      const v = app.data && app.data.profiles && app.profile && app.data.profiles[app.profile.id];
-      const at = v && v.vivSyncedAt;
-      if (at) viv = new Date(at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      const at = localStorage.getItem('viv_last_sync');
+      const d = at ? new Date(at) : null;
+      if (d && !isNaN(d)) viv = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
     } catch (e) {}
 
     let stale = '';
