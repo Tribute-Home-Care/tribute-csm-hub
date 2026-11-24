@@ -3450,12 +3450,27 @@ input.ob-cb:disabled { opacity: .5; cursor: not-allowed; }
    than "Scribe". A row of uneven buttons reads as a row of unequal
    importance. They share the space and the label truncates rather than
    stretching its button. */
-.rd-cw-acts { display: flex; flex-wrap: wrap; gap: 8px; }
-.rd-cw-acts > .rd-act { flex: 1 1 0; min-width: 76px; max-width: 160px; }
+.rd-cw-acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; }
+/* THE MENU BUTTONS ARE WRAPPED, so `> .rd-act` missed them and the "..."
+   button stayed 76px beside 160px neighbours. The wrapper is the flex item;
+   the button inside it fills the wrapper. */
+.rd-cw-acts > .rd-act,
+.rd-cw-acts > .rd-menu { flex: 1 1 0; min-width: 76px; max-width: 160px; }
+.rd-cw-acts > .rd-menu > .rd-act { width: 100%; max-width: none; height: 100%; }
 .rd-cw-acts > .rd-act > span {
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+/* An icon-only button must still SHOW its icon. */
+.rd-cw-acts .rd-act .ti { width: 18px; height: 18px; flex: none; }
+.rd-cw-acts .rd-act .ti svg { width: 100%; height: 100%; }
 
 
 /* The market chips sit in the same filter row as the view chips. */
 .rd-mkt { display: inline-flex; gap: 6px; align-items: center; }
+
+
+/* THE SINK. V1 elements this layer has replaced but cannot delete, because
+   index.html writes some of them without a null guard. A display:none
+   PARENT cannot be overridden by any child rule at any specificity, which a
+   [hidden] attribute on the child demonstrably could. */
+#rd-v1-sink { display: none !important; }

@@ -2335,15 +2335,40 @@
      header row read "REASSESSMENDTE". The full regulation wording is on
      each heading's title, which is where the long form belongs. */
   const MD_SHORT = {
-    initial: '48h initial', cadence: 'Assessment', annual: 'Annual',
-    reassess: 'Reassess', weekly: 'Weekly note', pmof: 'PMOF'
+    initial: '48h initial', cadence: '90-day nursing', annual: 'Annual',
+    reassess: 'Reassess', weekly: 'Weekly note', pmof: 'PMOF',
+    careplan: 'Care plan'
   };
+  /* THE SEVENTH REQUIREMENT IS THE CARE PLAN, and this is the answer to a
+     question I had parked for Jada. The page has always said "the seven
+     Baltimore requirements" while MD_REGS defined six; her mockup names the
+     missing one, and the feed has carried it all along as lastCarePlan --
+     a date, a title and an `approved` flag, present on 97 of 100 Maryland
+     clients. So the column is real data, not a placeholder.
+
+     MD_REGS lives in index.html, which is retired and not to be edited, so
+     the seventh is added here. The table still generates its columns from
+     the combined list, so the two cannot drift.
+
+     "Assessment" is renamed "90-day nursing", which is her wording and is
+     also clearer: the cadence is 90 days, or 45 for medication management. */
+  const MD_REGS_EXTRA = [['careplan', 'Tribute Care Plan on file and approved']];
+  function mdRegs() {
+    const base = (typeof MD_REGS !== 'undefined' && MD_REGS) ? MD_REGS : [];
+    return base.concat(MD_REGS_EXTRA);
+  }
   /* The same expressions renderMdDetail uses, in one place so the table and
      the detail panel cannot disagree about one client. true = on file,
      false = not met, null = nothing to judge it against. */
   function mdStates(r) {
     const a = r.lastAssessment, ini = r.initial || {}, tr = r.reassessmentOwed || [];
+    const cp = r.lastCarePlan;
     return {
+      /* On file AND approved. A care plan sitting unapproved is not a care
+         plan the state would accept, and "nothing on file" is a different
+         answer from "there but unsigned", so an unapproved one is a fail
+         rather than a cannot-judge. */
+      careplan: !cp ? null : (cp.approved === true),
       initial:  (ini.ok === null || ini.ok === undefined) ? null : ini.ok,
       cadence:  !a ? null : (r.overdueByEff > 0 ? false : true),
       annual:   !a ? null : (r.annualOverdueBy > 0 ? false : true),
@@ -2387,7 +2412,7 @@
      wrong thing to argue about. The clear clients are the ones no chip
      selects, which is what All shows. */
   function anyState(st, want) {
-    return MD_REGS.some(function (g) { return st[g[0]] === want; });
+    return mdRegs().some(function (g) { return st[g[0]] === want; });
   }
   let _mdGroup = '';
   function mdOwn(r) {
@@ -2412,13 +2437,13 @@
       '<th scope="row">' + esc(r.name || '') +
         (open ? '<span class="rd-md-when">' + esc(open) + '</span>' : '') + '</th>' +
       '<td class="rd-md-csm">' + esc(r.csm || '') + '</td>' +
-      MD_REGS.map(function (g) { return mdCell(st[g[0]]); }).join('') +
+      mdRegs().map(function (g) { return mdCell(st[g[0]]); }).join('') +
       '</tr>';
   }
   function mdTableHtml(rows) {
     return '<div class="rd-clt-wrap"><table class="rd-clt rd-md"><thead><tr>' +
       '<th scope="col">Client</th><th scope="col">CSM</th>' +
-      MD_REGS.map(function (g) {
+      mdRegs().map(function (g) {
         return '<th scope="col" class="rd-md-h" title="' + esc(g[1]) + '">' +
                esc(MD_SHORT[g[0]] || g[0]) + '</th>';
       }).join('') +
@@ -2477,7 +2502,11 @@
       counts[g[0]] = live0.filter(function (r) { return g[2](r, mdStates(r)); }).length;
     });
     counts.cleanup = old.length;
-    counts.all = live0.length;
+    /* ALL MEANS ALL. The page header says "100 Maryland clients" and this
+       chip said 98, because it counted only the live group and left the two
+       in Cleanup out. A chip called All that excludes two clients is the
+       badge-and-list fault this board exists to fix. */
+    counts.all = live0.length + old.length;
     const live = _mdGroup && _mdGroup !== 'all' && _mdGroup !== 'cleanup'
       ? live0.filter(function (r) {
           const g = MD_GROUPS.filter(function (x) { return x[0] === _mdGroup; })[0];
@@ -4139,8 +4168,35 @@
        say why those do not reconcile. Both numbers are in this card now, with
        labels that say what they count, so there is one place to read them and
        one place to fix them. */
+    /* V1'S FOUR STAT TILES ARE MOVED OUT OF THE PAGE, not hidden in it.
+       Hiding them was not enough twice over: [hidden] lost to the open-state
+       rule's !important, and after that was fixed the report that Caseload
+       Health "says In Onboarding 3 beside 4 in first 30 days" came back on
+       every build. I have measured it seven ways and cannot reproduce it --
+       the rail badge and the tile both call inFirstDays, so those two cannot
+       disagree by construction -- and the only element in this codebase
+       carrying the words "In Onboarding" is this tile.
+
+       So it stops being a visibility question. The tiles go into a sink
+       whose PARENT is display:none, which no child rule can override at any
+       specificity. They cannot render for any role, at any width, during any
+       load, whatever reappears in the stylesheet later.
+
+       They are MOVED and not removed because index.html writes
+       #s-high and #s-visits with no null guard: deleting them would throw
+       inside updateHome and take the whole page down. */
     const g4 = $('#rd-s-case .g4');
-    if (g4) g4.hidden = true;
+    if (g4) {
+      let sink = document.getElementById('rd-v1-sink');
+      if (!sink) {
+        sink = document.createElement('div');
+        sink.id = 'rd-v1-sink';
+        sink.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(sink);
+      }
+      if (g4.parentElement !== sink) sink.appendChild(g4);
+      g4.hidden = true;
+    }
     const h = caseloadHealth();
     if (!h) { el.style.display = 'none'; return; }
     el.style.display = '';

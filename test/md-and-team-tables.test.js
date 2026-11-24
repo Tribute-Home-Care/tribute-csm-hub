@@ -68,8 +68,33 @@ ok('V1\'s pill row is found before the host is inserted', (() => {
    requirements" and MD_REGS defines SIX. Driving the table off the constant
    means the table and the regulation list cannot drift apart, whichever of
    the two is corrected. */
-ok('the columns are generated from MD_REGS, not a list written here',
-   /MD_REGS\.map\(function \(g\) \{/.test(CODE) && /MD_SHORT\[g\[0\]\] \|\| g\[0\]/.test(CODE));
+/* THE SEVENTH REQUIREMENT IS THE CARE PLAN. The page has always said "the
+   seven Baltimore requirements" while MD_REGS defined six; her mockup named
+   the missing one, and the feed has carried it all along as lastCarePlan --
+   a date, a title and an `approved` flag, on 97 of 100 Maryland clients. So
+   it is real data, not a placeholder. MD_REGS lives in index.html, which is
+   retired and not to be edited, so the seventh is added in the layer and the
+   columns are generated from the combined list. */
+ok('the columns are generated from the reg list, not written out',
+   /mdRegs\(\)\.map\(function \(g\) \{/.test(CODE) && /MD_SHORT\[g\[0\]\] \|\| g\[0\]/.test(CODE));
+ok('...which is index.html\'s six plus the care plan',
+   /function mdRegs\(\)/.test(CODE) && /return base\.concat\(MD_REGS_EXTRA\);/.test(CODE) &&
+   /\['careplan', 'Tribute Care Plan on file and approved'\]/.test(CODE));
+ok('...and it is seven columns now', (() => {
+  const base = ((HUB.match(/const MD_REGS=\[[\s\S]*?\];/) || [''])[0].match(/\['[a-z]+',/g) || []).length;
+  return base === 6;
+})());
+/* A care plan sitting unapproved is not a care plan the state would accept,
+   and "nothing on file" is a different answer from "there but unsigned". */
+ok('an unapproved care plan fails rather than reading as unknown',
+   /careplan: !cp \? null : \(cp\.approved === true\)/.test(CODE));
+/* Her wording, and clearer: the cadence is 90 days, or 45 for medication
+   management. */
+ok('the cadence column is named 90-day nursing', /cadence: '90-day nursing'/.test(CODE));
+/* ALL MEANS ALL. The header says "100 Maryland clients" and the chip said
+   98, because it counted only the live group and left Cleanup out. */
+ok('the All chip counts every client the page says it has',
+   /counts\.all = live0\.length \+ old\.length;/.test(CODE));
 ok('...and every reg in index.html has a short name',
    (() => {
      const tbl = (HUB.match(/const MD_REGS=\[[\s\S]*?\];/) || [''])[0];
@@ -304,23 +329,26 @@ ok('pressing Cleanup opens the fold rather than filtering to nothing',
 const ANY = (CODE.match(/function anyState\(st, want\) \{[\s\S]*?\n  \}/) || [''])[0];
 ok('there is one place deciding whether any requirement is in a state', !!ANY);
 const MD_REGS = [['initial'], ['cadence'], ['annual'], ['reassess'], ['weekly'], ['pmof']];
+/* anyState asks mdRegs(), which is index.html's six plus the care plan. */
+const MD_REGS_EXTRA = [['careplan', 'Tribute Care Plan on file and approved']];
+const mdRegs = () => MD_REGS.concat(MD_REGS_EXTRA);
 const anyState = eval('(' + ANY + ')');
 ok('a client with one unmet requirement is Late now',
-   anyState({ initial: true, cadence: false, annual: true, reassess: true, weekly: true, pmof: true }, false));
+   anyState({ initial: true, cadence: false, annual: true, reassess: true, weekly: true, pmof: true, careplan: true }, false));
 ok('a client with nothing on file is Check by hand, not Late',
-   anyState({ initial: null, cadence: true, annual: true, reassess: true, weekly: true, pmof: true }, null) &&
-   !anyState({ initial: null, cadence: true, annual: true, reassess: true, weekly: true, pmof: true }, false));
+   anyState({ initial: null, cadence: true, annual: true, reassess: true, weekly: true, pmof: true, careplan: true }, null) &&
+   !anyState({ initial: null, cadence: true, annual: true, reassess: true, weekly: true, pmof: true, careplan: true }, false));
 ok('a client with every requirement met is neither',
-   !anyState({ initial: true, cadence: true, annual: true, reassess: true, weekly: true, pmof: true }, false) &&
-   !anyState({ initial: true, cadence: true, annual: true, reassess: true, weekly: true, pmof: true }, null));
+   !anyState({ initial: true, cadence: true, annual: true, reassess: true, weekly: true, pmof: true, careplan: true }, false) &&
+   !anyState({ initial: true, cadence: true, annual: true, reassess: true, weekly: true, pmof: true, careplan: true }, null));
 /* The chips OVERLAP, on purpose: one client can be late on one requirement
    and unjudgeable on another, so Late now 11 + Check by hand 16 exceeds the
    25 on the list. They are filters over one list, not a partition of it --
    the same rule the Home tiles follow. Her badge rule still holds, because
    each chip's number is the length of its own list. */
 ok('a client can be both late and unjudgeable, and counted in both',
-   anyState({ initial: null, cadence: false, annual: true, reassess: true, weekly: true, pmof: true }, false) &&
-   anyState({ initial: null, cadence: false, annual: true, reassess: true, weekly: true, pmof: true }, null));
+   anyState({ initial: null, cadence: false, annual: true, reassess: true, weekly: true, pmof: true, careplan: true }, false) &&
+   anyState({ initial: null, cadence: false, annual: true, reassess: true, weekly: true, pmof: true, careplan: true }, null));
 
 console.log('\n' + (fail ? 'FAILED ' + fail : 'PASSED all ' + pass));
 process.exit(fail ? 1 : 0);
