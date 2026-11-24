@@ -3073,11 +3073,18 @@
            every client in their first thirty days. A Viv-synced tick is not
            pressable, because un-ticking it would be overruling the system of
            record from a checklist. */
+        /* role="checkbox" with aria-checked, and a label that NAMES THE TASK:
+           a screen reader announcing "button, checked" eleven times down a
+           checklist says nothing about which eleven. */
         (r.done && r.viv
-          ? '<span class="rd-s30-b done viv" title="Picked up from Viv">\u2713</span>'
+          ? '<span class="rd-s30-b done viv" role="img" aria-label="' +
+            esc(r.label) + ' \u2014 picked up from Viv' + (r.at ? ' ' + fmtShort(r.at) : '') +
+            '" title="Picked up from Viv' + (r.at ? ' ' + fmtShort(r.at) : '') +
+            '. Viv is the record, so this cannot be un-ticked here.">\u2713</span>'
           : '<button type="button" class="rd-s30-b' + (r.done ? ' done' : '') +
-            '" data-s30tick="' + esc(r.id || '') + '" data-s30done="' + (r.done ? '1' : '') +
-            '" aria-pressed="' + (r.done ? 'true' : 'false') +
+            '" role="checkbox" aria-checked="' + (r.done ? 'true' : 'false') +
+            '" aria-label="' + esc(r.label) + '"' +
+            ' data-s30tick="' + esc(r.id || '') + '" data-s30done="' + (r.done ? '1' : '') +
             '" title="' + (r.done ? 'Remove this tick' : 'Mark it done, with proof') + '">' +
             (r.done ? '\u2713' : '') + '</button>') +
         '<span class="rd-s30-t">' + esc(r.label) +

@@ -2558,15 +2558,15 @@ input[type="email"], select { min-height: var(--h-ctl); }
 .rd-s30-w > summary .n { margin-left: auto; font-weight: 400; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .rd-s30-w > summary .n.fin { color: var(--pos, #0F6E56); }
 .rd-s30-l { list-style: none; margin: 0 0 8px; padding: 0; }
+/* 28px FOR THE BOX, AND align-items: start. It was an 18px column with
+   align-items: baseline, and an empty button has no baseline to align to --
+   so the box rendered 18 x 3 and read as a grey dash rather than a
+   checkbox. A control nobody recognises is a control nobody presses. */
 .rd-s30-r {
-  display: grid; grid-template-columns: 18px minmax(0, 1fr) 42px auto;
-  gap: 10px; align-items: baseline; padding: 5px 0; font-size: 12.5px;
+  display: grid; grid-template-columns: 28px minmax(0, 1fr) 42px auto;
+  gap: 10px; align-items: start; padding: 7px 0; font-size: 12.5px;
   border-top: 1px solid var(--line-soft);
 }
-.rd-s30-b { color: var(--line-2); text-align: center; }
-.rd-s30-r.done .rd-s30-b { color: var(--pos, #0F6E56); }
-/* Blue where Viv confirmed it, green where a person did. Her rule. */
-.rd-s30-r.done.viv .rd-s30-b { color: var(--brand-blue, #2C5689); }
 .rd-s30-t { color: var(--ink); min-width: 0; }
 .rd-s30-r.done .rd-s30-t { color: var(--ink-2); }
 .rd-s30-r.late .rd-s30-t { color: var(--bad); font-weight: 600; }
@@ -3123,14 +3123,61 @@ button.rd-cbtn, button.rd-act { font: inherit; background: none; cursor: pointer
 /* The tick box is a control now, not a decoration. A Viv-synced tick is a
    span and is not pressable: un-ticking it would be overruling the system of
    record from a checklist. */
-button.rd-s30-b {
-  font: inherit; cursor: pointer; line-height: 1;
-  border: 1.5px solid var(--line, #E7E2DA); border-radius: 6px;
-  background: var(--card, #FFFDFA); color: transparent;
+/* ── ONE CHECKBOX, EVERYWHERE A CHECKLIST APPEARS ─────────────────────────
+   The client page's was 18 x 3px, the Home to-do list's is the browser's own
+   at 14px, and the onboarding board's is a third thing. Three sizes of the
+   same control across one Hub.
+
+   22px box in a 28px column, with min-height so no grid can collapse it
+   again. The hit area is 40 x 40 through a pseudo-element, so the target is
+   finger-sized without the layout changing.
+
+   Green fill where a PERSON ticked it, blue where VIV confirmed it, and
+   Viv's is not pressable: un-ticking it would overrule the system of record
+   from a checklist. */
+.rd-s30-b,
+.todo-item > input[type="checkbox"],
+input.ob-cb {
+  box-sizing: border-box;
+  width: 22px; height: 22px; min-width: 22px; min-height: 22px;
+  margin: 0; padding: 0; flex: none; position: relative;
+  appearance: none; -webkit-appearance: none;
+  border: 1.5px solid #8C8379; border-radius: 6px; background: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  font: inherit; font-size: 13px; line-height: 1; color: transparent;
 }
-button.rd-s30-b:hover { border-color: var(--accent, #C95018); }
-button.rd-s30-b.done { background: var(--accent, #C95018); border-color: var(--accent, #C95018); color: #fff; }
-.rd-s30-b.viv { opacity: .75; cursor: default; }
+button.rd-s30-b,
+.todo-item > input[type="checkbox"],
+input.ob-cb { cursor: pointer; }
+/* A 40 x 40 target that does not touch the layout. */
+button.rd-s30-b::after,
+.todo-item > input[type="checkbox"]::after,
+input.ob-cb::after { content: ''; position: absolute; inset: -9px; }
+button.rd-s30-b:hover,
+.todo-item > input[type="checkbox"]:hover,
+input.ob-cb:hover:not(:disabled) {
+  border-color: var(--accent, #C95018);
+  box-shadow: 0 0 0 3px rgba(201, 80, 24, .16);
+}
+button.rd-s30-b:focus-visible,
+.todo-item > input[type="checkbox"]:focus-visible,
+input.ob-cb:focus-visible { outline: 2px solid var(--accent, #C95018); outline-offset: 2px; }
+/* An overdue row says so on the box as well as in the text. */
+.rd-s30-r.late .rd-s30-b { border-color: var(--bad, #B4453C); }
+/* Ticked by a person. */
+.rd-s30-b.done,
+.todo-item > input[type="checkbox"]:checked,
+input.ob-cb:checked {
+  background: var(--pos, #0F6E56); border-color: var(--pos, #0F6E56); color: #fff;
+}
+.todo-item > input[type="checkbox"]:checked::before,
+input.ob-cb:checked::before { content: '\2713'; color: #fff; font-size: 13px; line-height: 1; }
+/* Confirmed by Viv: blue, and not pressable. */
+.rd-s30-b.viv {
+  background: var(--brand-blue, #2C5689); border-color: var(--brand-blue, #2C5689);
+  color: #fff; cursor: default;
+}
+input.ob-cb:disabled { opacity: .5; cursor: not-allowed; }
 
 
 /* -- TODAY'S LIST BELOW 1100px ---------------------------------------------

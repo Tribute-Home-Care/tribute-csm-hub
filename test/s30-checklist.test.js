@@ -101,8 +101,30 @@ ok('finished weeks are collapsed and the rest are open',
 ok('...so the item the status names is never hidden',
    !/const open = w\.id === k\.currentWeek;/.test(RD));
 ok('a Viv-confirmed item says so', /\(r\.viv \? 'picked up from Viv ' : ''\)/.test(RD));
+/* Green FILL where a person ticked it, blue FILL where Viv confirmed it.
+   It used to be the tick's colour on an 18 x 3px box that read as a grey
+   dash; it is the box itself now. */
 ok('...and is marked differently from one a person ticked',
-   /\.rd-s30-r\.done\.viv \.rd-s30-b \{ color: var\(--brand-blue/.test(CSS));
+   /\.rd-s30-b\.viv \{[\s\S]{0,160}background: var\(--brand-blue/.test(CSS) &&
+   /\.rd-s30-b\.done,[\s\S]{0,200}background: var\(--pos/.test(CSS));
+/* THE BOX WAS 18 x 3px. An 18px grid column with align-items: baseline, and
+   an empty button has no baseline to align to, so it rendered as a grey
+   dash. A control nobody recognises is a control nobody presses. */
+ok('the box is a box, in a column that cannot collapse it',
+   /grid-template-columns: 28px minmax\(0, 1fr\) 42px auto;/.test(CSS) &&
+   /align-items: start;/.test(CSS) &&
+   /min-width: 22px; min-height: 22px;/.test(CSS));
+/* Finger-sized target without disturbing the layout. */
+ok('...with a 40px hit area that does not change the layout',
+   /button\.rd-s30-b::after,[\s\S]{0,140}inset: -9px;/.test(CSS));
+ok('...and the same control on the to-do list and the onboarding board',
+   /\.todo-item > input\[type="checkbox"\],/.test(CSS) && /input\.ob-cb \{/.test(CSS));
+/* A screen reader announcing "button, checked" eleven times down a checklist
+   says nothing about which eleven. */
+ok('it is a checkbox to a screen reader, and it names its task',
+   /role="checkbox" aria-checked="/.test(RD) && /aria-label="' \+ esc\(r\.label\) \+ '"/.test(RD));
+ok('...and Viv\'s is announced as what it is, not as a pressable control',
+   /role="img" aria-label="/.test(RD) && /\.rd-s30-b\.viv \{[\s\S]{0,200}cursor: default;/.test(CSS));
 ok('an overdue row is red', /\.rd-s30-r\.late \.rd-s30-t \{ color: var\(--bad\)/.test(CSS));
 ok('the card carries its state on the border, not all over it',
    /\.rd-s30\.bad  \{ border-left-color: var\(--bad\); \}/.test(CSS));
