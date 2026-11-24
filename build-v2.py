@@ -55,14 +55,13 @@ def main():
     assert 'V1 IS RETIRED' not in html, 'the root redirect is still in the V2 build'
     assert "location.replace('./v2/'" not in html, 'V2 would redirect to itself'
 
-    # 1. Title and the tab's own identity, so a pilot tab is never mistaken
-    #    for the live hub in a crowded window.
-    html = html.replace('<title>Tribute CSM Hub</title>',
-                        '<title>Tribute CSM Hub · V2 Preview</title>', 1)
-    if 'V2 Preview</title>' not in html:
-        html = re.sub(r'<title>([^<]*)</title>',
-                      lambda m: '<title>' + m.group(1).strip() + ' · V2 Preview</title>',
-                      html, count=1)
+    # 1. THE TAB IS JUST THE HUB NOW. The title used to gain "· V2 Preview",
+    #    so a pilot tab was never mistaken for the live hub in a crowded
+    #    window. There is no other hub to mistake it for: the root redirects
+    #    here. Leaving it would have told every CSM, in the one place they
+    #    look to find the tab again, that their day's work is a trial --
+    #    which is the same reason the badge came off the sidebar.
+    assert '<title>Tribute CSM Hub</title>' in html, 'the production title changed'
 
     # 2. entra-auth.js lives one level up. Its redirect URI is derived from
     #    location.pathname, so serving at /v2/ asks Entra for /v2/ — which is

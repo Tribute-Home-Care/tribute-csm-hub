@@ -70,6 +70,14 @@ ok('V2 still loads the real auth script, one level up',
 const CHROME = fs.readFileSync(path.join(__dirname, '../v2/v2-chrome.js'), 'utf8');
 const POLICY = fs.readFileSync(path.join(__dirname, '../v2/v2-policy.js'), 'utf8');
 ok('the preview tag is gone from the strip', !/class="v2-tag">V2 Preview/.test(CHROME));
+/* The TAB TITLE too. It gained "· V2 Preview" so a pilot tab was never
+   mistaken for the live hub in a crowded window; there is no other hub to
+   mistake it for now, and the title is the one place a CSM looks to find
+   the tab again. */
+ok('...and so is the preview suffix on the tab title',
+   /<title>Tribute CSM Hub<\/title>/.test(V2) && !/V2 Preview<\/title>/.test(V2));
+ok('...with the build asserting the production title it depends on',
+   /assert '<title>Tribute CSM Hub<\/title>' in html/.test(BLD));
 ok('...and the badge no longer says pilot', !/'write pilot'/.test(POLICY) && /'writes on'/.test(POLICY));
 ok('...and a refused account is told plainly, without naming a pilot',
    /cannot write to the Hub/.test(POLICY) && !/not in the write pilot/.test(POLICY));
