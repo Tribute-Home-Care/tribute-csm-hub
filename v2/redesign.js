@@ -1554,7 +1554,14 @@
         '<td>' + (stText ? '<span class="rd-cl-ex ' + stTone + '"><i class="rd-dot"></i>' + esc(stText) + '</span>' : '') +
           (ps ? '<div class="rd-clt-pl" title="' + esc(ps.note || ps.text) + '">' +
                 '<b>' + esc((plab && plab.label) || 'Pulse') + ':</b> ' + esc(ps.text) + '</div>' +
-                (powner ? '<span class="rd-td-ow rd-clt-ow">' + esc(powner) + '</span>' : '') : '') + '</td>' +
+                (powner ? '<span class="rd-td-ow rd-clt-ow">' + esc(powner) + '</span>' : '') +
+                /* AND THE SORT BUTTON, which her Pulse mockup has on the row.
+                   Today's list has had it since the 23rd; without it here a
+                   CSM reading the Clients list has to go back to Home to
+                   sort the same flag. Same three states, same handler. */
+                '<button type="button" class="rd-td-sort rd-clt-sort" data-sortbtn="' + esc(c.id) +
+                '" aria-haspopup="menu" title="Sort this flag off Today\u2019s list">Sort</button>'
+                : '') + '</td>' +
         '<td>' + (c.lastVisit ? esc(fmtShort(c.lastVisit)) : '<span class="rd-ws-quiet">None</span>') + '</td>' +
         '<td>' + (nv ? esc(fmtShort(nv)) : (c.freq === 'NA' ? '<span class="rd-ws-quiet">No cadence</span>' : '')) + '</td>' +
         '<td class="rd-clt-con">' + contactCell(c) + '</td>' +
@@ -2532,10 +2539,29 @@
      pass, into the element V1 drew the cards in.
 
      Self is already excluded: V1's pool filters p.id !== P.id. */
+  /* HER COLUMNS. The first six were the last build's; Needs action,
+     Checklist late and Raised in 1:1 are from her mockup.
+
+     "Coverage ready" is NOT here, and that is deliberate: I could not find a
+     reading of the coverage data I would stand behind, and a column of
+     numbers nobody can explain is worse on a manager's page than a missing
+     one. It is a question for her, not a guess. */
   const TEAM_COLS = [
-    ['clients', 'Clients'], ['high', 'High need'], ['touch', 'Touches 30d'],
-    ['over', 'Overdue'], ['s30', 'In first 30'], ['comp', 'Visit compliance']
+    ['clients', 'Clients'], ['action', 'Needs action'], ['high', 'High need'],
+    ['late', 'Checklist late'], ['s30', 'In first 30'], ['over', 'Overdue'],
+    ['one21', 'Raised in 1:1'], ['touch', 'Touches 30d'], ['comp', 'Visit compliance']
   ];
+  /* CSPs ARE THEIR OWN SECTION, her words. A CSP does not carry a caseload
+     the way a CSM does, so in one table their row read as the worst
+     performer on the page: one client, one overdue, nought per cent. */
+  function isCSP(p) {
+    return /\bCSP\b/i.test(String(p.role || '')) || !!p.isCSC;
+  }
+  function isCSM(p) {
+    return !isCSP(p) && !p.isDirector && !p.isManager;
+  }
+  const TEAM_WHO = [['csm', 'CSMs'], ['all', 'Everyone']];
+  let _teamWho = 'csm';
   /* BARE NAMES, NOT window LOOKUPS. These are top-level `const` declarations
      in a classic script, so they live in the shared global LEXICAL
      environment and are readable by name from here -- but they are not
@@ -2572,6 +2598,27 @@
         return p.market === mk || (Array.isArray(p.hub) ? p.hub.indexOf(mk) > -1 : p.hub === mk);
       });
     } catch (e) { return null; }
+    /* MILESTONES PAST THEIR DUE DATE, for a caseload that is not the one
+       signed in. get(key, pid) takes a profile id, so the milestone log is
+       reachable; the due date is S30_MILESTONES + TODO_MS_DAYS + _todoDay,
+       which is how s30Checklist computes it for the current profile. Same
+       arithmetic, so the two cannot disagree. */
+    const lateFor = function (pid, cl) {
+      if (typeof S30_MILESTONES === 'undefined' || typeof TODO_MS_DAYS === 'undefined' ||
+          typeof _todoDay !== 'function') return null;
+      const logged = getCl('s60', pid) || [];
+      const today = localDay(0);
+      let n = 0;
+      cl.forEach(function (c) {
+        if (!c.startDate || !inFirstDays(c, 30)) return;
+        S30_MILESTONES.forEach(function (m) {
+          if (logged.some(function (x) { return x.clientId === c.id && x.id === m.id; })) return;
+          const due = _todoDay(c.startDate, TODO_MS_DAYS[m.id] || 7);
+          if (due && due < today) n++;
+        });
+      });
+      return n;
+    };
     return pool.map(function (p) {
       const cl = getCl('clients', p.id) || [];
       const over = ov(p.id) || [];
@@ -2586,16 +2633,40 @@
                   for care starting today, so the falsy fallback dropped the
                   newest client on every CSM's row. Still live in V1. */
                s30: cl.filter(function (c) { return inFirstDays(c, 30); }).length,
+               /* NEEDS ACTION, read from what is true across profiles. The
+                  layer's needsAction() leans on touchpoint history for the
+                  SIGNED-IN profile, so it cannot be asked about somebody
+                  else's caseload. A red Pulse is global (keyed by vivId) and
+                  an overdue visit is on the client record, so those two are
+                  the honest reading here. It is a floor, not V1's
+                  definition, and the page says so. */
+               action: cl.filter(function (c) {
+                 if (pulseLevel(c) === 'red') return true;
+                 const d = ago(c.lastVisit);
+                 return c.freq !== 'NA' && (d === null || d > (parseInt(c.freq) || 90));
+               }).length,
+               late: lateFor(p.id, cl),
+               /* Sorting a flag as "raising in the 1:1" writes pulseAck on
+                  the client, so this counts what is waiting for their next
+                  one-to-one. */
+               one21: cl.filter(function (c) {
+                 return c.pulseAck && c.pulseAck.state === 'aware_1to1';
+               }).length,
                comp: comp };
     });
   }
   function renderTeamTable() {
     const host = $('#team-cards');
     if (!host) return;
-    const rows = teamRowsData();
-    if (!rows) return;                       // V1 keeps its cards if we cannot
-    if (!rows.length) { host.innerHTML = '<p class="rd-ws-quiet">No CSMs for this market.</p>'; return; }
+    const all = teamRowsData();
+    if (!all) return;                        // V1 keeps its cards if we cannot
+    if (!all.length) { host.innerHTML = '<p class="rd-ws-quiet">No CSMs for this market.</p>'; return; }
+    const csms = all.filter(function (r) { return isCSM(r.p); });
+    const csps = all.filter(function (r) { return isCSP(r.p); });
+    const others = all.filter(function (r) { return !isCSM(r.p) && !isCSP(r.p); });
+    const rows = _teamWho === 'csm' ? csms : csms.concat(others);
     rows.sort(function (a, b) { return b.over - a.over || b.clients - a.clients; });
+    csps.sort(function (a, b) { return b.touch - a.touch; });
     const cell = function (r, k) {
       if (k === 'comp') {
         if (r.comp === null) return '<td class="rd-tm-n"><span class="rd-ws-quiet">—</span></td>';
@@ -2606,18 +2677,49 @@
       const tone = (k === 'over' && v) ? 'bad' : (k === 'high' && v) ? 'warn' : '';
       return '<td class="rd-tm-n' + (tone ? ' ' + tone : '') + '">' + v + '</td>';
     };
+    const tbl = function (list, cols) {
+      return '<div class="rd-clt-wrap"><table class="rd-clt rd-tm"><thead><tr>' +
+        '<th scope="col">CSM</th>' +
+        cols.map(function (c) { return '<th scope="col" class="rd-tm-h">' + esc(c[1]) + '</th>'; }).join('') +
+        '</tr></thead><tbody>' +
+        list.map(function (r) {
+          return '<tr class="rd-tm-r" data-csm="' + esc(r.p.id) + '" tabindex="0">' +
+            '<th scope="row"><span class="rd-tm-who">' + esc(r.p.name) + '</span>' +
+            '<span class="rd-tm-role">' + esc(r.p.role || '') +
+              (r.p.market ? ' · ' + esc(r.p.market) : '') + '</span></th>' +
+            cols.map(function (c) { return cell(r, c[0]); }).join('') + '</tr>';
+        }).join('') + '</tbody>' +
+        /* THE TOTALS LIVE IN THE TABLE. V1's strip above it carried the same
+           five numbers computed a second way, which is how "In Onboarding 3"
+           came to sit above a column headed "In first 30" reading 4. One
+           source, one number, and the sum is literally the column. */
+        (list.length > 1 ? '<tfoot><tr><th scope="row">' + plural(list.length, 'person') + '</th>' +
+          cols.map(function (c) {
+            if (c[0] === 'comp') return '<td class="rd-tm-n"></td>';
+            const vals = list.map(function (r) { return r[c[0]]; })
+                             .filter(function (v) { return typeof v === 'number'; });
+            return '<td class="rd-tm-n">' + vals.reduce(function (a, b) { return a + b; }, 0) + '</td>';
+          }).join('') + '</tr></tfoot>' : '') +
+        '</table></div>';
+    };
     host.className = '';                     // drop V1's g3 card grid
-    host.innerHTML = '<div class="rd-clt-wrap"><table class="rd-clt rd-tm"><thead><tr>' +
-      '<th scope="col">CSM</th>' +
-      TEAM_COLS.map(function (c) { return '<th scope="col" class="rd-tm-h">' + esc(c[1]) + '</th>'; }).join('') +
-      '</tr></thead><tbody>' +
-      rows.map(function (r) {
-        return '<tr class="rd-tm-r" data-csm="' + esc(r.p.id) + '" tabindex="0">' +
-          '<th scope="row"><span class="rd-tm-who">' + esc(r.p.name) + '</span>' +
-          '<span class="rd-tm-role">' + esc(r.p.role || '') +
-            (r.p.market ? ' · ' + esc(r.p.market) : '') + '</span></th>' +
-          TEAM_COLS.map(function (c) { return cell(r, c[0]); }).join('') + '</tr>';
-      }).join('') + '</tbody></table></div>';
+    host.innerHTML =
+      '<div class="rd-md-views">' + TEAM_WHO.map(function (v) {
+        return '<button type="button" class="rd-view' + (_teamWho === v[0] ? ' on' : '') +
+               '" data-teamwho="' + v[0] + '">' + esc(v[1]) + '</button>';
+      }).join('') + '</div>' +
+      tbl(rows, TEAM_COLS) +
+      '<p class="rd-tm-note">Needs action counts a red Pulse flag or an overdue visit. ' +
+      'A touchpoint that is overdue only on someone else\u2019s caseload cannot be read from ' +
+      'here, so this is a floor rather than the number on their own Home.</p>' +
+      (csps.length
+        ? '<h4 class="rd-md-g">Client Solutions Partners<span>' + plural(csps.length, 'person') +
+          ' · support across the market, not a caseload</span></h4>' +
+          tbl(csps, [['touch', 'Touches 30d'], ['clients', 'Clients named']])
+        : '');
+    $$('[data-teamwho]', host).forEach(function (b) {
+      b.addEventListener('click', function () { _teamWho = b.dataset.teamwho; renderTeamTable(); });
+    });
     $$('[data-csm]', host).forEach(function (tr) {
       const go = function () { try { if (window.openCSMDetail) openCSMDetail(tr.dataset.csm); } catch (e) {} };
       tr.addEventListener('click', go);
@@ -2640,6 +2742,17 @@
     const page = $('#page-team');
     if (!page || page.dataset.rdTeam) return;
     page.dataset.rdTeam = '1';
+    /* V1'S FIVE-TILE STRIP COMES OFF. It carried Total Clients, Touchpoints,
+       High Need, Overdue Visits and IN ONBOARDING -- the same numbers the
+       table now has as columns, computed a second way, and its In Onboarding
+       uses (daysAgo || 999) <= 30, which drops a client whose care starts
+       today. That is the whole of "In Onboarding 3 beside 4 in first 30
+       days": not Caseload Health on Home, which has been clean since the
+       23rd, but this strip sitting above a column headed In first 30. The
+       totals are in the table's own footer now, where the sum is literally
+       the column. */
+    const strip = $('#team-top-stats', page);
+    if (strip) strip.hidden = true;
     installTeamTable();
     try { renderTeamTable(); } catch (e) {}
     const h = $('.ph h2', page);

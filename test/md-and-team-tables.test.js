@@ -134,8 +134,14 @@ ok('the layer draws a table into the element V1 drew cards in',
    /function renderTeamTable\(\)/.test(CODE) && /\$\('#team-cards'\)/.test(CODE));
 ok('...by wrapping V1\'s renderer rather than racing it',
    /function installTeamTable\(\)/.test(CODE) && /window\.renderTeamOverview = wrapped;/.test(CODE));
+/* THE FALLBACK IS THE DANGEROUS PART, and this session proved it twice: a
+   half-applied edit left the renderer referencing identifiers that did not
+   exist, it threw, and V1's cards stood with nothing on screen to say the
+   table had failed. It is still the right behaviour -- a manager seeing
+   last week's cards beats a manager seeing a blank page -- but it is why
+   this page is checked live rather than taken on a green suite. */
 ok('...and V1\'s cards stand if the table throws',
-   /V1's cards stand if this throws/.test(SRC) && /if \(!rows\) return;/.test(CODE));
+   /V1's cards stand if this throws/.test(SRC) && /if \(!all\) return;/.test(CODE));
 /* BARE NAMES, NOT window LOOKUPS. get, workloadFor, daysAgo, PROFILES and P
    are top-level `const` declarations in a classic script: they live in the
    shared global LEXICAL environment and are readable by name, but they are
@@ -173,6 +179,52 @@ ok('...all on track is 100%', compOf(20, 0) === 100);
 ok('...and half overdue is 50%', compOf(20, 10) === 50);
 ok('the busiest CSM is first', /return b\.over - a\.over \|\| b\.clients - a\.clients;/.test(CODE));
 ok('a row opens that CSM', /openCSMDetail\(tr\.dataset\.csm\)/.test(CODE));
+
+/* ── her extra Team columns, and the strip that contradicted them ─────── */
+ok('her four extra columns are there', (() => {
+  const t = (CODE.match(/const TEAM_COLS = \[[\s\S]*?\];/) || [''])[0];
+  return /'Needs action'/.test(t) && /'Checklist late'/.test(t) && /'Raised in 1:1'/.test(t);
+})());
+/* "Coverage ready" is deliberately absent: a column of numbers nobody can
+   explain is worse on a manager's page than a missing one. */
+ok('...and Coverage ready is left out rather than guessed at',
+   !/'Coverage ready'/.test(CODE) && /It is a question for her, not a guess/.test(SRC));
+/* V1'S FIVE-TILE STRIP COMES OFF. It carried the same numbers computed a
+   second way, and its In Onboarding uses (daysAgo || 999) <= 30, which drops
+   a client whose care starts today. THAT is "In Onboarding 3 beside 4 in
+   first 30 days" -- the Team page, not Caseload Health on Home. */
+ok('V1\'s stat strip is stood down',
+   /const strip = \$\('#team-top-stats', page\);/.test(CODE) && /strip\.hidden = true;/.test(CODE));
+ok('...and the totals live in the table footer instead',
+   /<tfoot><tr><th scope="row">' \+ plural\(list\.length, 'person'\)/.test(CODE) &&
+   /\.rd-tm tfoot th, \.rd-tm tfoot td \{/.test(CSS));
+ok('...and the strip in index.html is still the thing with the falsy count',
+   /allS30=allCl\.filter\(c=>c\.startDate&&\(daysAgo\(c\.startDate\)\|\|999\)<=30\)/.test(HUB));
+/* CSPs ARE THEIR OWN SECTION. In one table a CSP read as the worst
+   performer on the page: one client, one overdue, nought per cent. */
+ok('CSPs are a section of their own',
+   /function isCSP\(p\)/.test(CODE) && /Client Solutions Partners/.test(CODE) &&
+   /support across the market, not a caseload/.test(CODE));
+ok('...and the table shows CSMs by default',
+   /let _teamWho = 'csm';/.test(CODE) &&
+   /\[\['csm', 'CSMs'\], \['all', 'Everyone'\]\]/.test(CODE));
+/* NEEDS ACTION IS A FLOOR AND SAYS SO. needsAction() leans on touchpoint
+   history for the SIGNED-IN profile, so it cannot be asked about somebody
+   else's caseload. A red Pulse is global and an overdue visit is on the
+   client record. */
+ok('needs action is read from what is true across profiles',
+   /if \(pulseLevel\(c\) === 'red'\) return true;/.test(CODE));
+ok('...and the page says it is a floor rather than pretending otherwise',
+   /so this is a floor rather than the number on their own Home/.test(CODE));
+/* Checklist late uses the same arithmetic s30Checklist uses, so the two
+   cannot disagree, and returns null rather than 0 when it cannot be read. */
+ok('checklist-late uses the milestone log for that profile',
+   /const logged = getCl\('s60', pid\) \|\| \[\];/.test(CODE) &&
+   /_todoDay\(c\.startDate, TODO_MS_DAYS\[m\.id\] \|\| 7\)/.test(CODE));
+ok('...and says nothing rather than zero when the globals are missing',
+   /typeof _todoDay !== 'function'\) return null;/.test(CODE));
+ok('...counting only clients inside their first thirty days',
+   /if \(!c\.startDate \|\| !inFirstDays\(c, 30\)\) return;/.test(CODE));
 
 console.log('\n' + (fail ? 'FAILED ' + fail : 'PASSED all ' + pass));
 process.exit(fail ? 1 : 0);
