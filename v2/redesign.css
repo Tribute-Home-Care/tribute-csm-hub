@@ -1027,9 +1027,13 @@ input[type="email"], select { min-height: var(--h-ctl); }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 /* ONE exception. No dot: the colour and the position carry it. */
+/* A THIRD COPY OF THIS SELECTOR, and the one that was winning. The rule
+   further up was given white-space: normal and a 34ch cap to stop the status
+   cell blowing the column out; this one sat below it and put nowrap back, so
+   only the cap was doing any work and the text clipped instead of wrapping. */
 .rd-cl-ex {
   grid-area: status; justify-self: end;
-  font-size: 12.5px; font-weight: 500; white-space: nowrap;
+  font-size: 12.5px; font-weight: 500; white-space: normal;
 }
 .rd-cl-ex::before { content: none; }
 .rd-cl-ex.bad { color: var(--bad); }
