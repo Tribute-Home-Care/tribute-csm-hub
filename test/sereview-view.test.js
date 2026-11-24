@@ -112,7 +112,10 @@ const okFetch = async () => ({ ok: true, status: 200, json: async () => JSON.par
   ok('the user is told it was confirmed', toasts.some(t => /Saved in Viv and confirmed/.test(t)));
 
   console.log('\n--- wired in, and a rebuild cannot drop it ---');
-  ok('rail lists it', /\['__sereview', 'Exception Review'\]/.test(RDS));
+  /* A TAB ON TEAM now rather than a rail entry. This is the assertion that
+     catches a rebuild dropping it, so it moved rather than being deleted. */
+  ok('Team lists it as a tab', /\['sereview', 'Exception Review', 'TributeSEReview'\]/.test(RDS));
+  ok('...and it is not also left in the rail', !/\['__sereview', 'Exception Review'\]/.test(RDS));
   ok('rail gate asks the module', /TributeSEReview\.allowed\(\)/.test(RDS));
   ok('router knows the page', /'sereview'/.test(ROU));
   ok('build ships the script and stylesheet', /stamp\('v2-sereview\.js'\)/.test(BLD) && /stamp\('v2-sereview\.css'\)/.test(BLD));

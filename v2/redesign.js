@@ -101,8 +101,13 @@
        below the nav, which is how the production Hub got one at all; the
        entry removed here is the duplicate in the list. */
     ['Resources', [['assistant', 'Assistant'], ['kpi', 'My KSFs']]],
-    ['Manager', [['team', 'Team'], ['pulse', 'Client Pulse'],
-                 ['__metrics', 'Daily Metrics'], ['__sereview', 'Exception Review']]]
+    /* DAILY METRICS AND EXCEPTION REVIEW ARE TABS ON TEAM, NOT RAIL ENTRIES.
+       Courtney, 23 Nov: "There is no Team page. The sidebar still shows
+       Daily Metrics and Exception Review." Team was in the rail and did
+       open -- what it opened was V1's "Manager Hub" with two more manager
+       destinations sitting beside it, so the manager view was three rail
+       entries that answer one question. They are folded in below. */
+    ['Manager', [['team', 'Team'], ['pulse', 'Client Pulse']]]
   ];
   /* Two rail entries that are not pages. They open the capability the Hub
      already has — one Guide, one Feedback sheet — rather than a second
@@ -2227,6 +2232,95 @@
     wireWsActions(ws, c);
     swapIcons(ws);
     watchHeadCollapse(ws);
+  }
+
+  /* ── TEAM ────────────────────────────────────────────────────────────────
+     V1's page is headed "Manager Hub" with a rocket and a sentence about
+     cross-market views. Her rail calls it Team, and a page should be called
+     what the thing that opens it is called.
+
+     The two manager pages fold in as tabs rather than being rebuilt. Each
+     one owns its own element and renders itself; this moves that element
+     under the Team page and takes the `page` class off it, because
+     showPage() hides everything carrying that class and would otherwise
+     hide a panel nested inside the page it had just shown. */
+  const TEAM_PANELS = [
+    ['metrics',  'Daily Metrics',    'TributeMetrics'],
+    ['sereview', 'Exception Review', 'TributeSEReview']
+  ];
+  let _teamPanel = '';
+  function teamModule(name) {
+    const m = window[name];
+    return (m && typeof m.allowed === 'function' && m.allowed()) ? m : null;
+  }
+  function showTeamPanel(key) {
+    const page = $('#page-team');
+    if (!page) return;
+    _teamPanel = key;
+    const host = $('#rd-team-panel', page);
+    // V1's own two views are the page itself, so they come back by being
+    // shown rather than by being redrawn.
+    ['team-overview-content', 'team-visit-content'].forEach(function (id) {
+      const el = document.getElementById(id);
+      if (el) el.hidden = !!key;
+    });
+    const bar = $('#team-market-tabs');
+    if (bar) bar.hidden = !!key;
+    TEAM_PANELS.forEach(function (p) {
+      const m = teamModule(p[2]);
+      const el = m && document.getElementById(m.pageId);
+      if (!el) return;
+      if (p[0] === key) {
+        el.classList.remove('page');     // or showPage() hides it under us
+        el.hidden = false;
+        el.style.display = '';
+        if (el.parentElement !== host) host.appendChild(el);
+        try { m.open(); } catch (e) {}
+      } else if (el.parentElement === host) {
+        el.hidden = true;
+      }
+    });
+    $$('[data-teamtab]', page).forEach(function (b) {
+      b.classList.toggle('active', b.dataset.teamtab === key);
+    });
+    ['tv-tab-overview', 'tv-tab-visits'].forEach(function (id) {
+      const el = document.getElementById(id);
+      if (el && key) el.classList.remove('active');
+    });
+    if (!key) {
+      const ov = document.getElementById('tv-tab-overview');
+      if (ov && typeof window.teamViewTab === 'function') window.teamViewTab('overview', ov);
+    }
+  }
+  function decorateTeam() {
+    const page = $('#page-team');
+    if (!page || page.dataset.rdTeam) return;
+    page.dataset.rdTeam = '1';
+    const h = $('.ph h2', page);
+    if (h) h.textContent = 'Team';
+    const p = $('.ph p', page);
+    if (p) p.textContent = 'Your CSMs, their caseloads and the two reviews that go with them.';
+    const tabs = $$('.tabs', page)[1];       // the inner view tabs
+    if (!tabs) return;
+    const panel = document.createElement('div');
+    panel.id = 'rd-team-panel';
+    tabs.parentElement.insertBefore(panel, tabs.nextSibling);
+    TEAM_PANELS.forEach(function (t) {
+      if (!teamModule(t[2])) return;         // the server decides who may see it
+      const b = document.createElement('div');
+      b.className = 'tab';
+      b.dataset.teamtab = t[0];
+      b.textContent = t[1];
+      b.addEventListener('click', function () { showTeamPanel(t[0]); });
+      tabs.appendChild(b);
+    });
+    // V1's own two tabs have to put the panel away again when pressed.
+    ['tv-tab-overview', 'tv-tab-visits'].forEach(function (id) {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('click', function () {
+        if (_teamPanel) showTeamPanel('');
+      });
+    });
   }
 
   /* §19 — a strong title to orient by, which gets out of the way once you are
@@ -5005,10 +5099,14 @@
   function hookShowPage() {
     if (typeof window.showPage !== 'function' || window.showPage.__rdSwap) return;
     const orig = window.showPage;
-    const wrapped = function () {
+    const wrapped = function (p) {
       const r = orig.apply(this, arguments);
       const pg = $('.page.active');
       if (pg) swapIcons(pg);
+      /* Team is decorated on arrival rather than at boot, because the two
+         manager modules create their own page elements during their own
+         bootstrap and may not have run yet when this layer starts. */
+      if (p === 'team') { try { decorateTeam(); swapIcons($('#page-team') || document); } catch (e) {} }
       return r;
     };
     wrapped.__rdSwap = true;

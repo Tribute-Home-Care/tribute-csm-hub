@@ -46,7 +46,15 @@ const WANT = {
      ? link and the sidebar's own Send feedback button, and Role Expectations
      folds into My KSFs. The rail is the work, not everything that exists. */
   Resources: ['assistant', 'kpi'],
-  Manager: ['team', 'pulse', '__metrics', '__sereview']
+  /* DAILY METRICS AND EXCEPTION REVIEW ARE TABS ON TEAM NOW, not rail
+     entries. Courtney, 23 Nov: "There is no Team page. The sidebar still
+     shows Daily Metrics and Exception Review." Team was in the rail and did
+     open; what it opened was V1's "Manager Hub", with two more manager
+     destinations beside it, so the manager view was three rail entries
+     answering one question. Neither page is lost -- see the Team tab
+     assertions in metrics-view and sereview-view, which is where a rebuild
+     dropping one of them would now be caught. */
+  Manager: ['team', 'pulse']
 };
 const LABELS = {
   clients: 'Clients', coverage: 'Coverage', s60: 'Onboarding',
@@ -78,7 +86,9 @@ for (const [label, p] of FILES) {
   ok(label + ': a CSM\'s Work group ends at the work they do',
      (got.Work || []).indexOf('pulse') < 0 && (got.Work || []).indexOf('team') < 0);
   ok(label + ': the manager destinations are together, under one heading',
-     ['team', 'pulse', '__metrics', '__sereview'].every(k => (got.Manager || []).indexOf(k) > -1));
+     ['team', 'pulse'].every(k => (got.Manager || []).indexOf(k) > -1));
+  ok(label + ': ...and the two that became tabs are not also rail entries',
+     ['__metrics', '__sereview'].every(k => (got.Manager || []).indexOf(k) < 0));
 
   // Her shorter labels. The old ones were longer than the thing they named.
   for (const k of Object.keys(LABELS)) {

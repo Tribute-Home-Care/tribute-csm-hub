@@ -120,7 +120,13 @@ ok('office clients are excluded', /if \(c\.isOffice\) return;/.test(M));
 ok('CSCs are not treated as carrying a caseload', /if \(pr\.isCSC\) return;/.test(M));
 
 console.log('\n--- it is wired in, and cannot be dropped by a rebuild ---');
-ok('the rail lists it under Operations', /\['__metrics', 'Daily Metrics'\]/.test(RDS));
+/* It is a TAB ON TEAM now, not a rail entry: three manager rail entries
+   were answering one question. This is the assertion that catches a rebuild
+   dropping it, so it moved rather than being deleted. */
+ok('Team lists it as a tab', /\['metrics',\s*'Daily Metrics',\s*'TributeMetrics'\]/.test(RDS));
+ok('...and the tab only appears for someone the module admits',
+   /function teamModule\(name\)/.test(RDS) && /m\.allowed\(\)\) \? m : null/.test(RDS));
+ok('...and it is not also left in the rail', !/\['__metrics', 'Daily Metrics'\]/.test(RDS));
 ok('the router knows the page', /'guide', 'metrics'[,\]]/.test(ROU));
 ok('the build copies both files', /'v2-metrics\.js', 'v2-metrics\.css'/.test(BLD));
 // A V2 script that stops being referenced left the pilot's Feedback button
