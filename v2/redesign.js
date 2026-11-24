@@ -1728,8 +1728,12 @@
     const addr = ct.address || c.address || '';
     const street = addr ? addr.split(',')[0] : '';
     const rest = addr ? addr.split(',').slice(1).join(',').trim().replace(/,\s*(United States|USA)$/i, '') : '';
-    const status = (c.vivStatus && String(c.vivStatus).toLowerCase() !== 'active')
+    /* Viv's status strings arrive in whatever case Viv stored them, and the
+       header line printed them raw: 'active' in the middle of a sentence of
+       proper nouns. Capitalised for the line, not altered in the data. */
+    const rawStatus = (c.vivStatus && String(c.vivStatus).toLowerCase() !== 'active')
       ? c.vivStatus : (d.service && d.service.status) || 'Active';
+    const status = String(rawStatus || '').replace(/^./, function (m) { return m.toUpperCase(); });
     /* P1. ONE HEADER LINE, her section 4: "name, tier, status, market,
        community and unit, start of care, CSM, client number on one line."
        It carried only the market and the status, so everything else was a
