@@ -79,5 +79,34 @@ ok('Call is the primary button',
 ok('...and the equal columns survive, just wider',
    /\.rd-cw-acts \{ grid-template-columns: repeat\(auto-fit, minmax\(146px, 1fr\)\); \}/.test(CSSR));
 
+// ── the two leftovers from 16:31 ─────────────────────────────────────────
+/* THE MORE PANEL CLIPPED ITS FIRST LETTER: "dit client", "raft update". It
+   carried the `right` class, so the panel extended LEFTWARD from the button's
+   right edge -- correct while More was the last button, wrong the moment the
+   row wrapped and More became the first on a second line, because the card
+   clips and the panel ran past it. Log contact's menu was unaffected: it never
+   had the class. */
+ok('the More panel is anchored to its button\u2019s left edge',
+   /'<div class="rd-menu-list" data-for="more">'/.test(RD) &&
+   !/rd-menu-list right" data-for="more"/.test(RD));
+/* Said in the stylesheet too, so a stray `right` cannot bring it back. */
+ok('...and this row\u2019s menus cannot be right-anchored by accident',
+   /\.rd-act-menu \.rd-menu-list,\s*\n\.rd-act-menu \.rd-menu-list\.right \{ left: 0; right: auto; \}/.test(CSSR));
+/* Log contact must keep working, which means not acquiring the class either. */
+ok('...and Log contact never had it', /'<div class="rd-menu-list" data-for="log">'/.test(RD));
+
+/* THE ROW WRAPPED FOUR AND TWO on a 1,250px page. A reading measure -- 760px,
+   right for prose past 80 characters -- was applied to a row of buttons, and
+   760px fits exactly four columns of 184px. */
+ok('the prose cap no longer applies to the button row',
+   /\.rd-cw-head \.rd-cw-acts \{ max-width: none; \}/.test(CSSR));
+ok('...and it still applies to the three that want it',
+   /\.rd-ws-body, \.rd-cw-acts, \.rd-cw-addr, \.rd-cw-meta \{ max-width: 760px; \}/.test(CSSR));
+/* 6 * 184 + 5 * 8 = 1144px for one line, wrapping below that. */
+ok('...so six fit on one line when there is room',
+   /grid-template-columns: repeat\(auto-fit, minmax\(146px, 184px\)\);/.test(lastRule('.rd-cw-acts')));
+ok('...with the spare width at the end rather than stretched across it',
+   /justify-content: start;/.test(lastRule('.rd-cw-acts')));
+
 console.log('\n' + (fail ? 'FAILED ' + fail : 'PASSED all ' + pass));
 process.exit(fail ? 1 : 0);

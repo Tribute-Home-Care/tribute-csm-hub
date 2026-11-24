@@ -2303,7 +2303,13 @@
     // the client, because that is where a CSM is standing when they need it.
     acts.push('<div class="rd-menu rd-act-menu"><button type="button" class="rd-act" data-menu="more">' +
       I('more') + '<span>More</span>' + I('chevronDown') + '</button>' +
-      '<div class="rd-menu-list right" data-for="more">' +
+      /* LEFT-ANCHORED, like the Log contact menu beside it. `right` made the
+         panel extend LEFTWARD from the button's right edge, which was fine
+         while More was the last button in the row. Once the row wrapped and
+         More became the first button on the second line, the panel ran past
+         the card -- and the card clips -- so every item lost its first letter:
+         "dit client", "raft update". */
+      '<div class="rd-menu-list" data-for="more">' +
       '<button type="button" data-act="edit">Edit client</button>' +
       '<button type="button" data-act="draft">Draft update</button>' +
       '<button type="button" data-act="fill">Fill priority</button>' +

@@ -3765,3 +3765,30 @@ input.ob-cb:disabled { opacity: .5; cursor: not-allowed; }
   background: var(--brand-ink);
   border-color: var(--brand-ink);
 }
+
+/* ── THE ACTION ROW FITS ON ONE LINE ───────────────────────────────────────
+   Reported: More and Scribe wrapped to a second row on a 1,250px page.
+
+   The cause is a READING MEASURE applied to a row of buttons. At
+   min-width: 1400px the workspace caps .rd-ws-body, .rd-cw-meta, .rd-cw-addr
+   AND .rd-cw-acts at 760px, because past about 80 characters the eye loses
+   the start of the next line. That is true of prose and meaningless for six
+   buttons: 760px fits four columns of 184px, so the last two wrapped.
+
+   Six across needs 6*184 + 5*8 = 1144px, so they sit on one line on any
+   normal desktop and wrap below that, which is what was asked for. The cap is
+   overridden rather than removed from the shared selector, because the other
+   three genuinely want it. justify-content keeps the spare width at the end
+   instead of stretching six buttons across a 27-inch screen. */
+.rd-cw-head .rd-cw-acts { max-width: none; }
+.rd-cw-acts {
+  grid-template-columns: repeat(auto-fit, minmax(146px, 184px));
+  justify-content: start;
+}
+
+/* And the menus in this row always open from the LEFT edge of their button.
+   The card clips, so a panel that extends leftward loses its first column of
+   text the moment its button is not the last one in the row. Stated here as
+   well as on the element, so a stray `right` cannot bring the clipping back. */
+.rd-act-menu .rd-menu-list,
+.rd-act-menu .rd-menu-list.right { left: 0; right: auto; }
