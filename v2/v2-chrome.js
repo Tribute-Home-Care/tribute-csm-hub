@@ -280,10 +280,15 @@
        of a status line. The saved-writes tally moves into the diagnostics
        panel, where it is explained; the anomaly count appears only when there
        is an anomaly, and then says what it is rather than counting "notes". */
+    /* NOT A PREVIEW ANY MORE (2026-11-24). V2 is the Hub: the root redirects
+       here and every signed-in Tribute account can write. A tag reading
+       "V2 Preview" on the only Hub there is tells a CSM their real work is a
+       trial. The strip stays, because it is also how the diagnostics panel
+       is reached and how a kill switch or a refused write becomes visible --
+       it just stops claiming this is a pilot. */
     m.innerHTML =
-      '<span class="v2-tag">V2 Preview</span>' +
-      '<span class="v2-state" title="How this account can use V2. Click for the pilot diagnostics.">' +
-      '<span id="v2-blocked-count">read-only</span>' +
+      '<span class="v2-state" title="How this account can use the Hub. Click for diagnostics.">' +
+      '<span id="v2-blocked-count">checking…</span>' +
       '<span id="v2-anom"></span></span>';
     brand.appendChild(m);
     m.addEventListener('click', function () { App.showDiagnostics(); });
@@ -336,7 +341,7 @@
           : !App.serverWrite.enabled
             ? '<b>Business writes are switched off on the server.</b> V2 is readable and feedback still works.'
             : !App.serverWrite.isPilotWriter
-              ? 'This account is <b>read-only</b> in V2: it is not in the write pilot.'
+              ? 'This account is <b>read-only</b>: the Hub will not accept writes from it.'
               : 'Write-enabled for this account. Enabled: <b>' +
                 esc((wr.enabledCapabilities || []).filter(function (c) {
                   return App.isBusinessCapability && App.isBusinessCapability(c); }).join(', ') || 'none') + '</b>.'

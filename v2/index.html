@@ -2066,7 +2066,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-11-24T08:00';
+const HUB_BUILD='2026-11-24T08:15';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -9741,8 +9741,8 @@ try{ const cur=document.querySelector('.page.active'); TributeUsage.start({ app:
 <script src="./workflows.js?v=2b42285f"></script>
 <script src="./router.js?v=8cfbdc4c"></script>
 <script src="./v2-onboarding.js?v=a50e5737"></script>
-<script src="./v2-policy.js?v=b568b24d"></script>
-<script src="./v2-chrome.js?v=9c492991"></script>
+<script src="./v2-policy.js?v=dedd63db"></script>
+<script src="./v2-chrome.js?v=006ec32a"></script>
 <script src="./v2-feedback.js?v=21363902"></script>
 <script src="./guide-content.js?v=7903afca"></script>
 <script src="./guide-views.js?v=53a150d5"></script>

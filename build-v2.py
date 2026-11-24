@@ -43,6 +43,18 @@ def main():
     html = read(os.path.join(HUB, 'index.html'))
     assert 'entra-auth.js' in html, 'production index.html lost its auth script'
 
+    # 0. THE ROOT'S REDIRECT TO V2 COMES OUT FIRST. index.html now sends a
+    #    browser to ./v2/ because V1 is retired, and it is still the source
+    #    this build reads. Copied through, that redirect would make V2
+    #    redirect to itself for ever, so it is removed and its absence is
+    #    asserted rather than assumed.
+    html = re.sub(
+        r"\n<!-- V1 IS RETIRED \(2026-11-24\)\.[\s\S]*?-->\n<script>\n"
+        r"\s*\(function \(\) \{[\s\S]*?\}\)\(\);\n</script>",
+        '', html, count=1)
+    assert 'V1 IS RETIRED' not in html, 'the root redirect is still in the V2 build'
+    assert "location.replace('./v2/'" not in html, 'V2 would redirect to itself'
+
     # 1. Title and the tab's own identity, so a pilot tab is never mistaken
     #    for the live hub in a crowded window.
     html = html.replace('<title>Tribute CSM Hub</title>',
@@ -61,6 +73,13 @@ def main():
     # with pilot activity. Found live: the fetch tripwire caught it as an
     # ungated write path (endpoint=usage_time) because the audit covered
     # index.html and not this companion script. V2 simply does not load it.
+    #
+    # STILL STRIPPED, and now worth a second look: V2 is the only Hub, so
+    # nothing is being protected from pilot skew any more and the Hub records
+    # no active time at all. Restoring it needs this strip removed, the
+    # usage_telemetry policy flag flipped AND the unconditional block in
+    # v2-policy.js's usage_time branch lifted. Three things, on the layer
+    # that guards Viv, so it is a decision rather than a tidy-up.
     import re as _re
     html = _re.sub(r'\s*<script src="\./tribute-usage\.js[^"]*"></script>', '', html)
     assert not _re.search(r'<script[^>]*tribute-usage', html), 'usage telemetry still loaded'

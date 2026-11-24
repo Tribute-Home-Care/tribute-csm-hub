@@ -7,6 +7,28 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub</title>
+<!-- V1 IS RETIRED (2026-11-24). Everyone uses V2, so the Hub's own link has
+     to land there. This file cannot simply be deleted: build-v2.py READS it
+     to build V2, and twenty-nine tests read it as the production source. So
+     it keeps its job as the source and stops being the page.
+
+     THE BUILD STRIPS THIS BLOCK, and asserts it is gone, or V2 would
+     redirect to itself forever.
+
+     ?v1=1 is the way back, and it exists because the alternative to an
+     escape hatch is that a bad V2 build leaves every CSM with nowhere to
+     go. The hash and the query carry over so a bookmark to #clients still
+     lands on #clients. -->
+<script>
+  (function () {
+    try {
+      if (/[?&]v1=1\b/.test(location.search)) return;       // deliberate V1
+      if (/\/v2\//.test(location.pathname)) return;         // already there
+      var q = location.search || '';
+      location.replace('./v2/' + q + location.hash);
+    } catch (e) {}
+  })();
+</script>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
 <script src="./entra-auth.js?v=2026-11-24T07:03"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">

@@ -112,7 +112,14 @@
     // path emails one client's week to their family yet.
     weekly_send: true,          // email one client's week to their family
     weekly_schedule: false,     // the unbuilt scheduled Friday run, not the send
-    usage_telemetry: false,     // a pilot must not skew real usage stats
+    /* STILL false, and now for a different reason. It was false because a
+       pilot must not skew real usage statistics. V2 is the Hub now, so that
+       reason has gone and the Hub records no active time at all -- a real
+       gap, and not one this flag alone closes: the fetch wrapper below
+       blocks endpoint=usage_time unconditionally, whatever this says. Both
+       have to change together, and that is a write-policy change on the
+       layer guarding Viv, so it is a decision rather than a tidy-up. */
+    usage_telemetry: false,     // see the usage_time branch below
 
     assist: true,               // POST, but a question — mutates nothing
     community_render: true,     // POST, but returns HTML — persists nothing
@@ -249,7 +256,7 @@
     const sw = App.serverWrite;
     if (!sw.known) return 'still checking what the server will accept';
     if (!sw.enabled) return 'business writes are switched off on the server';
-    if (!sw.isPilotWriter) return 'this account is not in the write pilot';
+    if (!sw.isPilotWriter) return 'this account cannot write to the Hub';
     if (sw.capabilities.indexOf(capability) === -1) return 'the server has not enabled this capability';
     return null;
   };
@@ -385,7 +392,11 @@
     // Was "N saved", which Courtney read as an unexplained counter and she
     // was right: the number means nothing without the panel that lists them.
     // It is in the diagnostics panel, which this strip opens.
-    else el.textContent = 'write pilot';
+    //
+    // AND IT IS NOT A PILOT ANY MORE. Saying "write pilot" to every CSM on
+    // the only Hub there is tells them their real work is a trial. The
+    // normal case is now the quiet one: nothing to report.
+    else el.textContent = 'writes on';
   }
   App.updateWriteBadge = updateBadge;
 
