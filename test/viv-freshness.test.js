@@ -53,25 +53,47 @@ ok('an unparseable date is unknown rather than 1970',
    has to come back for the result. */
 ok('a stale read is retried, on roughly the rebuild interval',
    /const VIV_RETRY = 3 \* 60 \* 1000;/.test(CODE) &&
-   /if \(Date\.now\(\) - _vivKickAt < VIV_RETRY\) return;/.test(CODE));
+   /if \(Date\.now\(\) - _vivKickAt < VIV_RETRY\) \{ _vivSkip = 'waiting out the retry gap'; return; \}/.test(CODE));
 ok('...and it gives up rather than hammering a dead feed',
-   /const VIV_MAX_TRIES = 10;/.test(CODE) && /if \(_vivTries >= VIV_MAX_TRIES\) return;/.test(CODE));
+   /const VIV_MAX_TRIES = 10;/.test(CODE) &&
+   /if \(_vivTries >= VIV_MAX_TRIES\) \{ _vivSkip = 'gave up after ' \+ _vivTries; return; \}/.test(CODE));
 ok('...and fresh data resets the counter, so a later staleness is retried',
-   /if \(age === null \|\| age < VIV_MAX_AGE\) \{ _vivTries = 0; return; \}/.test(CODE));
+   /if \(age < VIV_MAX_AGE\) \{ _vivTries = 0; _vivSkip = 'fresh'; return; \}/.test(CODE));
 
 /* ── what it must never do ────────────────────────────────────────────── */
 /* A key modal opening at somebody mid-call is worse than stale data. */
 ok('the automatic sync is never interactive', /vivSyncNow\(false\);/.test(CODE) && !/vivSyncNow\(true\)/.test(CODE));
 /* A background tab refreshing nothing anybody is looking at is pure cost,
    and it is also the case that writes land in a file every Hub shares. */
-ok('a hidden tab does not sync', /if \(document\.hidden\) return;/.test(CODE));
+ok('a hidden tab does not sync',
+   /if \(document\.hidden\) \{ _vivSkip = 'tab hidden'; return; \}/.test(CODE));
 ok('...and coming back to the tab checks, because that is when it is read',
    /document\.addEventListener\('visibilitychange'/.test(CODE) &&
    /if \(!document\.hidden\) \{ _vivTries = 0; ensureFreshViv\(\); \}/.test(CODE));
-ok('two syncs cannot overlap', /if \(window\._vivSyncing\) return;/.test(CODE) &&
+ok('two syncs cannot overlap',
+   /if \(window\._vivSyncing\) \{ _vivSkip = 'sync already running'; return; \}/.test(CODE) &&
    /let _vivSyncing=false;/.test(HUB));
 ok('it is installed once', /if \(window\.__rdVivFresh\) return;/.test(CODE) &&
    /installVivFreshness\(\);/.test(CODE));
+
+/* IT REPORTS WHY IT DID NOTHING. A thing that runs unattended on a timer is
+   invisible when it misfires: the first version did not fire for 75 seconds
+   against deliberately staled data and there was no way to ask it why. */
+ok('every early return says why',
+   /_vivSkip = 'no vivSyncNow'/.test(CODE) && /_vivSkip = 'tab hidden'/.test(CODE) &&
+   /_vivSkip = 'fresh'/.test(CODE) && /_vivSkip = 'waiting out the retry gap'/.test(CODE));
+ok('...and the reason is readable from outside',
+   /vivFreshness: function \(\)/.test(CODE) && /skip: _vivSkip/.test(CODE));
+/* A repaint is a better signal that somebody is looking at this than a clock
+   is, so the timer is not the only trigger. */
+ok('a Home repaint also checks',
+   /try \{ ensureFreshViv\(\); \} catch \(e\) \{\}/.test(CODE));
+/* The hidden check moved BELOW the age check so that a fresh bundle still
+   resets the retry counter in a background tab. */
+ok('a hidden tab still resets the counter when the data is fresh', (() => {
+  const fn = (CODE.match(/function ensureFreshViv\(\) \{[\s\S]*?\n  \}/) || [''])[0];
+  return fn.indexOf("_vivSkip = 'fresh'") < fn.indexOf("document.hidden");
+})());
 
 /* WRITE AMPLIFICATION IS SELF-LIMITING, and that is worth stating: the test
    is the age of the SHARED data, so once one browser refreshes it the others

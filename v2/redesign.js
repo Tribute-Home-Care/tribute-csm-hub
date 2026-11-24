@@ -5145,19 +5145,27 @@
       return isNaN(t) ? null : Date.now() - t;
     } catch (e) { return null; }
   }
+  /* WHY THIS REPORTS WHY IT DID NOTHING. A thing that runs unattended on a
+     timer is invisible when it misfires: the first version of this did not
+     fire for 75 seconds against deliberately staled data and there was no
+     way to ask it why. `skip` is the reason it declined, and it is on
+     TributeRedesign so the next person can just look. */
+  let _vivSkip = 'not yet run';
   function ensureFreshViv() {
-    // A background tab refreshing nothing anybody is looking at is pure cost.
-    if (document.hidden) return;
-    if (typeof vivSyncNow !== 'function') return;
-    if (window._vivSyncing) return;
     const age = vivDataAge();
-    if (age === null || age < VIV_MAX_AGE) { _vivTries = 0; return; }
-    if (_vivTries >= VIV_MAX_TRIES) return;
-    if (Date.now() - _vivKickAt < VIV_RETRY) return;
+    if (typeof vivSyncNow !== 'function') { _vivSkip = 'no vivSyncNow'; return; }
+    if (window._vivSyncing) { _vivSkip = 'sync already running'; return; }
+    if (age === null) { _vivSkip = 'no bundle date yet'; return; }
+    if (age < VIV_MAX_AGE) { _vivTries = 0; _vivSkip = 'fresh'; return; }
+    // A background tab refreshing nothing anybody is looking at is pure cost.
+    if (document.hidden) { _vivSkip = 'tab hidden'; return; }
+    if (_vivTries >= VIV_MAX_TRIES) { _vivSkip = 'gave up after ' + _vivTries; return; }
+    if (Date.now() - _vivKickAt < VIV_RETRY) { _vivSkip = 'waiting out the retry gap'; return; }
     _vivKickAt = Date.now();
     _vivTries++;
+    _vivSkip = 'syncing (attempt ' + _vivTries + ')';
     // Never interactive: this must not open a key modal at somebody mid-call.
-    try { vivSyncNow(false); } catch (e) {}
+    try { vivSyncNow(false); } catch (e) { _vivSkip = 'threw: ' + e.message; }
   }
   function installVivFreshness() {
     if (window.__rdVivFresh) return;
@@ -5242,6 +5250,10 @@
     const mine = el.querySelector('.rd-syncbits');
     if (key === _syncKey && mine) return;
     _syncKey = key;
+    /* The timer is not the only trigger. Home repaints on every updateHome,
+       and a repaint is a far better signal that somebody is looking at this
+       than a clock is. ensureFreshViv is cheap and guards itself. */
+    try { ensureFreshViv(); } catch (e) {}
     /* The bundle date leads where there is one; the browser's own check time
        only appears when there is not, because on its own it answers a
        question nobody asked. */
@@ -5852,6 +5864,13 @@
     // v2-onboarding.js calls this after a proof is saved or a tick removed,
     // so the client page redraws without it needing to know how.
     repaintClient: function () { try { renderWorkspace(); } catch (e) {} },
+    // Why the Viv refresher last did nothing. See ensureFreshViv.
+    vivFreshness: function () {
+      const age = vivDataAge();
+      return { ageMinutes: age === null ? null : Math.round(age / 60000),
+               skip: _vivSkip, tries: _vivTries, hidden: document.hidden,
+               lastKick: _vivKickAt ? new Date(_vivKickAt).toISOString() : null };
+    },
     get selected() { return _selected; },
     get section() { return _section; },
     // perf.maxMs is a session high-water mark. Switching role in-session is
