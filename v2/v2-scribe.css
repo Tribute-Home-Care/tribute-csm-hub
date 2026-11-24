@@ -323,3 +323,34 @@
 .sr-se-type { width: 100%; font-size: 14px; }
 .sr-se-text { min-height: 5.5em; }
 .sr-se-out:not(:empty) { margin-top: var(--s3); }
+
+/* ── THE RECORDING BAR RESERVES ITS OWN SPACE ──────────────────────────────
+   #sc-bar is fixed at top: 0, full width, z-index 1400. While a recording ran
+   it covered the sidebar's brand (.sb-brand sits at the top of a sidebar that
+   is itself fixed at top: 0) and the View As banner (#view-as-bar is the first
+   thing in the main column, so also at y = 0). Losing the brand is untidy;
+   losing "nothing you do here is saved" in a read-only session is not.
+
+   v2-scribe.js measures the bar and publishes --sc-bar-h on #app, because the
+   bar grows with a notched phone's safe-area inset and with a long client
+   name. Stack from the top is then: recording bar, View As banner, page
+   header, all three visible at once. */
+#app.sc-bar-on .main { padding-top: var(--sc-bar-h, 0px); }
+/* The sidebar is fixed with height: 100vh, so moving its top alone would push
+   its foot off screen. Same shape as the prototype bar's own offset. */
+#app.sc-bar-on .sidebar {
+  top: var(--sc-bar-h, 0px);
+  height: calc(100vh - var(--sc-bar-h, 0px));
+}
+
+@media (max-width: 900px) {
+  /* On a phone the sidebar is an off-canvas drawer, not a column, and the
+     thing pinned to the top is .v2-topbar. The bottom tab bar is anchored to
+     the bottom and needs nothing. */
+  #app.sc-bar-on .main { padding-top: 0; }
+  #app.sc-bar-on .v2-topbar { top: var(--sc-bar-h, 0px); }
+  #app.sc-bar-on nav.sidebar {
+    top: var(--sc-bar-h, 0px);
+    padding-top: calc(var(--m-top) + 8px);
+  }
+}

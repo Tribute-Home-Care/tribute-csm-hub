@@ -304,10 +304,49 @@
 
   /* A recording the CSM has walked away from must still be obvious. This bar
      is fixed, loud and present on every page until they finish. */
+  /* THE BAR RESERVES ITS OWN SPACE.
+     It is fixed at top: 0 across the full width at z-index 1400, so while a
+     recording ran it sat on top of the sidebar's brand (.sb-brand, the first
+     thing in a sidebar that is itself fixed at top: 0) and on the View As
+     banner (#view-as-bar, the first thing in the main column, so also at
+     y = 0). A CSM recording a visit lost both the brand and the "nothing you
+     do here is saved" notice -- the second of which is the one thing a
+     read-only session must never hide.
+
+     The height is measured rather than assumed, because the bar grows with
+     the safe-area inset on a notched phone and with a long client name. It is
+     published as a variable on #app and the offsets are applied in CSS, so
+     desktop and phone can answer it differently: on desktop the sidebar is a
+     fixed column to be pushed down, on a phone it is an off-canvas drawer and
+     the thing at the top is .v2-topbar instead. The bottom tab bar needs
+     nothing: it is anchored to the bottom. */
+  function barSpace(b) {
+    var root = document.getElementById('app') || document.documentElement;
+    if (!b) {
+      root.classList.remove('sc-bar-on');
+      root.style.removeProperty('--sc-bar-h');
+      if (S._barRO) { try { S._barRO.disconnect(); } catch (e) {} S._barRO = null; }
+      return;
+    }
+    var h = Math.ceil(b.getBoundingClientRect().height);
+    if (h > 0) root.style.setProperty('--sc-bar-h', h + 'px');
+    root.classList.add('sc-bar-on');
+    // A name that wraps, or a rotation, changes the height after the fact.
+    if (!S._barRO && typeof ResizeObserver === 'function') {
+      S._barRO = new ResizeObserver(function () {
+        var el = document.getElementById('sc-bar');
+        if (!el) return;
+        var nh = Math.ceil(el.getBoundingClientRect().height);
+        if (nh > 0) root.style.setProperty('--sc-bar-h', nh + 'px');
+      });
+      try { S._barRO.observe(b); } catch (e) {}
+    }
+  }
+
   function bar() {
     var b = document.getElementById('sc-bar');
     var live = S.rec && S.rec.state !== 'inactive';
-    if (!live) { if (b) b.remove(); return; }
+    if (!live) { if (b) b.remove(); barSpace(null); return; }
     if (!b) {
       b = document.createElement('div');
       b.id = 'sc-bar';
@@ -324,6 +363,7 @@
         else finish();
       });
     });
+    barSpace(b);
   }
 
   async function finish() {

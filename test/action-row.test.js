@@ -10,15 +10,25 @@ const ok = (n, c) => { if (c) { pass++; console.log('  PASS  ' + n); } else { fa
 const RD  = fs.readFileSync(path.join(__dirname, '../v2/redesign.js'), 'utf8');
 const CSS = fs.readFileSync(path.join(__dirname, '../v2/redesign.css'), 'utf8');
 const CSSR = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
-/* The LAST rule wins on order; the earlier ones are what is being corrected. */
-const lastRule = (sel) => {
+/* Two helpers, because they answer different questions.
+
+   lastRule: for a property declared more than once under the same selector,
+   where order decides the winner -- grid-template-columns, say.
+
+   allRules: for a property declared once, in whichever of several rules that
+   share a selector happens to carry it. Non-conflicting declarations spread
+   across rules ALL apply, and reading only the last one reported three
+   passing rules as broken the moment a second rule with the same selector was
+   appended carrying different properties. */
+const rulesFor = (sel) => {
   const re = new RegExp('(?:^|\\n)' + sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*\\{([^}]*)\\}', 'g');
-  const all = [...CSSR.matchAll(re)].map(m => m[1]);
-  return all.length ? all[all.length - 1] : '';
+  return [...CSSR.matchAll(re)].map(m => m[1]);
 };
+const lastRule = (sel) => { const a = rulesFor(sel); return a.length ? a[a.length - 1] : ''; };
+const allRules = (sel) => rulesFor(sel).join('\n');
 
 // ── 1. the panel has one edge, not two ───────────────────────────────────
-const panel = lastRule('.rd-act-menu .rd-menu-list');
+const panel = allRules('.rd-act-menu .rd-menu-list');
 ok('the menu opens below its button', /top: calc\(100% \+ 6px\);/.test(panel));
 /* The whole fault: an absolutely positioned box with BOTH edges pinned has
    its height forced to the gap. The base rule still sets bottom, for the
@@ -89,9 +99,24 @@ ok('...and the equal columns survive, just wider',
 ok('the More panel is anchored to its button\u2019s left edge',
    /'<div class="rd-menu-list" data-for="more">'/.test(RD) &&
    !/rd-menu-list right" data-for="more"/.test(RD));
-/* Said in the stylesheet too, so a stray `right` cannot bring it back. */
-ok('...and this row\u2019s menus cannot be right-anchored by accident',
-   /\.rd-act-menu \.rd-menu-list,\s*\n\.rd-act-menu \.rd-menu-list\.right \{ left: 0; right: auto; \}/.test(CSSR));
+/* Left is the DEFAULT, not a lock. Forcing both classes left would stop a menu
+   that would run off the OTHER side from flipping, and that is the real risk
+   for whichever button ends a wrapped row: a 210px panel on a 184px button
+   hangs 26px past one edge or the other. Which edge wins is measured. */
+ok('...left is the default for this row\u2019s menus',
+   /\.rd-act-menu \.rd-menu-list \{ left: 0; right: auto; \}/.test(CSSR));
+ok('...and the flip is still possible',
+   /\.rd-act-menu \.rd-menu-list\.right \{ left: auto; right: 0; \}/.test(CSSR));
+ok('...decided by measuring against whatever actually clips',
+   /function clipBox\(el\) \{/.test(RD) &&
+   /if \(o\.overflowX !== 'visible' \|\| o\.overflow !== 'visible'\) return e\.getBoundingClientRect\(\);/.test(RD));
+ok('...with the viewport as the fallback',
+   /return \{ left: 0, right: window\.innerWidth \};/.test(RD));
+ok('...after the panel is open, since a hidden one has no box',
+   /list\.classList\.add\('open'\);[\s\S]{0,120}fitMenu\(list, b\);/.test(RD));
+/* And if flipping is no better, keep the edge that loses less. */
+ok('...and a panel wider than its container does not flap',
+   /if \(r\.left < box\.left \+ 4\) list\.classList\.remove\('right'\);/.test(RD));
 /* Log contact must keep working, which means not acquiring the class either. */
 ok('...and Log contact never had it', /'<div class="rd-menu-list" data-for="log">'/.test(RD));
 

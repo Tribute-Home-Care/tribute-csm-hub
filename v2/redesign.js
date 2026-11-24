@@ -4176,6 +4176,42 @@
      re-rendering the workspace can neither stack duplicates nor lose it.
      Escape returns focus to the button that opened the menu, because a
      keyboard user who dismisses a menu has nowhere to be otherwise. */
+  /* WHICH EDGE A MENU HANGS FROM, DECIDED BY MEASUREMENT.
+     The More panel was anchored right, so it extended LEFTWARD from its
+     button and was clipped: measured on 16:31 as 210px wide at left: -26px
+     against a 184px button, inside a container that clips overflow, which cost
+     every item its first letter -- "dit client", "raft update".
+
+     Forcing every menu left would only move the problem to whichever button
+     ends a wrapped row, where a 210px panel hanging off a 184px button runs
+     26px past the other side. So: left by default, and flipped to the right
+     edge only when measurement says it would otherwise overflow. The
+     container is the nearest ancestor that actually clips, because that is
+     what does the cutting; the viewport is the fallback.
+
+     Measured after the panel is visible, since a display:none element has no
+     box to measure. */
+  function clipBox(el) {
+    let e = el.parentElement;
+    while (e && e !== document.body) {
+      const o = getComputedStyle(e);
+      if (o.overflowX !== 'visible' || o.overflow !== 'visible') return e.getBoundingClientRect();
+      e = e.parentElement;
+    }
+    return { left: 0, right: window.innerWidth };
+  }
+  function fitMenu(list, btn) {
+    list.classList.remove('right');
+    const box = clipBox(list);
+    let r = list.getBoundingClientRect();
+    if (r.right > box.right - 4) {
+      list.classList.add('right');
+      // If the other edge is no better, keep the one that loses less.
+      r = list.getBoundingClientRect();
+      if (r.left < box.left + 4) list.classList.remove('right');
+    }
+  }
+
   function closeMenus(focusBtn) {
     $$('.rd-menu-list.open').forEach(function (l) {
       l.classList.remove('open');
@@ -4214,7 +4250,11 @@
         const list = $('.rd-menu-list[data-for="' + b.dataset.menu + '"]', ws);
         const open = list.classList.contains('open');
         closeMenus(false);
-        if (!open) { list.classList.add('open'); b.setAttribute('aria-expanded', 'true'); }
+        if (!open) {
+          list.classList.add('open');
+          b.setAttribute('aria-expanded', 'true');
+          fitMenu(list, b);
+        }
       });
     });
     installMenuClose();

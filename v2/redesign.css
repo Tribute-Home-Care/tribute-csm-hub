@@ -3786,9 +3786,13 @@ input.ob-cb:disabled { opacity: .5; cursor: not-allowed; }
   justify-content: start;
 }
 
-/* And the menus in this row always open from the LEFT edge of their button.
-   The card clips, so a panel that extends leftward loses its first column of
-   text the moment its button is not the last one in the row. Stated here as
-   well as on the element, so a stray `right` cannot bring the clipping back. */
-.rd-act-menu .rd-menu-list,
-.rd-act-menu .rd-menu-list.right { left: 0; right: auto; }
+/* Menus in this row hang from their button's LEFT edge by default, which is
+   what Log contact always did and what More should have been doing. The
+   earlier fix forced BOTH classes left so a stray `right` could not come
+   back -- but that also made it impossible for fitMenu() in redesign.js to
+   flip a menu that would run off the OTHER side, which is the real risk for
+   whichever button ends a wrapped row. So the default is stated here and the
+   flip is left working; which edge wins is decided by measurement, not by a
+   class written into the markup. */
+.rd-act-menu .rd-menu-list { left: 0; right: auto; }
+.rd-act-menu .rd-menu-list.right { left: auto; right: 0; }
