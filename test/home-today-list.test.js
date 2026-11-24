@@ -335,28 +335,37 @@ ok('the tiles wait for Pulse rather than counting without it',
    an empty map. Measured on build 08:23: dashes at 0s, the wrong 18 / 5 at
    0.5s, dashes again at 0.9s once the load actually started, then the right
    30 / 3 at 1.7s. Half-fixed is its own bug. */
-ok('...reading the application\'s own loading flag FIRST, before the map',
-   /if \(window\._pulseLoading\) \{ _pulseRan = true; return false; \}/.test(CODE) &&
-   /if \(by && Object\.keys\(by\)\.length\) return true;/.test(CODE));
-ok('...and an empty map counts only once a load has actually run',
-   /if \(_pulseRan\) return true;/.test(CODE));
-// Behavioural, over the exact sequence that produced the flash.
-const readyOf = (() => {
-  let ran = false;
-  return (appReady, loading, byCount, sinceBoot) => {
-    if (!appReady) return false;
-    if (loading) { ran = true; return false; }
-    if (byCount) return true;
-    if (ran) return true;
-    return sinceBoot > 20000;
-  };
-})();
-ok('0.0s: app not ready yet is not ready', readyOf(false, false, 0, 0) === false);
-ok('0.5s: _PULSE initialised but EMPTY is still not ready', readyOf(true, false, 0, 500) === false);
-ok('0.9s: the load is in flight, still not ready', readyOf(true, true, 0, 900) === false);
-ok('1.7s: clients in the map, ready once', readyOf(true, false, 44, 1700) === true);
-ok('...and an empty map AFTER a load is a real answer, not a wait',
-   readyOf(true, false, 0, 1800) === true);
+ok('...reading the application\'s own loading flag FIRST',
+   /if \(window\._pulseLoading\) return false;/.test(CODE));
+/* THE PRESENCE OF THE FEED, NOT THE SIZE OF IT. loadPulse builds its byCid map
+   and assigns the whole object in one go, so _PULSE is either absent or
+   complete -- which makes its presence the honest test, an empty map included.
+   The size test it replaces was fine; the flag beside it was not. */
+ok('...and the presence of the feed is the test',
+   /if \(app\.pulse\) return true;/.test(CODE));
+/* THE FLAG THAT BROKE HOME IS GONE. It was set when a load STARTED and read as
+   proof that one had FINISHED, so a failed load left it claiming an answer
+   nobody had. */
+ok('...and nothing reports ready merely because a load was attempted',
+   !/pulseRan/.test(CODE));
+// Behavioural, over the states the loader actually passes through.
+const readyOf = (appReady, loading, pulsePresent, sinceBoot) => {
+  if (!appReady) return false;
+  if (loading) return false;
+  if (pulsePresent) return true;
+  return sinceBoot > 20000;
+};
+ok('0.0s: app not ready yet is not ready', readyOf(false, false, false, 0) === false);
+ok('0.5s: no feed in hand yet is not ready', readyOf(true, false, false, 500) === false);
+ok('0.9s: the load is in flight, still not ready', readyOf(true, true, false, 900) === false);
+ok('1.7s: the feed landed, ready', readyOf(true, false, true, 1700) === true);
+ok('...and a feed that landed EMPTY is a real answer, not a wait',
+   readyOf(true, false, true, 1800) === true);
+/* THE CASE THAT PRODUCED THE 30-SECOND STALE HOME: the first load failed and
+   the retry has not fired yet, so nothing is in flight and nothing is in hand.
+   The old rule called that ready and drew cadence-only counts. */
+ok('...but a load that FAILED is not an answer, even with nothing in flight',
+   readyOf(true, false, false, 5000) === false);
 ok('...and the waiting tile carries no number and cannot be pressed',
    /class="rd-attn-card wait"/.test(CODE) && /aria-hidden="true"/.test(CODE) &&
    /Reading Client Pulse/.test(CODE) && /\.rd-attn-card\.wait \{/.test(CSS));
@@ -367,6 +376,17 @@ ok('the repaint key is not consumed by the waiting state', (() => {
 })());
 ok('...and something repaints when the feed lands',
    /_attnWait = setInterval/.test(CODE) && /_attnKey = '';/.test(CODE));
+/* THAT WATCHER IS ONLY INSTALLED ON THE WAITING PATH. If the first render was
+   NOT a wait, nothing repainted when the feed arrived later, which is the
+   other half of the stale Home: the lists were right and the tiles, badge and
+   sync line kept their first values until the reviewer navigated away and
+   back. updateHome is what V1 calls whenever Home's data changed, so it is
+   the hook; the wrapper stripped an emoji and did nothing else. */
+ok('...and the layer repaints on every data change V1 announces',
+   /try \{ _attnKey = ''; renderAttention\(\); \} catch \(e\) \{\}/.test(CODE) &&
+   /try \{ installVivFreshness\(\); \} catch \(e\) \{\}/.test(CODE));
+ok('...from inside the wrapper on the application\'s own updateHome',
+   /window\.updateHome = wrapped;/.test(CODE));
 /* A Pulse feed that never answers must leave numbers, not dashes for ever. */
 ok('a feed that never answers still gets drawn after a grace period',
    /const ATTN_GRACE = 20000;/.test(CODE) &&

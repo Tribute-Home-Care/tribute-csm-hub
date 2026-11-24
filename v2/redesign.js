@@ -5415,14 +5415,27 @@
          empty, which is a real answer, as against nothing having started.
      Without the last distinction a caseload with no flags would sit on
      dashes for the whole grace period. */
-  let _pulseRan = false;
   function countsReady() {
     const app = A();
     if (!app.ready) return false;
-    if (window._pulseLoading) { _pulseRan = true; return false; }
-    const by = app.pulse && app.pulse.byCid;
-    if (by && Object.keys(by).length) return true;
-    if (_pulseRan) return true;              // it answered, and the answer was none
+    if (window._pulseLoading) return false;
+    /* _PULSE IS ASSIGNED WHOLE OR NOT AT ALL -- loadPulse builds its byCid map
+       and then assigns the object in one go -- so its mere PRESENCE is the
+       honest test of "the feed answered", an empty map included. A present
+       but empty pulse is a real answer and renders as zero.
+
+       WHAT THIS REPLACES, AND WHY HOME GOT STUCK: the old test also reported
+       ready once it had seen a load in progress, reasoning that the feed had
+       "answered, and the answer was none". But that was recorded when a load
+       STARTED, so a load that FAILED left it set with no pulse in hand -- and
+       loadPulse retries on a 4, 8 and 12 second backoff after exactly that.
+       The tiles therefore came up carrying cadence-only counts while the
+       Client Pulse was still arriving, which is the reported "tiles read
+       17 / 5 / 3 / 42 but the list behind them showed 26".
+
+       A feed that never answers at all is covered by the grace timeout below,
+       which is what that shortcut was really reaching for. */
+    if (app.pulse) return true;
     return (Date.now() - _attnBootAt) > ATTN_GRACE;
   }
   let _attnWait = null;
@@ -6185,6 +6198,23 @@
     const wrapped = function () {
       const r = orig.apply(this, arguments);
       try { stripGreetingWave(); } catch (e) {}
+      /* AND REPAINT WHAT THIS LAYER OWNS. updateHome is what V1 calls whenever
+         Home's data has changed -- loadPulse calls it the moment the feed
+         lands, after a retry or otherwise. This wrapper stripped an emoji and
+         did nothing else, so the tiles, the rail badge and the sync line kept
+         whatever they were first drawn with. Reported as Home sitting on
+         17 / 5 / 3 / 42 for thirty seconds while the lists behind the tiles
+         were already right, clearing only when the reviewer went to Clients
+         and came back.
+
+         The repaint key is cleared first because the guard that stops
+         needless repaints would otherwise stop this one too: it is consulted
+         on every pass and never invalidated from outside. renderAttention
+         calls renderToday, renderComingUp and refreshNavCounts itself, so one
+         call repaints the tiles, the list, the badge and the sync line
+         together -- which is the only way they can agree. */
+      try { _attnKey = ''; renderAttention(); } catch (e) {}
+      try { installVivFreshness(); } catch (e) {}
       return r;
     };
     wrapped.__rd = true; wrapped.original = orig;
