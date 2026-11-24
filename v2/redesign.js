@@ -533,6 +533,31 @@
   }
   // Digits only, so 617-555-0142, (617) 555 0142 and 6175550142 all match.
   const digits = function (v) { return String(v == null ? '' : v).replace(/\D+/g, ''); };
+  /* Dual-market only, because a market filter on a single-market caseload
+     is a control that can only ever do nothing. V1 makes the same call. */
+  function isDualMarket() {
+    try { return !!((A().profile || {}).dualMarket); } catch (e) { return false; }
+  }
+  function mktFilter() {
+    try { return (typeof juliaMarketFilter !== 'undefined' && juliaMarketFilter) || 'all'; }
+    catch (e) { return 'all'; }
+  }
+  function mktChips() {
+    if (!isDualMarket()) return '';
+    const cur = mktFilter();
+    const p = A().profile || {};
+    const hubs = Array.isArray(p.hub) ? p.hub : [p.hub].filter(Boolean);
+    const NAME = { MA: 'Massachusetts', MD: 'Maryland', CHI: 'Chicago' };
+    const opts = [['all', 'All markets']].concat(hubs.map(function (h) {
+      return [NAME[h] || h, NAME[h] || h];
+    }));
+    return '<span class="rd-mkt" role="group" aria-label="Market">' +
+      opts.map(function (o) {
+        return '<button type="button" class="rd-view mfb-btn' + (cur === o[0] ? ' on active' : '') +
+          '" data-mkt="' + esc(o[0]) + '">' + esc(o[1]) + '</button>';
+      }).join('') + '</span>';
+  }
+
   function clientHaystack(c) {
     const parts = [c.name, c.loc, c.city, c.notes, c.contact, c.contactEmail,
                    c.caregivers, (c.gcm && c.gcm !== 'none' ? c.gcm : ''), c.address, c.csm];
@@ -797,6 +822,22 @@
        and clientHaystack() says which is which. */
     if (q) list = list.filter(function (r) { return clientHaystack(r.c).indexOf(q) > -1; });
     if (tf) list = list.filter(function (r) { return r.c.tier === tf; });
+    /* THE MARKET FILTER, WHICH THE LAYER HAD TAKEN AWAY WITHOUT REPLACING.
+       V1 builds #julia-mkt-bar inside renderClientMaster and applies
+       juliaMarketFilter there too -- and this layer overrides that renderer,
+       so for a dual-market CSM both the control and the filtering simply
+       stopped existing. Reported as "no Market filter on the Clients list",
+       and it was not a missing feature so much as one this layer deleted.
+
+       The variable is V1's, read by name: a top-level `let` lives in the
+       shared global lexical environment. setJuliaFilter() is a function
+       declaration, so it IS on window, and it sets that variable and calls
+       renderClientMaster -- which is this renderer. So the chips drive V1's
+       own state and nothing here keeps a second copy of it. */
+    if (mktFilter() !== 'all') {
+      const mk = mktFilter();
+      list = list.filter(function (r) { return (r.c.market || 'Massachusetts') === mk; });
+    }
     // Same partition as the counts above: the list under a tab has to hold
     // exactly what the tab's number says.
     if (_view === 'attention') list = list.filter(function (r) { return needsAction(r.c); });
@@ -958,12 +999,24 @@
       chips.setAttribute('role', 'tablist');
       viewBar.appendChild(chips);
     }
+    /* The market chips ride in the SAME row, after a divider: one filter row
+       is her rule for every list in the Hub, and a second row for market
+       would be the thing she objected to on Maryland. */
     chips.innerHTML = VIEWS.map(function (v) {
       return '<button type="button" class="rd-view" role="tab" data-view="' + v[0] + '" aria-selected="' + (_view === v[0]) + '">' +
         esc(v[1]) + (counts[v[0]] ? '<span class="n">' + counts[v[0]] + '</span>' : '') + '</button>';
-    }).join('');
-    $$('.rd-view', chips).forEach(function (b) {
+    }).join('') + (isDualMarket() ? '<span class="rd-md-div" aria-hidden="true"></span>' + mktChips() : '');
+    $$('[data-view]', chips).forEach(function (b) {
       b.addEventListener('click', function () { _view = b.dataset.view; renderTrackerList(); });
+    });
+    /* Calls V1's own setter, which sets V1's variable and re-renders through
+       this very function -- so there is exactly one idea of which market is
+       selected, and it is V1's. */
+    $$('[data-mkt]', chips).forEach(function (b) {
+      b.addEventListener('click', function () {
+        if (typeof setJuliaFilter === 'function') setJuliaFilter(b.dataset.mkt, b);
+        else renderTrackerList();
+      });
     });
     ownClientsChrome(viewBar);
 
@@ -2189,11 +2242,20 @@
 
          The section keys still resolve, so an old link or a saved route to
          ?section=team opens the tab that now holds it rather than nothing. */
-      '<nav class="rd-cw-rail" role="tablist">' +
+      '</header>';
+  }
+  /* THE BANNER GOES ABOVE THE TABS, which is how she draws it. The rail used
+     to close the header, so the Pulse banner -- the single most urgent thing
+     on the page -- was rendered BELOW the tab strip and read as belonging to
+     whichever tab was open. It belongs to the client. Split out so the order
+     is header, banner, tabs, body; the rail's own styles never depended on
+     sitting inside the header. */
+  function wsRail() {
+    return '<nav class="rd-cw-rail" role="tablist">' +
       WS_AREAS.map(function (a) {
         return '<button type="button" role="tab" data-key="' + a[0] + '" aria-selected="' +
           (_section === a[0]) + '">' + esc(a[1]) + '</button>';
-      }).join('') + '</nav></header>';
+      }).join('') + '</nav>';
   }
 
   function renderWorkspace() {
@@ -2227,7 +2289,7 @@
 
     const sub = '';
 
-    ws.innerHTML = wsHeader(c, snap) + wsPulseBanner(c, pp)
+    ws.innerHTML = wsHeader(c, snap) + wsPulseBanner(c, pp) + wsRail()
       + '<div class="rd-ws-body">' + sub + body + '</div>' + wsActions(c);
 
     $$('.rd-cw-rail button[data-key]', ws).forEach(function (b) {
@@ -2454,17 +2516,24 @@
         '<span class="n">' + n + '</span></button>';
     };
     host.innerHTML =
-      '<div class="rd-md-views">' + MD_VIEWS.map(function (v) {
+      /* ONE FILTER ROW, which is what she asked for on every list in the
+         Hub. This was two stacked rows -- whose caseload above, which
+         problem below -- and two rows of controls is the thing she objected
+         to on this page in the first place. They answer different questions
+         (who am I looking at, and what is wrong with them), so they stay
+         distinct inside the row with a divider rather than being merged into
+         one set of chips that would multiply out to fifteen. */
+      '<div class="rd-views rd-md-bar" role="tablist">' +
+      MD_VIEWS.map(function (v) {
         return '<button type="button" class="rd-view' + (_mdView === v[0] ? ' on' : '') +
                '" data-mdview="' + v[0] + '">' + esc(v[1]) + '</button>';
-      }).join('') + '</div>' +
-      /* The chips sit under the view switch because they count what the
-         view leaves: change who you are looking at and every number moves. */
+      }).join('') +
       (_mdView === 'bycsm' ? '' :
-        '<div class="rd-views rd-md-chips" role="tablist">' +
+        '<span class="rd-md-div" aria-hidden="true"></span>' +
         MD_GROUPS.map(function (g) { return chip(g[0], g[1], counts[g[0]]); }).join('') +
         (counts.cleanup ? chip('cleanup', 'Cleanup', counts.cleanup) : '') +
-        chip('all', 'All', counts.all) + '</div>') + body +
+        chip('all', 'All', counts.all)) +
+      '</div>' + body +
       (old.length
         ? '<details class="rd-md-clean"><summary>Cleanup · ' + plural(old.length, 'client') +
           ' more than a year past due<span>Records to correct, not deadlines to meet</span></summary>' +

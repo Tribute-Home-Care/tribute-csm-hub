@@ -3386,3 +3386,29 @@ button.rd-s30-b.done { background: var(--accent, #C95018); border-color: var(--a
   border-style: dashed;
 }
 .rd-attn-card.wait .rd-attn-n { color: var(--ink-3, #8C857B); }
+
+
+/* ONE FILTER ROW on Maryland, not two stacked. Whose caseload and which
+   problem are different questions, so they stay distinct inside the row
+   behind a divider rather than merging into fifteen combined chips. */
+.rd-md-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 11px; }
+.rd-md-div {
+  display: inline-block; width: 1px; height: 18px; margin: 0 4px;
+  background: var(--line, #E7E2DA);
+}
+
+
+/* THE ACTION BUTTONS ARE ONE WIDTH. Call was 218px against Scribe's 76px,
+   because each sized to its own label and "Call Paul (son)" is a lot longer
+   than "Scribe". A row of uneven buttons reads as a row of unequal
+   importance. They share the space and the label truncates rather than
+   stretching its button. */
+.rd-cw-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.rd-cw-acts > .rd-act { flex: 1 1 0; min-width: 76px; max-width: 160px; }
+.rd-cw-acts > .rd-act > span {
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+
+/* The market chips sit in the same filter row as the view chips. */
+.rd-mkt { display: inline-flex; gap: 6px; align-items: center; }
