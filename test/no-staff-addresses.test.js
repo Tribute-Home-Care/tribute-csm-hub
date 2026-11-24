@@ -19,12 +19,20 @@ const RE = /@tributehomecare\.com/;
 /* The files that still legitimately carry one, and why. Each is a decision
    taken with Andrew on 24 Nov, not an oversight:
 
-     index.html, v2/index.html  ADMIN_UPNS and two others. The admin check is
-                                moving SERVER-SIDE, where the API already knows
-                                the UPN, so the client will carry no addresses
-                                at all. Held until the API incident of 24 Nov
-                                closed, because it is one edit to V1 and worth
-                                doing once.
+     index.html, v2/index.html  ADMIN_UPNS is GONE as of 24 Nov: the admin
+                                check moved server-side, csm_data returns
+                                viewer.isAdmin for the caller, and the list
+                                lives in an app setting that never leaves the
+                                server. What is left is CSM_UPN -- fifteen
+                                firstname.lastname local parts that line 7095
+                                concatenates the domain onto, so fifteen real
+                                addresses are still reconstructable from public
+                                source. That is a LARGER exposure than the
+                                three that were removed and it needs the same
+                                treatment, but it feeds a live feature rather
+                                than a routing decision, so it is its own
+                                change. Two of the three matches in this file
+                                are placeholders in comments, not people.
      v2/v2-pto.js               PUBLIC_UPN is a live functional mailbox the
                                 feature actually posts to, not a fixture.
                                 Changing it changes behaviour, so it needs its
@@ -63,6 +71,21 @@ if (JSON.stringify(hits) !== JSON.stringify([...ALLOWED].sort())) {
   if (extra.length) console.log('        new, not signed off: ' + extra.join(', '));
   if (gone.length)  console.log('        fixed — take it out of ALLOWED: ' + gone.join(', '));
 }
+
+/* The admin list specifically must not come back to the client. The identifier
+   test is deliberately narrower than a substring search: CSM_HUB_ADMIN_UPNS is
+   the app setting's name and may legitimately appear in a comment. */
+for (const f of ['index.html', 'v2/index.html']) {
+  const s = fs.readFileSync(path.join(ROOT, f), 'utf8');
+  ok(f + ' no longer carries the admin list',
+     !/(?<![A-Z_])ADMIN_UPNS/.test(s) && /let _viewerIsAdmin=false;/.test(s));
+}
+ok('...and the answer is taken from the validated token, not from the browser',
+   /_viewerIsAdmin=!!\(j\.viewer&&j\.viewer\.isAdmin\);/.test(fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8')));
+/* An unknown answer must not grant admin: the dangerous direction is silent
+   over-access, and the opposite failure is visible as "No profile assigned". */
+ok('...and it defaults to false',
+   /let _viewerIsAdmin=false;/.test(fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8')));
 
 // The three fixtures that were cleaned, checked by what they became rather
 // than only by what they no longer are.
