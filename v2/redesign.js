@@ -2378,16 +2378,37 @@
     const rowsEl = $('#md-rows', page);
     if (!rowsEl) return;
     page.dataset.rdMd = '1';
+    /* V1's own pill row FIRST, while rowsEl still has it as its previous
+       sibling: inserting the table host before rowsEl makes the host the
+       previous sibling and this lookup finds the wrong element. */
     const tabs = rowsEl.previousElementSibling;
     if (tabs) {
-      $$('button', tabs).forEach(function (b) { b.hidden = true; });   // the five problem tabs
+      $$('button', tabs).forEach(function (b) { b.hidden = true; });
     }
-    rowsEl.hidden = true;
     const host = document.createElement('div');
     host.id = 'rd-md-table';
     rowsEl.parentElement.insertBefore(host, rowsEl);
-    const search = $('#md-search', page);
-    if (search) search.addEventListener('input', function () { renderMdTable(); });
+    rowsEl.hidden = true;
+    /* AND THE LAYER'S OWN EARLIER BAR, which is the one she can actually
+       see. workflows.js builds #md-views: the counted problem tabs --
+       "Needs attention 45", "Assessment due 8" -- and a single Mine toggle.
+       That is exactly what she asked to be replaced ("five tabs with one
+       problem per row", "only a Mine toggle"), and hiding V1's pill row
+       underneath it changed nothing on screen. Without this the page grew a
+       THIRD row of controls instead of losing one.
+
+       The SEARCH box lives inside that bar, because workflows.js MOVED the
+       application's own input there rather than recreating it. It is moved
+       again rather than hidden with its parent, or the page loses its
+       search and the table loses the field it filters on. */
+    const old = $('#md-views');
+    if (old) {
+      const search = $('#md-search');
+      if (search) host.appendChild(search);
+      old.classList.add('rd-md-superseded');
+    }
+    const search2 = $('#md-search', page);
+    if (search2) search2.addEventListener('input', function () { renderMdTable(); });
     if (typeof window.renderMdRows === 'function') {
       const orig = window.renderMdRows;
       window.renderMdRows = function () {

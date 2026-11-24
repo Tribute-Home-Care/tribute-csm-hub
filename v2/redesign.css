@@ -3313,3 +3313,17 @@ button.rd-s30-b.done { background: var(--accent, #C95018); border-color: var(--a
 .rd-tm-who { display: block; font-weight: 600; }
 .rd-tm-role { display: block; font-size: 11px; color: var(--ink-3, #8C857B); margin-top: 1px; }
 .rd-tm-r { cursor: pointer; }
+
+
+/* THE LAYER'S OWN EARLIER MARYLAND BAR IS SUPERSEDED. workflows.js builds
+   #md-views: the counted problem tabs ("Needs attention 45", "Assessment
+   due 8") and a single Mine toggle. That is precisely what she asked to be
+   replaced -- "five tabs with one problem per row", "only a Mine toggle" --
+   and V1's pill row was hidden underneath it, which changed nothing she
+   could see. The table carries Mine / All CSMs / Group by CSM instead.
+
+   The bar itself stays in the DOM because workflows.js re-renders into it
+   on every pass; only what it draws comes off. */
+#md-views.rd-md-superseded .rd-views,
+#md-views.rd-md-superseded #md-mine { display: none !important; }
+#md-views.rd-md-superseded { margin: 0; padding: 0; border: 0; }
