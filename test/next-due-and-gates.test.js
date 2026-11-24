@@ -45,7 +45,15 @@ ok('the visit date comes from V1’s nextDue, not a second copy',
 ok('Start of care is a column now', /\['start', 'Start of care'\]/.test(RD));
 ok('...and the sort it needs was already written',
    /else if \(_sortKey === 'start'\) list\.sort\(function \(a, b\) \{\s*\n\s*return dir \* nullsLast\(a\.c\.startDate\)/.test(RD));
-ok('...and the cell renders the date', /c\.startDate \? esc\(fmtShort\(c\.startDate\)\)/.test(RD));
+/* WITH THE YEAR. fmtShort drops it, which is right for a visit last week and
+   wrong here: the first sort by start date came back reading "Jul 20, Aug 10,
+   Nov 7, May 11, Sep 2" -- correct across 2022 and 2023, and indistinguishable
+   from broken. A column people sort by has to show what it is sorted on. */
+ok('...and the cell renders the date with its year',
+   /c\.startDate \? esc\(fmtWithYear\(c\.startDate\)\)/.test(RD) &&
+   /const fmtWithYear = \(d\) => \{/.test(RD));
+ok('...except for this year, where the year is the one thing nobody needs',
+   /thisYear \? \{ month: 'short', day: 'numeric' \}/.test(RD));
 
 // ── 3. Fill Priority ranks nothing without an event ───────────────────────
 /* The page printed "Active Coverage Event: no active event" and then #1, #2,

@@ -21,6 +21,23 @@
   const daysSince = (d) => (d ? Math.floor((new Date(todayISO() + 'T12:00:00') - new Date(String(d).slice(0, 10) + 'T12:00:00')) / DAY) : null);
   const fmtShort = (d) => (d ? new Date(String(d).slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—');
   const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
+  /* A DATE THAT NEEDS ITS YEAR. fmtShort drops the year, which is right for a
+     visit last week and wrong for a start of care: the first sort by start
+     date came back reading "Jul 20, Aug 10, Nov 7, May 11, Sep 2", which IS
+     chronological across 2022 and 2023 and looks broken without the years.
+     A column people sort by has to show what it is sorted on. Clients
+     starting this year keep the short form, because the year is then the one
+     thing on the row nobody needs. */
+  const fmtWithYear = (d) => {
+    if (!d) return '\u2014';
+    const iso = String(d).slice(0, 10);
+    const dt = new Date(iso + 'T12:00:00');
+    if (isNaN(dt.getTime())) return '\u2014';
+    const thisYear = dt.getFullYear() === new Date().getFullYear();
+    return dt.toLocaleDateString('en-US',
+      thisYear ? { month: 'short', day: 'numeric' }
+               : { month: 'short', day: 'numeric', year: 'numeric' });
+  };
 
   /* ── 2. NAVIGATION RAIL ───────────────────────────────────────────────── */
   // The rail is where symbols earn the most: a dozen destinations scanned
@@ -1686,7 +1703,7 @@
                 '<button type="button" class="rd-td-sort rd-clt-sort" data-sortbtn="' + esc(c.id) +
                 '" aria-haspopup="menu" title="Sort this flag off Today\u2019s list">Sort</button>'
                 : '') + '</td>' +
-        '<td>' + (c.startDate ? esc(fmtShort(c.startDate)) : '<span class="rd-ws-quiet">\u2014</span>') + '</td>' +
+        '<td class="rd-clt-soc">' + (c.startDate ? esc(fmtWithYear(c.startDate)) : '<span class="rd-ws-quiet">\u2014</span>') + '</td>' +
         '<td>' + (c.lastVisit ? esc(fmtShort(c.lastVisit)) : '<span class="rd-ws-quiet">None</span>') + '</td>' +
         /* The date AND the clock it belongs to. A cell that cannot name what
            is due is a cell a CSM has to open the client to understand. Where
