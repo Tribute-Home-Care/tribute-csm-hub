@@ -88,20 +88,33 @@ ok('...and the diagnostics line says the same',
 ok('the status strip and its diagnostics are kept',
    /id="v2-blocked-count"/.test(CHROME) && /App\.showDiagnostics\(\)/.test(CHROME));
 
-/* ── THE ONE THING DELIBERATELY NOT DONE ───────────────────────────────
-   V2 records no active time, because build-v2.py strips tribute-usage.js,
-   v2-policy sets usage_telemetry false, AND the fetch wrapper blocks
-   endpoint=usage_time unconditionally. That was right for a pilot and is a
-   real gap now that V2 is the only Hub. It is three changes on the layer
-   that guards Viv, so it is a decision, and this test exists so the gap is
-   recorded rather than discovered in a month. */
-ok('usage telemetry is still off, in all three places',
-   /usage_telemetry: false/.test(POLICY) &&
-   /html = _re\.sub\(r'\\s\*<script src="\\\.\/tribute-usage/.test(BLD) &&
-   /if \(ep === 'usage_time'\) \{\n\s*App\.recordBlockedWrite/.test(POLICY));
-ok('...and the reason it is still off is written down, not just the fact',
-   /it is a decision rather than a tidy-up/.test(BLD) &&
-   /decision rather than a tidy-up/.test(POLICY));
+/* ── ACTIVE TIME IS RECORDED AGAIN ─────────────────────────────────────
+   V2 used to record none: build-v2.py stripped tribute-usage.js, v2-policy
+   set usage_telemetry false, AND the fetch wrapper blocked
+   endpoint=usage_time unconditionally. All three were right for a pilot that
+   must not skew real usage statistics, and all three were wrong the moment
+   V2 became the only Hub -- they stopped protecting the numbers and started
+   ending them. All three are now on. */
+ok('the usage script is loaded, from one directory up',
+   /src="\.\.\/tribute-usage\.js/.test(V2) &&
+   /html\.replace\('src="\.\/tribute-usage\.js', 'src="\.\.\/tribute-usage\.js'\)/.test(BLD));
+ok('...and the build asserts it is there rather than that it is gone',
+   /assert _re\.search\(r'<script\[\^>\]\*\\\.\\\.\/tribute-usage', html\)/.test(BLD));
+ok('the policy allows it', /usage_telemetry: true/.test(POLICY));
+/* PASSED THROUGH UNMODIFIED, not with the V2 surface headers: active time is
+   analytics, not a write to a client record. V1 has always sent this POST
+   and the server has always accepted it, so adding the V2 headers would put
+   it through a business-write gate it was never meant to pass. */
+ok('...and the POST goes out as V1 sends it',
+   /if \(App\.canWrite\('usage_telemetry'\)\) \{\n\s*App\.usageWrites = \(App\.usageWrites \|\| 0\) \+ 1;\n\s*return real\(url, opts\);/.test(POLICY));
+ok('...and it is not treated as a business capability',
+   !/'usage_telemetry'/.test((POLICY.match(/const BUSINESS = new Set\(\[[\s\S]*?\]\);/) || [''])[0]));
+/* One switch still turns it off: the branch is gated, not removed. */
+ok('the policy flag is still the switch',
+   /App\.recordBlockedWrite\(\{ feature: 'Active-time usage telemetry'/.test(POLICY));
+/* V2 inherits V1's own start call, so it reports as the same app. */
+ok('V2 starts the tracker the way V1 does',
+   /TributeUsage\.start\(\{ app:'csm'/.test(V2));
 
 console.log('\n' + (fail ? 'FAILED ' + fail : 'PASSED all ' + pass));
 process.exit(fail ? 1 : 0);

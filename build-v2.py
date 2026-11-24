@@ -67,21 +67,23 @@ def main():
     #    location.pathname, so serving at /v2/ asks Entra for /v2/ — which is
     #    why /v2/ needs its own registered SPA redirect URI.
     html = html.replace('src="./entra-auth.js', 'src="../entra-auth.js')
-    # tribute-usage.js POSTs active-time telemetry. A read-only preview must
-    # not write usage rows, and it must not pollute real usage statistics
-    # with pilot activity. Found live: the fetch tripwire caught it as an
-    # ungated write path (endpoint=usage_time) because the audit covered
-    # index.html and not this companion script. V2 simply does not load it.
+    # tribute-usage.js POSTs active-time telemetry. It used to be stripped
+    # here, because a read-only preview must not write usage rows or skew
+    # real usage statistics with pilot activity -- right while V1 carried the
+    # traffic. (Found live back then: the fetch tripwire caught it as an
+    # ungated write path, endpoint=usage_time, because the audit covered
+    # index.html and not this companion script.)
     #
-    # STILL STRIPPED, and now worth a second look: V2 is the only Hub, so
-    # nothing is being protected from pilot skew any more and the Hub records
-    # no active time at all. Restoring it needs this strip removed, the
-    # usage_telemetry policy flag flipped AND the unconditional block in
-    # v2-policy.js's usage_time branch lifted. Three things, on the layer
-    # that guards Viv, so it is a decision rather than a tidy-up.
+    # V2 IS THE HUB NOW, so stripping it no longer protects those numbers, it
+    # ends them: the Hub would record no active time at all. It loads, and
+    # v2-policy.js gates it on usage_telemetry and passes it through
+    # unmodified -- analytics, not a write to a client record, so it is sent
+    # exactly as V1 sends it and the server applies its usual rules.
+    #
+    # It is still relative to the root, and V2 is a directory deeper.
     import re as _re
-    html = _re.sub(r'\s*<script src="\./tribute-usage\.js[^"]*"></script>', '', html)
-    assert not _re.search(r'<script[^>]*tribute-usage', html), 'usage telemetry still loaded'
+    html = html.replace('src="./tribute-usage.js', 'src="../tribute-usage.js')
+    assert _re.search(r'<script[^>]*\.\./tribute-usage', html), 'usage telemetry is not loaded'
 
     # 2b. (removed) V2 used to patch the 409 retry so it would not overwrite
     #     another interface's DATA.shared. V1's retry is now a three-way merge

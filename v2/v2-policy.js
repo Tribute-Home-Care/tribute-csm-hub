@@ -112,14 +112,17 @@
     // path emails one client's week to their family yet.
     weekly_send: true,          // email one client's week to their family
     weekly_schedule: false,     // the unbuilt scheduled Friday run, not the send
-    /* STILL false, and now for a different reason. It was false because a
-       pilot must not skew real usage statistics. V2 is the Hub now, so that
-       reason has gone and the Hub records no active time at all -- a real
-       gap, and not one this flag alone closes: the fetch wrapper below
-       blocks endpoint=usage_time unconditionally, whatever this says. Both
-       have to change together, and that is a write-policy change on the
-       layer guarding Viv, so it is a decision rather than a tidy-up. */
-    usage_telemetry: false,     // see the usage_time branch below
+    /* ACTIVE TIME IS RECORDED AGAIN (2026-11-24). This was false so a pilot
+       could not skew real usage statistics, which was right while V1 carried
+       the traffic. V2 is the Hub now, so that reason is gone and leaving it
+       false does not protect the numbers, it ends them.
+
+       usage_telemetry is deliberately NOT in BUSINESS: it is analytics, not
+       a write to a client record, so it needs no server capability and goes
+       out exactly as V1 sends it. The branch below passes it through
+       unmodified rather than adding the V2 headers, so the server applies
+       the same rules to it that it has always applied. */
+    usage_telemetry: true,
 
     assist: true,               // POST, but a question — mutates nothing
     community_render: true,     // POST, but returns HTML — persists nothing
@@ -655,6 +658,16 @@
       // usage_time is a known write and is named rather than reported as a
       // missed path, so a genuine leak stays visible in policyLeaks.
       if (ep === 'usage_time') {
+        /* PASSED THROUGH UNMODIFIED, not with the V2 headers. Active time is
+           analytics, not a write to a client record: V1 has always sent this
+           POST and the server has always accepted it, so adding the V2
+           surface headers would put it through a business-write gate it was
+           never meant to pass. Still gated by the policy flag, so one switch
+           turns it off again. */
+        if (App.canWrite('usage_telemetry')) {
+          App.usageWrites = (App.usageWrites || 0) + 1;
+          return real(url, opts);
+        }
         App.recordBlockedWrite({ feature: 'Active-time usage telemetry',
           capability: 'usage_telemetry', endpoint: u.split('?')[0] + '?endpoint=usage_time',
           operation: method });
