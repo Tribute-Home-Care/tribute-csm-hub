@@ -325,9 +325,33 @@ ok('the list redraws outside the tile cache key',
 ok('the tiles wait for Pulse rather than counting without it',
    /function countsReady\(\)/.test(CODE) &&
    /if \(!countsReady\(\)\) \{ renderAttnWaiting\(el\); return; \}/.test(CODE));
-ok('...reading the application\'s own loading flag, not a guess',
-   /if \(window\._pulseLoading\) return false;/.test(CODE) &&
-   /if \(app\.pulse && app\.pulse\.byCid\) return true;/.test(CODE));
+/* AN EMPTY byCid IS NOT A LOADED PULSE. The first cut asked `app.pulse &&
+   app.pulse.byCid`, which went TRUE the moment _PULSE was initialised with
+   an empty map. Measured on build 08:23: dashes at 0s, the wrong 18 / 5 at
+   0.5s, dashes again at 0.9s once the load actually started, then the right
+   30 / 3 at 1.7s. Half-fixed is its own bug. */
+ok('...reading the application\'s own loading flag FIRST, before the map',
+   /if \(window\._pulseLoading\) \{ _pulseRan = true; return false; \}/.test(CODE) &&
+   /if \(by && Object\.keys\(by\)\.length\) return true;/.test(CODE));
+ok('...and an empty map counts only once a load has actually run',
+   /if \(_pulseRan\) return true;/.test(CODE));
+// Behavioural, over the exact sequence that produced the flash.
+const readyOf = (() => {
+  let ran = false;
+  return (appReady, loading, byCount, sinceBoot) => {
+    if (!appReady) return false;
+    if (loading) { ran = true; return false; }
+    if (byCount) return true;
+    if (ran) return true;
+    return sinceBoot > 20000;
+  };
+})();
+ok('0.0s: app not ready yet is not ready', readyOf(false, false, 0, 0) === false);
+ok('0.5s: _PULSE initialised but EMPTY is still not ready', readyOf(true, false, 0, 500) === false);
+ok('0.9s: the load is in flight, still not ready', readyOf(true, true, 0, 900) === false);
+ok('1.7s: clients in the map, ready once', readyOf(true, false, 44, 1700) === true);
+ok('...and an empty map AFTER a load is a real answer, not a wait',
+   readyOf(true, false, 0, 1800) === true);
 ok('...and the waiting tile carries no number and cannot be pressed',
    /class="rd-attn-card wait"/.test(CODE) && /aria-hidden="true"/.test(CODE) &&
    /Reading Client Pulse/.test(CODE) && /\.rd-attn-card\.wait \{/.test(CSS));

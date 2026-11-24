@@ -5032,11 +5032,28 @@
      hand and failedSources() says what is missing. */
   const _attnBootAt = Date.now();
   const ATTN_GRACE = 20000;
+  /* AN EMPTY byCid IS NOT A LOADED PULSE. The first cut asked `app.pulse &&
+     app.pulse.byCid`, which went TRUE the moment _PULSE was initialised with
+     an empty map and before anything was in it. Measured on build 08:23:
+     dashes at 0s, the wrong 18 / 5 at 0.5s, dashes again at 0.9s once the
+     load actually started, and the right 30 / 3 at 1.7s. Half-fixed is its
+     own bug -- the flash was shorter and still wrong.
+
+     Three states have to be told apart, and the order below is the point:
+       - a load IN FLIGHT is never ready, whatever _PULSE holds right now;
+       - a map with clients in it is ready;
+       - an EMPTY map is ready only if a load has already run and left it
+         empty, which is a real answer, as against nothing having started.
+     Without the last distinction a caseload with no flags would sit on
+     dashes for the whole grace period. */
+  let _pulseRan = false;
   function countsReady() {
     const app = A();
     if (!app.ready) return false;
-    if (app.pulse && app.pulse.byCid) return true;
-    if (window._pulseLoading) return false;
+    if (window._pulseLoading) { _pulseRan = true; return false; }
+    const by = app.pulse && app.pulse.byCid;
+    if (by && Object.keys(by).length) return true;
+    if (_pulseRan) return true;              // it answered, and the answer was none
     return (Date.now() - _attnBootAt) > ATTN_GRACE;
   }
   let _attnWait = null;
@@ -5053,7 +5070,7 @@
       clearInterval(_attnWait); _attnWait = null;
       _attnKey = '';
       try { renderAttention(); } catch (e) {}
-    }, 400);
+    }, 200);
   }
 
   function renderAttention() {
