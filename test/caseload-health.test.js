@@ -63,10 +63,36 @@ ok('...and says how many were automatic rather than hiding them',
 /* They disagreed because they were computed twice. Both come from
    visitCompliance() now, so they cannot drift apart again. */
 ok('both visit figures come from visitCompliance()',
-   /typeof visitCompliance === 'function' \? visitCompliance\(\) : null/.test(CODE) &&
-   /h\.vc\.done \+ ' of ' \+ h\.vc\.due/.test(CODE));
+   /typeof visitCompliance === 'function' \? visitCompliance\(\) : null/.test(CODE));
+/* visitCompliance() returns ARRAYS of clients -- {due, done, deferred, pct} --
+   and not counts. Two faults followed, both caught by reading the live card
+   rather than by any assertion here:
+     - `h.vc.done + ' of ' + h.vc.due` printed
+       "[object Object],[object Object]... of [object Object],..."
+     - an empty array is TRUTHY, so `h.vc && h.vc.due` was always true and a
+       month with nothing due would have shown 0%, which is precisely what
+       the dash exists to prevent. */
+ok('the arrays are counted, not concatenated',
+   /const vcDue = h\.vc && h\.vc\.due \? h\.vc\.due\.length : 0;/.test(CODE) &&
+   /const vcDone = h\.vc && h\.vc\.done \? h\.vc\.done\.length : 0;/.test(CODE) &&
+   /notes\.push\(vcDone \+ ' of ' \+ vcDue \+ ' clients due a visit this month have had one\.'\);/.test(CODE));
 ok('...and a month with nothing due shows a dash, not a hundred per cent',
-   /const pct = h\.vc && h\.vc\.due \? h\.vc\.pct : null;/.test(CODE));
+   /const pct = vcDue \? h\.vc\.pct : null;/.test(CODE));
+/* Behavioural, over the shapes visitCompliance actually returns. A regex over
+   the source is what let the truthiness fault through in the first place. */
+const pctOf = vc => {
+  const vcDue = vc && vc.due ? vc.due.length : 0;
+  return vcDue ? vc.pct : null;
+};
+const C = {}, D = {};
+ok('a month with 5 of 27 done reads as a percentage',
+   pctOf({ due: [C,C,C,C,C,C,C,C,C,C,C,C,C,C,C,C,C,C,C,C,C,C,C,C,C,C,C], done: [D,D,D,D,D], pct: 19 }) === 19);
+ok('a month with NOTHING due reads as a dash, not 0% and not 100%',
+   pctOf({ due: [], done: [], pct: 0 }) === null);
+ok('no visitCompliance at all also reads as a dash', pctOf(null) === null);
+const joined = (vc) => (vc.done.length) + ' of ' + (vc.due.length);
+ok('the sentence counts clients rather than stringifying them',
+   joined({ due: [C,C,C], done: [D] }) === '1 of 3');
 
 /* ── V1's four stat tiles come out ───────────────────────────────────── */
 /* They sat beside this card inside the same section, saying "In Onboarding 3"

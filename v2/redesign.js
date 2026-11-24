@@ -1506,6 +1506,33 @@
   /* Live reads. Absent in the local prototype, which has no endpoint to call —
      the workspace then shows what the roster knows and says the rest is
      unavailable here, rather than inventing it. */
+  /* THE HEADER PAINTS FROM A SNAPSHOT THAT MAY NOT HAVE ARRIVED YET.
+     CD() reads the cache and returns whatever is there; nothing in the
+     workspace asked for the record or repainted when it landed. V1's own
+     detail build happens to kick the read off, so on a warm cache the header
+     was complete and on a cold open it quietly lost the unit, the client
+     number, start of care and the CSM -- present one build, absent the next,
+     with no code change between them. That is what "lost the unit again"
+     was: a race, not a field name.
+
+     One wait per client rather than one per paint, and the repaint is
+     skipped if you have moved on. `ready` returns early once the state is
+     ready, so the repaint cannot drive itself in a loop. */
+  let _awaiting = null;
+  function wsAwait(c) {
+    const S = window.TributeClientData;
+    if (!S || !S.ready || !c || !c.vivId) return;
+    const snap = CD(c);
+    if (snap && (snap.state === 'ready' || snap.state === 'error')) return;
+    if (_awaiting === c.vivId) return;
+    _awaiting = c.vivId;
+    const done = function () {
+      if (_awaiting === c.vivId) _awaiting = null;
+      if (_selected === c.id) renderWorkspace();
+    };
+    try { S.ready(c.vivId).then(done, done); }
+    catch (e) { _awaiting = null; }
+  }
   function CD(c) {
     const S = window.TributeClientData;
     if (!S || !c || !c.vivId) return { state: 'none', data: null, error: null };
@@ -1923,6 +1950,7 @@
       return;
     }
     const snap = CD(c);
+    wsAwait(c);
     const ex = exceptionFor(c);
     const pp = pulseFor(c);
 
@@ -3065,7 +3093,14 @@
         '<span class="rd-ch-n">' + esc(String(n)) + '</span>' +
         '<span class="rd-ch-l">' + esc(label) + '</span></div>';
     };
-    const pct = h.vc && h.vc.due ? h.vc.pct : null;
+    /* visitCompliance() RETURNS ARRAYS OF CLIENTS, not counts: {due, done,
+       deferred, pct}. An empty array is truthy, so `h.vc.due` as a test was
+       always true and a month with nothing due would have read 0% rather
+       than a dash -- the exact fault the dash was added to prevent. Count
+       the array; do not trust its truthiness. */
+    const vcDue = h.vc && h.vc.due ? h.vc.due.length : 0;
+    const vcDone = h.vc && h.vc.done ? h.vc.done.length : 0;
+    const pct = vcDue ? h.vc.pct : null;
     const parts = [
       pill(h.n, 'Clients', ''),
       pill(h.highNeed, 'High need, per Pulse', h.highNeed ? 'warn' : ''),
@@ -3084,12 +3119,15 @@
 
     const notes = [];
     /* The two visit numbers that look like they should reconcile. */
-    if (h.vc && h.vc.due) {
+    if (vcDue) {
       notes.push('Visits logged this month counts visit records. Visit compliance counts ' +
                  'clients whose cadence fell due this month, which is a different question.');
     }
-    if (h.vc && h.vc.due) {
-      notes.push(h.vc.done + ' of ' + h.vc.due + ' clients due a visit this month have had one.');
+    if (vcDue) {
+      /* .length on both. Concatenating the arrays themselves printed
+         "[object Object],[object Object]... of [object Object],..." in the
+         card, which is what reading the live page caught. */
+      notes.push(vcDone + ' of ' + vcDue + ' clients due a visit this month have had one.');
     }
     if (h.auto) {
       notes.push(plural(h.auto, 'touchpoint') + ' in the last 30 days were logged automatically ' +
