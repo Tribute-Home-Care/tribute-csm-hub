@@ -207,8 +207,17 @@ ok('a flagged client says why, under the status',
    /class="rd-clt-pl"/.test(CODE) && /<b>Pulse:<\/b>/.test(CODE));
 ok('...clamped to two lines, with the rest on hover',
    /\.rd-clt-pl \{[\s\S]{0,200}-webkit-line-clamp: 2;/.test(CSS));
-ok('...and only underneath a cadence exception, which leads because it has a date',
-   /\(ps && ex \?/.test(CODE));
+/* THE STATUS CELL HOLDS A LABEL, NEVER A SENTENCE. A client flagged by
+   Pulse with a healthy cadence has no exception, so `ex || ps` put the whole
+   Pulse sentence into .rd-cl-ex, which was white-space: nowrap. One sentence
+   stretched the column to about 800px and pushed Last visit, Next due, Family
+   contact and Community off the screen. */
+ok('the status says what kind of thing it is, not the whole sentence',
+   /const stText = ex \? ex\.text : \(ps \? 'Pulse flag' : ''\);/.test(CODE));
+ok('...and every flagged row carries the sentence on the clamped line',
+   /\(ps \? '<div class="rd-clt-pl"/.test(CODE));
+ok('...and nothing in that cell can widen the column again',
+   /\.rd-cl-ex \{[\s\S]{0,220}white-space: normal; max-width: 34ch;/.test(CSS));
 
 /* D. VIV'S OWN WORDS ARE NOT THE HUB'S. "Processing" is the status string Viv
    sets while a client is being set up, and it appeared on the Clients list

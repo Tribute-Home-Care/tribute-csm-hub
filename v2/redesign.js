@@ -1272,6 +1272,10 @@
          Pulse is flagged shows the flag instead of nothing at all. */
       const ps = pulseStatus(c);
       const st = ex || ps;
+      // The cadence exception leads where there is one, because it has a date
+      // on it. Where there is not, the flag is named rather than quoted.
+      const stText = ex ? ex.text : (ps ? 'Pulse flag' : '');
+      const stTone = ex ? ex.tone : (ps ? ps.tone : '');
       const tip = ps && ps.note ? ps.note : '';
       return '<tr class="rd-clt-row' + (soonAsmt ? ' due' : '') + '" data-cid="' + esc(c.id) + '" tabindex="0"' +
         (tip ? ' title="' + esc(tip) + '"' : '') + '>' +
@@ -1286,9 +1290,19 @@
 
            Joined here, in the data layer, rather than scraped off Home: the
            Clients page has to be right when Home has never been opened. */
-        '<td>' + (st ? '<span class="rd-cl-ex ' + st.tone + '"><i class="rd-dot"></i>' + esc(st.text) + '</span>' : '') +
-          (ps && ex ? '<div class="rd-clt-pl" title="' + esc(ps.note || ps.text) + '">' +
-                      '<b>Pulse:</b> ' + esc(ps.text) + '</div>' : '') + '</td>' +
+        /* THE STATUS CELL HOLDS A LABEL, NEVER A SENTENCE.
+           A client flagged by Pulse with a healthy cadence has no exception,
+           so `ex || ps` put the whole Pulse sentence into .rd-cl-ex, which is
+           white-space: nowrap. One long sentence stretched the column to
+           about 800px and pushed Last visit, Next due, Family contact and
+           Community off the screen.
+
+           So the status says what KIND of thing it is, and the sentence goes
+           on the same clamped Pulse line every other flagged row already
+           uses. Every row with a flag now reads the same way. */
+        '<td>' + (stText ? '<span class="rd-cl-ex ' + stTone + '"><i class="rd-dot"></i>' + esc(stText) + '</span>' : '') +
+          (ps ? '<div class="rd-clt-pl" title="' + esc(ps.note || ps.text) + '">' +
+                '<b>Pulse:</b> ' + esc(ps.text) + '</div>' : '') + '</td>' +
         '<td>' + (c.lastVisit ? esc(fmtShort(c.lastVisit)) : '<span class="rd-ws-quiet">None</span>') + '</td>' +
         '<td>' + (nv ? esc(fmtShort(nv)) : (c.freq === 'NA' ? '<span class="rd-ws-quiet">No cadence</span>' : '')) + '</td>' +
         '<td class="rd-clt-con">' + contactCell(c) + '</td>' +
