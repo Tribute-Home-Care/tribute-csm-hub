@@ -3088,6 +3088,43 @@
 
      It is re-checked on every arrival AND on the dropdown, because choosing
      an event has to bring the list straight back. */
+  /* ── LTC: A WAIT THAT CAN NEVER END ───────────────────────────────────
+     Reported twice: "LTC was still on 'Loading the week...' after six seconds
+     ... that is the second sweep where it never finished loading for me."
+
+     Measured here it settles in about a second, 55 rows, on both a CSM and a
+     manager profile -- so this is not slowness, it is a read that sometimes
+     does not come back. renderLtc catches a fetch that REJECTS and says
+     "Could not load the board"; a fetch that hangs instead of failing is
+     never caught, and it has no deadline of its own. The client reads in
+     v2-client.js were given a 20-second abort for exactly this failure, and
+     ltc_board never got one. Azure's gateway does not cut until 230s, so the
+     page can sit on that line for nearly four minutes.
+
+     This layer cannot abort V1's fetch from out here, so it does the next
+     most honest thing: once the deadline passes it stops the page claiming to
+     be loading and offers the retry a CSM would reach for anyway. THE REAL
+     FIX IS A TIMEOUT ON THE FETCH, which lives in index.html -- recorded here
+     rather than quietly papered over, because this treats the symptom. */
+  const LTC_DEADLINE = 12000;
+  let _ltcWatch = null;
+  function watchLtc() {
+    if (_ltcWatch) { clearTimeout(_ltcWatch); _ltcWatch = null; }
+    const started = Date.now();
+    const tick = function () {
+      const el = $('#ltc-rows');
+      if (!el) return;
+      if (!/Loading the week/i.test(el.textContent || '')) return;   // it landed
+      if (Date.now() - started < LTC_DEADLINE) { _ltcWatch = setTimeout(tick, 1000); return; }
+      el.innerHTML = '<p class="rd-ws-warn" style="padding:12px;">Viv has not answered in ' +
+        Math.round(LTC_DEADLINE / 1000) + ' seconds, so the week is not loaded. ' +
+        'It is not empty \u2014 it is unread. ' +
+        '<button type="button" class="rd-link" onclick="renderLtc(true)">Try again</button></p>';
+      _ltcWatch = null;
+    };
+    _ltcWatch = setTimeout(tick, 1000);
+  }
+
   function fpHasEvent() {
     const sel = $('#fp-event-select');
     return !!(sel && sel.value);
@@ -6254,6 +6291,7 @@
       if (p === 'team') { try { decorateTeam(); swapIcons($('#page-team') || document); } catch (e) {} }
       if (p === 'md') { try { decorateMd(); } catch (e) {} }
       if (p === 'priority') { try { installFillPriority(); decorateFillPriority(); } catch (e) {} }
+      if (p === 'ltc') { try { watchLtc(); } catch (e) {} }
       return r;
     };
     wrapped.__rdSwap = true;

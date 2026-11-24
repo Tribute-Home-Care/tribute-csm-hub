@@ -388,6 +388,20 @@
   function updateBadge() {
     const el = document.getElementById('v2-blocked-count');
     if (!el) return;
+    /* V1 HAS ITS OWN READ-ONLY STATE AND THIS STRIP NEVER ASKED ABOUT IT.
+       writesBlocked() is isViewingAs() && !_viewAsUnlocked: a manager looking
+       inside somebody else's Hub cannot write until they unlock it. The strip
+       only ever read the server's write config, so it said "writes on" there
+       -- and once that became "saving works" it stopped being merely vague
+       and became a promise the Hub will not keep. Reported as: "says 'saving
+       works' in a read-only view."
+
+       It is checked FIRST because it is the binding answer: whatever the
+       server would allow, this session is not going to write. */
+    let blocked = false;
+    try { blocked = typeof window.writesBlocked === 'function' && window.writesBlocked(); }
+    catch (e) { blocked = false; }
+    if (blocked) { el.textContent = 'read-only'; return; }
     const sw = App.serverWrite;
     /* ONE VOCABULARY, AND IT IS THE CSM'S. Courtney: "under the logo it reads
        'writes on \u00b7 1 thing to look at', which is still unclear." It was:
@@ -408,6 +422,27 @@
     else el.textContent = 'saving works';
   }
   App.updateWriteBadge = updateBadge;
+  /* Entering or leaving a view-as changes the answer above, and nothing else
+     repaints this strip when it does. V1 redraws its own banner on every such
+     change, so that is the hook. */
+  (function () {
+    const install = function () {
+      if (typeof window.renderViewAsBanner !== 'function' || window.renderViewAsBanner.__rdBadge) return true;
+      const orig = window.renderViewAsBanner;
+      const wrapped = function () {
+        const r = orig.apply(this, arguments);
+        try { updateBadge(); } catch (e) {}
+        return r;
+      };
+      wrapped.__rdBadge = true;
+      window.renderViewAsBanner = wrapped;
+      return true;
+    };
+    if (!install()) {
+      let n = 0;
+      const t = setInterval(function () { if (install() || ++n > 40) clearInterval(t); }, 250);
+    }
+  })();
 
   /* ── Wrapping ──────────────────────────────────────────────────────────
      Each entry names the production function, the capability it needs, the
