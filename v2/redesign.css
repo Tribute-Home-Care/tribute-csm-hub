@@ -2985,3 +2985,16 @@ input[type="email"], select { min-height: var(--h-ctl); }
 .rd-act-menu { position: relative; display: inline-flex; }
 .rd-act-menu .rd-menu-list { top: 100%; left: 0; }
 .rd-act-menu .rd-menu-list.right { left: auto; right: 0; }
+
+/* Caseload health, drawn by the layer. Collapsed by default; this is how it
+   looks once opened. */
+.rd-ch { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.rd-ch-p { background: var(--surface-2); border-radius: 9px; padding: 9px 10px; }
+.rd-ch-n { display: block; font-size: 19px; font-weight: 700; line-height: 1.1; color: var(--ink); }
+.rd-ch-l { display: block; font-size: 10.5px; color: var(--ink-3); margin-top: 3px; }
+.rd-ch-p.ok .rd-ch-n { color: #2F6B37; }
+.rd-ch-p.warn .rd-ch-n { color: #92580B; }
+.rd-ch-p.bad .rd-ch-n { color: #A4271E; }
+.rd-ch-notes { margin-top: 10px; }
+.rd-ch-notes p { font-size: 11.5px; line-height: 1.5; color: var(--ink-3); margin: 0 0 6px; }
+.rd-ch-notes p:last-child { margin-bottom: 0; }

@@ -2931,6 +2931,138 @@
     window.renderTodos = wrapped;
   }
 
+  /* ── CASELOAD HEALTH, IN THE LAYER ────────────────────────────────────
+     Courtney questioned four numbers in this card and all four were fair.
+
+     1. "High need = 12 in Caseload health, but High touch = 6 one line
+        down." Two different measures wearing the same word. High need is
+        Pulse's judgement (trulyHighNeed); High touch was the TIER field.
+        Named for what each one is now, and the card says so in a line,
+        because the next person to see 12 beside 6 will ask again.
+
+     2. "1730 touches in 30 days for one CSM isn't a number anyone can act
+        on. It looks like every auto-logged email and call is being counted."
+        It was: workloadFor counts every touchpoint row, and the Viv and
+        email syncs write them with auto:true. What a CSM can act on is what
+        a PERSON logged, so that is the number. The auto count is still shown
+        beside it rather than hidden, because it is real and somebody will
+        notice it went missing.
+
+     3. Visits this month reading 0 of 22 beside 60% compliance was the
+        month-start fault, fixed on 23 November. The card now takes both
+        figures from visitCompliance() so they cannot drift apart again.
+
+     4. "Caseload health is manager information." It is collapsed by default
+        and this does not change that. Tier mix only appears when tiers have
+        actually been set, which was already true and is kept.
+
+     Rendered here rather than in index.html because index.html is V1. */
+  function caseloadHealth() {
+    const app = A();
+    let cl = [];
+    try { cl = (app.fn.get('clients') || []).filter(function (c) { return !c.isOffice; }); } catch (e) { return null; }
+    if (!cl.length) return null;
+
+    let vc = null;
+    try { vc = typeof visitCompliance === 'function' ? visitCompliance() : null; } catch (e) {}
+
+    const over = cl.filter(function (c) {
+      const d = daysSince(c.lastVisit);
+      return c.freq !== 'NA' && (d === null || d > (parseInt(c.freq) || 90));
+    });
+
+    // Touchpoints in the last thirty days, split by who wrote them.
+    let mine = 0, auto = 0;
+    try {
+      const cutoff = new Date(Date.now() - 30 * DAY).toISOString().slice(0, 10);
+      (app.fn.get('touchpoints') || []).forEach(function (t) {
+        if (!t.date || String(t.date).slice(0, 10) < cutoff) return;
+        if (t.auto) auto++; else mine++;
+      });
+    } catch (e) {}
+
+    const tier = function (k) { return cl.filter(function (c) { return (c.tier || 'Medium') === k; }).length; };
+    const hi = tier('High'), med = tier('Medium'), lo = tier('Low');
+    const tiersSet = [hi, med, lo].filter(function (n) { return n > 0; }).length > 1;
+
+    let highNeed = 0;
+    try {
+      cl.forEach(function (c) {
+        const pp = pulseFor(c);
+        if (pp && typeof pp.trulyHighNeed !== 'undefined') { if (pp.trulyHighNeed) highNeed++; }
+        else if (c.tier === 'High') highNeed++;
+      });
+    } catch (e) {}
+
+    return { n: cl.length, vc: vc, over: over.length, mine: mine, auto: auto,
+             hi: hi, med: med, lo: lo, tiersSet: tiersSet, highNeed: highNeed };
+  }
+
+  function renderCaseloadHealth() {
+    const el = $('#home-caseload');
+    if (!el) return;
+    const h = caseloadHealth();
+    if (!h) { el.style.display = 'none'; return; }
+    el.style.display = '';
+
+    const pill = function (n, label, tone) {
+      return '<div class="rd-ch-p' + (tone ? ' ' + tone : '') + '">' +
+        '<span class="rd-ch-n">' + esc(String(n)) + '</span>' +
+        '<span class="rd-ch-l">' + esc(label) + '</span></div>';
+    };
+    const pct = h.vc && h.vc.due ? h.vc.pct : null;
+    const parts = [
+      pill(h.n, 'Clients', ''),
+      pill(h.over, 'Visits overdue', h.over ? 'bad' : 'ok'),
+      h.vc ? pill((pct === null ? '\u2014' : pct + '%'), 'Visit compliance',
+                  pct === null ? '' : pct >= 90 ? 'ok' : pct >= 75 ? 'warn' : 'bad') : '',
+      pill(h.mine, 'Touchpoints you logged', '')
+    ];
+    if (h.tiersSet) {
+      parts.push(pill(h.hi, 'High tier', 'bad'));
+      parts.push(pill(h.med, 'Medium tier', 'warn'));
+      parts.push(pill(h.lo, 'Low tier', 'ok'));
+    }
+
+    const notes = [];
+    if (h.vc && h.vc.due) {
+      notes.push(h.vc.done + ' of ' + h.vc.due + ' clients due a visit this month have had one.');
+    }
+    if (h.auto) {
+      notes.push(plural(h.auto, 'touchpoint') + ' in the last 30 days were logged automatically ' +
+                 'by the Viv and email syncs, and are not counted above.');
+    }
+    /* The two numbers that looked like one. */
+    if (h.tiersSet && h.highNeed !== h.hi) {
+      notes.push('High need is ' + h.highNeed + ': what Pulse judges needs the most attention. ' +
+                 'High tier is ' + h.hi + ': the cadence set on the client record. They are different things.');
+    }
+    if (!h.tiersSet) {
+      notes.push('Touch tiers are not set yet, so there is no mix to show.');
+    }
+
+    el.innerHTML = '<div class="rd-ch">' + parts.filter(Boolean).join('') + '</div>' +
+      (notes.length ? '<div class="rd-ch-notes">' +
+        notes.map(function (t) { return '<p>' + esc(t) + '</p>'; }).join('') + '</div>' : '');
+  }
+
+  /* V1 owns the element and repaints it, so the layer takes the function
+     rather than racing it. Same pattern as the tracker and the to-do list. */
+  function installCaseload() {
+    if (typeof window.renderHomeCaseload !== 'function' || window.renderHomeCaseload.__rd) return;
+    const orig = window.renderHomeCaseload;
+    const wrapped = function () {
+      try { renderCaseloadHealth(); }
+      catch (e) {
+        console.error('[redesign] caseload health failed; falling back:', e);
+        try { orig.apply(this, arguments); } catch (e2) {}
+      }
+    };
+    wrapped.__rd = true;
+    wrapped.original = orig;
+    window.renderHomeCaseload = wrapped;
+  }
+
   function installTracker() {
     if (_origRenderClientMaster || typeof window.renderClientMaster !== 'function') return;
     if (window.renderClientMaster.__rd) return;
@@ -4346,6 +4478,7 @@
       mountTop();
       installTracker();
       installTodos();
+      installCaseload();
       if (window.TributeWorkflows) window.TributeWorkflows.install();
       restructureHome();
       refreshTop();
