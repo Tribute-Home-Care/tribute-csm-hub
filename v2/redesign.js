@@ -2268,9 +2268,13 @@
      calls these "the seven Baltimore requirements" and MD_REGS defines SIX;
      driving the table off the constant means the table and the regulation
      list cannot drift apart, whichever of the two is corrected. */
+  /* SHORT ENOUGH TO FIT THE COLUMN. "Reassessment" is one unbreakable word
+     needing 87px in a 72px cell, so it spilled over its neighbours and the
+     header row read "REASSESSMENDTE". The full regulation wording is on
+     each heading's title, which is where the long form belongs. */
   const MD_SHORT = {
     initial: '48h initial', cadence: 'Assessment', annual: 'Annual',
-    reassess: 'Reassessment', weekly: 'Weekly note', pmof: 'PMOF'
+    reassess: 'Reassess', weekly: 'Weekly note', pmof: 'PMOF'
   };
   /* The same expressions renderMdDetail uses, in one place so the table and
      the detail panel cannot disagree about one client. true = on file,

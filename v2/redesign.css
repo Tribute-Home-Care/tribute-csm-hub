@@ -3269,11 +3269,16 @@ button.rd-s30-b.done { background: var(--accent, #C95018); border-color: var(--a
    The columns are narrow on purpose: each one is a yes, a no or a "nothing
    to judge it against", and the detail panel holds the date and the form. */
 .rd-md-views { display: flex; gap: 6px; margin: 0 0 10px; flex-wrap: wrap; }
+/* A heading longer than its column used to spill over the next one, because
+   a single long word cannot wrap. It breaks now, and the headings sit over
+   the dots they describe rather than left of them. */
 .rd-md th.rd-md-h {
   writing-mode: horizontal-tb; font-size: 10px; letter-spacing: .03em;
-  white-space: normal; max-width: 72px; line-height: 1.25; vertical-align: bottom;
+  white-space: normal; width: 76px; max-width: 76px; line-height: 1.25;
+  vertical-align: bottom; text-align: center; overflow-wrap: anywhere;
+  padding-right: 0;
 }
-.rd-md-c { text-align: center; width: 72px; }
+.rd-md-c { text-align: center; width: 76px; padding-right: 0; }
 .rd-md-c .rd-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
 .rd-md-c.ok { color: #3D7A5B; }
 .rd-md-c.bad { color: #B4453C; }
