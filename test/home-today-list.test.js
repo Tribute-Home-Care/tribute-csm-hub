@@ -99,10 +99,16 @@ ok('...and the filter reads the set', /\(r\.buckets \|\| \[r\.bucket\]\)\.indexO
    tier is the tiebreak that was missing, so a High need client no longer sat
    below a Low one because of the alphabet. Name stays last, so the order is
    stable between renders and the list does not reshuffle under the reader. */
-ok('...and the list is ordered by urgency, then tier, then name',
+ok('...and the list is ordered by group, then tier, then name',
    /const TIER_RANK = \{ High: 0, Medium: 1, Low: 2 \};/.test(CODE) &&
-   /return a\.rank - b\.rank \|\|/.test(CODE) &&
+   /return group\(a\) - group\(b\) \|\|/.test(CODE) &&
    /String\(a\.name\)\.localeCompare\(String\(b\.name\)\);/.test(CODE));
+/* THE GROUP IS ABOUT THE CLIENT, NOT THE ROW. Success in 30 means this client
+   has open milestones, not that the row we kept is a milestone row. A client
+   who is overdue AND has milestones open is a new client whose onboarding is
+   slipping, which outranks an overdue visit on a settled one. */
+ok('...and a client with open milestones is grouped by that, not by their row',
+   /return r\.kind === 'Pulse' \? 0 : \(r\.s30 \? 1 : 2\);/.test(CODE));
 ok('an open visit with no matching client is not folded into another',
    /\('name:' \+ r\.name\)/.test(CODE));
 // Behavioural: the collapse, over a client who qualifies three ways.

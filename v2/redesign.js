@@ -3301,8 +3301,20 @@
        Name stays as the last resort, so the order is stable between renders
        and the list does not reshuffle under the reader. */
     const TIER_RANK = { High: 0, Medium: 1, Low: 2 };
+    /* THE GROUP IS ABOUT THE CLIENT, NOT THE ROW.
+       "Success in 30" means this client has open milestones, not that the row
+       we kept happens to be a milestone row. A client who is overdue AND has
+       milestones open shows their overdue row with the milestone count under
+       it, and belongs in the Success in 30 group: they are a new client whose
+       onboarding is slipping, which is more urgent than an overdue visit on a
+       settled one. Ranking by the row's own kind put them below it. */
+    const group = function (r) {
+      const urgent = r.tone === 'bad';
+      if (urgent) return r.kind === 'Pulse' ? 0 : (r.s30 ? 1 : 2);
+      return r.kind === 'Pulse' ? 3 : 4;
+    };
     one.sort(function (a, b) {
-      return a.rank - b.rank ||
+      return group(a) - group(b) ||
              ((TIER_RANK[a.tier] === undefined ? 3 : TIER_RANK[a.tier]) -
               (TIER_RANK[b.tier] === undefined ? 3 : TIER_RANK[b.tier])) ||
              String(a.name).localeCompare(String(b.name));
