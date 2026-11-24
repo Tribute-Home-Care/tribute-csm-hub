@@ -4230,10 +4230,18 @@
        it, and belongs in the Success in 30 group: they are a new client whose
        onboarding is slipping, which is more urgent than an overdue visit on a
        settled one. Ranking by the row's own kind put them below it. */
+    /* ASK isPulse, NOT THE LABEL. This read `r.kind === 'Pulse'`, and kind
+       stopped being the word "Pulse" the moment her plain labels went in:
+       the row says "Safety" or "Family not told" now. So from that change
+       until this one NO row was recognised as a Pulse row here, and every
+       flag fell into the ordinary urgent group -- which is how a Safety
+       flag came to sit below three "No visit on record" rows on a real
+       caseload. The flag is carried by isPulse, which is what the row knows
+       about itself rather than what it happens to be called. */
     const group = function (r) {
       const urgent = r.tone === 'bad';
-      if (urgent) return r.kind === 'Pulse' ? 0 : (r.s30 ? 1 : 2);
-      return r.kind === 'Pulse' ? 3 : 4;
+      if (urgent) return r.isPulse ? 0 : (r.s30 ? 1 : 2);
+      return r.isPulse ? 3 : 4;
     };
     one.sort(function (a, b) {
       return group(a) - group(b) ||

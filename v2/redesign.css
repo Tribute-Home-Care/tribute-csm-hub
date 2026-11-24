@@ -3246,3 +3246,16 @@ button.rd-s30-b.done { background: var(--accent, #C95018); border-color: var(--a
 @media (max-width: 1400px) {
   .rd-clt-pl { max-width: none; -webkit-line-clamp: 3; }
 }
+
+
+/* V1'S FOUR STAT TILES STAY DOWN WHEN THE CARD IS OPENED. The open-state
+   rule carries !important, so it beat the [hidden] the layer sets and the
+   tiles came back the moment Caseload health was expanded -- which is the
+   only time anybody reads it. That is why "In Onboarding 3" was still
+   appearing beside "4 in first 30 days", and "Visits This Month 15" above
+   "5 of 27 due visits done", after they were supposedly removed.
+
+   Both numbers are in the card itself, with labels that say what they
+   count. */
+#rd-home-cols .rd-hr > .rd-sec.rd-sec-fold[data-open] > .g4[hidden],
+#rd-s-case .g4[hidden] { display: none !important; }

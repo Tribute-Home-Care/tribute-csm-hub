@@ -127,7 +127,31 @@ ok('...and the list is ordered by group, then tier, then name',
    who is overdue AND has milestones open is a new client whose onboarding is
    slipping, which outranks an overdue visit on a settled one. */
 ok('...and a client with open milestones is grouped by that, not by their row',
-   /return r\.kind === 'Pulse' \? 0 : \(r\.s30 \? 1 : 2\);/.test(CODE));
+   /return r\.isPulse \? 0 : \(r\.s30 \? 1 : 2\);/.test(CODE));
+/* IT ASKS isPulse, NOT THE LABEL. This read `r.kind === 'Pulse'`, and kind
+   stopped being the word "Pulse" the moment her plain labels went in: the
+   row says "Safety" or "Family not told" now. From that change until this
+   one NO row was recognised as a Pulse row here, and every flag fell into
+   the ordinary urgent group -- which is how a Safety flag came to sit below
+   three "No visit on record" rows on a real caseload. A row should be asked
+   what it IS, not what it is called. */
+ok('a Pulse row is recognised by what it is, not by what it is labelled',
+   /return r\.isPulse \? 3 : 4;/.test(CODE) && !/r\.kind === 'Pulse'/.test(CODE) &&
+   /isPulse: true,/.test(CODE));
+// Behavioural, over the five shapes the grouper actually sees.
+const group = (r) => { const urgent = r.tone === 'bad'; if (urgent) return r.isPulse ? 0 : (r.s30 ? 1 : 2); return r.isPulse ? 3 : 4; };
+ok('a red flag labelled Safety still groups first',
+   group({ tone: 'bad', isPulse: true, kind: 'Safety' }) === 0);
+ok('...and beats an overdue visit on a client with milestones open',
+   group({ tone: 'bad', isPulse: true, kind: 'Safety' }) <
+   group({ tone: 'bad', s30: 4, kind: 'No visit on record' }));
+ok('...which is the exact case that was wrong: Safety under three cadence rows',
+   group({ tone: 'bad', isPulse: true, kind: 'Safety' }) <
+   group({ tone: 'bad', s30: 0, kind: 'No visit on record' }));
+ok('a settled client overdue still ranks below one whose onboarding is slipping',
+   group({ tone: 'bad', s30: 0 }) > group({ tone: 'bad', s30: 4 }));
+ok('and a warn-tone Pulse row still sits above a warn-tone cadence row',
+   group({ tone: 'warn', isPulse: true }) < group({ tone: 'warn' }));
 ok('an open visit with no matching client is not folded into another',
    /\('name:' \+ r\.name\)/.test(CODE));
 // Behavioural: the collapse, over a client who qualifies three ways.
