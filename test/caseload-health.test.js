@@ -75,7 +75,7 @@ ok('both visit figures come from visitCompliance()',
 ok('the arrays are counted, not concatenated',
    /const vcDue = h\.vc && h\.vc\.due \? h\.vc\.due\.length : 0;/.test(CODE) &&
    /const vcDone = h\.vc && h\.vc\.done \? h\.vc\.done\.length : 0;/.test(CODE) &&
-   /notes\.push\(vcDone \+ ' of ' \+ vcDue \+ ' clients due a visit this month have had one\.'\);/.test(CODE));
+   /vcDue \? vcDone \+ ' of ' \+ vcDue \+ ' clients due a visit have had one' : ''/.test(CODE));
 ok('...and a month with nothing due shows a dash, not a hundred per cent',
    /const pct = vcDue \? h\.vc\.pct : null;/.test(CODE));
 /* Behavioural, over the shapes visitCompliance actually returns. A regex over
@@ -103,14 +103,22 @@ ok('V1 stat tiles are stood down', /const g4 = \$\('#rd-s-case \.g4'\);/.test(CO
 ok('...and the card says all four itself',
    /pill\(h\.highNeed, 'High need, per Pulse'/.test(CODE) &&
    /pill\(h\.firstDays, 'In first 30 days'/.test(CODE) &&
-   /pill\(h\.logged, 'Visits logged this month'/.test(CODE));
+   /pill\(h\.logged, 'Visit records written'/.test(CODE));
 ok('...with first 30 days using the null-checked count, not the falsy one',
    /const firstDays = cl\.filter\(function \(c\) \{ return inFirstDays\(c, 30\); \}\)\.length;/.test(CODE));
-/* The two visit numbers never reconcile: one counts visit RECORDS this month,
-   the other counts CLIENTS whose cadence fell due this month and have had
-   one. Sitting unlabelled next to each other, they read as a contradiction. */
-ok('...and the card says why the two visit numbers differ',
-   /counts visit records\. Visit compliance counts/.test(CODE));
+/* THE LABELS DO THE WORK NOW, NOT A FOOTNOTE. One counts visit RECORDS, the
+   other counts CLIENTS whose cadence fell due and have had one. They sat
+   next to each other with a sentence underneath explaining the difference,
+   and FOUR readers in a row still reported them as a contradiction. An
+   explanation printed under two numbers does not stop them looking like
+   they should match. */
+ok('the record count says it counts records',
+   /pill\(h\.logged, 'Visit records written', '', 'any visit, due or not'\)/.test(CODE));
+ok('...and the fraction belongs to compliance, as its own sub-line',
+   /pill\(\(pct === null[\s\S]{0,200}clients due a visit have had one' : ''\)/.test(CODE) &&
+   /\.rd-ch-s \{/.test(CSS));
+ok('...so neither is a loose note under the pills any more',
+   !/notes\.push\('Visits logged this month counts visit records/.test(CODE));
 
 /* ── 4. still manager information ─────────────────────────────────────── */
 ok('it is still the folding section, closed on arrival',

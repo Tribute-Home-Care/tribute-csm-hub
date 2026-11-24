@@ -255,5 +255,41 @@ ok('...and says nothing rather than zero when the globals are missing',
 ok('...counting only clients inside their first thirty days',
    /if \(!c\.startDate \|\| !inFirstDays\(c, 30\)\) return;/.test(CODE));
 
+/* ── HER CHIPS, AND THEY COUNT WHAT IS ON SCREEN ─────────────────────────
+   "Maryland Compliance shows 'Nothing outstanding under this view' directly
+   under counts of 5, 9, 17 and 28." The KPI row showed market totals while
+   the list showed one CSM's clients, so an empty list sat directly beneath
+   four numbers saying otherwise. A count beside a list has to be a count OF
+   that list -- her rule from the first review: "if the badge says 9, the
+   list under it has 9 clients in it." */
+ok('her five groups, in her words',
+   /\['late',\s*'Late now'/.test(CODE) && /\['soon',\s*'Due in 14 days'/.test(CODE) &&
+   /\['byhand',\s*'Check by hand'/.test(CODE) && /chip\('cleanup', 'Cleanup'/.test(CODE) &&
+   /chip\('all', 'All', counts\.all\)/.test(CODE));
+ok('...and they are clickable, not decoration',
+   /data-mdgroup="/.test(CODE) && /\$\$\('\[data-mdgroup\]', host\)/.test(CODE));
+/* THE COUNT IS OF live0 -- the rows this filter leaves -- not of the market. */
+ok('the counts follow the filter',
+   /counts\[g\[0\]\] = live0\.filter\(function \(r\) \{ return g\[2\]\(r, mdStates\(r\)\); \}\)\.length;/.test(CODE) &&
+   /if \(_mdView === 'mine'\) rows = rows\.filter\(mdOwn\);\n\s*const live0/.test(CODE));
+ok('...and Cleanup counts the cleanup group, not the live one',
+   /counts\.cleanup = old\.length;/.test(CODE));
+ok('pressing Cleanup opens the fold rather than filtering to nothing',
+   /if \(k === 'cleanup'\) \{/.test(CODE) && /det\.open = true;/.test(CODE));
+/* "Check by hand" is the state a dot cannot settle: no form on file, so the
+   requirement is neither met nor breached and somebody has to open Viv. */
+const ANY = (CODE.match(/function anyState\(st, want\) \{[\s\S]*?\n  \}/) || [''])[0];
+ok('there is one place deciding whether any requirement is in a state', !!ANY);
+const MD_REGS = [['initial'], ['cadence'], ['annual'], ['reassess'], ['weekly'], ['pmof']];
+const anyState = eval('(' + ANY + ')');
+ok('a client with one unmet requirement is Late now',
+   anyState({ initial: true, cadence: false, annual: true, reassess: true, weekly: true, pmof: true }, false));
+ok('a client with nothing on file is Check by hand, not Late',
+   anyState({ initial: null, cadence: true, annual: true, reassess: true, weekly: true, pmof: true }, null) &&
+   !anyState({ initial: null, cadence: true, annual: true, reassess: true, weekly: true, pmof: true }, false));
+ok('a client with every requirement met is neither',
+   !anyState({ initial: true, cadence: true, annual: true, reassess: true, weekly: true, pmof: true }, false) &&
+   !anyState({ initial: true, cadence: true, annual: true, reassess: true, weekly: true, pmof: true }, null));
+
 console.log('\n' + (fail ? 'FAILED ' + fail : 'PASSED all ' + pass));
 process.exit(fail ? 1 : 0);

@@ -2304,6 +2304,26 @@
   }
   const MD_VIEWS = [['mine', 'Mine'], ['all', 'All CSMs'], ['bycsm', 'Group by CSM']];
   let _mdView = 'mine';
+  /* HER FIVE CHIPS, AND THEY COUNT WHAT IS ON SCREEN. The KPI row above the
+     board showed market totals -- 5, 9, 17, 28 -- while the list under it
+     showed one CSM's clients, so "Nothing outstanding under this view" sat
+     directly beneath four numbers saying otherwise. A count beside a list
+     has to be a count OF that list, which is her rule from the very first
+     review: "if the badge says 9, the list under it has 9 clients in it."
+
+     "Check by hand" is the state a dot cannot settle: no form on file, so
+     the requirement is neither met nor breached and somebody has to open
+     Viv and look. */
+  const MD_GROUPS = [
+    ['late',    'Late now',        function (r, st) { return anyState(st, false); }],
+    ['soon',    'Due in 14 days',  function (r) { return r.statusEff === 'soon'; }],
+    ['byhand',  'Check by hand',   function (r, st) { return anyState(st, null); }],
+    ['clear',   'Fully clear',     function (r, st) { return !anyState(st, false) && !anyState(st, null); }]
+  ];
+  function anyState(st, want) {
+    return MD_REGS.some(function (g) { return st[g[0]] === want; });
+  }
+  let _mdGroup = '';
   function mdOwn(r) {
     const me = ((A().profile || {}).name) || '';
     return !!me && String(r.csm || '').toLowerCase() === me.toLowerCase();
@@ -2383,8 +2403,21 @@
       return (String(r.name || '') + ' ' + String(r.csm || '')).toLowerCase().indexOf(q) > -1;
     });
     if (_mdView === 'mine') rows = rows.filter(mdOwn);
-    const live = rows.filter(function (r) { return !mdIsCleanup(r); });
+    const live0 = rows.filter(function (r) { return !mdIsCleanup(r); });
     const old = rows.filter(mdIsCleanup);
+    /* The chips count live0 -- what this filter leaves -- not the market. */
+    const counts = {};
+    MD_GROUPS.forEach(function (g) {
+      counts[g[0]] = live0.filter(function (r) { return g[2](r, mdStates(r)); }).length;
+    });
+    counts.cleanup = old.length;
+    counts.all = live0.length;
+    const live = _mdGroup && _mdGroup !== 'all' && _mdGroup !== 'cleanup'
+      ? live0.filter(function (r) {
+          const g = MD_GROUPS.filter(function (x) { return x[0] === _mdGroup; })[0];
+          return g ? g[2](r, mdStates(r)) : true;
+        })
+      : live0;
     // Soonest deadline first inside the live group; the cleanup group is the
     // worst first, because that is the order you would work a backlog in.
     live.sort(function (a, b) { return (b.overdueByEff || -9999) - (a.overdueByEff || -9999); });
@@ -2411,11 +2444,23 @@
           'the forms and client feed refresh every 12 hours, so this can take a moment.</p>'
         : '<p class="rd-ws-quiet">Nothing outstanding under this view.</p>');
     }
+    const chip = function (key, label, n) {
+      return '<button type="button" class="rd-view' + (_mdGroup === key || (!_mdGroup && key === 'all') ? ' on' : '') +
+        '" data-mdgroup="' + key + '">' + esc(label) +
+        '<span class="n">' + n + '</span></button>';
+    };
     host.innerHTML =
       '<div class="rd-md-views">' + MD_VIEWS.map(function (v) {
         return '<button type="button" class="rd-view' + (_mdView === v[0] ? ' on' : '') +
                '" data-mdview="' + v[0] + '">' + esc(v[1]) + '</button>';
-      }).join('') + '</div>' + body +
+      }).join('') + '</div>' +
+      /* The chips sit under the view switch because they count what the
+         view leaves: change who you are looking at and every number moves. */
+      (_mdView === 'bycsm' ? '' :
+        '<div class="rd-views rd-md-chips" role="tablist">' +
+        MD_GROUPS.map(function (g) { return chip(g[0], g[1], counts[g[0]]); }).join('') +
+        (counts.cleanup ? chip('cleanup', 'Cleanup', counts.cleanup) : '') +
+        chip('all', 'All', counts.all) + '</div>') + body +
       (old.length
         ? '<details class="rd-md-clean"><summary>Cleanup · ' + plural(old.length, 'client') +
           ' more than a year past due<span>Records to correct, not deadlines to meet</span></summary>' +
@@ -2423,6 +2468,17 @@
         : '');
     $$('[data-mdview]', host).forEach(function (b) {
       b.addEventListener('click', function () { _mdView = b.dataset.mdview; renderMdTable(); });
+    });
+    $$('[data-mdgroup]', host).forEach(function (b) {
+      b.addEventListener('click', function () {
+        const k = b.dataset.mdgroup;
+        _mdGroup = k === 'all' ? '' : k;
+        renderMdTable();
+        if (k === 'cleanup') {
+          const det = $('.rd-md-clean');
+          if (det) { det.open = true; det.scrollIntoView({ block: 'nearest' }); }
+        }
+      });
     });
     $$('[data-mdcid]', host).forEach(function (tr) {
       const go = function () {
@@ -3990,10 +4046,11 @@
     if (!h) { el.style.display = 'none'; return; }
     el.style.display = '';
 
-    const pill = function (n, label, tone) {
+    const pill = function (n, label, tone, sub) {
       return '<div class="rd-ch-p' + (tone ? ' ' + tone : '') + '">' +
         '<span class="rd-ch-n">' + esc(String(n)) + '</span>' +
-        '<span class="rd-ch-l">' + esc(label) + '</span></div>';
+        '<span class="rd-ch-l">' + esc(label) + '</span>' +
+        (sub ? '<span class="rd-ch-s">' + esc(sub) + '</span>' : '') + '</div>';
     };
     /* visitCompliance() RETURNS ARRAYS OF CLIENTS, not counts: {due, done,
        deferred, pct}. An empty array is truthy, so `h.vc.due` as a test was
@@ -4008,9 +4065,18 @@
       pill(h.highNeed, 'High need, per Pulse', h.highNeed ? 'warn' : ''),
       pill(h.firstDays, 'In first 30 days', ''),
       pill(h.over, 'Visits overdue', h.over ? 'bad' : 'ok'),
+      /* THE TWO VISIT NUMBERS, LABELLED SO THEY CANNOT READ AS ONE.
+         "Visits logged this month 15" sat above a note explaining that
+         visit compliance counts something else, and FOUR readers in a row
+         still reported it as a contradiction. An explanation printed under
+         two numbers does not stop them looking like they should match; only
+         the labels do. So compliance carries its own 5-of-27 as a sub-line,
+         which is the thing that fraction actually belongs to, and the other
+         says plainly that it counts RECORDS. */
       h.vc ? pill((pct === null ? '\u2014' : pct + '%'), 'Visit compliance',
-                  pct === null ? '' : pct >= 90 ? 'ok' : pct >= 75 ? 'warn' : 'bad') : '',
-      pill(h.logged, 'Visits logged this month', ''),
+                  pct === null ? '' : pct >= 90 ? 'ok' : pct >= 75 ? 'warn' : 'bad',
+                  vcDue ? vcDone + ' of ' + vcDue + ' clients due a visit have had one' : '') : '',
+      pill(h.logged, 'Visit records written', '', 'any visit, due or not'),
       pill(h.mine, 'Touchpoints you logged', '')
     ];
     if (h.tiersSet) {
@@ -4020,17 +4086,12 @@
     }
 
     const notes = [];
-    /* The two visit numbers that look like they should reconcile. */
-    if (vcDue) {
-      notes.push('Visits logged this month counts visit records. Visit compliance counts ' +
-                 'clients whose cadence fell due this month, which is a different question.');
-    }
-    if (vcDue) {
-      /* .length on both. Concatenating the arrays themselves printed
-         "[object Object],[object Object]... of [object Object],..." in the
-         card, which is what reading the live page caught. */
-      notes.push(vcDone + ' of ' + vcDue + ' clients due a visit this month have had one.');
-    }
+    /* BOTH OF THESE WERE NOTES UNDER THE PILLS and are the pills' own
+       sub-lines now. A fraction printed below two unrelated numbers gets
+       read as the difference between them, which is exactly what kept
+       happening. The .length on vcDone/vcDue is still the point --
+       visitCompliance() returns ARRAYS of clients, and concatenating them
+       printed "[object Object],[object Object]..." in this card. */
     if (h.auto) {
       notes.push(plural(h.auto, 'touchpoint') + ' in the last 30 days were logged automatically ' +
                  'by the Viv and email syncs, and are not counted above.');
@@ -4476,6 +4537,8 @@
     checking: 'Check', confirming: 'Confirm', clarifying: 'Clarify', calling: 'Call',
     scheduling: 'Schedule', asking: 'Ask', reviewing: 'Review', reaching: 'Reach',
     following: 'Follow', letting: 'Let', getting: 'Get', making: 'Make',
+    setting: 'Set', updating: 'Update', adding: 'Add', sending: 'Send',
+    logging: 'Log', booking: 'Book', telling: 'Tell', noting: 'Note',
     'a call': 'Call', 'a conversation': 'Talk', 'a quick check': 'Check',
     'a direct call': 'Call', 'a quick call': 'Call', 'a short call': 'Call',
     'a note': 'Note', 'a message': 'Message'
@@ -4483,7 +4546,28 @@
   function shortStep(t) {
     let s = String(t || '').trim().replace(/^Worth\s+/i, '');
     s = s.split(/\s[\u2014\u2013-]\s/)[0];
-    if (s.length > 95) { const cut = s.indexOf(', ', 45); if (cut > 0) s = s.slice(0, cut); }
+    /* CUT AT A CLAUSE BREAK, NOT AT ANY COMMA. indexOf(', ', 45) found the
+       comma INSIDE a parenthetical and cut there, so a step arrived as
+       "Setting the notify contact field from the client notes (Jay" with the
+       bracket never closed. The cut has to be at depth zero. */
+    if (s.length > 95) {
+      let depth = 0, cut = -1;
+      for (let i = 0; i < s.length - 1; i++) {
+        const ch = s.charAt(i);
+        if (ch === '(' || ch === '[') depth++;
+        else if (ch === ')' || ch === ']') depth = Math.max(0, depth - 1);
+        else if (depth === 0 && ch === ',' && s.charAt(i + 1) === ' ' && i >= 45) { cut = i; break; }
+      }
+      if (cut > 0) s = s.slice(0, cut);
+    }
+    /* And if a bracket is still open after all of that, the tail is a
+       fragment rather than a shorter sentence, so it comes off. */
+    const opened = (s.match(/[([]/g) || []).length;
+    const closed = (s.match(/[)\]]/g) || []).length;
+    if (opened > closed) {
+      const at = Math.max(s.lastIndexOf('('), s.lastIndexOf('['));
+      if (at > 20) s = s.slice(0, at).trim();
+    }
     s = s.replace(/[.,;]$/, '');
     /* Strip the hedges Pulse writes to soften a suggestion. They turn an
        instruction into an opinion, and the column has room for one short
@@ -5056,13 +5140,30 @@
       if (d && !isNaN(d)) viv = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
     } catch (e) {}
 
-    let stale = '';
+    /* TWO FRESHNESS CLAIMS THAT CANNOT BOTH BE RIGHT, and both were true.
+       "Viv synced 6:45 AM" is when THIS BROWSER last asked; "Hub data 14h
+       ago" is when the bundle it was handed was GENERATED. A CSM reading
+       them together was told the data arrived this morning and is from
+       yesterday afternoon, which is impossible and is also exactly what
+       happened: the sync ran at 6:45 and fetched a 14-hour-old bundle.
+
+       So there is one claim now, and it is the one that matters -- how old
+       the DATA is, with the timestamp it was made, because that is what
+       every number on the page is describing. When the browser last checked
+       is only worth saying when there is no bundle date to report. */
+    let stale = '', genAt = '';
     try {
       const gen = app.data && app.data.shared && app.data.shared.viv && app.data.shared.viv.generatedAt;
       if (gen) {
-        const hrs = (Date.now() - new Date(gen).getTime()) / 36e5;
+        const d = new Date(gen);
+        const hrs = (Date.now() - d.getTime()) / 36e5;
+        if (!isNaN(d)) {
+          const t = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+          const sameDay = d.toDateString() === new Date().toDateString();
+          genAt = sameDay ? t : d.toLocaleDateString('en-US', { weekday: 'short' }) + ' ' + t;
+        }
         if (hrs >= 2) {
-          stale = hrs < 24 ? Math.round(hrs) + 'h ago' : Math.round(hrs / 24) + 'd ago';
+          stale = hrs < 24 ? Math.round(hrs) + 'h old' : Math.round(hrs / 24) + 'd old';
         }
       }
     } catch (e) {}
@@ -5071,15 +5172,21 @@
        the key cannot be the only test: after V1 repaints, the content is
        different but the key is not, and the line would never come back. Ask
        the element what it currently says as well. */
-    const key = base + '|' + n + '|' + viv + '|' + stale;
+    const key = base + '|' + n + '|' + viv + '|' + stale + '|' + genAt;
     const mine = el.querySelector('.rd-syncbits');
     if (key === _syncKey && mine) return;
     _syncKey = key;
+    /* The bundle date leads where there is one; the browser's own check time
+       only appears when there is not, because on its own it answers a
+       question nobody asked. */
+    const freshness = genAt
+      ? (stale
+          ? ' \u00b7 <span class="rd-stale">Viv data ' + esc(stale) + '</span>' +
+            '<span class="rd-syncsub"> \u00b7 from ' + esc(genAt) + '</span>'
+          : ' \u00b7 Viv data from ' + esc(genAt))
+      : (viv ? ' \u00b7 Viv last checked ' + esc(viv) : '');
     el.innerHTML = esc(base) + '<span class="rd-syncbits">' +
-      (n ? ' \u00b7 ' + plural(n, 'client') : '') +
-      (viv ? ' \u00b7 Viv synced ' + esc(viv) : '') +
-      (stale ? ' \u00b7 <span class="rd-stale">Hub data ' + esc(stale) + '</span>' : '') +
-      '</span>';
+      (n ? ' \u00b7 ' + plural(n, 'client') : '') + freshness + '</span>';
   }
 
   function renderComingUp() {

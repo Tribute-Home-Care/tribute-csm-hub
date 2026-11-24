@@ -3355,3 +3355,23 @@ button.rd-s30-b.done { background: var(--accent, #C95018); border-color: var(--a
   padding-top: 9px; color: var(--ink, #2B2724);
 }
 .rd-tm tfoot th { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-3, #8C857B); }
+
+
+/* The sub-line on a caseload pill. "Visit compliance 19%" carries its own
+   "5 of 27 clients due a visit have had one" here, because that fraction
+   belongs to compliance and read as a contradiction when it sat loose under
+   two unrelated numbers. */
+.rd-ch-s {
+  display: block; margin-top: 3px; font-size: 10.5px; line-height: 1.35;
+  color: var(--ink-3, #8C857B); font-weight: 400;
+}
+
+
+/* Her Maryland chips. They sit under the view switch because they count what
+   the view leaves: change who you are looking at and every number moves. */
+.rd-md-chips { margin: 0 0 11px; }
+
+
+/* The bundle timestamp beside its age, quieter than the age itself: the age
+   is the warning, the timestamp is the evidence for it. */
+.rd-syncsub { color: var(--ink-3, #8C857B); }
