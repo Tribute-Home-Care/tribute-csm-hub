@@ -266,6 +266,17 @@ ok('her five groups, in her words',
    /\['late',\s*'Late now'/.test(CODE) && /\['soon',\s*'Due in 14 days'/.test(CODE) &&
    /\['byhand',\s*'Check by hand'/.test(CODE) && /chip\('cleanup', 'Cleanup'/.test(CODE) &&
    /chip\('all', 'All', counts\.all\)/.test(CODE));
+/* HER FIVE, AND ONLY HER FIVE. I had added a sixth, "Fully clear", carried
+   over from V1's KPI row. An extra tab on a page whose whole complaint was
+   "five tabs" is the wrong thing to argue about. */
+ok('...and no sixth chip nobody asked for', !/'Fully clear'/.test(CODE));
+/* Her rule, from the first review: "if the badge says 9, the list under it
+   has 9 clients in it." Verified live at the time of writing -- Late now
+   11/11, Due in 14 days 0/0, Check by hand 16/16, All 25/25 -- which is
+   only possible because the chip and the list share one predicate. */
+ok('a chip and its list share one predicate, so they cannot disagree',
+   /return g \? g\[2\]\(r, mdStates\(r\)\) : true;/.test(CODE) &&
+   /counts\[g\[0\]\] = live0\.filter\(function \(r\) \{ return g\[2\]\(r, mdStates\(r\)\); \}\)\.length;/.test(CODE));
 ok('...and they are clickable, not decoration',
    /data-mdgroup="/.test(CODE) && /\$\$\('\[data-mdgroup\]', host\)/.test(CODE));
 /* THE COUNT IS OF live0 -- the rows this filter leaves -- not of the market. */
@@ -290,6 +301,14 @@ ok('a client with nothing on file is Check by hand, not Late',
 ok('a client with every requirement met is neither',
    !anyState({ initial: true, cadence: true, annual: true, reassess: true, weekly: true, pmof: true }, false) &&
    !anyState({ initial: true, cadence: true, annual: true, reassess: true, weekly: true, pmof: true }, null));
+/* The chips OVERLAP, on purpose: one client can be late on one requirement
+   and unjudgeable on another, so Late now 11 + Check by hand 16 exceeds the
+   25 on the list. They are filters over one list, not a partition of it --
+   the same rule the Home tiles follow. Her badge rule still holds, because
+   each chip's number is the length of its own list. */
+ok('a client can be both late and unjudgeable, and counted in both',
+   anyState({ initial: null, cadence: false, annual: true, reassess: true, weekly: true, pmof: true }, false) &&
+   anyState({ initial: null, cadence: false, annual: true, reassess: true, weekly: true, pmof: true }, null));
 
 console.log('\n' + (fail ? 'FAILED ' + fail : 'PASSED all ' + pass));
 process.exit(fail ? 1 : 0);

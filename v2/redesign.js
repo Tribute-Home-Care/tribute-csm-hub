@@ -2317,9 +2317,13 @@
   const MD_GROUPS = [
     ['late',    'Late now',        function (r, st) { return anyState(st, false); }],
     ['soon',    'Due in 14 days',  function (r) { return r.statusEff === 'soon'; }],
-    ['byhand',  'Check by hand',   function (r, st) { return anyState(st, null); }],
-    ['clear',   'Fully clear',     function (r, st) { return !anyState(st, false) && !anyState(st, null); }]
+    ['byhand',  'Check by hand',   function (r, st) { return anyState(st, null); }]
   ];
+  /* HER FIVE, AND ONLY HER FIVE. I had added a sixth, "Fully clear", carried
+     over from V1's KPI row. It is useful, and it is not what she asked for,
+     and an extra tab on a page whose entire complaint was "five tabs" is the
+     wrong thing to argue about. The clear clients are the ones no chip
+     selects, which is what All shows. */
   function anyState(st, want) {
     return MD_REGS.some(function (g) { return st[g[0]] === want; });
   }
