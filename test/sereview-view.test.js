@@ -1,5 +1,7 @@
 // Exception Review: does it run, is it wired in, and does it tell the truth
 // about gaps? Synthetic throughout: no real client, CSM or exception text.
+// Synthetic addresses on the reserved example.test domain: the repo is public
+// and these are fixtures, not people. See metrics-render.test.js.
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const ROOT = path.join(__dirname, '..');
 const SRC = fs.readFileSync(path.join(ROOT, 'v2/v2-sereview.js'), 'utf8');
@@ -27,8 +29,8 @@ function boot(account, fetchImpl) {
     createElement() { const e = el(); Object.defineProperty(e, 'id', { set(v) { pages[v] = this; }, get() { return ''; } });
       e.querySelector = s => (s === '#xr-view' ? view : null); return e; },
     body: el() };
-  const win = { TributeApp: { vivProxy: 'https://x/api/vivProxy', account, adminUpns: ['andrew.dobson@tributehomecare.com'],
-    profileForAccount: a => (a && a.username === 'courtney.chaulk@tributehomecare.com' ? { id: 'courtney' } : { id: 'someone' }) },
+  const win = { TributeApp: { vivProxy: 'https://x/api/vivProxy', account, adminUpns: ['admin.one@example.test'],
+    profileForAccount: a => (a && a.username === 'manager.ma@example.test' ? { id: 'courtney' } : { id: 'someone' }) },
     dataHeaders: async () => ({}) };
   const ctx = { window: win, document: doc, location: { hash: '' }, setTimeout: (f) => f(), fetch: fetchImpl,
     console, Promise, JSON, String, Object, Array, Date, Error };
@@ -52,11 +54,11 @@ const okFetch = async () => ({ ok: true, status: 200, json: async () => JSON.par
 
 (async () => {
   console.log('\n--- who may open it ---');
-  let b = boot({ username: 'someone@tributehomecare.com' }, okFetch); b.mod.open(); await tick();
+  let b = boot({ username: 'someone@example.test' }, okFetch); b.mod.open(); await tick();
   ok('a CSM is refused', /limited to Client Solutions leadership/.test(b.html()));
   b = boot(null, okFetch); b.mod.open(); await tick();
   ok('no account is refused', /limited to/.test(b.html()));
-  b = boot({ username: 'courtney.chaulk@tributehomecare.com' }, okFetch); b.mod.open(); await tick(); await tick();
+  b = boot({ username: 'manager.ma@example.test' }, okFetch); b.mod.open(); await tick(); await tick();
   ok('Courtney is allowed', !/limited to/.test(b.html()));
 
   console.log('\n--- what it says ---');
@@ -77,7 +79,7 @@ const okFetch = async () => ({ ok: true, status: 200, json: async () => JSON.par
   b.mod._state.tab = 'all'; b.mod.render();
   ok('all tab lists every client row', /Lee Example/.test(b.html()) && /Kim Example/.test(b.html()));
 
-  b = boot({ username: 'andrew.dobson@tributehomecare.com' }, async () => ({ ok: false, status: 502, json: async () => ({ error: 'Viv is down' }) }));
+  b = boot({ username: 'admin.one@example.test' }, async () => ({ ok: false, status: 502, json: async () => ({ error: 'Viv is down' }) }));
   b.mod.open(); await tick(); await tick();
   ok('a failed read says so', /Could not be read: Viv is down/.test(b.html()));
 
@@ -91,7 +93,7 @@ const okFetch = async () => ({ ok: true, status: 200, json: async () => JSON.par
       return { ok: true, status: 200, json: async () => ({ ok: true, after: { types: body.types }, qa: { needed: false } }) }; }
     return okFetch();
   };
-  b = boot({ username: 'courtney.chaulk@tributehomecare.com' }, routed); b.mod.open(); await tick(); await tick(); await tick();
+  b = boot({ username: 'manager.ma@example.test' }, routed); b.mod.open(); await tick(); await tick(); await tick();
   let f = b.html();
   ok('the card offers Fix in Viv once types load', /Fix in Viv/.test(f) && /data-fixsel="a1"/.test(f));
   ok('the AI suggestion is chosen to start', /<option value="Client Complaint: Reliability" selected>/.test(f));

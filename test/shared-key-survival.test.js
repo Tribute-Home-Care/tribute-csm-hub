@@ -3,6 +3,7 @@
 //
 // THE QUESTION: can an untouched shared key disappear? The merge is lifted
 // out of index.html and executed, rather than reasoned about.
+// Synthetic address on the reserved example.test domain; the repo is public.
 const fs = require('fs'); const path = require('path');
 const SRC = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
 let pass = 0, fail = 0;
@@ -25,7 +26,7 @@ const preLoss = () => ({
   ltc: JSON.parse(JSON.stringify(ltc110)),
   coverage: [{clientId:'c1', csmId:'julia', note:'out this week'},
              {clientId:'c2', csmId:'emily', note:'covering'}],
-  settings: { loginMap:{'someone@tributehomecare.com':'julia'}, vivEmail:'x@y.com' },
+  settings: { loginMap:{'someone@example.test':'julia'}, vivEmail:'x@y.com' },
   communities: { 'Goddard House': { email:{to:['a@b.com']}, levels:[] } },
   comms: { generatedAt:'2026-10-25T12:00:00Z', mergedBy:'server-timer' },
   viv:  { generatedAt:'2026-10-25T10:35:07Z', counts:{} },
