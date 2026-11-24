@@ -3450,13 +3450,18 @@ input.ob-cb:disabled { opacity: .5; cursor: not-allowed; }
    than "Scribe". A row of uneven buttons reads as a row of unequal
    importance. They share the space and the label truncates rather than
    stretching its button. */
-.rd-cw-acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; }
-/* THE MENU BUTTONS ARE WRAPPED, so `> .rd-act` missed them and the "..."
-   button stayed 76px beside 160px neighbours. The wrapper is the flex item;
-   the button inside it fills the wrapper. */
-.rd-cw-acts > .rd-act,
-.rd-cw-acts > .rd-menu { flex: 1 1 0; min-width: 76px; max-width: 160px; }
-.rd-cw-acts > .rd-menu > .rd-act { width: 100%; max-width: none; height: 100%; }
+/* A GRID, BECAUSE FLEX WOULD NOT MAKE THEM EQUAL. Two of these buttons are
+   wrapped in a .rd-menu and four are not, so `> .rd-act` missed the wrapped
+   pair entirely (the "..." stayed 76px beside 160px) and even once the
+   wrapper was included, flex sized the icon-only ones to 103px against 128px
+   for the labelled ones. Equal columns are the thing actually being asked
+   for, and a grid states that directly instead of approximating it. */
+.rd-cw-acts {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 8px; align-items: stretch;
+}
+.rd-cw-acts > * { min-width: 0; }
+.rd-cw-acts > .rd-menu > .rd-act { width: 100%; height: 100%; max-width: none; }
 .rd-cw-acts > .rd-act > span {
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
