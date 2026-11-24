@@ -73,3 +73,25 @@
 .obb-r.late .obb-w,.obb-r.atrisk .obb-w{color:#A4271E;}
 .obb-d{font-size:11.5px;color:#8C857B;white-space:nowrap;}
 .obb-p{font-size:11.5px;color:#8C857B;text-align:right;font-variant-numeric:tabular-nums;}
+
+
+/* ── THE ONBOARDING BOARD IS A LIST LIKE THE OTHERS ───────────────────────
+   Her rule applied here too: a card, visible row lines, zebra rows, and a
+   header row because nine columns without one is a grid of numbers nobody
+   can name. The row lines were #F1EEE8, which is far lighter than the
+   #DDD6CC floor and effectively invisible across nine columns. */
+.obb {
+  border: 1px solid var(--row-line, #DDD6CC); border-radius: 12px; overflow: hidden;
+  background: #FFFDFA; max-width: 1100px;
+}
+.obb-r { border-bottom: 1px solid var(--row-line, #DDD6CC); }
+.obb-r:last-child { border-bottom: 0; }
+.obb-r:nth-of-type(even) { background: var(--row-zebra, #F7F3ED); }
+.obb-r:hover { background: var(--row-hover, #EFE7DB); }
+.obb-head {
+  background: var(--row-zebra, #F7F3ED) !important; cursor: default;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  color: #8C857B; align-items: end;
+}
+.obb-head:hover { background: var(--row-zebra, #F7F3ED) !important; }
+.obb-head span { white-space: normal; line-height: 1.25; }

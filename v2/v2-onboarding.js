@@ -418,7 +418,19 @@ function renderObBoard(){
   const cnt=document.getElementById('s60-board-n');
   if(cnt)cnt.textContent=rows.length?(rows.length+(rows.length===1?' client':' clients')):'';
   if(!rows.length){ box.innerHTML='<div class="es"><div class="ei">\u2713</div><p>Nothing in this list right now.</p></div>'; return; }
-  box.innerHTML='<div class="obb">'+rows.map(r=>{
+  /* A HEADER ROW, because nine columns without one is a grid of numbers
+     nobody can name. Her rule: a header whenever a row has more than two
+     columns. It is emitted only when every row in the tab uses the
+     nine-column shape -- the offboarding rows are a different four-column
+     row, and one header cannot describe both. */
+  const allOb = rows.every(r => !(r.tab === 'offboarding' || (r.off && r.tab === 'done')));
+  const head = allOb
+    ? '<div class="obb-r obb-ob obb-head" role="row">' +
+      ['Client', 'Start of care', 'Day', 'Status', 'Phase 1', 'Phase 2', 'Phase 3',
+       'Next item due', 'Owner'].map(h => '<span>' + escHtml(h) + '</span>').join('') +
+      '</div>'
+    : '';
+  box.innerHTML='<div class="obb">'+head+rows.map(r=>{
     const open=`openObClient('${r.c.id}')`;
     if(r.tab==='offboarding'||(r.off&&r.tab==='done')){
       const t=(OFF_TYPES.find(x=>x.id===r.off.type)||{}).label||'Type not recorded';

@@ -3479,3 +3479,66 @@ input.ob-cb:disabled { opacity: .5; cursor: not-allowed; }
    PARENT cannot be overridden by any child rule at any specificity, which a
    [hidden] attribute on the child demonstrably could. */
 #rd-v1-sink { display: none !important; }
+
+
+/* ── ONE ROW STYLE FOR EVERY LIST IN THE HUB ──────────────────────────────
+   Her rule, and the reason it is written once here rather than six times
+   below: "a header row whenever a row has more than two columns, and never
+   a row line lighter than #DDD6CC."
+
+   --line is #E8E4E0, which IS lighter than that, so lists get their own
+   token instead of borrowing the chrome's. The chrome can stay soft; a row
+   boundary the eye has to follow across eight columns cannot. */
+:root {
+  --row-line: #DDD6CC;
+  --row-zebra: #F7F3ED;
+  --row-hover: #EFE7DB;
+}
+
+/* The tables that already use the Clients list's shape. */
+.rd-clt tbody tr { border-bottom: 1px solid var(--row-line); }
+.rd-clt tbody tr:nth-child(even) { background: var(--row-zebra); }
+.rd-clt tbody tr:hover { background: var(--row-hover); }
+.rd-clt thead th { border-bottom: 1px solid var(--row-line); }
+
+/* TEAM: the headings were right-aligned and the numbers were not, so no
+   figure sat under its own heading. `.rd-clt td` (0,1,1) set text-align:left
+   and beat `.rd-tm-n` (0,1,0) -- a specificity loss, not a missing rule, and
+   invisible in the stylesheet unless you go looking for the override. Same
+   horizontal padding on both, so the column edges line up too. */
+.rd-tm td.rd-tm-n { text-align: right; }
+.rd-tm th.rd-tm-h, .rd-tm td.rd-tm-n { padding-left: 12px; padding-right: 12px; }
+.rd-tm th[scope="row"] { text-align: left; padding-left: 14px; padding-right: 12px; }
+.rd-tm tfoot td { text-align: right; padding-left: 12px; padding-right: 12px; }
+
+/* CADENCE as a three-column table: label | last | next due. It was a flex
+   row with space-between, so the value sat at the far edge of the card with
+   a gap of nothing between it and its own label. */
+.rd-cads {
+  margin: 0; display: grid; grid-template-columns: auto 1fr auto; gap: 0;
+}
+.rd-cads .rd-cad-h {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--ink-3); padding: 0 10px 6px 0; border-bottom: 1px solid var(--row-line);
+}
+.rd-cad {
+  display: contents;
+}
+.rd-cad dt, .rd-cad dd {
+  margin: 0; padding: 8px 10px 8px 0; font-size: 13px;
+  border-bottom: 1px solid var(--row-line); text-align: left;
+}
+.rd-cad dt { color: var(--ink-2); white-space: nowrap; }
+.rd-cad dd { color: var(--ink); min-width: 0; }
+.rd-cad dd.rd-cad-due { color: var(--ink-2); white-space: nowrap; text-align: right; }
+.rd-cads > :nth-last-child(-n+3) { border-bottom: 0; }
+
+/* The three simpler lists: zebra and the standard line, nothing else. */
+.rd-next-row { border-bottom: 1px solid var(--row-line); }
+.rd-next-row:nth-child(even) { background: var(--row-zebra); }
+.rd-next-row:hover { background: var(--row-hover); }
+.rd-rdy-row, .rd-comm-row {
+  border-bottom: 1px solid var(--row-line);
+}
+.rd-rdy-row:nth-child(even), .rd-comm-row:nth-child(even) { background: var(--row-zebra); }
+.rd-rdy-row:hover, .rd-comm-row:hover { background: var(--row-hover); }

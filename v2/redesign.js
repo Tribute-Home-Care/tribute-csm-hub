@@ -3168,18 +3168,26 @@
     const tpCad = (A().tpCadence || {})[c.tier] || 30;
     const ciCad = (A().ciCadence || {})[c.tier] || 180;
     const tone = { overdue: 'bad', soon: 'warn', never: 'bad', none: '', ok: 'ok' };
+    /* THREE COLUMNS, NOT A LABEL AND A BLOB. This was one cell holding the
+       last date and the next due date together, in a flex row with
+       space-between -- so the value sat at the far edge of the card with
+       nothing between it and its own label, and the two dates ran into each
+       other. Label, last, next due: three columns with a heading row,
+       because that is her rule for anything past two columns. */
     const row = function (label, state, when, due) {
       const t = tone[state] || '';
       return '<div class="rd-cad' + (t ? ' ' + t : '') + '">' +
         '<dt>' + esc(label) + '</dt>' +
-        '<dd>' + (when ? esc(when) : '<span class="rd-ws-quiet">Nothing on record</span>') +
-        (due ? '<span class="rd-sub">' + esc(due) + '</span>' : '') + '</dd></div>';
+        '<dd>' + (when ? esc(when) : '<span class="rd-ws-quiet">Nothing on record</span>') + '</dd>' +
+        '<dd class="rd-cad-due">' + (due ? esc(due) : '') + '</dd></div>';
     };
     const vs = visitSt(c), ts = tpSt(c), cs = ciSt(c);
     const lastV = c.lastVisit ? fmtShort(c.lastVisit) + ' · ' + plural(daysSince(c.lastVisit), 'day') + ' ago' : '';
     const lastT = lastOf('touchpoints', c.id), lastC = lastOf('checkins', c.id);
     return block('Cadence',
       '<dl class="rd-cads">' +
+      '<div class="rd-cad-h">What</div><div class="rd-cad-h">Last</div>' +
+      '<div class="rd-cad-h" style="text-align:right;">Next due</div>' +
       row('Last visit', vs, lastV,
           c.freq === 'NA' ? 'No visit cadence set'
             : (vs === 'overdue' ? 'Overdue' : nextVisit(c) ? 'Next due ' + fmtShort(nextVisit(c)) : '')) +
