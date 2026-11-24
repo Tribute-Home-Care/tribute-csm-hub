@@ -2897,27 +2897,14 @@ input[type="email"], select { min-height: var(--h-ctl); }
 .rd-td-fb[aria-selected="true"] .n { color: var(--surface); opacity: .72; }
 .rd-td-fb:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
-.rd-td { list-style: none; margin: 0; padding: 0; }
-.rd-td-r {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr);
-  gap: var(--s3);
-  align-items: baseline;
-  padding: 7px 10px 7px 8px;
-  border-bottom: 1px solid var(--line-2);
-  cursor: pointer;
-}
-.rd-td-r:hover { background: var(--line-2); }
-.rd-td-r:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-/* Only what is actually urgent carries a mark. */
-.rd-td-r.bad { box-shadow: inset 2px 0 0 var(--bad); }
-.rd-td-r.warn { box-shadow: inset 2px 0 0 var(--warn); }
-.rd-td-n { font-size: 13px; font-weight: 600; color: var(--ink); min-width: 0; }
-.rd-td-w { font-size: 12.5px; color: var(--ink-2); min-width: 0; }
-.rd-td-s { font-size: 12px; color: var(--ink-3); min-width: 0; text-align: right; }
+/* THE LIST IS A TABLE NOW, so the rules that made it a <ul> of CSS-grid rows
+   are gone. They were still matching: .rd-td-r is the <tr>, and
+   `display: grid` on a table row takes it out of the table layout entirely.
+   That is what put the column headings in the wrong place, stretched the
+   tier pill into a full-width bar and left a hundred pixels of air in every
+   row. The table rules live with the card, further up this file.
 
-@media (max-width: 760px) {
-  /* On a phone it reads as a short paragraph per client rather than a table. */
-  .rd-td-r { grid-template-columns: 1fr; gap: 1px; }
-  .rd-td-s { text-align: left; }
-}
+   Only the tone marker survives here, because it is the one thing that was
+   right: only what is actually urgent carries a mark. */
+.rd-td-t tbody tr.bad { box-shadow: inset 2px 0 0 var(--bad); }
+.rd-td-t tbody tr.warn { box-shadow: inset 2px 0 0 var(--warn); }

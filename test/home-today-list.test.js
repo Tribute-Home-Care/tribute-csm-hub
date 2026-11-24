@@ -233,7 +233,14 @@ ok('the list stops at five and offers the rest',
 ok('...and pressing a tile is a new question, so it resets',
    /function setTodayFilter\(k\) \{[\s\S]{0,40}_todayAll = false;/.test(CODE));
 
-ok('only urgency is marked', /\.rd-td-r\.bad/.test(CSS) && /\.rd-td-r\.warn/.test(CSS));
+/* The list is a table now, so the rules that made it a <ul> of CSS-grid rows
+   are gone: .rd-td-r IS the <tr>, and display:grid on a table row takes it
+   out of the table layout entirely. That put the headings in the wrong place,
+   stretched the tier pill into a full-width bar, and left a hundred pixels of
+   air in every row. */
+ok('only urgency is marked', /\.rd-td-t tbody tr\.bad/.test(CSS) && /\.rd-td-t tbody tr\.warn/.test(CSS));
+ok('...and the old grid-row rules are gone, not just overridden',
+   !/\.rd-td-r \{\s*\n\s*display: grid;/.test(CSS));
 
 // The list has to redraw when something is sorted, which changes no tile
 // number at all, so it cannot sit behind the tiles' change-detection key.
