@@ -45,10 +45,13 @@ const F = load({ clients: [
 ] });
 
 ok('the module exposes its surface', !!F && typeof F.rows === 'function');
-ok('the three buckets are in the same order as the buttons on the client record',
-   JSON.stringify(F.STATES.map(s => s[0])) === JSON.stringify(['aware_none', 'aware_working', 'aware_1to1']));
+/* HER ORDER, left to right: what I am doing, what I am escalating, what
+   needed nothing. Nothing needed was first, so the column a CSM never acts on
+   sat where the eye lands. */
+ok('the three buckets read in the order a CSM works them',
+   JSON.stringify(F.STATES.map(s => s[0])) === JSON.stringify(['aware_working', 'aware_1to1', 'aware_none']));
 ok('the labels are Emily\'s own words',
-   JSON.stringify(F.STATES.map(s => s[1])) === JSON.stringify(['Nothing needed', 'Working on it', 'Raising in 1:1']));
+   JSON.stringify(F.STATES.map(s => s[1])) === JSON.stringify(['Working on it', 'Raising in 1:1', 'Nothing needed']));
 
 const r = F.rows();
 ok('only sorted clients appear', r.length === 3 && !r.some(x => x.id === 'd'));
@@ -125,7 +128,20 @@ ok('it sits under Needs attention on Home', /getElementById\('rd-s-attn'\)/.test
 const CSS = fs.readFileSync(path.join(__dirname, '../v2/v2-followups.css'), 'utf8');
 ok('a card is name, what they are doing, and when',
    /class="fup-what"/.test(CODE) && /class="fup-when"/.test(CODE));
-ok('nothing scrolls inside a column any more', !/max-height/.test(CSS) && !/overflow-y: auto/.test(CSS));
+/* Nothing needed is a record, not a worklist: one card and a count. */
+ok('...and Nothing needed folds to one card',
+   /var fold = s\[0\] === 'aware_none' && mine\.length > 1;/.test(CODE) &&
+   /\.fup-col\.fup-fold:not\(\.fup-open\) \.fup-card:nth-child\(n\+2\) \{ display: none; \}/.test(CSS));
+ok('...and says how many it is holding back',
+   /hidden \+ ' more/.test(CODE));
+ok('nothing scrolls inside a column any more',
+   /\.fup-drop \{ max-height: none; overflow: visible; \}/.test(CSS) && !/overflow-y: auto/.test(CSS));
+/* One line per card: name, what, when, with the actions on hover or focus
+   rather than taking a row of their own. */
+ok('a card is one line', /\.fup-card \{[\s\S]{0,200}flex-wrap: nowrap;/.test(CSS) &&
+   /\.fup-card \.fup-what \{[\s\S]{0,160}white-space: nowrap;/.test(CSS));
+ok('...and the actions wait for hover or keyboard focus',
+   /\.fup-card:hover \.fup-acts, \.fup-card:focus-within \.fup-acts \{ display: flex/.test(CSS));
 ok('the row cannot be stretched by a long note',
    /\.fup-what \{[\s\S]{0,160}text-overflow: ellipsis/.test(CSS));
 ok('the note is still readable on hover rather than thrown away',

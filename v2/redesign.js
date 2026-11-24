@@ -93,9 +93,14 @@
               ['s60', 'Onboarding'], ['priority', 'Fill Priority']]],
     ['Operations', [['ltc', 'LTC'], ['emailcomm', 'Communities'],
                     ['md', 'Maryland Compliance']]],
-    ['Resources', [['assistant', 'Assistant'], ['kpi', 'My KSFs'],
-                   ['expectations', 'Role Expectations'],
-                   ['__guide', 'Guide'], ['__feedback', 'Feedback']]],
+    /* Her section 1: "Guide and Feedback are already on every page through
+       the ? link and the Feedback button", and Role Expectations folds into
+       My KSFs. The rail is the work, not everything that exists.
+
+       FEEDBACK IS NOT LOST. The sidebar keeps its own Send feedback button
+       below the nav, which is how the production Hub got one at all; the
+       entry removed here is the duplicate in the list. */
+    ['Resources', [['assistant', 'Assistant'], ['kpi', 'My KSFs']]],
     ['Manager', [['team', 'Team'], ['pulse', 'Client Pulse'],
                  ['__metrics', 'Daily Metrics'], ['__sereview', 'Exception Review']]]
   ];
@@ -274,8 +279,17 @@
     Object.keys(NAV_EXTRA).forEach(function (key) {
       const x = NAV_EXTRA[key];
       if (!x.ok() || document.getElementById(x.id)) return;
-      const label = (GROUPS.reduce(function (a, g) { return a.concat(g[1]); }, [])
-        .find(function (it) { return it[0] === key; }) || [key, key])[1];
+      /* ONLY WHAT THE RAIL ASKED FOR. This exists because Guide and Feedback
+         come from layers that may finish loading after the rail is built, and
+         it re-adds anything missing. When Guide and Feedback were taken OUT
+         of GROUPS it re-added them anyway, at the end of the rail, labelled
+         with the raw key: a CSM saw "__guide" and "__feedback" under
+         Resources. An entry that is not in GROUPS is not missing, it is
+         deliberately absent. */
+      const entry = GROUPS.reduce(function (a, g) { return a.concat(g[1]); }, [])
+        .find(function (it) { return it[0] === key; });
+      if (!entry) return;
+      const label = entry[1];
       const el = document.createElement('div');
       el.className = 'nav-item'; el.id = x.id;
       if (x.page) {
@@ -355,12 +369,9 @@
     const bits = [];
     const app = A(), p = app.profile, data = app.data;
     if (p && p.market) bits.push('<b>' + esc(p.market) + '</b>');
-    const gen = data && data.shared && data.shared.viv && data.shared.viv.generatedAt;
-    if (gen) {
-      const hrs = (Date.now() - new Date(gen).getTime()) / 36e5;
-      const label = hrs < 1 ? 'just now' : hrs < 24 ? Math.round(hrs) + 'h ago' : Math.round(hrs / 24) + 'd ago';
-      bits.push('<span class="' + (hrs > 36 ? 'stale' : '') + '">Synced ' + label + '</span>');
-    }
+    /* The sync used to be said three times: twice in the sidebar and once
+       here, none of them where a CSM looks. It is said once now, on the line
+       under the greeting. See renderSyncLine(). */
     const html = bits.join('<span class="sep"></span>');
     if (ctx.innerHTML !== html) ctx.innerHTML = html;
   }
@@ -708,7 +719,12 @@
   function exceptionFor(c) {
     const vst = String(c.vivStatus || '').toLowerCase();
     if (vst && vst !== 'active') {
-      const label = { 'pending-discharge': 'Pending discharge', 'onhold': 'On hold', 'on-hold': 'On hold', 'processing': 'Processing' }[vst]
+      /* VIV'S OWN WORDS ARE NOT THE HUB'S. 'Processing' is the status
+         string Viv sets while a client is being set up; it appeared on the
+         Clients list as a status and means nothing to a CSM reading it.
+         Said plainly here. If Scheduling calls it something else, this is
+         the one line to change. */
+      const label = { 'pending-discharge': 'Pending discharge', 'onhold': 'On hold', 'on-hold': 'On hold', 'processing': 'Being set up in Viv' }[vst]
         || (vst.indexOf('hospital') > -1 ? 'In hospital' : vst.indexOf('facility') > -1 ? 'In facility' : c.vivStatus);
       return { tone: 'bad', text: label + (c.vivDischarged ? ' · ' + fmtShort(c.vivDischarged) : ''), rank: 0 };
     }
@@ -974,8 +990,17 @@
     el.innerHTML = clientListTable(rows);
 
     rows.forEach(function (r) { ensureCompat(r.c.id); });
-    $$('[data-cid]', el).forEach(function (b) {
+    /* A ROW opens a client. This used to bind every [data-cid] in the table,
+       which now includes the Email link inside a row: pressing Email would
+       have opened the draft AND navigated away from the list. */
+    $$('tr[data-cid]', el).forEach(function (b) {
       b.addEventListener('click', function () { selectClient(b.dataset.cid); });
+    });
+    $$('.rd-mailbtn', el).forEach(function (b) {
+      b.addEventListener('click', function (ev) {
+        ev.stopPropagation();                 // not a navigation
+        logEmailTouchpoint(b.dataset.cid);    // the draft opens via the href
+      });
     });
     $$('[data-sort]', el).forEach(function (b) {
       b.addEventListener('click', function () {
@@ -1062,8 +1087,18 @@
     const acts = [];
     if (f.phone) acts.push('<a class="rd-cbtn" href="tel:' + esc(String(f.phone).replace(/[^\d+]/g, '')) +
       '" onclick="event.stopPropagation()">' + I('phone') + 'Call</a>');
-    if (f.email) acts.push('<a class="rd-cbtn" href="mailto:' + esc(f.email) +
-      '" onclick="event.stopPropagation()">' + I('mail') + 'Email</a>');
+    /* EMAILING THE FAMILY FROM THE LIST COUNTS. Her section 3: "Call and
+       Email buttons under the family contact... Both log to the client's
+       Activity automatically, so a quick call from the list still counts as a
+       touchpoint."
+
+       The draft opens in whatever handles mail, and the touchpoint is written
+       here rather than waiting for the CSM to come back and log it, because
+       the one they do not come back for is the one that stops counting.
+       data-cid carries the client, because the row's own handler is a
+       navigation and must not fire. */
+    if (f.email) acts.push('<a class="rd-cbtn rd-mailbtn" href="mailto:' + esc(f.email) +
+      '" data-cid="' + esc(c.id) + '">' + I('mail') + 'Email</a>');
     return who + (acts.length ? '<span class="rd-clt-act">' + acts.join('') + '</span>' : '');
   }
 
@@ -1173,6 +1208,26 @@
     }
   }
 
+  /* One listener on the table rather than one per row: the table is
+     rewritten on every render, and a listener per row would be rebound with
+     it. Logging is a write, so it refuses in a read-only View as session for
+     the same reason queueSave does. */
+  function logEmailTouchpoint(cid) {
+    const app = A();
+    try {
+      if (typeof writesBlocked === 'function' && writesBlocked()) return;
+      const now = new Date(), day = now.toISOString().slice(0, 10);
+      const tps = app.fn.get('touchpoints') || [];
+      tps.unshift(Object.assign({
+        id: 'tp' + now.getTime(), clientId: cid, date: day, type: 'EMAIL',
+        note: 'Emailed the family from the client list',
+        by: (typeof P !== 'undefined' && P) ? P.name : '', auto: false
+      }, typeof actorStamp === 'function' ? actorStamp() : {}));
+      if (typeof set === 'function') set('touchpoints', tps);
+      if (typeof showToast === 'function') showToast('Draft opened. Logged as a touchpoint.');
+    } catch (e) {}
+  }
+
   function clientListTable(rows) {
     const head = CL_COLS.map(function (col) {
       const k = col[0];
@@ -1204,7 +1259,16 @@
           (soonAsmt ? '<span class="rd-clt-tag">Assessment due</span>' : '') + '</th>' +
         '<td>' + (c.tier ? '<span class="rd-tier ' + esc(String(c.tier).toLowerCase()) + '">' +
           esc(c.tier) + '</span>' : '<span class="rd-ws-quiet">—</span>') + '</td>' +
-        '<td>' + (st ? '<span class="rd-cl-ex ' + st.tone + '"><i class="rd-dot"></i>' + esc(st.text) + '</span>' : '') + '</td>' +
+        /* C2. THE PULSE REASON ON THE ROW. Her section 9 wants one line per
+           client saying what happened, so a CSM can triage the list without
+           opening every flagged one. The cadence exception still leads, since
+           it is the thing with a date on it; the flag goes underneath.
+
+           Joined here, in the data layer, rather than scraped off Home: the
+           Clients page has to be right when Home has never been opened. */
+        '<td>' + (st ? '<span class="rd-cl-ex ' + st.tone + '"><i class="rd-dot"></i>' + esc(st.text) + '</span>' : '') +
+          (ps && ex ? '<div class="rd-clt-pl" title="' + esc(ps.note || ps.text) + '">' +
+                      '<b>Pulse:</b> ' + esc(ps.text) + '</div>' : '') + '</td>' +
         '<td>' + (c.lastVisit ? esc(fmtShort(c.lastVisit)) : '<span class="rd-ws-quiet">None</span>') + '</td>' +
         '<td>' + (nv ? esc(fmtShort(nv)) : (c.freq === 'NA' ? '<span class="rd-ws-quiet">No cadence</span>' : '')) + '</td>' +
         '<td class="rd-clt-con">' + contactCell(c) + '</td>' +
@@ -1664,9 +1728,36 @@
     const addr = ct.address || c.address || '';
     const street = addr ? addr.split(',')[0] : '';
     const rest = addr ? addr.split(',').slice(1).join(',').trim().replace(/,\s*(United States|USA)$/i, '') : '';
-    const status = (c.vivStatus && String(c.vivStatus).toLowerCase() !== 'active')
+    /* Viv's status strings arrive in whatever case Viv stored them, and the
+       header line printed them raw: 'active' in the middle of a sentence of
+       proper nouns. Capitalised for the line, not altered in the data. */
+    const rawStatus = (c.vivStatus && String(c.vivStatus).toLowerCase() !== 'active')
       ? c.vivStatus : (d.service && d.service.status) || 'Active';
-    const meta = [c.market || (d.market || ''), status].filter(Boolean).join(' · ');
+    const status = String(rawStatus || '').replace(/^./, function (m) { return m.toUpperCase(); });
+    /* P1. ONE HEADER LINE, her section 4: "name, tier, status, market,
+       community and unit, start of care, CSM, client number on one line."
+       It carried only the market and the status, so everything else was a
+       card away: a CSM on the phone had to scroll to say which community the
+       client is in or read back a client number.
+
+       Anything the Hub does not know is left out rather than printed as a
+       blank or a dash, so the line is short when the record is thin instead
+       of being a row of holes. */
+    const ok = function (v) {
+      return v && !/^(none|n\/a|\u2014|-|not on file|unknown)$/i.test(String(v).trim());
+    };
+    const unit = c.unit || (d.service && d.service.unit) || '';
+    const soc = c.startDate || (d.service && d.service.startDate) || '';
+    const csmName = c.csm || ((A().profile || {}).name) || '';
+    const num = c.clientNo || c.vivNo || (d.service && d.service.clientNumber) || '';
+    const meta = [
+      c.market || (d.market || ''),
+      status,
+      ok(c.loc) ? (c.loc + (ok(unit) ? ', ' + unit : '')) : '',
+      ok(soc) ? 'Start of care ' + fmtShort(soc) : '',
+      ok(csmName) ? 'CSM ' + csmName : '',
+      ok(num) ? '#' + num : ''
+    ].filter(Boolean).join(' · ');
 
     const acts = [];
     /* "Call" DIALS THE FAMILY CONTACT, NOT JUST THE CLIENT, and says whose
@@ -1689,9 +1780,32 @@
     if (addr) acts.push('<a class="rd-act" target="_blank" rel="noreferrer"' +
       ' href="https://maps.apple.com/?q=' + encodeURIComponent(addr) + '">' +
       I('pin') + '<span>Directions</span></a>');
-    acts.push('<button type="button" class="rd-act" data-act="log-tp">' + I('conversation') + '<span>Log contact</span></button>');
+    /* P2. ONE LOG BUTTON, AT THE TOP. Her section 4: "One Log button at the
+       top. Remove Log activity and '...' at the bottom."
+
+       The footer is gone, so what it could do comes here rather than being
+       deleted with it: logging a VISIT and a CARE CONVERSATION lived only in
+       that menu, and dropping them would have taken the only way to record a
+       visit off the client page. Same for Edit client, Draft update, Fill
+       priority and Add LTC record, which are now behind the one small menu
+       at the end of the row. */
+    acts.push('<div class="rd-menu rd-act-menu"><button type="button" class="rd-act" data-menu="log">' +
+      I('conversation') + '<span>Log contact</span>' + I('chevronDown') + '</button>' +
+      '<div class="rd-menu-list" data-for="log">' +
+      '<button type="button" data-act="log-tp">Touchpoint</button>' +
+      '<button type="button" data-act="log-visit">Visit</button>' +
+      '<button type="button" data-act="log-ci">Care conversation</button>' +
+      '</div></div>');
     // Scribe. The reserved placeholder is now the real thing: one tap from
     // the client, because that is where a CSM is standing when they need it.
+    acts.push('<div class="rd-menu rd-act-menu"><button type="button" class="rd-act" data-menu="more" aria-label="More actions">' +
+      I('more') + '</button>' +
+      '<div class="rd-menu-list right" data-for="more">' +
+      '<button type="button" data-act="edit">Edit client</button>' +
+      '<button type="button" data-act="draft">Draft update</button>' +
+      '<button type="button" data-act="fill">Fill priority</button>' +
+      '<button type="button" data-act="ltc-add">Add LTC record</button>' +
+      '</div></div>');
     if (window.TributeScribe && c.vivId) {
       acts.push('<button type="button" class="rd-act scribe" data-act="scribe">' +
         I('mic') + '<span>Scribe</span></button>');
@@ -1859,6 +1973,30 @@
      and an overdue row is red and first in its phase. The status line names
      the oldest overdue thing rather than counting them, because that is the
      one to pick up first. */
+  /* P5. THE BUTTON IS THE NEXT STEP. Her section 7: "The button is the next
+     step: Draft email, Schedule visit, Log check-in, Open call guide, or
+     N/A." A checklist that only offers a tick makes the CSM go and find the
+     thing themselves, which is how a checklist turns into paperwork.
+
+     VIV SETUP ITEMS GET NO BUTTON, which is also hers: those carry the Viv
+     location instead, because the step is "go to this screen in Viv" and a
+     button cannot do it for you.
+
+     The mapping is the preview's, by the words the document uses. It is not
+     a guess about intent: every phrase here appears in Courtney's own
+     checklist labels. An item that matches nothing gets no button rather
+     than a wrong one. */
+  function s30Step(label) {
+    const t = String(label || '');
+    if (/\bviv\b|workflow|payor|located in|rate rule|authorization/i.test(t)) return null;
+    if (/day 30/i.test(t)) return { act: 'd30', word: 'Open call guide' };
+    if (/family\/gcm contact|family contact|update the referral|referral partner|welcome/i.test(t))
+      return { act: 'draft', word: 'Draft email' };
+    if (/assessment|in-person visit|second visit/i.test(t)) return { act: 'visit', word: 'Schedule visit' };
+    if (/prepped by phone|check-in|check in|touch base/i.test(t)) return { act: 'checkin', word: 'Log check-in' };
+    return null;
+  }
+
   function wsS30(c) {
     let k = null;
     try { k = typeof s30Checklist === 'function' ? s30Checklist(c) : null; } catch (e) { return ''; }
@@ -1875,7 +2013,13 @@
         (r.done && r.viv ? ' viv' : '') + '">' +
         '<span class="rd-s30-b" aria-hidden="true">' + (r.done ? '\u2713' : '') + '</span>' +
         '<span class="rd-s30-t">' + esc(r.label) +
-          (r.proof ? '<span class="rd-s30-p">' + esc(r.proof) + '</span>' : '') + '</span>' +
+          (r.proof ? '<span class="rd-s30-p">' + esc(r.proof) + '</span>' : '') +
+          (function () {
+            if (r.done) return '';
+            const s = s30Step(r.label);
+            return s ? '<button type="button" class="rd-s30-step" data-step="' + s.act +
+              '" data-ms="' + esc(r.id || '') + '">' + esc(s.word) + '</button>' : '';
+          })() + '</span>' +
         '<span class="rd-s30-o">' + esc(r.owner) + '</span>' + when + '</li>';
     };
     const weeks = k.weeks.map(function (w) {
@@ -1933,9 +2077,18 @@
     /* Attention. Rendered only when something is actually wrong: an empty
        "all clear" card every day teaches people to stop reading the one that
        matters. */
+    /* P4. THE BANNER AND THIS BLOCK WERE SAYING THE SAME THING.
+       When a Pulse banner is showing, it carries the flag, the detail and the
+       triage buttons; repeating it in a card below made the page look like
+       two problems where there is one, and the card said it with less. So the
+       block is only built when there is no banner.
+
+       The CADENCE exception still earns a place: it is a different fact from
+       the flag, it has a date on it, and it is not in the banner. */
+    const banner = !!(pp && pp.level && pp.level !== 'green' && !c.pulseAck);
     const attn = [];
     if (ex) attn.push({ tone: ex.tone, text: ex.text });
-    if (pp && pp.level && pp.level !== 'green' && !c.pulseAck)
+    if (pp && pp.level && pp.level !== 'green' && !c.pulseAck && !banner)
       attn.push({ tone: pp.level === 'red' ? 'bad' : 'warn',
                   text: pulseFirst(pp.headline) + '.', go: 'care' });
     const openToday = visitsOn(snap, localDay(0)).filter(function (v) { return v.open; });
@@ -2461,7 +2614,14 @@
           ? '<p class="rd-pb-ack">' + esc(ackLabel(ack.state)) +
             (ack.by ? ' &middot; ' + esc(ack.by) : '') +
             ' <button type="button" class="rd-link" data-act="ack-clear">Undo</button></p>'
+          /* P3. LOG FAMILY CALL IS THE FIRST TRIAGE BUTTON. Her Home picture
+             puts it first on the banner, and it is the only one of the four
+             that is an ACTION rather than a filing decision: the other three
+             say what you intend to do, this one is you having done it. It
+             opens the Log contact form already on the page rather than a
+             second way to write a touchpoint. */
           : '<div class="rd-ack"><span>Mark it</span>' +
+            '<button type="button" class="rd-link rd-ack-do" data-act="log-tp">Log family call</button>' +
             '<button type="button" class="rd-link" data-act="ack" data-state="aware_working">Working on it</button>' +
             '<button type="button" class="rd-link" data-act="ack" data-state="aware_1to1">Raising in 1:1</button>' +
             '<button type="button" class="rd-link" data-act="ack" data-state="aware_none">Nothing needed</button></div>') +
@@ -2558,23 +2718,50 @@
   // One primary action and one overflow. Every item calls the application's
   // own function; nothing was reimplemented and nothing was removed.
   function wsActions(c) {
-    return '<footer class="rd-ws-actions">' +
-      '<div class="rd-menu"><button type="button" class="btn btn-p" data-menu="log">Log activity' + I('chevronDown') + '</button>' +
-      '<div class="rd-menu-list" data-for="log">' +
-      '<button type="button" data-act="log-visit">Visit</button>' +
-      '<button type="button" data-act="log-tp">Touchpoint</button>' +
-      '<button type="button" data-act="log-ci">Care conversation</button>' +
-      '</div></div>' +
-      '<div class="rd-menu"><button type="button" class="btn btn-icon" data-menu="more" aria-label="More actions">' + I('more') + '</button>' +
-      '<div class="rd-menu-list right" data-for="more">' +
-      '<button type="button" data-act="edit">Edit client</button>' +
-      '<button type="button" data-act="draft">Draft update</button>' +
-      '<button type="button" data-act="fill">Fill priority</button>' +
-      '<button type="button" data-act="ltc-add">Add LTC record</button>' +
-      '</div></div></footer>';
+    /* THE FOOTER IS GONE. Three ways to log on one page was her complaint:
+       "Log contact at the top, Log activity at the bottom, and a '...' menu
+       next to it." Both of the bottom two are in the header row now, so
+       nothing that was reachable has become unreachable. */
+    return '';
+  }
+
+  /* Each button opens the thing that already exists rather than a second
+     implementation of it: the Day 30 guide the onboarding layer owns, the
+     draft library, and V1's own log panels. An action whose function is not
+     on the page says so instead of failing silently. */
+  function wireS30Steps(ws, c) {
+    $$('.rd-s30-step', ws).forEach(function (b) {
+      b.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        const act = b.dataset.step;
+        const fn = function (n) { return typeof window[n] === 'function' ? window[n] : null; };
+        try {
+          if (act === 'd30') {
+            const f = fn('openD30Guide');
+            if (f) return f(c.id);
+          } else if (act === 'draft') {
+            const byId = fn('draftById'), open = fn('openDraftFor');
+            const d = byId && (byId('week1') || byId('welcome'));
+            if (d && open) return open(d, c);
+          } else if (act === 'visit') {
+            // openLogPanel(type, clientId, clientName) — same call the header
+            // Log menu makes, so there is one way to open the form.
+            const f = fn('openLogPanel');
+            if (f) return f('visit', c.id, c.name);
+          } else if (act === 'checkin') {
+            const f = fn('openLogPanel');
+            if (f) return f('touchpoint', c.id, c.name);
+          }
+          if (typeof showToast === 'function') showToast('That step is not wired up yet.');
+        } catch (e) {
+          if (typeof showToast === 'function') showToast('Could not open that step.');
+        }
+      });
+    });
   }
 
   function wireWsActions(ws, c) {
+    wireS30Steps(ws, c);
     const call = function (fn) { const f = window[fn]; return typeof f === 'function' ? f : null; };
     $$('[data-menu]', ws).forEach(function (b) {
       b.addEventListener('click', function (e) {
@@ -2706,6 +2893,32 @@
       '<div class="rd-empty-b">' + esc(body) + '</div></div>';
   }
 
+  /* MY TO-DO HOLDS ONLY WHAT THE CSM TYPED.
+     The generated items -- From Pulse, Success in 30, Overdue -- ARE the rows
+     of Today's list. Printing them here as well made Home ask the same
+     question twice in two different shapes, and buried the CSM's own tasks
+     under a queue they had already read at the top of the page.
+
+     Done by neutralising generatedTodos for the duration of V1's render
+     rather than by editing V1: renderTodos is index.html's, and index.html is
+     V1. A function declaration's global binding IS its window property, so
+     swapping it is enough for the bare call inside renderTodos to see it.
+     Restored in a finally, because everything else that asks for the
+     generated list -- the Today's list itself, the counts -- still needs it. */
+  function installTodos() {
+    if (typeof window.renderTodos !== 'function' || window.renderTodos.__rd) return;
+    const orig = window.renderTodos;
+    const wrapped = function () {
+      const gen = window.generatedTodos;
+      if (typeof gen === 'function') window.generatedTodos = function () { return []; };
+      try { return orig.apply(this, arguments); }
+      finally { if (typeof gen === 'function') window.generatedTodos = gen; }
+    };
+    wrapped.__rd = true;
+    wrapped.original = orig;
+    window.renderTodos = wrapped;
+  }
+
   function installTracker() {
     if (_origRenderClientMaster || typeof window.renderClientMaster !== 'function') return;
     if (window.renderClientMaster.__rd) return;
@@ -2816,7 +3029,8 @@
     };
     /* One heading over the tiles AND the list, because they are one thought:
        the tiles are the filters and the list is what they filter. */
-    const sAttn = sec('rd-s-attn', 'Needs attention', 'What is new, and not yet sorted');
+    const sAttn = sec('rd-s-attn', '', '');
+    sAttn.classList.add('rd-sec-bare');
     /* HER HOME IS TWO COLUMNS, and that is the whole difference between her
        picture and what shipped. Hers fits a screen: the tiles across the top,
        Today's list on the left, and a narrow rail on the right holding the
@@ -2836,7 +3050,7 @@
     // Today first, because the question a CSM opens the Hub with is "what is
     // happening today", not "how is my caseload trending". The numbers still
     // come, under Caseload health, where they inform rather than greet.
-    const sNext = sec('rd-s-next', 'Visits', 'Next two weeks');
+    const sNext = sec('rd-s-next', 'Visits', 'Next 7 days');
     const sCase = sec('rd-s-case', 'Caseload health');
     const sTools = sec('rd-s-tools', 'Your work');
     sTools.className = 'rd-sec quiet';
@@ -3036,6 +3250,9 @@
   const TODAY_BUCKETS = [['action', 'Need action today'], ['week', 'Due this week'],
                          ['onboarding', 'In first 30 days'], ['open', 'Open visits']];
   let _todayFilter = '';
+  // Her list stops at five and offers the rest. Pressing a tile is a new
+  // question, so the expansion resets with it.
+  let _todayAll = false;
 
   /* OPEN VISITS ON HOME ARE THE URGENT ONES (Courtney, section 9): "Open
      visits on a CSM's clients show on the client's Schedule tab, and on
@@ -3071,6 +3288,60 @@
     return { byClient: byClient, total: ov.length };
   }
 
+  /* HOW MANY SUCCESS IN 30 MILESTONES ARE OPEN. Past their day and not
+     logged, which is the same test generatedTodos() applies before it writes
+     one. Read here so the row can say "3 milestones open" beside the reason,
+     rather than making the CSM open the client to find out. */
+  function s30Open(c) {
+    const age = c.startDate ? daysSince(c.startDate) : null;
+    if (age === null || age > 30) return 0;
+    let done = [];
+    try { done = rowsFor('s60', c.id) || []; } catch (e) { return 0; }
+    let ms = [];
+    try { ms = (typeof S30_MILESTONES !== 'undefined' && S30_MILESTONES) || []; } catch (e) { return 0; }
+    let n = 0;
+    ms.forEach(function (m) {
+      let due = 7;
+      try { due = (typeof TODO_MS_DAYS !== 'undefined' && TODO_MS_DAYS[m.id]) || 7; } catch (e) {}
+      if (age <= due) return;                                        // not due yet
+      if (done.some(function (x) { return x.id === m.id; })) return; // already logged
+      n++;
+    });
+    return n;
+  }
+
+  /* THE NEXT STEP IS THE STEP FOR THIS CLIENT, not a label for the row.
+     "Read the Pulse and sort it" is the same sentence on every flagged
+     client, which makes the column worthless: the CSM has to open each one to
+     learn what to do. Pulse already writes a recommended action, so that is
+     what goes here.
+
+     shortStep IS A STOPGAP. It trims a paragraph written for a human reading
+     the flag into something that fits a table cell, by cutting at the first
+     dash and turning a gerund into an imperative. It will read oddly on
+     sentences shaped differently from today's.
+
+     THE REAL FIX IS UPSTREAM: Pulse should write a short imperative next step
+     of about ten words onto the flag, beside the long recommendedAction, and
+     this should read that field and delete the trimming below. That is a
+     change to the Pulse builder in tribute-api, not to the Hub. */
+  const STEP_VERB = {
+    checking: 'Check', confirming: 'Confirm', clarifying: 'Clarify', calling: 'Call',
+    scheduling: 'Schedule', asking: 'Ask', 'a call': 'Call', 'a conversation': 'Talk',
+    'a quick check': 'Check'
+  };
+  function shortStep(t) {
+    let s = String(t || '').trim().replace(/^Worth\s+/i, '');
+    s = s.split(/\s[\u2014\u2013-]\s/)[0];
+    if (s.length > 95) { const cut = s.indexOf(', ', 45); if (cut > 0) s = s.slice(0, cut); }
+    s = s.replace(/[.,;]$/, '');
+    s = s.replace(/^a call to\b/i, 'Call');
+    s = s.replace(/^(a quick check|a call|a conversation|\w+ing)\b/i, function (m) {
+      return STEP_VERB[m.toLowerCase()] || m;
+    });
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+
   function todayRows() {
     const app = A();
     if (!app.ready) return [];
@@ -3085,10 +3356,14 @@
       if (lvl) {
         // Red is today's work, amber is this week's. The same split as the
         // tabs, so a tile and a tab cannot disagree about one client.
-        out.push({ rank: lvl === 'red' ? 0 : 3,
+        out.push({ rank: lvl === 'red' ? 0 : 3, tier: c.tier, kind: 'Pulse',
                    bucket: lvl === 'red' ? 'action' : 'watch',
                    cid: c.id, name: c.name,
-                   why: pulseFirst(pp.headline), step: 'Read the Pulse and sort it',
+                   why: pulseFirst(pp.headline),
+                   step: (pp && pp.card && pp.card.recommendedAction)
+                     ? shortStep(pp.card.recommendedAction) : 'Read the Pulse and sort it',
+                   full: (pp && pp.card && pp.card.recommendedAction) || '',
+                   s30: s30Open(c),
                    tone: lvl === 'red' ? 'bad' : 'warn' });
       }
       // 2. Success in 30, for anyone inside their first month.
@@ -3096,16 +3371,22 @@
       if (age !== null && age <= 30) {
         const done = rowsFor('s60', c.id).length;
         out.push({ rank: 1, bucket: 'onboarding', cid: c.id, name: c.name,
+                   tier: c.tier, kind: 'Success in 30',
                    why: 'Day ' + (age + 1) + ' of 30' + (done ? ' · ' + plural(done, 'milestone') + ' logged' : ' · nothing logged yet'),
-                   step: 'Work the onboarding checklist', tone: done ? 'info' : 'warn' });
+                   step: 'Work the onboarding checklist', s30: s30Open(c),
+                   tone: done ? 'info' : 'warn' });
       }
       // 3 and 4. The cadence exception, which already knows overdue from due.
       const ex = exceptionFor(c);
       if (ex) out.push({ rank: ex.tone === 'bad' ? 2 : 3,
                          bucket: ex.tone === 'bad' ? 'action'
                                  : (ex.rank === 4 || ex.rank === 5) ? 'watch' : 'week',
-                         cid: c.id, name: c.name, why: ex.text,
-                         step: ex.tone === 'bad' ? 'Book it or defer it' : 'Get it in the diary',
+                         cid: c.id, name: c.name, why: ex.text, tier: c.tier,
+                         s30: s30Open(c),
+                         step: /no visit on record|visit overdue/i.test(ex.text) ? 'Schedule in-person visit'
+                               : /touchpoint/i.test(ex.text) ? 'Check-in call or email'
+                               : /^visit due/i.test(ex.text) ? 'Confirm the visit is booked'
+                               : ex.tone === 'bad' ? 'Book it or defer it' : 'Get it in the diary',
                          tone: ex.tone });
     });
 
@@ -3117,6 +3398,7 @@
       Object.keys(byClient).forEach(function (k) {
         const c = cl.find(function (x) { return x.name === k; });
         out.push({ rank: 4, bucket: 'open', cid: c ? c.id : '', name: k,
+                   tier: c ? c.tier : '', kind: 'Open visits',
                    why: plural(byClient[k], 'visit') + ' unfilled in the next 48 hours',
                    step: 'With the Scheduling Partner', tone: 'warn' });
       });
@@ -3188,7 +3470,31 @@
       }
     });
     const one = order.map(function (k) { return best[k]; });
-    one.sort(function (a, b) { return a.rank - b.rank || String(a.name).localeCompare(String(b.name)); });
+    /* HER ORDER: Pulse, then Success in 30, then overdue, then due this week,
+       and inside each group the highest tier first. rank already carries the
+       first half of that; tier is the tiebreak that was missing, so a High
+       need client no longer sat below a Low one just because of the alphabet.
+       Name stays as the last resort, so the order is stable between renders
+       and the list does not reshuffle under the reader. */
+    const TIER_RANK = { High: 0, Medium: 1, Low: 2 };
+    /* THE GROUP IS ABOUT THE CLIENT, NOT THE ROW.
+       "Success in 30" means this client has open milestones, not that the row
+       we kept happens to be a milestone row. A client who is overdue AND has
+       milestones open shows their overdue row with the milestone count under
+       it, and belongs in the Success in 30 group: they are a new client whose
+       onboarding is slipping, which is more urgent than an overdue visit on a
+       settled one. Ranking by the row's own kind put them below it. */
+    const group = function (r) {
+      const urgent = r.tone === 'bad';
+      if (urgent) return r.kind === 'Pulse' ? 0 : (r.s30 ? 1 : 2);
+      return r.kind === 'Pulse' ? 3 : 4;
+    };
+    one.sort(function (a, b) {
+      return group(a) - group(b) ||
+             ((TIER_RANK[a.tier] === undefined ? 3 : TIER_RANK[a.tier]) -
+              (TIER_RANK[b.tier] === undefined ? 3 : TIER_RANK[b.tier])) ||
+             String(a.name).localeCompare(String(b.name));
+    });
     return one;
   }
 
@@ -3196,11 +3502,26 @@
      Pressing the tile you are already on clears the filter, which is the way
      back to everything now that the chip row has gone. */
   function setTodayFilter(k) {
+    _todayAll = false;
     _todayFilter = (_todayFilter === k) ? '' : k;
     _attnKey = '';
     renderAttention();
   }
 
+  /* THE LIST REDREW ABOUT ONCE A SECOND WHILE NOTHING HAPPENED.
+     boot()'s MutationObserver schedules a tick on any DOM change outside its
+     ignore list; tick calls renderAttention, which calls this. renderAttention
+     is guarded by a content key, but this was called OUTSIDE that guard on
+     purpose, because sorting an item changes the list without changing a
+     single tile number. So every tick rewrote #rd-today, and rewriting it is
+     itself a mutation.
+
+     The fix is the same guard, applied here: identical content is not
+     rewritten, so there is nothing for the observer to see and the loop has
+     nothing to feed on. #rd-today is in the observer's ignore list as well,
+     because one of the two should not be the only thing standing between the
+     page and a spin. */
+  let _todayKey = '';
   function renderToday() {
     const el = $('#rd-today');
     if (!el) return;
@@ -3213,6 +3534,8 @@
     // Nothing to sort is worth saying plainly, and is not the same as a source
     // that failed: that distinction is renderAttention's and is kept there.
     if (!rows.length) {
+      if (_todayKey === 'empty') return;      // same guard; see above
+      _todayKey = 'empty';
       el.innerHTML = '<p class="rd-ws-quiet">Nothing new to sort. Anything you have already sorted is in Following up below.</p>';
       return;
     }
@@ -3225,6 +3548,30 @@
       ? rows.filter(function (r) { return (r.buckets || [r.bucket]).indexOf(_todayFilter) > -1; })
       : rows;
     const lab = (TODAY_BUCKETS.filter(function (b) { return b[0] === _todayFilter; })[0] || [])[1];
+
+    /* Identical content is not rewritten. Everything the markup below depends
+       on goes into the key, including the filter and the expansion, or the
+       list would ignore a press. */
+    const key = _todayFilter + '|' + _todayAll + '|' + rows.length + '|' +
+      shown.map(function (r) {
+        return [r.cid, r.name, r.tone, r.kind, r.why, r.step, r.s30, r.tier].join('\u0001');
+      }).join('\u0002');
+    if (key === _todayKey) return;
+    _todayKey = key;
+    /* HER CARD, from the Home picture: a titled card, three column headings,
+       the tier under the client's name, the reason labelled and coloured, and
+       an Open button on the row.
+
+       AND IT STOPS AT FIVE. Hers shows five rows and then "Show 4 more". A
+       caseload like Julia's puts twenty-five rows here, which is the wall she
+       was complaining about: "it's easy to miss cards below the fold". The
+       whole point of the list is that you work the top of it. */
+    const LIMIT = 8;
+    const more = Math.max(0, shown.length - LIMIT);
+    const vis = _todayAll ? shown : shown.slice(0, LIMIT);
+    const tierPill = function (t) {
+      return t ? '<span class="rd-td-tier ' + esc(String(t).toLowerCase()) + '">' + esc(t) + '</span>' : '';
+    };
     el.innerHTML =
       (_todayFilter
         ? '<div class="rd-td-f"><span>Showing ' + shown.length + ' of ' + rows.length + ' \u00b7 ' +
@@ -3232,17 +3579,43 @@
           '<button type="button" class="rd-td-all" data-td="">Show everything</button></div>'
         : '') +
       (shown.length
-        ? '<ul class="rd-td">' + shown.map(function (r) {
-            return '<li class="rd-td-r ' + r.tone + '"' + (r.cid ? ' data-cid="' + esc(r.cid) + '" tabindex="0"' : '') + '>' +
-              '<span class="rd-td-n">' + esc(r.name) + '</span>' +
-              '<span class="rd-td-w">' + esc(r.why) + '</span>' +
-              '<span class="rd-td-s">' + esc(r.step) + '</span></li>';
-          }).join('') + '</ul>'
+        ? '<div class="rd-td-card">' +
+          '<div class="rd-td-head">Today\u2019s list \u2014 work top to bottom</div>' +
+          '<table class="rd-td-t"><thead><tr>' +
+          '<th scope="col">Client</th><th scope="col">Why it\u2019s here</th>' +
+          '<th scope="col">Next step</th><th scope="col"><span class="rd-sr">Open</span></th>' +
+          '</tr></thead><tbody>' +
+          vis.map(function (r) {
+            /* A cadence exception leads with its own words, so it is toned
+               rather than labelled; Pulse and the rest carry a label. Both
+               clamp, and the full text is on the title, because a reason
+               worth reading in full is worth reading without opening the
+               client. */
+            const why = r.kind
+              ? '<b class="rd-td-k">' + esc(r.kind) + ':</b> ' + esc(r.why)
+              : '<span class="' + (r.tone === 'bad' ? 'rd-td-over' : 'rd-td-due') + '">' + esc(r.why) + '</span>';
+            return '<tr class="rd-td-r ' + r.tone + '"' + (r.cid ? ' data-cid="' + esc(r.cid) + '" tabindex="0"' : '') + '>' +
+              '<td class="rd-td-n"><span>' + esc(r.name) + '</span>' + tierPill(r.tier) + '</td>' +
+              '<td class="rd-td-w"><div class="rd-c2" title="' + esc(r.why) + '">' + why + '</div>' +
+                (r.s30 ? '<div class="rd-td-s30"><b>Success in 30:</b> ' + r.s30 +
+                         ' milestone' + (r.s30 > 1 ? 's' : '') + ' open</div>' : '') + '</td>' +
+              '<td class="rd-td-s"><div class="rd-c3" title="' + esc(r.full || r.step) + '">' + esc(r.step) + '</div></td>' +
+              '<td class="rd-td-o">' + (r.cid ? '<span class="rd-td-b">Open</span>' : '') + '</td></tr>';
+          }).join('') +
+          '</tbody></table>' +
+          '<div class="rd-td-foot">' +
+            (more && !_todayAll
+              ? '<button type="button" class="rd-td-more">Show ' + more + ' more \u2193</button>'
+              : (_todayAll && more ? '<button type="button" class="rd-td-more">Show fewer \u2191</button>' : '')) +
+            '<span>Sort an item and it moves to Following up</span>' +
+          '</div></div>'
         : '<p class="rd-ws-quiet">Nothing under that filter.</p>');
 
     $$('[data-td]', el).forEach(function (b) {
       b.addEventListener('click', function () { setTodayFilter(b.dataset.td); });
     });
+    const moreBtn = $('.rd-td-more', el);
+    if (moreBtn) moreBtn.addEventListener('click', function () { _todayAll = !_todayAll; renderToday(); });
     $$('.rd-td-r[data-cid]', el).forEach(function (r) {
       const go = function () { openClient(r.dataset.cid); };
       r.addEventListener('click', go);
@@ -3365,16 +3738,81 @@
     // changes without any of the tile numbers changing.
     renderToday();
     renderComingUp();
+    renderSyncLine();
   }
 
   let _nextKey = '';
+  /* ONE SYNC LINE, under the greeting, which is the only place on Home a
+     CSM actually reads before starting.
+
+     It carries the date V1 already wrote, how many clients are in the
+     caseload, when Viv last answered, and -- loudly -- when the Hub's OWN
+     data is hours old. That last part is the one that matters: a stale Viv
+     pull is a number being old, but stale Hub data means everything on the
+     page is describing yesterday, and until now the only hint was a quiet
+     "Synced 2h ago" in a corner. */
+  let _syncKey = '';
+  function renderSyncLine() {
+    const el = $('#home-d');
+    if (!el) return;
+    const app = A();
+    /* The date V1 wrote. It is always the first part, and V1 rewrites this
+       element on every updateHome(), so the current text is the authority
+       rather than whatever was cached the first time through. */
+    const live = (el.textContent || '').split(' \u00b7 ')[0].trim();
+    if (live) el.dataset.rdBase = live;
+    const base = el.dataset.rdBase || live;
+
+    let n = 0;
+    try { n = (app.fn.get('clients') || []).filter(function (c) { return !c.isOffice; }).length; } catch (e) {}
+
+    /* WHEN VIV LAST ANSWERED. The Hub keeps this in localStorage under
+       viv_last_sync, which is what the sidebar line read before it was
+       removed; there is no field for it on the profile, which is where the
+       first version of this looked and found nothing. */
+    let viv = '';
+    try {
+      const at = localStorage.getItem('viv_last_sync');
+      const d = at ? new Date(at) : null;
+      if (d && !isNaN(d)) viv = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    } catch (e) {}
+
+    let stale = '';
+    try {
+      const gen = app.data && app.data.shared && app.data.shared.viv && app.data.shared.viv.generatedAt;
+      if (gen) {
+        const hrs = (Date.now() - new Date(gen).getTime()) / 36e5;
+        if (hrs >= 2) {
+          stale = hrs < 24 ? Math.round(hrs) + 'h ago' : Math.round(hrs / 24) + 'd ago';
+        }
+      }
+    } catch (e) {}
+
+    /* V1's updateHome() writes #home-d too, and it writes the bare date. So
+       the key cannot be the only test: after V1 repaints, the content is
+       different but the key is not, and the line would never come back. Ask
+       the element what it currently says as well. */
+    const key = base + '|' + n + '|' + viv + '|' + stale;
+    const mine = el.querySelector('.rd-syncbits');
+    if (key === _syncKey && mine) return;
+    _syncKey = key;
+    el.innerHTML = esc(base) + '<span class="rd-syncbits">' +
+      (n ? ' \u00b7 ' + plural(n, 'client') : '') +
+      (viv ? ' \u00b7 Viv synced ' + esc(viv) : '') +
+      (stale ? ' \u00b7 <span class="rd-stale">Hub data ' + esc(stale) + '</span>' : '') +
+      '</span>';
+  }
+
   function renderComingUp() {
     const el = $('#rd-next');
     const app = A();
     if (!el || !app.ready) return;
     let cl = [], todos = [];
     try { cl = app.fn.get('clients') || []; todos = app.fn.get('todos') || []; } catch (e) { return; }
-    const t = todayISO(), in14 = new Date(Date.now() + 14 * DAY).toISOString().slice(0, 10);
+    /* SEVEN DAYS, not fourteen. The rail card is "what is coming up this
+       week"; a fortnight of rows pushed the CSM's own to-do list off the
+       screen and nothing in the next seven days stood out among them. */
+    const t = todayISO(), in14 = new Date(Date.now() + 7 * DAY).toISOString().slice(0, 10);
     const rows = [];
     cl.filter(function (c) { return !c.isOffice && c.freq !== 'NA' && c.lastVisit; }).forEach(function (c) {
       const s = nextVisit(c);
@@ -3386,9 +3824,15 @@
     const key = rows.map(function (r) { return r.when + r.who; }).join('|');
     if (key === _nextKey) return;
     _nextKey = key;
-    if (!rows.length) { el.innerHTML = '<div class="rd-quiet">Nothing scheduled in the next two weeks.</div>'; return; }
+    if (!rows.length) { el.innerHTML = '<div class="rd-quiet">Nothing scheduled in the next seven days.</div>'; return; }
     el.innerHTML = rows.slice(0, 10).map(function (r) {
-      return '<div class="rd-next-row"><span class="d">' + fmtShort(r.when) + '</span>' +
+      /* The weekday, because "Dec 1" does not tell a CSM whether that is
+         tomorrow or next Monday, and planning the week is the whole job of
+         this card. */
+      const d = new Date(String(r.when).slice(0, 10) + 'T12:00:00');
+      const when = isNaN(d) ? fmtShort(r.when)
+        : d.toLocaleDateString('en-US', { weekday: 'short' }) + ' ' + (d.getMonth() + 1) + '/' + d.getDate();
+      return '<div class="rd-next-row"><span class="d">' + esc(when) + '</span>' +
         '<span class="w">' + esc(r.who) + '</span><span class="k">' + esc(r.what) + '</span></div>';
     }).join('') + (rows.length > 10 ? '<div class="rd-quiet">and ' + (rows.length - 10) + ' more</div>' : '');
   }
@@ -3846,6 +4290,7 @@
       tidyNav();
       mountTop();
       installTracker();
+      installTodos();
       if (window.TributeWorkflows) window.TributeWorkflows.install();
       restructureHome();
       refreshTop();
@@ -3914,7 +4359,9 @@
       for (let i = 0; i < muts.length; i++) {
         const tgt = muts[i].target;
         if (!tgt || !tgt.closest) continue;
-        if (tgt.closest('#rd-pal, #rd-top, #proto-bar, .rd-dlg, .rd-cw-rail, #rd-views')) continue;
+        // #rd-today is the Today's list. tick() renders it, so watching it
+        // means the renderer wakes itself. See renderToday's content key.
+        if (tgt.closest('#rd-pal, #rd-top, #proto-bar, .rd-dlg, .rd-cw-rail, #rd-views, #rd-today')) continue;
         relevant = true;
         // Record the subtree so the icon pass can be scoped to it.
         _dirty.add(tgt.nodeType === 1 ? tgt : tgt.parentElement);

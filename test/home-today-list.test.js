@@ -25,8 +25,14 @@ ok('the list is mounted on Home under the tiles',
    one. A tile inside the left column would read as part of the list. */
 ok('...with the tiles spanning both columns, since they filter the left one',
    CODE.indexOf('id="rd-attn"') < CODE.indexOf('id="rd-home-cols"'));
-ok('the tiles and the list sit under one heading, because they are one thing',
-   /sec\('rd-s-attn', 'Needs attention', 'What is new, and not yet sorted'\)/.test(CODE));
+/* NO HEADING OVER THE TILES. Her Home has none: the tiles sit under the date
+   and the card below them carries its own title. Ours added a third heading
+   competing with the card title and the rail titles for the same job, and it
+   read as a label for the tiles rather than for the list. */
+ok('the tiles and the list share a section with no heading of its own',
+   /sec\('rd-s-attn', '', ''\)/.test(CODE) &&
+   /sAttn\.classList\.add\('rd-sec-bare'\)/.test(CODE) &&
+   /\.rd-sec-bare > \.rd-sec-h \{ display: none; \}/.test(CSS));
 /* Three of the four names are hers. The second is not: she wrote "Due this
    week", and the data behind that bucket is the warn-tone exception, which is
    due within FOURTEEN days and is what the Clients page has always called Due
@@ -88,8 +94,21 @@ ok('a row carries every filter it matches',
    /r\.buckets = \[r\.bucket\]; order\.push\(k\);/.test(CODE) &&
    /if \(best\[k\]\.buckets\.indexOf\(r\.bucket\) < 0\) best\[k\]\.buckets\.push\(r\.bucket\);/.test(CODE));
 ok('...and the filter reads the set', /\(r\.buckets \|\| \[r\.bucket\]\)\.indexOf\(_todayFilter\) > -1/.test(CODE));
-ok('...and the list is still ordered the way she asked',
-   /one\.sort\(function \(a, b\) \{ return a\.rank - b\.rank \|\| String\(a\.name\)\.localeCompare\(String\(b\.name\)\); \}\);/.test(CODE));
+/* HER ORDER: Pulse, then Success in 30, then overdue, then due this week,
+   and inside each group the highest tier first. rank carries the first half;
+   tier is the tiebreak that was missing, so a High need client no longer sat
+   below a Low one because of the alphabet. Name stays last, so the order is
+   stable between renders and the list does not reshuffle under the reader. */
+ok('...and the list is ordered by group, then tier, then name',
+   /const TIER_RANK = \{ High: 0, Medium: 1, Low: 2 \};/.test(CODE) &&
+   /return group\(a\) - group\(b\) \|\|/.test(CODE) &&
+   /String\(a\.name\)\.localeCompare\(String\(b\.name\)\);/.test(CODE));
+/* THE GROUP IS ABOUT THE CLIENT, NOT THE ROW. Success in 30 means this client
+   has open milestones, not that the row we kept is a milestone row. A client
+   who is overdue AND has milestones open is a new client whose onboarding is
+   slipping, which outranks an overdue visit on a settled one. */
+ok('...and a client with open milestones is grouped by that, not by their row',
+   /return r\.kind === 'Pulse' \? 0 : \(r\.s30 \? 1 : 2\);/.test(CODE));
 ok('an open visit with no matching client is not folded into another',
    /\('name:' \+ r\.name\)/.test(CODE));
 // Behavioural: the collapse, over a client who qualifies three ways.
@@ -203,7 +222,47 @@ ok('an empty Open visits tile says the true thing about open visits',
 ok('...and the other buckets say nothing, because nothing is true of them',
    /return 'Nothing right now';/.test(CODE));
 ok('rows are reachable by keyboard', /ev\.key === 'Enter' \|\| ev\.key === ' '/.test(CODE) && /tabindex="0"/.test(CODE));
-ok('only urgency is marked', /\.rd-td-r\.bad/.test(CSS) && /\.rd-td-r\.warn/.test(CSS));
+/* HER CARD. The columns matched her picture and the page still did not: hers
+   is a titled card with three column headings, the tier under the client name,
+   the reason labelled and coloured, and an Open button on the row. Ours was a
+   bare full-bleed list. */
+ok('the list is a titled card with her three column headings',
+   /rd-td-card/.test(CODE) && /Today.u2019s list .u2014 work top to bottom/.test(CODE) &&
+   /scope="col">Client</.test(CODE) && /scope="col">Why it.u2019s here</.test(CODE) &&
+   /scope="col">Next step</.test(CODE));
+ok('...the tier is a pill under the name', /rd-td-tier/.test(CODE) &&
+   /\.rd-td-tier\.high/.test(CSS) && /\.rd-td-tier\.low/.test(CSS));
+ok('...the reason is labelled and takes the row s tone',
+   /rd-td-k/.test(CODE) && /\.rd-td-r\.bad \.rd-td-k/.test(CSS));
+ok('...and the row carries an Open button', /rd-td-b.>Open</.test(CODE));
+/* ACCENT WAS NEVER DEFINED. Ten rules reached for var(--accent): every focus
+   ring on the new tables, the Show-more link, the Call and Email hover, and
+   this button. An undefined custom property makes the whole declaration
+   invalid, so the Open button rendered white text on a transparent
+   background and the focus rings were simply absent. */
+ok('...and the accent the button is painted with exists',
+   /--accent: #/.test(CSS));
+ok('...so nothing is left reaching for a token that is not there',
+   !/var\(--accent\)/.test(CSS) || /--accent: #/.test(CSS));
+
+/* AND IT STOPS AT FIVE. Hers shows five and offers the rest. A caseload like
+   Julia s puts twenty-five rows here, which is the wall she complained about:
+   "it is easy to miss cards below the fold". */
+ok('the list stops at eight and offers the rest',
+   /const LIMIT = 8;/.test(CODE) &&
+   /const vis = _todayAll \? shown : shown\.slice\(0, LIMIT\);/.test(CODE) &&
+   /rd-td-more/.test(CODE) && /Show fewer/.test(CODE));
+ok('...and pressing a tile is a new question, so it resets',
+   /function setTodayFilter\(k\) \{[\s\S]{0,40}_todayAll = false;/.test(CODE));
+
+/* The list is a table now, so the rules that made it a <ul> of CSS-grid rows
+   are gone: .rd-td-r IS the <tr>, and display:grid on a table row takes it
+   out of the table layout entirely. That put the headings in the wrong place,
+   stretched the tier pill into a full-width bar, and left a hundred pixels of
+   air in every row. */
+ok('only urgency is marked', /\.rd-td-t tbody tr\.bad/.test(CSS) && /\.rd-td-t tbody tr\.warn/.test(CSS));
+ok('...and the old grid-row rules are gone, not just overridden',
+   !/\.rd-td-r \{\s*\n\s*display: grid;/.test(CSS));
 
 // The list has to redraw when something is sorted, which changes no tile
 // number at all, so it cannot sit behind the tiles' change-detection key.

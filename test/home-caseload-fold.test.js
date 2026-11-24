@@ -29,6 +29,17 @@ ok('...and the rail is the right-hand column of Home',
    /#rd-home-cols \{ display: grid; grid-template-columns: minmax\(0, 1fr\) 320px;/.test(CSS));
 ok('...and it drops under the list on a narrow screen, rather than squeezing it',
    /@media \(max-width: 1080px\) \{\s*\n\s*#rd-home-cols \{ grid-template-columns: minmax\(0, 1fr\); \}/.test(CSS));
+/* HOME IS A PAGE OF CARDS. Every section bled into the page with no edge, so
+   the list, the visits and the CSM s own work floated in one field with
+   nothing grouping them. The edges ARE the organisation, and one heading
+   style does the job that three weights were doing. */
+ok('each rail section is a card',
+   /#rd-home-cols \.rd-hr > \.rd-sec \{[\s\S]{0,160}border: 1px solid var\(--line\);/.test(CSS));
+ok('...with one heading style, shared with the list card',
+   /#rd-home-cols \.rd-hr > \.rd-sec > \.rd-sec-h h3 \{[\s\S]{0,160}text-transform: uppercase;/.test(CSS));
+ok('...and a card inside a card loses its own frame, rather than boxing twice',
+   /#rd-home-cols \.rd-hr \.card \{[\s\S]{0,120}border: 0;/.test(CSS));
+
 ok('caseload health is the folding one', /sCase\.classList\.add\('rd-sec-fold'\);/.test(CODE));
 ok('it is closed on arrival', /caseH\.setAttribute\('aria-expanded', 'false'\);/.test(CODE) &&
    /\.rd-sec-fold:not\(\[data-open\]\) > \*:not\(\.rd-sec-h\) \{ display: none; \}/.test(CSS));

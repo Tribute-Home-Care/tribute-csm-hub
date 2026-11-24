@@ -121,7 +121,19 @@ ok('...and the dot takes its colour from the tone, not a second rule',
 // 4. Call and Email are buttons in her picture. A bare link under a name
 //    reads as part of the name; a button reads as a thing you press.
 ok('call and email are buttons', /class="rd-cbtn" href="tel:/.test(CODE) &&
-   /class="rd-cbtn" href="mailto:/.test(CODE) && /\.rd-cbtn \{/.test(CSS));
+   /class="rd-cbtn rd-mailbtn" href="mailto:/.test(CODE) && /\.rd-cbtn \{/.test(CSS));
+
+/* EMAILING THE FAMILY FROM THE LIST COUNTS. Her section 3: "Both log to the
+   client's Activity automatically, so a quick call from the list still counts
+   as a touchpoint." The one a CSM does not come back to log is the one that
+   stops counting. */
+ok('emailing from the list writes a touchpoint',
+   /function logEmailTouchpoint\(cid\)/.test(CODE) && /type: 'EMAIL'/.test(CODE) &&
+   /set\('touchpoints', tps\)/.test(CODE));
+ok('...and refuses in a read-only View as session, like every other write',
+   /if \(typeof writesBlocked === 'function' && writesBlocked\(\)\) return;/.test(CODE));
+ok('...and records who actually did it',
+   /typeof actorStamp === 'function' \? actorStamp\(\) : \{\}/.test(CODE));
 
 /* ONE FILTER ROW, her words: "One filter row. Replaces 2 dropdowns + 5 tabs +
    market chips + unused legend." The market sat in a chip bar of its own
@@ -182,7 +194,27 @@ ok('there is no Call button that cannot dial',
 ok('the table is the list, at every width', /el\.innerHTML = clientListTable\(rows\);/.test(CODE));
 ok('the compact list is gone, not left unreachable',
    !/clientListCompact/.test(CODE));
-ok('rows still open a client the same way', /\$\$\('\[data-cid\]', el\)/.test(CODE));
+/* A ROW opens a client, and only a row. This bound every [data-cid] in the
+   table, which now includes the Email link inside one: pressing Email would
+   have opened the draft AND navigated away from the list. */
+ok('rows still open a client', /\$\$\('tr\[data-cid\]', el\)/.test(CODE));
+ok('...and the Email link does not also navigate',
+   /\$\$\('\.rd-mailbtn', el\)/.test(CODE) && /ev\.stopPropagation\(\);/.test(CODE));
+
+/* C2. THE PULSE REASON ON THE ROW, joined here rather than scraped off Home:
+   the Clients page has to be right when Home has never been opened. */
+ok('a flagged client says why, under the status',
+   /class="rd-clt-pl"/.test(CODE) && /<b>Pulse:<\/b>/.test(CODE));
+ok('...clamped to two lines, with the rest on hover',
+   /\.rd-clt-pl \{[\s\S]{0,200}-webkit-line-clamp: 2;/.test(CSS));
+ok('...and only underneath a cadence exception, which leads because it has a date',
+   /\(ps && ex \?/.test(CODE));
+
+/* D. VIV'S OWN WORDS ARE NOT THE HUB'S. "Processing" is the status string Viv
+   sets while a client is being set up, and it appeared on the Clients list
+   meaning nothing to the CSM reading it. */
+ok('Viv\'s processing status is said plainly',
+   /'processing': 'Being set up in Viv'/.test(CODE) && !/'processing': 'Processing'/.test(CODE));
 // The three stacked filter systems she counted: the Status dropdown had
 // already stopped being read, which left a control that did nothing.
 ok('the dead Status dropdown and the unused legend are out of sight',

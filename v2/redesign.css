@@ -48,6 +48,14 @@
   --orange-soft: #FBEEE6;
   --orange-fg: #A8400F;
   --brand: #C95018;
+  /* ACCENT WAS NEVER DEFINED. Ten rules reached for var(--accent): every
+     focus ring on the new tables, the Show-more link, the Call and Email
+     buttons hover, and the Open button on Today's list. An undefined custom
+     property makes the whole declaration invalid, so the Open button was
+     white text on a transparent background and the focus rings simply were
+     not there. Aliased rather than find-and-replaced, so the name keeps
+     working and the nine other uses come back with it. */
+  --accent: #C95018;
   --brand-ink: #A8400F;
   --brand-soft: #FBEEE6;
 
@@ -2691,6 +2699,137 @@ input[type="email"], select { min-height: var(--h-ctl); }
 .rd-cbtn:hover { border-color: var(--accent); color: var(--accent); }
 .rd-cbtn svg { width: 11px; height: 11px; }
 
+/* MY TO-DO HOLDS WHAT THE CSM TYPED. The generated items are the rows of
+   Today's list, so printing them here too made Home ask the same question
+   twice, and the 260px inner scroll hid the CSM's own tasks underneath a
+   queue they had already read above. Both come off.
+
+   The list markup is V1's, so this hides rather than re-renders; the filter
+   that stops them being generated into this list at all is in the layer's
+   renderTodos wrapper. */
+#todo-list { max-height: none !important; overflow: visible !important; }
+#todo-list .todo-text { font-size: 14px; }
+
+/* ONE SYNC LINE, in the page header. There were three: two in the sidebar and
+   one in the top bar, none of them where a CSM looks. */
+#sb-sync, #sb-viv { display: none !important; }
+#home-d { font-size: 14.5px; }
+#home-d .rd-stale { color: var(--bad); font-weight: 600; }
+
+/* HOME IS A PAGE OF CARDS, which is what "more organization" means here.
+   Every section bled into the page with no edge, so the list, the visits and
+   the CSM's own work floated in one field with nothing grouping them. Her
+   picture is four tiles and then boxes: one card for the list, one per rail
+   section. The edges ARE the organisation.
+
+   One heading style for all of them, too. Home carried three weights doing
+   the same job: a page heading over the tiles, a card title, and small caps
+   in the rail. The rail and the card now share the small-caps title and the
+   page heading over the tiles is gone, because her tiles sit under the date
+   with no label at all. */
+.rd-sec-bare > .rd-sec-h { display: none; }
+#rd-attn { margin-bottom: 16px; }
+
+#rd-home-cols .rd-hr > .rd-sec {
+  background: var(--card, #FFFDFA); border: 1px solid var(--line);
+  border-radius: 12px; padding: 13px 15px 14px;
+}
+#rd-home-cols .rd-hr > .rd-sec > .rd-sec-h { margin: 0 0 9px; }
+#rd-home-cols .rd-hr > .rd-sec > .rd-sec-h h3 {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--ink-3); margin: 0;
+}
+#rd-home-cols .rd-hr > .rd-sec > .rd-sec-h .lede { font-size: 11px; color: var(--ink-3); }
+/* The cards inside the rail are already inside a card, so they lose their
+   own frame rather than drawing a box in a box. */
+#rd-home-cols .rd-hr .card {
+  background: none; border: 0; border-radius: 0; padding: 0; box-shadow: none; margin: 0;
+}
+#rd-home-cols .rd-hr .card + .card { margin-top: 14px; padding-top: 13px; border-top: 1px solid var(--line-2); }
+/* Caseload health is the one that folds, so its heading has to look pressable
+   rather than like the two above it that do not. */
+#rd-home-cols .rd-hr > .rd-sec.rd-sec-fold > .rd-sec-h { cursor: pointer; margin: 0; }
+/* Caseload health is manager information, so it is one closed line until
+   asked for. Open, it is two columns: a single column of stat cards in a
+   320px rail is a ladder nobody reads. */
+#rd-home-cols .rd-hr > .rd-sec.rd-sec-fold > .g4 {
+  display: grid !important; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px;
+}
+
+/* TODAY'S LIST, as her Home picture draws it: a titled card with three
+   column headings, the tier under the name, the reason labelled, and an Open
+   button on the row. It was a bare full-bleed list of twenty-five rows. */
+.rd-td-card { background: var(--card, #FFFDFA); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.rd-td-head {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--ink-3); padding: 13px 16px 9px;
+}
+/* Fixed columns, so a long reason cannot squeeze the client name into a
+   column one word wide. The widths are the preview's. */
+.rd-td-t { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.rd-td-t th:nth-child(1) { width: 21%; }
+.rd-td-t th:nth-child(2) { width: 37%; }
+.rd-td-t th:nth-child(4) { width: 80px; }
+.rd-td-t thead th {
+  text-align: left; padding: 0 14px 7px; white-space: nowrap;
+  font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--ink-3); border-bottom: 1px solid var(--line-2); background: none;
+}
+.rd-td-t tbody tr { border-bottom: 1px solid var(--line-2); cursor: pointer; }
+.rd-td-t tbody tr:last-child { border-bottom: 0; }
+.rd-td-t tbody tr:hover { background: var(--line-3, var(--line-2)); }
+.rd-td-t tbody tr:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.rd-td-t td { padding: 12px 14px; vertical-align: top; font-size: 14px; line-height: 1.45; }
+.rd-td-t thead th { font-size: 11px; }
+.rd-td-head { font-size: 11.5px; }
+/* The reason clamps to two lines and the step to three. Both carry the full
+   text on the title, because a reason worth reading in full should not cost
+   a page load. */
+.rd-c2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.rd-c3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.rd-td-s30 { margin-top: 3px; font-size: 13px; }
+.rd-td-s30 b { color: #2E5E9E; font-weight: 600; }
+/* A cadence exception leads with its own words, so it is toned rather than
+   labelled. */
+.rd-td-over { color: var(--bad); font-weight: 600; }
+.rd-td-due { color: var(--warn); font-weight: 600; }
+.rd-td-n span { font-weight: 600; color: var(--ink); display: block; }
+.rd-td-tier {
+  display: block; width: fit-content; margin-top: 3px; padding: 1px 8px; border-radius: 99px;
+  font-size: 11.5px; font-weight: 600; background: var(--line-2); color: var(--ink-2);
+}
+.rd-td-tier.high { background: #FBEAE8; color: #A4271E; }
+.rd-td-tier.medium { background: #FDF3E2; color: #92580B; }
+.rd-td-tier.low { background: #EEF6EE; color: #2F6B37; }
+.rd-td-w { color: var(--ink-2); }
+.rd-td-k { font-weight: 600; }
+.rd-td-r.bad .rd-td-k { color: var(--bad); }
+.rd-td-r.warn .rd-td-k { color: var(--warn); }
+.rd-td-r.info .rd-td-k { color: #2E5E9E; }
+.rd-td-s { color: var(--ink-2); }
+.rd-td-o { text-align: right; width: 80px; padding-left: 0; }
+.rd-td-s { color: var(--ink); }
+.rd-td-b {
+  display: inline-block; padding: 5px 13px; border-radius: 8px;
+  background: var(--accent); color: #fff; font-size: 12px; font-weight: 600; white-space: nowrap;
+}
+.rd-td-r.warn .rd-td-b, .rd-td-r.info .rd-td-b { background: none; color: var(--ink-2); border: 1px solid var(--line); }
+.rd-td-foot {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 16px; font-size: 12.5px; color: var(--ink-3); border-top: 1px solid var(--line-2);
+}
+.rd-td-more {
+  appearance: none; background: none; border: 0; padding: 0; cursor: pointer;
+  font: inherit; font-weight: 600; color: var(--accent);
+}
+.rd-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (max-width: 760px) {
+  .rd-td-t thead { display: none; }
+  .rd-td-t td { display: block; padding: 4px 14px; }
+  .rd-td-t tbody tr { display: block; padding: 8px 0; }
+  .rd-td-o { text-align: left; width: auto; }
+}
+
 /* HOME IS TWO COLUMNS, as her picture draws it: the list on the left, a
    narrow rail on the right. Below 1080px the rail drops under the list,
    because at that width a 320px column leaves the list unreadable. */
@@ -2750,7 +2889,14 @@ input[type="email"], select { min-height: var(--h-ctl); }
 .rd-clt-con a { color: var(--ink-2); }
 /* Call and Email sit side by side under the contact name, per her Clients
    picture. Two bare links with no gap read as one word. */
-.rd-clt-act { display: flex; gap: 10px; font-size: 11.5px; margin-top: 2px; }
+.rd-clt-act { display: inline-flex; gap: 6px; flex-wrap: wrap; font-size: 11.5px; margin-top: 2px; }
+/* C2. The Pulse reason on the row, so a CSM can triage the list without
+   opening every flagged client. Two lines, the rest on hover. */
+.rd-clt-pl {
+  margin-top: 3px; font-size: 13px; line-height: 1.4; color: var(--ink-2); max-width: 34ch;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.rd-clt-pl b { color: var(--bad); font-weight: 600; }
 .rd-clt-rel { color: #8C857B; font-weight: 400; }
 
 @media (max-width: 1100px) {
@@ -2808,27 +2954,30 @@ input[type="email"], select { min-height: var(--h-ctl); }
 .rd-td-fb[aria-selected="true"] .n { color: var(--surface); opacity: .72; }
 .rd-td-fb:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
-.rd-td { list-style: none; margin: 0; padding: 0; }
-.rd-td-r {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr);
-  gap: var(--s3);
-  align-items: baseline;
-  padding: 7px 10px 7px 8px;
-  border-bottom: 1px solid var(--line-2);
-  cursor: pointer;
-}
-.rd-td-r:hover { background: var(--line-2); }
-.rd-td-r:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-/* Only what is actually urgent carries a mark. */
-.rd-td-r.bad { box-shadow: inset 2px 0 0 var(--bad); }
-.rd-td-r.warn { box-shadow: inset 2px 0 0 var(--warn); }
-.rd-td-n { font-size: 13px; font-weight: 600; color: var(--ink); min-width: 0; }
-.rd-td-w { font-size: 12.5px; color: var(--ink-2); min-width: 0; }
-.rd-td-s { font-size: 12px; color: var(--ink-3); min-width: 0; text-align: right; }
+/* THE LIST IS A TABLE NOW, so the rules that made it a <ul> of CSS-grid rows
+   are gone. They were still matching: .rd-td-r is the <tr>, and
+   `display: grid` on a table row takes it out of the table layout entirely.
+   That is what put the column headings in the wrong place, stretched the
+   tier pill into a full-width bar and left a hundred pixels of air in every
+   row. The table rules live with the card, further up this file.
 
-@media (max-width: 760px) {
-  /* On a phone it reads as a short paragraph per client rather than a table. */
-  .rd-td-r { grid-template-columns: 1fr; gap: 1px; }
-  .rd-td-s { text-align: left; }
+   Only the tone marker survives here, because it is the one thing that was
+   right: only what is actually urgent carries a mark. */
+.rd-td-t tbody tr.bad { box-shadow: inset 2px 0 0 var(--bad); }
+.rd-td-t tbody tr.warn { box-shadow: inset 2px 0 0 var(--warn); }
+
+/* P5. The next step, on the row. A pill rather than a link, because it is a
+   thing you press and the row already carries two spans of text. */
+.rd-s30-step {
+  display: block; width: fit-content; margin: 4px 0 0; padding: 2px 10px;
+  border: 1px solid var(--line); border-radius: 99px;
+  background: var(--surface, #fff); font: inherit; font-size: 12px; font-weight: 600;
+  color: var(--ink-2); cursor: pointer;
 }
+.rd-s30-step:hover { border-color: var(--accent); color: var(--accent); }
+/* Log family call is an action among filing decisions, so it reads as one. */
+.rd-ack .rd-ack-do { font-weight: 600; }
+/* The log and more menus moved into the header action row. */
+.rd-act-menu { position: relative; display: inline-flex; }
+.rd-act-menu .rd-menu-list { top: 100%; left: 0; }
+.rd-act-menu .rd-menu-list.right { left: auto; right: 0; }
