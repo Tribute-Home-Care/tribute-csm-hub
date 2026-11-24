@@ -3334,12 +3334,17 @@ button.rd-s30-b.done { background: var(--accent, #C95018); border-color: var(--a
 .rd-clt-ow { margin-top: 5px; font-size: 11px; }
 
 
+/* The owner chip and the Sort button are both inline, so they ran together
+   and read as one word: "CSM + MCESort". They get a row of their own. */
+.rd-clt-ow, .rd-clt-sort { vertical-align: middle; }
+.rd-clt-sort { margin-left: 7px; }
+
 /* The note under the Team table, and the sort button on a Clients row. */
 .rd-tm-note {
   margin: 9px 2px 0; font-size: 11.5px; line-height: 1.5; color: var(--ink-3, #8C857B);
   max-width: 68ch;
 }
-.rd-clt-sort { margin-top: 6px; margin-left: 0; }
+.rd-clt-sort { margin-top: 6px; }
 .rd-tm tfoot th, .rd-tm tfoot td {
   border-top: 1px solid var(--line, #E7E2DA); font-weight: 700;
   padding-top: 9px; color: var(--ink, #2B2724);

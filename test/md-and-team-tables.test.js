@@ -125,9 +125,22 @@ ok('...and it waits on the load, not only on a redraw',
    /window\.renderMd = function \(\)/.test(CODE) &&
    /Promise\.resolve\(out\)\.then\(function \(\) \{/.test(CODE));
 /* A load already in flight fires neither hook for that pass. */
-ok('...with a short follow-up that stops once there is a table',
-   /if \(host\.querySelector\('table\.rd-md'\)\) \{ clearInterval\(settle\); return; \}/.test(CODE) &&
-   /tries > 12/.test(CODE));
+/* "NOTHING OUTSTANDING" IS NOT "NOT READ YET". Her reviewer: "the table
+   hadn't loaded when I looked, probably because of the Viv refresh." An
+   empty state that reads as an answer told a manager their board was clear
+   when it had simply not arrived -- the same fault as the contacts cache
+   saying "None on file" while it was still warming. */
+ok('an empty board says which kind of empty it is',
+   /function mdWaiting\(\)/.test(CODE) &&
+   /Reading the Maryland board from Viv/.test(CODE) &&
+   /Nothing outstanding under this view/.test(CODE));
+ok('...reading the application\'s own loading flag',
+   /typeof _mdLoading !== 'undefined' && _mdLoading/.test(CODE) &&
+   /return !\(_mdData\.rows && _mdData\.rows\.length\);/.test(CODE));
+ok('...and the follow-up waits long enough for a Viv refresh',
+   /tries > 60/.test(CODE) && /\}, 2000\);/.test(CODE));
+ok('...and stops the moment there is a table',
+   /if \(host\.querySelector\('table\.rd-md'\)\) \{ clearInterval\(settle\); return; \}/.test(CODE));
 
 /* ── TEAM: one row per CSM ─────────────────────────────────────────────── */
 ok('the layer draws a table into the element V1 drew cards in',

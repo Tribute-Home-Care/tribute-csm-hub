@@ -2359,6 +2359,15 @@
     if (search && host && host.parentElement) host.parentElement.insertBefore(search, host);
     bar.classList.add('rd-md-superseded');
   }
+  /* The board is still coming when the application says it is loading, or
+     when it has no data at all to show yet. */
+  function mdWaiting() {
+    try {
+      if (typeof _mdLoading !== 'undefined' && _mdLoading) return true;
+      if (typeof _mdData === 'undefined' || !_mdData) return true;
+      return !(_mdData.rows && _mdData.rows.length);
+    } catch (e) { return false; }
+  }
   function renderMdTable() {
     const host = $('#rd-md-table');
     if (!host || typeof _mdRows !== 'function') return;
@@ -2386,8 +2395,17 @@
                mdTableHtml(by[k]);
       }).join('');
     } else {
-      body = live.length ? mdTableHtml(live)
-        : '<p class="rd-ws-quiet">Nothing outstanding under this view.</p>';
+      /* "NOTHING OUTSTANDING" IS NOT "NOT READ YET". Her reviewer: "the
+         table hadn't loaded when I looked, probably because of the Viv
+         refresh. I can't say whether the columns have been built." An empty
+         state that reads as an answer is worse than one that reads as a
+         wait: it told a manager their board was clear when it had simply
+         not arrived. Same fault as the contacts cache saying "None on file"
+         while it was still warming. */
+      body = live.length ? mdTableHtml(live) : (mdWaiting()
+        ? '<p class="rd-ws-quiet">Reading the Maryland board from Viv\u2026 ' +
+          'the forms and client feed refresh every 12 hours, so this can take a moment.</p>'
+        : '<p class="rd-ws-quiet">Nothing outstanding under this view.</p>');
     }
     host.innerHTML =
       '<div class="rd-md-views">' + MD_VIEWS.map(function (v) {
@@ -2459,16 +2477,18 @@
     }
     renderMdTable();
     /* The page may already be mid-load when this runs, in which case neither
-       hook fires for the pass that is in flight. One short follow-up, only
-       while the table is still empty, rather than a poll that never stops. */
+       hook fires for the pass that is in flight. Twelve seconds was not
+       enough for a Viv refresh -- her reviewer looked at an empty table --
+       so this waits two minutes, and stops the moment there is a table or
+       the application stops saying it is loading. */
     let tries = 0;
     const settle = setInterval(function () {
       tries++;
       const host = $('#rd-md-table');
-      if (!host || tries > 12) { clearInterval(settle); return; }
+      if (!host || tries > 60) { clearInterval(settle); return; }
       if (host.querySelector('table.rd-md')) { clearInterval(settle); return; }
       try { renderMdTable(); } catch (e) {}
-    }, 1000);
+    }, 2000);
   }
 
   /* ── TEAM ────────────────────────────────────────────────────────────────
