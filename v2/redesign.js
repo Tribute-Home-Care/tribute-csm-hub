@@ -3036,6 +3036,9 @@
   const TODAY_BUCKETS = [['action', 'Need action today'], ['week', 'Due this week'],
                          ['onboarding', 'In first 30 days'], ['open', 'Open visits']];
   let _todayFilter = '';
+  // Her list stops at five and offers the rest. Pressing a tile is a new
+  // question, so the expansion resets with it.
+  let _todayAll = false;
 
   /* OPEN VISITS ON HOME ARE THE URGENT ONES (Courtney, section 9): "Open
      visits on a CSM's clients show on the client's Schedule tab, and on
@@ -3085,7 +3088,7 @@
       if (lvl) {
         // Red is today's work, amber is this week's. The same split as the
         // tabs, so a tile and a tab cannot disagree about one client.
-        out.push({ rank: lvl === 'red' ? 0 : 3,
+        out.push({ rank: lvl === 'red' ? 0 : 3, tier: c.tier, kind: 'Pulse',
                    bucket: lvl === 'red' ? 'action' : 'watch',
                    cid: c.id, name: c.name,
                    why: pulseFirst(pp.headline), step: 'Read the Pulse and sort it',
@@ -3096,6 +3099,7 @@
       if (age !== null && age <= 30) {
         const done = rowsFor('s60', c.id).length;
         out.push({ rank: 1, bucket: 'onboarding', cid: c.id, name: c.name,
+                   tier: c.tier, kind: 'Success in 30',
                    why: 'Day ' + (age + 1) + ' of 30' + (done ? ' · ' + plural(done, 'milestone') + ' logged' : ' · nothing logged yet'),
                    step: 'Work the onboarding checklist', tone: done ? 'info' : 'warn' });
       }
@@ -3104,7 +3108,7 @@
       if (ex) out.push({ rank: ex.tone === 'bad' ? 2 : 3,
                          bucket: ex.tone === 'bad' ? 'action'
                                  : (ex.rank === 4 || ex.rank === 5) ? 'watch' : 'week',
-                         cid: c.id, name: c.name, why: ex.text,
+                         cid: c.id, name: c.name, why: ex.text, tier: c.tier,
                          step: ex.tone === 'bad' ? 'Book it or defer it' : 'Get it in the diary',
                          tone: ex.tone });
     });
@@ -3117,6 +3121,7 @@
       Object.keys(byClient).forEach(function (k) {
         const c = cl.find(function (x) { return x.name === k; });
         out.push({ rank: 4, bucket: 'open', cid: c ? c.id : '', name: k,
+                   tier: c ? c.tier : '', kind: 'Open visits',
                    why: plural(byClient[k], 'visit') + ' unfilled in the next 48 hours',
                    step: 'With the Scheduling Partner', tone: 'warn' });
       });
@@ -3196,6 +3201,7 @@
      Pressing the tile you are already on clears the filter, which is the way
      back to everything now that the chip row has gone. */
   function setTodayFilter(k) {
+    _todayAll = false;
     _todayFilter = (_todayFilter === k) ? '' : k;
     _attnKey = '';
     renderAttention();
@@ -3225,6 +3231,20 @@
       ? rows.filter(function (r) { return (r.buckets || [r.bucket]).indexOf(_todayFilter) > -1; })
       : rows;
     const lab = (TODAY_BUCKETS.filter(function (b) { return b[0] === _todayFilter; })[0] || [])[1];
+    /* HER CARD, from the Home picture: a titled card, three column headings,
+       the tier under the client's name, the reason labelled and coloured, and
+       an Open button on the row.
+
+       AND IT STOPS AT FIVE. Hers shows five rows and then "Show 4 more". A
+       caseload like Julia's puts twenty-five rows here, which is the wall she
+       was complaining about: "it's easy to miss cards below the fold". The
+       whole point of the list is that you work the top of it. */
+    const LIMIT = 5;
+    const more = Math.max(0, shown.length - LIMIT);
+    const vis = _todayAll ? shown : shown.slice(0, LIMIT);
+    const tierPill = function (t) {
+      return t ? '<span class="rd-td-tier ' + esc(String(t).toLowerCase()) + '">' + esc(t) + '</span>' : '';
+    };
     el.innerHTML =
       (_todayFilter
         ? '<div class="rd-td-f"><span>Showing ' + shown.length + ' of ' + rows.length + ' \u00b7 ' +
@@ -3232,17 +3252,34 @@
           '<button type="button" class="rd-td-all" data-td="">Show everything</button></div>'
         : '') +
       (shown.length
-        ? '<ul class="rd-td">' + shown.map(function (r) {
-            return '<li class="rd-td-r ' + r.tone + '"' + (r.cid ? ' data-cid="' + esc(r.cid) + '" tabindex="0"' : '') + '>' +
-              '<span class="rd-td-n">' + esc(r.name) + '</span>' +
-              '<span class="rd-td-w">' + esc(r.why) + '</span>' +
-              '<span class="rd-td-s">' + esc(r.step) + '</span></li>';
-          }).join('') + '</ul>'
+        ? '<div class="rd-td-card">' +
+          '<div class="rd-td-head">Today\u2019s list \u2014 work top to bottom</div>' +
+          '<table class="rd-td-t"><thead><tr>' +
+          '<th scope="col">Client</th><th scope="col">Why it\u2019s here</th>' +
+          '<th scope="col">Next step</th><th scope="col"><span class="rd-sr">Open</span></th>' +
+          '</tr></thead><tbody>' +
+          vis.map(function (r) {
+            return '<tr class="rd-td-r ' + r.tone + '"' + (r.cid ? ' data-cid="' + esc(r.cid) + '" tabindex="0"' : '') + '>' +
+              '<td class="rd-td-n"><span>' + esc(r.name) + '</span>' + tierPill(r.tier) + '</td>' +
+              '<td class="rd-td-w">' +
+                (r.kind ? '<b class="rd-td-k">' + esc(r.kind) + ':</b> ' : '') + esc(r.why) + '</td>' +
+              '<td class="rd-td-s">' + esc(r.step) + '</td>' +
+              '<td class="rd-td-o">' + (r.cid ? '<span class="rd-td-b">Open</span>' : '') + '</td></tr>';
+          }).join('') +
+          '</tbody></table>' +
+          '<div class="rd-td-foot">' +
+            (more && !_todayAll
+              ? '<button type="button" class="rd-td-more">Show ' + more + ' more \u2193</button>'
+              : (_todayAll && more ? '<button type="button" class="rd-td-more">Show fewer \u2191</button>' : '')) +
+            '<span>Sort an item and it moves to Following up</span>' +
+          '</div></div>'
         : '<p class="rd-ws-quiet">Nothing under that filter.</p>');
 
     $$('[data-td]', el).forEach(function (b) {
       b.addEventListener('click', function () { setTodayFilter(b.dataset.td); });
     });
+    const moreBtn = $('.rd-td-more', el);
+    if (moreBtn) moreBtn.addEventListener('click', function () { _todayAll = !_todayAll; renderToday(); });
     $$('.rd-td-r[data-cid]', el).forEach(function (r) {
       const go = function () { openClient(r.dataset.cid); };
       r.addEventListener('click', go);

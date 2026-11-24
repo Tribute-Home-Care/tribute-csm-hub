@@ -203,6 +203,30 @@ ok('an empty Open visits tile says the true thing about open visits',
 ok('...and the other buckets say nothing, because nothing is true of them',
    /return 'Nothing right now';/.test(CODE));
 ok('rows are reachable by keyboard', /ev\.key === 'Enter' \|\| ev\.key === ' '/.test(CODE) && /tabindex="0"/.test(CODE));
+/* HER CARD. The columns matched her picture and the page still did not: hers
+   is a titled card with three column headings, the tier under the client name,
+   the reason labelled and coloured, and an Open button on the row. Ours was a
+   bare full-bleed list. */
+ok('the list is a titled card with her three column headings',
+   /rd-td-card/.test(CODE) && /Today.u2019s list .u2014 work top to bottom/.test(CODE) &&
+   /scope="col">Client</.test(CODE) && /scope="col">Why it.u2019s here</.test(CODE) &&
+   /scope="col">Next step</.test(CODE));
+ok('...the tier is a pill under the name', /rd-td-tier/.test(CODE) &&
+   /\.rd-td-tier\.high/.test(CSS) && /\.rd-td-tier\.low/.test(CSS));
+ok('...the reason is labelled and takes the row s tone',
+   /rd-td-k/.test(CODE) && /\.rd-td-r\.bad \.rd-td-k/.test(CSS));
+ok('...and the row carries an Open button', /rd-td-b.>Open</.test(CODE));
+
+/* AND IT STOPS AT FIVE. Hers shows five and offers the rest. A caseload like
+   Julia s puts twenty-five rows here, which is the wall she complained about:
+   "it is easy to miss cards below the fold". */
+ok('the list stops at five and offers the rest',
+   /const LIMIT = 5;/.test(CODE) &&
+   /const vis = _todayAll \? shown : shown\.slice\(0, LIMIT\);/.test(CODE) &&
+   /rd-td-more/.test(CODE) && /Show fewer/.test(CODE));
+ok('...and pressing a tile is a new question, so it resets',
+   /function setTodayFilter\(k\) \{[\s\S]{0,40}_todayAll = false;/.test(CODE));
+
 ok('only urgency is marked', /\.rd-td-r\.bad/.test(CSS) && /\.rd-td-r\.warn/.test(CSS));
 
 // The list has to redraw when something is sorted, which changes no tile

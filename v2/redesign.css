@@ -2691,6 +2691,61 @@ input[type="email"], select { min-height: var(--h-ctl); }
 .rd-cbtn:hover { border-color: var(--accent); color: var(--accent); }
 .rd-cbtn svg { width: 11px; height: 11px; }
 
+/* TODAY'S LIST, as her Home picture draws it: a titled card with three
+   column headings, the tier under the name, the reason labelled, and an Open
+   button on the row. It was a bare full-bleed list of twenty-five rows. */
+.rd-td-card { background: var(--card, #FFFDFA); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.rd-td-head {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--ink-3); padding: 13px 16px 9px;
+}
+.rd-td-t { width: 100%; border-collapse: collapse; }
+.rd-td-t thead th {
+  text-align: left; padding: 0 14px 7px; white-space: nowrap;
+  font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--ink-3); border-bottom: 1px solid var(--line-2); background: none;
+}
+.rd-td-t tbody tr { border-bottom: 1px solid var(--line-2); cursor: pointer; }
+.rd-td-t tbody tr:last-child { border-bottom: 0; }
+.rd-td-t tbody tr:hover { background: var(--line-3, var(--line-2)); }
+.rd-td-t tbody tr:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.rd-td-t td { padding: 11px 14px; vertical-align: top; font-size: 13px; line-height: 1.45; }
+.rd-td-n span { font-weight: 600; color: var(--ink); display: block; }
+.rd-td-tier {
+  display: inline-block; margin-top: 3px; padding: 1px 8px; border-radius: 99px;
+  font-size: 10.5px; font-weight: 600; background: var(--line-2); color: var(--ink-2);
+}
+.rd-td-tier.high { background: #FBEAE8; color: #A4271E; }
+.rd-td-tier.medium { background: #FDF3E2; color: #92580B; }
+.rd-td-tier.low { background: #EEF6EE; color: #2F6B37; }
+.rd-td-w { color: var(--ink-2); }
+.rd-td-k { font-weight: 600; }
+.rd-td-r.bad .rd-td-k { color: var(--bad); }
+.rd-td-r.warn .rd-td-k { color: var(--warn); }
+.rd-td-r.info .rd-td-k { color: #2E5E9E; }
+.rd-td-s { color: var(--ink-2); }
+.rd-td-o { text-align: right; width: 1%; }
+.rd-td-b {
+  display: inline-block; padding: 5px 13px; border-radius: 8px;
+  background: var(--accent); color: #fff; font-size: 12px; font-weight: 600; white-space: nowrap;
+}
+.rd-td-r.warn .rd-td-b, .rd-td-r.info .rd-td-b { background: none; color: var(--ink-2); border: 1px solid var(--line); }
+.rd-td-foot {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 16px; font-size: 11.5px; color: var(--ink-3); border-top: 1px solid var(--line-2);
+}
+.rd-td-more {
+  appearance: none; background: none; border: 0; padding: 0; cursor: pointer;
+  font: inherit; font-weight: 600; color: var(--accent);
+}
+.rd-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (max-width: 760px) {
+  .rd-td-t thead { display: none; }
+  .rd-td-t td { display: block; padding: 4px 14px; }
+  .rd-td-t tbody tr { display: block; padding: 8px 0; }
+  .rd-td-o { text-align: left; width: auto; }
+}
+
 /* HOME IS TWO COLUMNS, as her picture draws it: the list on the left, a
    narrow rail on the right. Below 1080px the rail drops under the list,
    because at that width a 320px column leaves the list unreadable. */
