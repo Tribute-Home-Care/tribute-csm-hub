@@ -3375,3 +3375,14 @@ button.rd-s30-b.done { background: var(--accent, #C95018); border-color: var(--a
 /* The bundle timestamp beside its age, quieter than the age itself: the age
    is the warning, the timestamp is the evidence for it. */
 .rd-syncsub { color: var(--ink-3, #8C857B); }
+
+
+/* A TILE THAT IS STILL COUNTING SAYS SO. For about 1.7 seconds the tiles
+   drew 18 / 5 before the Pulse feed landed and then changed to 30 / 3: long
+   enough to read, and disagreeing with what replaced it. Neutral, no number,
+   and not pressable, because there is nothing behind it yet. */
+.rd-attn-card.wait {
+  opacity: .55; cursor: default; background: var(--wash, #F6F3EE);
+  border-style: dashed;
+}
+.rd-attn-card.wait .rd-attn-n { color: var(--ink-3, #8C857B); }

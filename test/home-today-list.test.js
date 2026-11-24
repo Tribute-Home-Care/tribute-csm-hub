@@ -312,5 +312,49 @@ ok('...and the old grid-row rules are gone, not just overridden',
 ok('the list redraws outside the tile cache key',
    /refreshNavCounts\(sig\);\s*\n\s*\}\s*\n[\s\S]{0,180}renderToday\(\);/.test(CODE));
 
+/* ── A COUNT COMPUTED BEFORE PULSE ARRIVES IS NOT A COUNT ────────────────
+   Measured on build 08:17, twice, with the same numbers: for about 1.7
+   seconds the tiles read 18 / 5 / 4 / 52 and then settled on 30 / 3 / 4 / 52.
+   needsAction() and onWatch() both ask pulseLevel(), so until the Pulse feed
+   lands every tile that depends on it is counting a caseload with no flags.
+
+   This file's own rule for the other half -- "an endpoint that FAILED is not
+   an endpoint that said nothing" -- is the same fault wearing the other
+   shoe. A wrong number shown confidently for 1.7 seconds is worse than no
+   number: long enough to read, and it disagrees with its replacement. */
+ok('the tiles wait for Pulse rather than counting without it',
+   /function countsReady\(\)/.test(CODE) &&
+   /if \(!countsReady\(\)\) \{ renderAttnWaiting\(el\); return; \}/.test(CODE));
+ok('...reading the application\'s own loading flag, not a guess',
+   /if \(window\._pulseLoading\) return false;/.test(CODE) &&
+   /if \(app\.pulse && app\.pulse\.byCid\) return true;/.test(CODE));
+ok('...and the waiting tile carries no number and cannot be pressed',
+   /class="rd-attn-card wait"/.test(CODE) && /aria-hidden="true"/.test(CODE) &&
+   /Reading Client Pulse/.test(CODE) && /\.rd-attn-card\.wait \{/.test(CSS));
+/* The key must NOT be set while waiting, or the real render never happens. */
+ok('the repaint key is not consumed by the waiting state', (() => {
+  const fn = (CODE.match(/function renderAttention\(\) \{[\s\S]*?const sig = attentionSignals\(\);/) || [''])[0];
+  return /renderAttnWaiting\(el\); return;/.test(fn) && !/_attnKey =/.test(fn);
+})());
+ok('...and something repaints when the feed lands',
+   /_attnWait = setInterval/.test(CODE) && /_attnKey = '';/.test(CODE));
+/* A Pulse feed that never answers must leave numbers, not dashes for ever. */
+ok('a feed that never answers still gets drawn after a grace period',
+   /const ATTN_GRACE = 20000;/.test(CODE) &&
+   /return \(Date\.now\(\) - _attnBootAt\) > ATTN_GRACE;/.test(CODE));
+// Behavioural, over the four states the loader actually passes through.
+const ready = (app, loading, sinceBoot) => {
+  if (!app.ready) return false;
+  if (app.pulse && app.pulse.byCid) return true;
+  if (loading) return false;
+  return sinceBoot > 20000;
+};
+ok('app not ready is not ready', !ready({ ready: false }, false, 0));
+ok('pulse still loading is not ready', !ready({ ready: true }, true, 1000));
+ok('pulse landed is ready', ready({ ready: true, pulse: { byCid: {} } }, false, 1000));
+ok('pulse never answered is drawn anyway once the grace is up',
+   ready({ ready: true }, false, 25000));
+ok('...but not before', !ready({ ready: true }, false, 5000));
+
 console.log('\n' + (fail ? 'FAILED ' + fail : 'PASSED all ' + pass));
 process.exit(fail ? 1 : 0);

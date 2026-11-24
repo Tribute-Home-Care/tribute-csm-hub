@@ -2484,9 +2484,28 @@
         }
       });
     });
+    /* CLICKING A ROW DID NOTHING, and this is the third time today the same
+       trap has caught me. `_mdSel` is a top-level `let` in index.html, so it
+       lives in the shared global LEXICAL environment and is NOT a property
+       of window: `window._mdSel = cid` quietly created a different variable
+       that renderMdDetail never reads. It then called renderMdDetail, which
+       looked up the real _mdSel, found the null it started as, and drew
+       "pick a client on the left" over and over.
+
+       mdSelect() is a function DECLARATION, so it is on window, and it sets
+       the binding its own module reads. Calling V1's own selector is also
+       what keeps the highlight, the detail panel and _mdFilter in step
+       instead of this layer owning a second idea of what is selected.
+
+       And the catch no longer swallows it. A silent catch is how a dead
+       click survives a day of review. */
     $$('[data-mdcid]', host).forEach(function (tr) {
       const go = function () {
-        try { window._mdSel = tr.dataset.mdcid; if (typeof renderMdDetail === 'function') renderMdDetail(); } catch (e) {}
+        const cid = tr.dataset.mdcid;
+        if (typeof mdSelect === 'function') { mdSelect(cid); return; }
+        rdDialog({ title: 'Cannot open that client',
+                   body: 'The Maryland board is loaded but its selector is not, ' +
+                         'so the Hub cannot show the requirement detail. Reload the page.' });
       };
       tr.addEventListener('click', go);
       tr.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
@@ -4992,9 +5011,56 @@
     });
   }
 
+  /* ── A COUNT COMPUTED BEFORE PULSE ARRIVES IS NOT A COUNT ─────────────────
+     Measured on build 08:17, twice, with the same numbers: for about 1.7
+     seconds the tiles read 18 / 5 / 4 / 52 and then settled on 30 / 3 / 4 /
+     52. needsAction() and onWatch() both ask pulseLevel(), so until the
+     Pulse feed lands every tile that depends on it is counting a caseload
+     with no flags on it.
+
+     This file already states the rule for the other half of the problem --
+     "an endpoint that FAILED is not an endpoint that said nothing" -- and a
+     source that has not ANSWERED yet is the same fault wearing the other
+     shoe. A wrong number shown confidently for 1.7 seconds is worse than no
+     number, because it is long enough to read and it disagrees with the one
+     that replaces it. That flash is very probably what has been reported
+     four times as Caseload Health contradicting itself: during that window
+     the counts genuinely do disagree with each other.
+
+     The grace period exists so a Pulse feed that never answers leaves
+     numbers rather than dashes: after it, the tiles draw from what is in
+     hand and failedSources() says what is missing. */
+  const _attnBootAt = Date.now();
+  const ATTN_GRACE = 20000;
+  function countsReady() {
+    const app = A();
+    if (!app.ready) return false;
+    if (app.pulse && app.pulse.byCid) return true;
+    if (window._pulseLoading) return false;
+    return (Date.now() - _attnBootAt) > ATTN_GRACE;
+  }
+  let _attnWait = null;
+  function renderAttnWaiting(el) {
+    el.innerHTML = TODAY_BUCKETS.map(function (b) {
+      return '<div class="rd-attn-card wait" aria-hidden="true">' +
+        '<span class="rd-attn-n">—</span>' +
+        '<span class="rd-attn-l">' + esc(b[1]) + '</span>' +
+        '<span class="rd-attn-s">Reading Client Pulse…</span></div>';
+    }).join('');
+    // Nothing else repaints when the feed lands, so this waits for it.
+    if (!_attnWait) _attnWait = setInterval(function () {
+      if (!countsReady()) return;
+      clearInterval(_attnWait); _attnWait = null;
+      _attnKey = '';
+      try { renderAttention(); } catch (e) {}
+    }, 400);
+  }
+
   function renderAttention() {
     const el = $('#rd-attn');
     if (!el) return;
+    /* The key is NOT set while waiting, so the real render still happens. */
+    if (!countsReady()) { renderAttnWaiting(el); return; }
     const sig = attentionSignals();
     const rank = { bad: 0, warn: 1, info: 2 };
     sig.sort(function (a, b) { return (rank[a.tone] - rank[b.tone]) || (b.n - a.n); });

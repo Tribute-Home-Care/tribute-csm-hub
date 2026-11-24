@@ -112,8 +112,20 @@ ok('cleanup is folded away and named for what it is',
 ok('Mine / All CSMs / Group by CSM',
    /\[\['mine', 'Mine'\], \['all', 'All CSMs'\], \['bycsm', 'Group by CSM'\]\]/.test(CODE));
 ok('...and Group by CSM really groups', /const by = \{\};/.test(CODE) && /rd-md-g/.test(CODE));
-ok('a row opens the detail panel V1 already draws',
-   /window\._mdSel = tr\.dataset\.mdcid/.test(CODE) && /renderMdDetail\(\)/.test(CODE));
+/* CLICKING A ROW DID NOTHING. `_mdSel` is a top-level `let` in index.html,
+   so it lives in the shared global LEXICAL environment and is NOT a property
+   of window: `window._mdSel = cid` quietly created a different variable that
+   renderMdDetail never reads. It then drew "pick a client on the left" over
+   and over. Third time this trap has caught this layer -- see also getOv and
+   PROFILES on the Team table. */
+ok('a row calls V1\'s own selector, which sets the binding V1 reads',
+   /if \(typeof mdSelect === 'function'\) \{ mdSelect\(cid\); return; \}/.test(CODE) &&
+   /function mdSelect\(cid\)\{_mdSel=cid;/.test(HUB));
+ok('...and does not try to set it through window',
+   !/window\._mdSel/.test(CODE));
+/* A silent catch is how a dead click survives a day of review. */
+ok('...and says so rather than failing silently when it cannot',
+   /Cannot open that client/.test(CODE));
 ok('...and the table repaints when V1 re-renders its rows',
    /window\.renderMdRows = function \(\)/.test(CODE));
 /* THE LOAD IS THE ONE THAT MATTERS. Caught live: the page opens, renderMd()
