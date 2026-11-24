@@ -953,7 +953,7 @@ input[type="email"], select { min-height: var(--h-ctl); }
    filters did not, which is how a client opened with the search bar still
    sitting on top of it. The phone layer carries the same !important for the
    same reason. */
-#page-clients.rd-client-open > .rd-list-chrome { display: none !important; }
+#page-clients.rd-client-open .rd-list-chrome { display: none !important; }
 
 /* THREE FILTER SYSTEMS, STACKED (Courtney, priority 4): "the Tier and Status
    dropdowns, the Market chips, and the five tabs. The Status dropdown ('Any

@@ -1334,11 +1334,31 @@
   function markListChrome() {
     const page = $('#page-clients');
     if (!page) return;
-    const mark = function (el) { if (el && el.parentElement === page) el.classList.add('rd-list-chrome'); };
+    const tbl = $('#client-master-table', page);
+
+    /* NEVER MARK SOMETHING THAT CONTAINS THE LIST.
+       This used to find V1's filter bar by walking UP from #cm-search to the
+       direct child of the page. That worked while the search sat in V1's own
+       bar. The redesign now moves the search into the filter row, which lives
+       in the SAME card as the list, so the walk returned that card: marking
+       it as chrome meant opening a client hid the list itself, and the page
+       went blank. Reported on the live page.
+
+       So the guard is the rule rather than the lookup: chrome is anything
+       named below that does not contain the list. */
+    const mark = function (el) {
+      if (!el) return;
+      if (tbl && el.contains(tbl)) return;
+      el.classList.add('rd-list-chrome');
+    };
     mark($('.ph', page));
     mark($('#cm-legend', page));
-    const search = $('#cm-search', page);
-    if (search) { let n = search; while (n && n.parentElement !== page) n = n.parentElement; mark(n); }
+    mark($('#rd-cl-head', page));     // the head the redesign draws
+    mark($('#rd-views', page));       // the filter row
+    // V1's original filter bar, found by a control still inside it rather
+    // than by one the redesign has moved out.
+    const status = $('#cm-status', page);
+    if (status) mark(status.closest('div'));
     // Marked above, hidden here: an open client is the whole page at every
     // width now, not only on a phone. This is the "client name starts halfway
     // down the screen" fault, and the chrome is what was above it.

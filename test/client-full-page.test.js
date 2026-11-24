@@ -50,7 +50,21 @@ ok('the workspace drops the sticky column it no longer sits in',
 // title obeyed and the filters did not, which is how a client first opened
 // with the search bar still sitting on top of it.
 ok('the page title and filter row stand down too',
-   /#page-clients\.rd-client-open > \.rd-list-chrome \{ display: none !important; \}/.test(CSS));
+   /#page-clients\.rd-client-open \.rd-list-chrome \{ display: none !important; \}/.test(CSS));
+/* NEVER MARK SOMETHING THAT CONTAINS THE LIST. The marking used to find V1's
+   filter bar by walking UP from #cm-search to the direct child of the page.
+   That worked while the search sat in V1's bar. The redesign moves the search
+   into the filter row, which lives in the SAME card as the list, so the walk
+   returned that card: marking it meant opening a client hid the list and the
+   page went blank. Reported on the live page. */
+ok('chrome can never be something that contains the list',
+   /if \(tbl && el\.contains\(tbl\)\) return;/.test(CODE));
+ok('...and the marked nodes are named, not found by walking up from a control',
+   /mark\(\$\('#rd-views', page\)\);/.test(CODE) &&
+   !/while \(n && n\.parentElement !== page\) n = n\.parentElement; mark\(n\);/.test(CODE));
+ok('...V1s own bar is found by a control still inside it',
+   /const status = \$\('#cm-status', page\);/.test(CODE) &&
+   /if \(status\) mark\(status\.closest\('div'\)\);/.test(CODE));
 ok('...and something actually sets that class',
    /page\.classList\.toggle\('rd-client-open', !!_selected\)/.test(CODE));
 ok('the legend is marked as chrome, which needs an id to find it',
