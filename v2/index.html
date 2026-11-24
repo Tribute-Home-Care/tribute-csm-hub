@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0">
 <title>Tribute CSM Hub · V2 Preview</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
-<script src="../entra-auth.js?v=2026-11-23T22:29"></script>
+<script src="../entra-auth.js?v=2026-11-23T22:36"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23FF5A1F'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2066,7 +2066,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-11-23T22:30';
+const HUB_BUILD='2026-11-23T22:37';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -9725,7 +9725,7 @@ window.addEventListener('DOMContentLoaded',async()=>{
 try{ const cur=document.querySelector('.page.active'); TributeUsage.start({ app:'csm', getToken:()=>window.tributeKsfGate.getToken(), view:cur?_pageLabel(cur.id.replace(/^page-/,'')):'Home' }); }catch(e){}
 </script>
 
-<link rel="stylesheet" href="./redesign.css?v=748564ee">
+<link rel="stylesheet" href="./redesign.css?v=df3a1832">
 <link rel="stylesheet" href="./v2.css?v=90ba8325">
 <link rel="stylesheet" href="./v2-mobile.css?v=9b3cf4a3">
 <link rel="stylesheet" href="./guide.css?v=cc4ff549">

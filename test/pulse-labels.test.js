@@ -141,7 +141,7 @@ ok('the table has her two new headings',
    and Next step between about 700px and 1100px: the two headers overlapped
    and Sort and Open spilled out of the card. */
 ok('below 1100px the row is her four-column grid',
-   /@media \(max-width: 1099px\)/.test(CSS) &&
+   /@media \(max-width: 1199px\)/.test(CSS) &&
    /grid-template-columns: 150px minmax\(0, 1\.3fr\) minmax\(0, 1fr\) 128px;/.test(CSS));
 ok('...with both folded columns hidden, headers and cells together',
    /\.rd-td-t \.rd-td-tell, \.rd-td-t \.rd-td-own \{ display: none; \}/.test(CSS));
@@ -156,7 +156,12 @@ ok('the borders go on the row, not on each cell',
    /\.rd-td-t th, \.rd-td-t td \{ border: 0; padding: 0; min-width: 0; \}/.test(CSS) &&
    /\.rd-td-t tbody tr \{ border-bottom: 1px solid var\(--line-2, #EFEAE2\); padding: 11px 0; \}/.test(CSS));
 ok('...and Sort and Open sit side by side in the last column',
-   /\.rd-td-t \.rd-td-o \{[\s\S]{0,140}flex-direction: row;[\s\S]{0,120}flex-wrap: nowrap;/.test(CSS));
+   /\.rd-td-t \.rd-td-o \{[\s\S]{0,160}flex-direction: row;[\s\S]{0,140}flex-wrap: nowrap;/.test(CSS));
+/* As a flex container in a grid track the cell shrink-wrapped to 80px inside
+   its own 128px column, so Open hung 6px past the edge. The track was never
+   the problem; the item was. */
+ok('...and the cell fills its track rather than shrink-wrapping',
+   /justify-self: stretch; width: 100%;/.test(CSS));
 /* Six columns do not fit Home's left column below about 1500px: the rail is
    a fixed 320px, so the list gets roughly 720 and the two new columns were
    squeezed to 74px each with the table overflowing its own card. Above that

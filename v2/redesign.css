@@ -3147,7 +3147,11 @@ button.rd-s30-b.done { background: var(--accent, #C95018); border-color: var(--a
 .rd-td-tl b { font-weight: 600; color: var(--ink-3, #8C857B); }
 .rd-td-tell-in .rd-td-ow { margin-top: 5px; }
 
-@media (max-width: 1099px) {
+/* 1199, NOT 1099. Measured: Home keeps a fixed 320px rail, so the card is
+   only 462px wide at a 1100px viewport and the six-column table still
+   overflowed at 1100, 1140 and 1180, with 65px columns. It is clean from
+   1220. The grid therefore covers everything up to 1199. */
+@media (max-width: 1199px) {
   .rd-td-t, .rd-td-t thead, .rd-td-t tbody, .rd-td-t tr, .rd-td-t th, .rd-td-t td {
     display: block;
   }
@@ -3164,9 +3168,13 @@ button.rd-s30-b.done { background: var(--accent, #C95018); border-color: var(--a
   .rd-td-t .rd-td-tell, .rd-td-t .rd-td-own { display: none; }
   .rd-td-tell-in { display: block; }
   /* Side by side, and small enough that 128px holds both. */
+  /* STRETCH IT EXPLICITLY. As a flex container in a grid track the cell
+     shrink-wrapped to 80px inside its own 128px column, so Open hung 6px
+     past the edge: the track was never the problem, the item was. */
   .rd-td-t .rd-td-o {
     display: flex; flex-direction: row; align-items: center; gap: 6px;
     flex-wrap: nowrap; justify-content: flex-start;
+    justify-self: stretch; width: 100%;
   }
   .rd-td-t .rd-td-sort, .rd-td-t .rd-td-b { flex: none; font-size: 10.5px; padding: 2px 7px; }
 }
