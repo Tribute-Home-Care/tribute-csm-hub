@@ -94,8 +94,15 @@ ok('a keystroke two seconds later does not fire again', !gate('warming', 1, 2000
 ok('the sixth failure is the last', !gate('failed', 6, 30000));
 ok('the ids are checked before they go in a URL',
    /\/\^\[a-f0-9\]\{24\}\$\/i\.test\(String\(c \|\| ''\)\)/.test(CLIENTJS));
-ok('the read carries names, relationships and phones, and nothing else',
-   /return \{ name: x\.n, relation: x\.r, phone: x\.p \};/.test(CLIENTJS));
+/* THE GUARD IS THE POINT, not the exact field list: this read covers every
+   client in the company, so what it carries about their families should grow
+   only deliberately. It grew by one on 23 November, because Courtney asked
+   for an Email button on the Clients list and the button needs an address.
+   Name, relationship, phone, email. Nothing else. */
+ok('the read carries names, relationships, phones and emails, and nothing else',
+   /return \{ name: x\.n, relation: x\.r, phone: x\.p, email: x\.e \|\| '' \};/.test(CLIENTJS));
+ok('...and the endpoint behind it is still gated', /_entraGateOK/.test(
+   require('fs').readFileSync(require('path').join(process.env.HOME,'tribute-api/src/functions/vivProxy.js'),'utf8')));
 ok('an open client prefers its own record over the nightly crawl',
    /if \(d\) \{\n\s*var out = \[\];/.test(CLIENTJS));
 ok('the list repaints when the answer lands, in case a search is already typed',

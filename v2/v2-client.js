@@ -177,8 +177,15 @@
     return (async function () {
       try {
         var h = await headers();
+        /* NOT FROM THE BROWSER CACHE. The URL is identical on every load,
+           so a response fetched before the contacts index was rebuilt would
+           be reused for the whole session: names and phones would look right
+           while a newly added field stayed empty on every row. Asked for once
+           per session, so a conditional request costs nothing and a stale one
+           costs a feature. */
         var r = await fetch(base + '?endpoint=csm_contacts&cids=' +
-                            encodeURIComponent(want.slice(0, 500).join(',')), { headers: h });
+                            encodeURIComponent(want.slice(0, 500).join(',')),
+                            { headers: h, cache: 'no-store' });
         if (r.status === 202) { bulkState = 'warming'; return bulk; }
         if (!r.ok) { bulkState = 'failed'; return bulk; }
         var j = await r.json();
@@ -209,7 +216,10 @@
         if (out.length) return out;
       }
       return (bulk[cid] || []).map(function (x) {
-        return { name: x.n, relation: x.r, phone: x.p };
+        // e is the contact's email. The caseload crawl started carrying it on
+        // 23 November; before that this mapping dropped it and the Email
+        // button on the Clients list had nothing to open.
+        return { name: x.n, relation: x.r, phone: x.p, email: x.e || '' };
       });
     },
     primeContacts: primeContacts,
