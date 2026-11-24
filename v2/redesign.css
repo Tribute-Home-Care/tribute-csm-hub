@@ -3085,16 +3085,13 @@ button.rd-cbtn, button.rd-act { font: inherit; background: none; cursor: pointer
    than as the system's name for the feed. */
 .rd-td-k { font-weight: 700; }
 
-/* SIX COLUMNS DO NOT FIT HOME'S LEFT COLUMN below about 1500px: the rail is
-   a fixed 320px, so the list gets roughly 720 and the two new columns were
-   squeezed to 74px each with the table overflowing its own card. Above that
-   width Owner is its own column, as she draws it. Below it, the owner moves
-   into the Who needs to know cell rather than being dropped. */
-.rd-td-ow-in { display: none; margin-top: 4px; }
-@media (max-width: 1499px) {
-  .rd-td-t .rd-td-own { display: none; }
-  .rd-td-ow-in { display: inline-block; }
-}
+/* THERE IS NO SIX-COLUMN VERSION ANY MORE. Six columns never fitted: at
+   desktop width "Who needs to know" and "Owner" overlapped each other and
+   Next step was left about 100px, so it read "Call Resident Health an...".
+   The four-column grid below is the layout at EVERY width, and the owner
+   rides in the why column with the audience. This span belonged to the
+   in-between state and no longer has one to be in. */
+.rd-td-ow-in { display: none; }
 .rd-td-tell span[title] {
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
   overflow: hidden;
@@ -3153,12 +3150,15 @@ button.rd-s30-b.done { background: var(--accent, #C95018); border-color: var(--a
 .rd-td-tl b { font-weight: 600; color: var(--ink-3, #8C857B); }
 .rd-td-tell-in .rd-td-ow { margin-top: 5px; }
 
-/* 1199, NOT 1099. Measured: Home keeps a fixed 320px rail, so the card is
-   only 462px wide at a 1100px viewport and the six-column table still
-   overflowed at 1100, 1140 and 1180, with 65px columns. It is clean from
-   1220. The grid therefore covers everything up to 1199. */
-@media (max-width: 1199px) {
-  .rd-td-t, .rd-td-t thead, .rd-td-t tbody, .rd-td-t tr, .rd-td-t th, .rd-td-t td {
+/* THE GRID IS THE LAYOUT, AT EVERY WIDTH. It was capped at 1199px, which
+   left the six-column table in place on a desktop -- where it was at its
+   worst: "Who needs to know" overlapping "Owner", and Next step on about
+   100px reading "Call Resident Health an...". Width was never what was
+   wrong with six columns; six columns were.
+
+   So this is no longer a media query. Client, why (with the Tell line and
+   the owner chip under it), next step, and the two buttons. */
+.rd-td-t, .rd-td-t thead, .rd-td-t tbody, .rd-td-t tr, .rd-td-t th, .rd-td-t td {
     display: block;
   }
   .rd-td-t tr {
@@ -3190,7 +3190,6 @@ button.rd-s30-b.done { background: var(--accent, #C95018); border-color: var(--a
   /* The tone stripe is an inset box-shadow on the row; with padding 0 the
      name sat flush against it. 14px, the same as the wide table. */
   .rd-td-t thead th:first-child, .rd-td-t tbody td:first-child { padding-left: 14px; }
-}
 
 /* THE FOUR TILES, 2 x 2 BETWEEN PHONE AND 1100px. auto-fit at 172px put
    three on the first row and "Open visits" alone on the second around

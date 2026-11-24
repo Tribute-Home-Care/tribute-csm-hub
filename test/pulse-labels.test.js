@@ -140,9 +140,17 @@ ok('the table has her two new headings',
 /* Six columns in a fixed-layout table left 109px each for Who needs to know
    and Next step between about 700px and 1100px: the two headers overlapped
    and Sort and Open spilled out of the card. */
-ok('below 1100px the row is her four-column grid',
-   /@media \(max-width: 1199px\)/.test(CSS) &&
+/* THE GRID IS THE LAYOUT AT EVERY WIDTH. It was capped at 1199px, which
+   left the six-column table in place on a desktop -- where it was at its
+   worst: "Who needs to know" overlapping "Owner" and Next step on about
+   100px, reading "Call Resident Health an...". Width was never what was
+   wrong with six columns; six columns were. */
+ok('the row is her four-column grid',
    /grid-template-columns: 150px minmax\(0, 1\.3fr\) minmax\(0, 1fr\) 128px;/.test(CSS));
+ok('...and it is not behind a width query any more',
+   /\n\.rd-td-t, \.rd-td-t thead, \.rd-td-t tbody, \.rd-td-t tr, \.rd-td-t th, \.rd-td-t td \{/.test(CSS));
+ok('...so there is no six-column version left to fall back to',
+   /THERE IS NO SIX-COLUMN VERSION ANY MORE/.test(CSS));
 ok('...with both folded columns hidden, headers and cells together',
    /\.rd-td-t \.rd-td-tell, \.rd-td-t \.rd-td-own \{ display: none; \}/.test(CSS));
 ok('...the audience moving under the reason, prefixed and clamped',
@@ -167,10 +175,11 @@ ok('...and the cell fills its track rather than shrink-wrapping',
    squeezed to 74px each with the table overflowing its own card. Above that
    the Owner is its own column, as she draws it; below it the owner moves
    into the Who needs to know cell rather than being dropped. */
-ok('...and the Owner column folds into the audience cell where there is no room',
-   /rd-td-ow rd-td-ow-in/.test(CODE) &&
-   /@media \(max-width: 1499px\) \{[\s\S]{0,160}\.rd-td-t \.rd-td-own \{ display: none; \}/.test(CSS) &&
-   /\.rd-td-ow-in \{ display: none;/.test(CSS));
+/* Both fold into the why column now, at every width, so there is no
+   in-between state for the old inline-owner span to live in. */
+ok('...and both folded columns are hidden, headers and cells together',
+   /\.rd-td-t \.rd-td-tell, \.rd-td-t \.rd-td-own \{ display: none; \}/.test(CSS) &&
+   /\.rd-td-ow-in \{ display: none; \}/.test(CSS));
 ok('...and the cells that fill them', /rd-td-tell/.test(CODE) && /rd-td-own/.test(CODE) &&
    /\.rd-td-tell/.test(CSS) && /\.rd-td-ow \{/.test(CSS));
 ok('the label is the row heading, in place of the word Pulse',

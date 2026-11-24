@@ -34,8 +34,12 @@ ok('...and the rail is the right-hand column of Home',
    now comes off at the same width the list changes shape. */
 ok('...and it drops under the list on a narrow screen, rather than squeezing it',
    /@media \(max-width: 1199px\) \{\s*\n\s*#rd-home-cols \{ grid-template-columns: minmax\(0, 1fr\); \}/.test(CSS));
-ok('...at the same width Today\'s list becomes a grid, so the two cannot disagree',
-   (CSS.match(/@media \(max-width: 1199px\)/g) || []).length >= 2);
+/* Today's list no longer has a width at which it "becomes" a grid: the grid
+   is its layout everywhere, because six columns were wrong at every width
+   rather than only at narrow ones. The rail keeps 1199 on its own merits --
+   below that the card is too narrow to read the reason in. */
+ok('...and Today\'s list is a grid at every width, so there is nothing to pair with',
+   !/@media \(max-width: 1199px\) \{\s*\n\s*\.rd-td-t,/.test(CSS));
 /* HOME IS A PAGE OF CARDS. Every section bled into the page with no edge, so
    the list, the visits and the CSM s own work floated in one field with
    nothing grouping them. The edges ARE the organisation, and one heading
