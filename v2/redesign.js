@@ -2655,9 +2655,23 @@
                comp: comp };
     });
   }
+  /* [hidden] LOSES TO AN INLINE DISPLAY. The strip carries
+     style="display:grid" written by index.html, and V1 rewrites
+     gridTemplateColumns on it every render, so setting .hidden left it on
+     screen with its In Onboarding tile intact -- which is what the live
+     check found after I had already reported it gone. The inline display is
+     set directly, and on every pass rather than once, because V1 touches
+     that element each time it renders. */
+  function hideTeamStrip() {
+    const strip = $('#team-top-stats');
+    if (!strip) return;
+    strip.hidden = true;
+    strip.style.display = 'none';
+  }
   function renderTeamTable() {
     const host = $('#team-cards');
     if (!host) return;
+    hideTeamStrip();
     const all = teamRowsData();
     if (!all) return;                        // V1 keeps its cards if we cannot
     if (!all.length) { host.innerHTML = '<p class="rd-ws-quiet">No CSMs for this market.</p>'; return; }
@@ -2693,7 +2707,7 @@
            five numbers computed a second way, which is how "In Onboarding 3"
            came to sit above a column headed "In first 30" reading 4. One
            source, one number, and the sum is literally the column. */
-        (list.length > 1 ? '<tfoot><tr><th scope="row">' + plural(list.length, 'person') + '</th>' +
+        (list.length > 1 ? '<tfoot><tr><th scope="row">All ' + list.length + '</th>' +
           cols.map(function (c) {
             if (c[0] === 'comp') return '<td class="rd-tm-n"></td>';
             const vals = list.map(function (r) { return r[c[0]]; })
@@ -2751,8 +2765,6 @@
        23rd, but this strip sitting above a column headed In first 30. The
        totals are in the table's own footer now, where the sum is literally
        the column. */
-    const strip = $('#team-top-stats', page);
-    if (strip) strip.hidden = true;
     installTeamTable();
     try { renderTeamTable(); } catch (e) {}
     const h = $('.ph h2', page);

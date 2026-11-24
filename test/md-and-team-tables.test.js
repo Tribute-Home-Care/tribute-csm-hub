@@ -193,11 +193,27 @@ ok('...and Coverage ready is left out rather than guessed at',
    second way, and its In Onboarding uses (daysAgo || 999) <= 30, which drops
    a client whose care starts today. THAT is "In Onboarding 3 beside 4 in
    first 30 days" -- the Team page, not Caseload Health on Home. */
+/* [hidden] LOSES TO AN INLINE DISPLAY. The strip carries style="display:grid"
+   written by index.html, and V1 rewrites gridTemplateColumns on it every
+   render, so setting .hidden left it on screen with its In Onboarding tile
+   intact -- which is what the live check found after I had reported it gone.
+   Twice now on this page: assert the override, not the intent. */
 ok('V1\'s stat strip is stood down',
-   /const strip = \$\('#team-top-stats', page\);/.test(CODE) && /strip\.hidden = true;/.test(CODE));
+   /function hideTeamStrip\(\)/.test(CODE) && /strip\.style\.display = 'none';/.test(CODE));
+ok('...on every render, because V1 touches that element each time',
+   /hideTeamStrip\(\);\n\s*const all = teamRowsData\(\);/.test(CODE) ||
+   /if \(!host\) return;\n\s*hideTeamStrip\(\);/.test(CODE));
+ok('...and the strip really does carry an inline display in index.html',
+   /id="team-top-stats" style="display:grid/.test(HUB));
 ok('...and the totals live in the table footer instead',
-   /<tfoot><tr><th scope="row">' \+ plural\(list\.length, 'person'\)/.test(CODE) &&
+   /<tfoot><tr><th scope="row">All ' \+ list\.length/.test(CODE) &&
    /\.rd-tm tfoot th, \.rd-tm tfoot td \{/.test(CSS));
+/* The footer sums the column above it, so the two cannot disagree the way
+   the strip and the table did. Visit compliance is left blank rather than
+   summed: adding percentages would be a number with no meaning. */
+ok('...summing the column, and refusing to sum a percentage',
+   /if \(c\[0\] === 'comp'\) return '<td class="rd-tm-n"><\/td>';/.test(CODE) &&
+   /vals\.reduce\(function \(a, b\) \{ return a \+ b; \}, 0\)/.test(CODE));
 ok('...and the strip in index.html is still the thing with the falsy count',
    /allS30=allCl\.filter\(c=>c\.startDate&&\(daysAgo\(c\.startDate\)\|\|999\)<=30\)/.test(HUB));
 /* CSPs ARE THEIR OWN SECTION. In one table a CSP read as the worst
