@@ -279,8 +279,17 @@
     Object.keys(NAV_EXTRA).forEach(function (key) {
       const x = NAV_EXTRA[key];
       if (!x.ok() || document.getElementById(x.id)) return;
-      const label = (GROUPS.reduce(function (a, g) { return a.concat(g[1]); }, [])
-        .find(function (it) { return it[0] === key; }) || [key, key])[1];
+      /* ONLY WHAT THE RAIL ASKED FOR. This exists because Guide and Feedback
+         come from layers that may finish loading after the rail is built, and
+         it re-adds anything missing. When Guide and Feedback were taken OUT
+         of GROUPS it re-added them anyway, at the end of the rail, labelled
+         with the raw key: a CSM saw "__guide" and "__feedback" under
+         Resources. An entry that is not in GROUPS is not missing, it is
+         deliberately absent. */
+      const entry = GROUPS.reduce(function (a, g) { return a.concat(g[1]); }, [])
+        .find(function (it) { return it[0] === key; });
+      if (!entry) return;
+      const label = entry[1];
       const el = document.createElement('div');
       el.className = 'nav-item'; el.id = x.id;
       if (x.page) {
@@ -3559,9 +3568,12 @@
     const el = $('#home-d');
     if (!el) return;
     const app = A();
-    const base = (el.dataset.rdBase !== undefined)
-      ? el.dataset.rdBase
-      : (el.dataset.rdBase = (el.textContent || '').split(' \u00b7 ')[0].trim());
+    /* The date V1 wrote. It is always the first part, and V1 rewrites this
+       element on every updateHome(), so the current text is the authority
+       rather than whatever was cached the first time through. */
+    const live = (el.textContent || '').split(' \u00b7 ')[0].trim();
+    if (live) el.dataset.rdBase = live;
+    const base = el.dataset.rdBase || live;
 
     let n = 0;
     try { n = (app.fn.get('clients') || []).filter(function (c) { return !c.isOffice; }).length; } catch (e) {}
@@ -3584,13 +3596,19 @@
       }
     } catch (e) {}
 
+    /* V1's updateHome() writes #home-d too, and it writes the bare date. So
+       the key cannot be the only test: after V1 repaints, the content is
+       different but the key is not, and the line would never come back. Ask
+       the element what it currently says as well. */
     const key = base + '|' + n + '|' + viv + '|' + stale;
-    if (key === _syncKey) return;
+    const mine = el.querySelector('.rd-syncbits');
+    if (key === _syncKey && mine) return;
     _syncKey = key;
-    el.innerHTML = esc(base) +
+    el.innerHTML = esc(base) + '<span class="rd-syncbits">' +
       (n ? ' \u00b7 ' + plural(n, 'client') : '') +
       (viv ? ' \u00b7 Viv synced ' + esc(viv) : '') +
-      (stale ? ' \u00b7 <span class="rd-stale">Hub data ' + esc(stale) + '</span>' : '');
+      (stale ? ' \u00b7 <span class="rd-stale">Hub data ' + esc(stale) + '</span>' : '') +
+      '</span>';
   }
 
   function renderComingUp() {
