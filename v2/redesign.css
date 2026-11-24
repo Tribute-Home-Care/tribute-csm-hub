@@ -3571,3 +3571,95 @@ input.ob-cb:disabled { opacity: .5; cursor: not-allowed; }
    of vertical space under the heading. The search input is moved OUT of this
    bar before the mark is set, so nothing inside it is still needed. */
 #md-views.rd-md-superseded > * { display: none !important; }
+
+
+/* ── EVERY SECTION ON A CLIENT PAGE IS A CARD ─────────────────────────────
+   Reported after build 11:00: "Cadence, Needs Attention, Today, Next Visit,
+   Care Team, Contacts, Quick Care Facts and Community all sit on the bare
+   page background with no border", and "the Care Plan and Activity tabs have
+   no cards either". True: .rd-ws-block carried a margin-top and nothing else,
+   so the client page was the one page in the Hub whose sections had no edges.
+
+   These are the Hub's own card values, read off a live .card rather than
+   chosen again: #fff on a 1px #E8E4E0 outline, 10px radius, 16px/18px
+   padding, and the same one-pixel shadow.
+
+   WHY THE OUTLINE IS --line AND NOT --row-line. Her floor -- "never a row line
+   lighter than #DDD6CC" -- is about the lines BETWEEN rows of a list, which
+   the eye has to track across columns. A card's own outline is a different
+   job: it separates a section from the page, which the background and the
+   shadow already do most of. Matching every other card in the Hub matters
+   more here than matching the row rule, so cards stay on --line and the rows
+   inside them use --row-line. */
+.rd-ws-block {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px 18px;
+  box-shadow: 0 1px 2px rgba(35, 31, 32, .04);
+  margin-top: 12px;
+}
+.rd-ws-block:first-child { margin-top: 0; }
+/* The heading now sits inside its own card, so it gets the card-title
+   treatment the rest of the Hub uses rather than floating on the page. */
+.rd-ws-block h4 { margin: 0 0 10px; }
+/* A block nested inside another would draw a card inside a card. */
+.rd-ws-block .rd-ws-block {
+  background: none; border: 0; border-radius: 0; padding: 0; box-shadow: none;
+}
+/* Cadence needs no rule of its own: wsCadence returns block('Cadence', ...),
+   so its table is already inside a .rd-ws-block and takes the card from that.
+   A .rd-cads-card class was written here first and matched nothing, which is
+   the mistake the comment two blocks down is about. */
+/* The two columns are stacks of cards now, so the gap between cards does the
+   spacing and the column does not need its own. */
+.rd-sum-l > :first-child, .rd-sum-r > :first-child { margin-top: 0; }
+
+/* ── CONTACT LINKS LOOK LIKE THE HUB, NOT LIKE 1996 ───────────────────────
+   "Contact links are still default browser blue and underlined." They were:
+   rgb(0, 0, 238) with a full underline. The rule that styles a link inside a
+   key/value row (.rd-kv dd a) never reached them, because a contact is built
+   as .rd-con and not as .rd-kv -- the same shape of miss as last round's
+   invented class names. Stated once for both, by what they are rather than by
+   where they sit, so the next list of phone numbers inherits it. */
+.rd-sum a[href^="tel:"], .rd-sum a[href^="mailto:"],
+.rd-ws-block a[href^="tel:"], .rd-ws-block a[href^="mailto:"],
+.rd-con dd a {
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 1px solid var(--line-2);
+}
+.rd-sum a[href^="tel:"]:hover, .rd-sum a[href^="mailto:"]:hover,
+.rd-ws-block a[href^="tel:"]:hover, .rd-ws-block a[href^="mailto:"]:hover,
+.rd-con dd a:hover { border-bottom-color: var(--brand); }
+
+/* ── LINES BETWEEN CONTACTS, AND BETWEEN THE COMMUNITY ROWS ───────────────
+   "There are no lines between contacts or between the Community rows." The
+   contacts had one all along, on --line (#E8E4E0) -- which is exactly the
+   case her floor was written for: present in the stylesheet, invisible on
+   screen, so a reviewer reports it as absent. The Community rows had none at
+   all. Both on --row-line now, and both get the padding that makes a line
+   read as a row boundary rather than as an underline on the text above it. */
+.rd-con { border-top: 1px solid var(--row-line); padding: 9px 0; }
+.rd-con:first-child { border-top: 0; padding-top: 0; }
+.rd-kvs .rd-kv { border-top: 1px solid var(--row-line); padding: 9px 0; }
+.rd-kvs .rd-kv:first-child { border-top: 0; padding-top: 0; }
+.rd-kvs .rd-kv:last-child { padding-bottom: 0; }
+
+/* ── THE "..." BUTTON ─────────────────────────────────────────────────────
+   "The '...' button is still an empty box." The icon is three ZERO-LENGTH
+   path segments, which draw as round caps 1.5px across -- measured bounding
+   box 12.01 x 0. At the icon system's own 1.5px stroke they are technically
+   on screen and effectively invisible, which is how a button with no label
+   reads as a blank grey box.
+
+   This is not a departure from the system's 1.5px rule, it is that rule's
+   own intent: the header of icons.js asks for "optical weight matched across
+   the set", and a 1.5px DOT carries nowhere near the optical weight of a
+   1.5px line. The dots are also given a word to stand next to, because a
+   glyph nobody can identify in a row of labelled buttons is not a control. */
+.rd-act[data-menu="more"] .ti { stroke-width: 3; }
+
+/* The rail badge while the counts are still arriving. Muted, so a row of
+   dashes at boot reads as "not counted yet" and not as a count. */
+.nav-item .nav-cnt.wait { color: var(--ink-3); font-weight: 500; }

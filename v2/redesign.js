@@ -753,6 +753,31 @@
     catch (e) { return null; }
   }
 
+  /* VIV'S STATUS WORDS, SAID ONCE AND IN ENGLISH.
+     The translation existed, inside exceptionFor, and the client HEADER did
+     not use it: it took c.vivStatus and capitalised the first letter. So one
+     client page said "Being set up in Viv" in Needs attention and "Processing"
+     in the header line, two words for one status, three inches apart.
+     Reported as "the header still says Processing".
+
+     If Scheduling calls one of these something else, this is the one line to
+     change. Anything Viv sends that is not in the list is capitalised and
+     passed through rather than guessed at. */
+  function vivStatusLabel(raw) {
+    const t = String(raw || '').trim();
+    const k = t.toLowerCase();
+    if (!k) return '';
+    const named = {
+      'pending-discharge': 'Pending discharge', 'pending discharge': 'Pending discharge',
+      'onhold': 'On hold', 'on-hold': 'On hold', 'on hold': 'On hold',
+      'processing': 'Being set up in Viv', 'active': 'Active'
+    }[k];
+    if (named) return named;
+    if (k.indexOf('hospital') > -1) return 'In hospital';
+    if (k.indexOf('facility') > -1) return 'In facility';
+    return t.replace(/^./, function (m) { return m.toUpperCase(); });
+  }
+
   function exceptionFor(c) {
     const vst = String(c.vivStatus || '').toLowerCase();
     if (vst && vst !== 'active') {
@@ -761,8 +786,7 @@
          Clients list as a status and means nothing to a CSM reading it.
          Said plainly here. If Scheduling calls it something else, this is
          the one line to change. */
-      const label = { 'pending-discharge': 'Pending discharge', 'onhold': 'On hold', 'on-hold': 'On hold', 'processing': 'Being set up in Viv' }[vst]
-        || (vst.indexOf('hospital') > -1 ? 'In hospital' : vst.indexOf('facility') > -1 ? 'In facility' : c.vivStatus);
+      const label = vivStatusLabel(c.vivStatus);
       return { tone: 'bad', text: label + (c.vivDischarged ? ' · ' + fmtShort(c.vivDischarged) : ''), rank: 0 };
     }
     const vs = visitSt(c), ts = tpSt(c), cs = ciSt(c);
@@ -2128,7 +2152,7 @@
        proper nouns. Capitalised for the line, not altered in the data. */
     const rawStatus = (c.vivStatus && String(c.vivStatus).toLowerCase() !== 'active')
       ? c.vivStatus : (d.service && d.service.status) || 'Active';
-    const status = String(rawStatus || '').replace(/^./, function (m) { return m.toUpperCase(); });
+    const status = vivStatusLabel(rawStatus);
     /* P1. ONE HEADER LINE, her section 4: "name, tier, status, market,
        community and unit, start of care, CSM, client number on one line."
        It carried only the market and the status, so everything else was a
@@ -2197,8 +2221,8 @@
       '</div></div>');
     // Scribe. The reserved placeholder is now the real thing: one tap from
     // the client, because that is where a CSM is standing when they need it.
-    acts.push('<div class="rd-menu rd-act-menu"><button type="button" class="rd-act" data-menu="more" aria-label="More actions">' +
-      I('more') + '</button>' +
+    acts.push('<div class="rd-menu rd-act-menu"><button type="button" class="rd-act" data-menu="more">' +
+      I('more') + '<span>More</span>' + I('chevronDown') + '</button>' +
       '<div class="rd-menu-list right" data-for="more">' +
       '<button type="button" data-act="edit">Edit client</button>' +
       '<button type="button" data-act="draft">Draft update</button>' +
@@ -5577,9 +5601,20 @@
     ['home', 'clients', 's60', 'priority', 'ltc', 'md'].forEach(function (k) {
       const el = $('#rdc-' + k);
       if (!el) return;
-      const v = (by[k] && by[k].n > 0) ? String(by[k].n) : '';
+      /* THE BADGE WAITS FOR THE SAME ANSWER THE TILES WAIT FOR.
+         "For a few seconds after the page loads, the Clients badge reads 18
+         before it changes to 30. It's the same partial-data flash the Home
+         tiles had." It is literally the same one: attentionSignals() counts a
+         roster whose Client Pulse has not landed, and 18 of the 30 are
+         knowable without it. The tiles were given a dash to show meanwhile
+         and the badge was not, so the two disagreed for a second and a half
+         on every open -- the badge-and-list fault again, just briefly. Same
+         gate, same em dash. */
+      const v = !countsReady() ? '\u2014'
+              : (by[k] && by[k].n > 0) ? String(by[k].n) : '';
       if (el.textContent !== v) el.textContent = v;
       el.classList.toggle('zero', !v);
+      el.classList.toggle('wait', v === '\u2014');
     });
   }
 
