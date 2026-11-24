@@ -243,8 +243,16 @@ ok('...the Status cell reads whichever it is',
    arrives, and something a CSM can act on rather than a letter and a number. */
 ok('the row shows the Pulse evidence, not a reason code',
    /const first = \(pp\.reasons \|\| \[\]\)\.map\(function \(r\) \{ return String\(r \|\| ''\)\.trim\(\); \}\)/.test(CODE));
-ok('...and a client with no evidence line still says something true',
-   /text: first \|\| 'Flagged by Pulse',/.test(CODE));
+/* THE SENTENCE, NOT THE SIGNAL. reasons[] holds the raw evidence Pulse
+   counted -- "5 inbound family contacts in 7d" -- and where it had none this
+   fell through to "Flagged by Pulse", which tells a CSM nothing. Home already
+   shows the headline sentence for the same client, and two pages saying
+   different things about one flag is the fault this review opened with. */
+ok('the Clients row says what Home says about the same flag',
+   /const head = pulseFirst\(pp\.headline\);/.test(CODE) &&
+   /text: head \|\| first \|\| 'Flagged by Pulse',/.test(CODE));
+ok('...and the raw signal is kept behind it, not thrown away',
+   /note: first && head \? first : String\(pp\.headline \|\| ''\)/.test(CODE));
 ok('the stale three-code map is gone', !/PULSE_REASON/.test(CODE));
 /* Home's own subtitle had the same bug in a place nobody looked: its map
    covered L1 to L3, so on a real caseload the High need line read
@@ -261,8 +269,23 @@ ok('...it counts what needs action and what is a watch',
 ok('the sentence is on the row, not in the cell',
    /const tip = ps && ps\.note \? ps\.note : '';/.test(CODE));
 
-ok('needing action today cancels merely due soon',
-   /if \(b\.indexOf\('action'\) > -1\) \{\n\s*const i = b\.indexOf\('week'\);/.test(CODE));
+/* ONE DEFINITION OF EACH BUCKET, SHARED WITH THE CLIENTS CHIPS. Home
+   counted a client's bucket from the ROW the dedupe kept, while the chips
+   counted with needsAction / onWatch / dueThisWeek over the client. Two
+   different questions, so the pages answered differently: Home said Due this
+   week 5 where the chip said 3, and In first 30 days 4 where the chip and the
+   Onboarding badge said 3. Her rule is the point: if the badge says 9, the
+   list under it has 9 clients in it. */
+ok('Home buckets a client with the same predicates the chips use',
+   /if \(needsAction\(c\)\) b\.push\('action'\);/.test(CODE) &&
+   /else if \(onWatch\(c\)\) b\.push\('watch'\);/.test(CODE) &&
+   /else if \(dueThisWeek\(c\)\) b\.push\('week'\);/.test(CODE));
+ok('needing action today cancels merely due this week, by being an else',
+   /if \(needsAction\(c\)\) b\.push\('action'\);\n\s*else if/.test(CODE));
+ok('...and In first 30 days still overlaps, being a different axis',
+   /if \(age !== null && age <= 30\) b\.push\('onboarding'\);/.test(CODE));
+ok('...and a bucket the row carried that is not one of the four survives',
+   /\['action', 'watch', 'week', 'onboarding'\]\.indexOf\(x\) < 0/.test(CODE));
 const buckets = bs => { const b = bs.slice();
   if (b.indexOf('action') > -1) { const i = b.indexOf('week'); if (i > -1) b.splice(i, 1); } return b; };
 ok('a client who is both reads as needing action only',

@@ -2752,7 +2752,11 @@ input[type="email"], select { min-height: var(--h-ctl); }
 /* Caseload health is manager information, so it is one closed line until
    asked for. Open, it is two columns: a single column of stat cards in a
    320px rail is a ladder nobody reads. */
-#rd-home-cols .rd-hr > .rd-sec.rd-sec-fold > .g4 {
+/* ONLY WHEN IT IS OPEN. The fold hides everything but the heading with
+   `.rd-sec-fold:not([data-open]) > *:not(.rd-sec-h)`, and this rule carried
+   both higher specificity and !important, so the stat grid showed through a
+   closed section: Caseload health looked permanently open. */
+#rd-home-cols .rd-hr > .rd-sec.rd-sec-fold[data-open] > .g4 {
   display: grid !important; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px;
 }
 

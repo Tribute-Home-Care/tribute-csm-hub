@@ -611,11 +611,18 @@
     const lvl = pulseLevel(c);
     if (!lvl) return null;
     const pp = pulseFor(c);
+    /* THE SENTENCE, NOT THE SIGNAL. reasons[] holds the raw evidence Pulse
+       counted -- "5 inbound family contacts in 7d" -- and where it has none,
+       this fell through to "Flagged by Pulse", which tells a CSM nothing.
+       The headline is the sentence Home already shows for the same client,
+       and the two pages saying different things about one flag is the fault
+       this whole review opened with. The raw signal is kept behind it. */
+    const head = pulseFirst(pp.headline);
     const first = (pp.reasons || []).map(function (r) { return String(r || '').trim(); })
                                     .filter(Boolean)[0];
     return { tone: lvl === 'red' ? 'bad' : 'warn',
-             text: first || 'Flagged by Pulse',
-             note: String(pp.headline || '') };
+             text: head || first || 'Flagged by Pulse',
+             note: first && head ? first : String(pp.headline || '') };
   }
 
   function needsAction(c) {
@@ -1746,14 +1753,19 @@
     const ok = function (v) {
       return v && !/^(none|n\/a|\u2014|-|not on file|unknown)$/i.test(String(v).trim());
     };
-    const unit = c.unit || (d.service && d.service.unit) || '';
-    const soc = c.startDate || (d.service && d.service.startDate) || '';
+    /* THE REAL FIELD NAMES, taken from the Community and LTC card rather
+       than guessed: the first cut invented c.unit, c.clientNo and
+       d.service.clientNumber, none of which exist, so the unit and the client
+       number were simply absent from the line. */
+    const sv = d.service || {};
+    const unit = ct.unit || '';
+    const soc = sv.careStarted || c.startDate || '';
     const csmName = c.csm || ((A().profile || {}).name) || '';
-    const num = c.clientNo || c.vivNo || (d.service && d.service.clientNumber) || '';
+    const num = sv.clientNum || c.vivNum || '';
     const meta = [
       c.market || (d.market || ''),
       status,
-      ok(c.loc) ? (c.loc + (ok(unit) ? ', ' + unit : '')) : '',
+      ok(sv.community || c.loc) ? ((sv.community || c.loc) + (ok(unit) ? ', ' + unit : '')) : '',
       ok(soc) ? 'Start of care ' + fmtShort(soc) : '',
       ok(csmName) ? 'CSM ' + csmName : '',
       ok(num) ? '#' + num : ''
@@ -3383,7 +3395,13 @@
                                  : (ex.rank === 4 || ex.rank === 5) ? 'watch' : 'week',
                          cid: c.id, name: c.name, why: ex.text, tier: c.tier,
                          s30: s30Open(c),
-                         step: /no visit on record|visit overdue/i.test(ex.text) ? 'Schedule in-person visit'
+                         /* A Viv STATUS is not a cadence problem, so "Book it
+                            or defer it" was the wrong instruction on it: you
+                            cannot book your way out of a client still being
+                            set up. */
+                         step: /being set up|on hold|pending discharge|in hospital|in facility|processing/i.test(ex.text)
+                                 ? 'Check where Viv has got to'
+                               : /no visit on record|visit overdue/i.test(ex.text) ? 'Schedule in-person visit'
                                : /touchpoint/i.test(ex.text) ? 'Check-in call or email'
                                : /^visit due/i.test(ex.text) ? 'Confirm the visit is booked'
                                : ex.tone === 'bad' ? 'Book it or defer it' : 'Get it in the diary',
@@ -3462,12 +3480,40 @@
        client is, what Scheduling owes them — so those still overlap, which is
        why the three onboarding clients appear under their own filter as well
        as under Need action today. */
+    /* ONE DEFINITION OF EACH BUCKET, SHARED WITH THE CLIENTS CHIPS.
+       Home counted a client's bucket from the ROW it kept -- the tone and
+       rank of whichever reason won the dedupe -- while the Clients chips
+       counted with needsAction / onWatch / dueThisWeek over the client. Two
+       different questions, so the two pages answered differently: Home said
+       Due this week 5 where the chip said 3, and In first 30 days 4 where
+       the chip and the Onboarding badge said 3.
+
+       Her rule is the whole point: "If the badge says 9, the list under it
+       has 9 clients in it." So the buckets are derived from the SAME
+       predicates the chips use, over the same client, and the two cannot
+       disagree without the predicate itself changing.
+
+       The urgency three stay exclusive, because a client who needs action
+       today is not also merely due this week. In first 30 days is a
+       different axis -- how new the client is -- so it still overlaps. */
+    const byId = {};
+    cl.forEach(function (c) { byId[c.id] = c; });
     order.forEach(function (k) {
-      const b = best[k].buckets;
-      if (b.indexOf('action') > -1) {
-        const i = b.indexOf('week');
-        if (i > -1) b.splice(i, 1);
-      }
+      const r = best[k];
+      const c = r.cid ? byId[r.cid] : null;
+      if (!c) return;                       // an open visit with no client row
+      const b = [];
+      if (needsAction(c)) b.push('action');
+      else if (onWatch(c)) b.push('watch');
+      else if (dueThisWeek(c)) b.push('week');
+      const age = c.startDate ? daysSince(c.startDate) : null;
+      if (age !== null && age <= 30) b.push('onboarding');
+      // Keep anything the row carried that is not one of the four, such as
+      // 'open', so a client with unfilled visits is still under that tile.
+      (r.buckets || []).forEach(function (x) {
+        if (['action', 'watch', 'week', 'onboarding'].indexOf(x) < 0 && b.indexOf(x) < 0) b.push(x);
+      });
+      r.buckets = b.length ? b : (r.buckets || [r.bucket]);
     });
     const one = order.map(function (k) { return best[k]; });
     /* HER ORDER: Pulse, then Success in 30, then overdue, then due this week,
@@ -3812,7 +3858,16 @@
     /* SEVEN DAYS, not fourteen. The rail card is "what is coming up this
        week"; a fortnight of rows pushed the CSM's own to-do list off the
        screen and nothing in the next seven days stood out among them. */
-    const t = todayISO(), in14 = new Date(Date.now() + 7 * DAY).toISOString().slice(0, 10);
+    /* SEVEN LOCAL DAYS. Date.now() + 7 days then .toISOString() measures
+       from the current UTC instant: an evening in Eastern is already
+       tomorrow in UTC, so the window ran to the eighth local day and Dec 1
+       appeared under "Next 7 days" on Nov 23. Counted from local midnight
+       instead, which is the day the reader is actually in. */
+    const t = todayISO();
+    const _end = new Date(); _end.setHours(0, 0, 0, 0); _end.setDate(_end.getDate() + 7);
+    const in14 = _end.getFullYear() + '-' +
+      String(_end.getMonth() + 1).padStart(2, '0') + '-' +
+      String(_end.getDate()).padStart(2, '0');
     const rows = [];
     cl.filter(function (c) { return !c.isOffice && c.freq !== 'NA' && c.lastVisit; }).forEach(function (c) {
       const s = nextVisit(c);
