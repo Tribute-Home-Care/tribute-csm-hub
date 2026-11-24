@@ -3666,6 +3666,49 @@
   /* ── CARE PLAN ──────────────────────────────────────────────────────────
      The real approved plan, in the form's own sections, readable standing in
      someone's living room. Long sections collapse; nothing is truncated away. */
+  /* AN ANSWER IS NOT ONE PARAGRAPH.
+     Care plan answers arrive as lines: some are bullets the form wrote with
+     a bullet character, some are short phrases that head the lines beneath
+     them ("Morning", "Noon and Afternoon"), and the rest are prose. Rendered
+     as escaped text under white-space: pre-line they all came out the same
+     weight with a blank line between every item, which is the opposite of
+     skimmable for something read standing in a client's living room.
+
+     NOTHING IS REWORDED, REORDERED OR DROPPED -- Courtney asked for this
+     tab's content and order to stay exactly as they are. The only decision
+     made here is which of three shapes a line already has.
+
+     A line is treated as a sub-heading only when it heads something: short,
+     unpunctuated, no bullet, and followed by at least one more line. A short
+     unpunctuated line at the very end is just a short answer. */
+  function cpAnswer(a) {
+    const lines = String(a == null ? '' : a).split('\n')
+      .map(function (l) { return l.trim(); }).filter(Boolean);
+    if (!lines.length) return '';
+    const out = [];
+    let ul = [];
+    const flush = function () {
+      if (!ul.length) return;
+      out.push('<ul class="rd-cp-ul">' + ul.map(function (x) {
+        return '<li>' + esc(x) + '</li>';
+      }).join('') + '</ul>');
+      ul = [];
+    };
+    lines.forEach(function (l, i) {
+      const bullet = /^[\u2022\u00b7\u25cf\u25aa*-]\s+/.test(l);
+      if (bullet) { ul.push(l.replace(/^[\u2022\u00b7\u25cf\u25aa*-]\s+/, '')); return; }
+      flush();
+      const heads = i < lines.length - 1 &&
+                    l.length <= 48 &&
+                    l.split(/\s+/).length <= 6 &&
+                    !/[.!?,;:]$/.test(l);
+      out.push(heads ? '<p class="rd-cp-sub">' + esc(l) + '</p>'
+                     : '<p class="rd-cp-p">' + esc(l) + '</p>');
+    });
+    flush();
+    return out.join('');
+  }
+
   function wsCarePlan(c) {
     const snap = CP(c);
     const miss = unread(snap, 'the care plan');
@@ -3701,7 +3744,7 @@
       out += secs.map(function (s, i) {
         const long = s.items.length > 4;
         const items = '<dl class="rd-kvs rd-cp-kvs">' + s.items.map(function (it) {
-          return '<div class="rd-kv"><dt>' + esc(it.q) + '</dt><dd>' + esc(it.a) + '</dd></div>';
+          return '<div class="rd-kv"><dt>' + esc(it.q) + '</dt><dd>' + cpAnswer(it.a) + '</dd></div>';
         }).join('') + '</dl>';
         if (!long) return '<section class="rd-cp-sec"><h5>' + esc(s.title) + '</h5>' + items + '</section>';
         return '<details class="rd-cp-sec rd-cp-fold"' + (i < 2 ? ' open' : '') + '>' +

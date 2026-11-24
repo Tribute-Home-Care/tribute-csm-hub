@@ -3796,3 +3796,74 @@ input.ob-cb:disabled { opacity: .5; cursor: not-allowed; }
    class written into the markup. */
 .rd-act-menu .rd-menu-list { left: 0; right: auto; }
 .rd-act-menu .rd-menu-list.right { left: auto; right: 0; }
+
+/* ── THE CARE PLAN TAB ─────────────────────────────────────────────────────
+   Content and order are untouched -- Courtney asked for this tab's structure
+   to stay exactly as it is. Only the separation changed: before this, every
+   section ran into the next with an uppercase caption and no edges, which on
+   a plan with ten sections and fifty answers is one long column.
+
+   TWO DELIBERATE DEPARTURES from the values in the request, both so this tab
+   does not introduce a second vocabulary for something the Hub already has:
+
+     row lines use --row-line (#DDD6CC) rather than the #E4DED6 asked for,
+     because #E4DED6 is LIGHTER than Courtney's own stated floor -- "never a
+     row line lighter than #DDD6CC" -- and that rule is why the onboarding
+     board and the contacts list were corrected earlier today;
+
+     zebra uses --row-zebra (#F7F3ED) rather than #FAF7F2, a difference no eye
+     will see, so that every shaded row in the Hub is one colour. */
+.rd-ws-body:has(.rd-cp-head) { max-width: 960px; }
+
+.rd-cp-sec {
+  background: #fff;
+  border: 1px solid var(--row-line);
+  border-radius: 12px;
+  margin-top: 14px;
+  overflow: hidden;
+}
+.rd-cp-sec:first-of-type { margin-top: 0; }
+
+/* The heading is a bar across the top of its card, not a caption floating
+   above one. The fold arrow and the count already live in the summary, so
+   the bar is stated once and both section shapes take it. */
+.rd-cp-sec > h5,
+.rd-cp-fold > summary {
+  background: #F3EEE7;
+  border-bottom: 1px solid var(--row-line);
+  padding: 10px 16px;
+  margin: 0;
+}
+.rd-cp-sec > h5 { font-size: 11.5px; }
+.rd-cp-fold > summary { min-height: 0; }
+
+.rd-cp-kvs { margin: 0; }
+.rd-cp-kvs .rd-kv {
+  grid-template-columns: 230px minmax(0, 1fr);
+  gap: 20px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--row-line);
+  align-items: start;
+}
+.rd-cp-kvs .rd-kv:first-child { border-top: 0; }
+.rd-cp-kvs .rd-kv:nth-child(even) { background: var(--row-zebra); }
+.rd-cp-kvs .rd-kv dt { font-weight: 600; color: var(--ink); font-size: 13.5px; }
+.rd-cp-kvs .rd-kv dd { font-size: 14px; line-height: 1.5; }
+
+/* The answer carries real markup now, so pre-line would double every gap. */
+.rd-cp-kvs .rd-kv dd { white-space: normal; }
+.rd-cp-p { margin: 0 0 6px; }
+.rd-cp-p:last-child { margin-bottom: 0; }
+.rd-cp-sub {
+  margin: 10px 0 4px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.rd-cp-sub:first-child { margin-top: 0; }
+.rd-cp-ul { margin: 0 0 6px; padding-left: 18px; }
+.rd-cp-ul:last-child { margin-bottom: 0; }
+.rd-cp-ul li { margin: 0 0 2px; line-height: 1.45; }
+
+@media (max-width: 700px) {
+  .rd-cp-kvs .rd-kv { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+}
