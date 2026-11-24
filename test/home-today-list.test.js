@@ -49,11 +49,20 @@ ok('the tile takes its name from the bucket, like the filter line does',
 ok('a row is a client, a why and a next step',
    /rd-td-n/.test(CODE) && /rd-td-w/.test(CODE) && /rd-td-s/.test(CODE));
 
-// ── her sort order ────────────────────────────────────────────────────────
-// A red flag ranks first; an amber one ranks with the rest of this week, so
-// the Today's list and the Clients tabs cannot disagree about one client.
-ok('a red Pulse flag ranks first',
-   /rank: lvl === 'red' \? 0 : 3,/.test(CODE) &&
+/* ── her sort order ──────────────────────────────────────────────────────
+   "Pulse flags, then Success in 30 milestones, then overdue visits and
+   touchpoints, then due this week." ALL Pulse flags first, not just the red
+   ones.
+
+   THE BUCKET SPLIT HAD LEAKED INTO THE RANK. An amber Pulse was rank 3,
+   below Success in 30 at 1 and below "No visit on record" at 2, so on a
+   real caseload a Safety flag sat under three routine cadence rows. Which
+   TAB a row belongs to and where it sits in the LIST are two different
+   questions, and one answer was being used for both. The bucket is
+   unchanged -- amber still sits in Watch, so a tile and a tab cannot
+   disagree about one client. */
+ok('a red Pulse flag ranks first, and an amber one second',
+   /rank: lvl === 'red' \? 0 : 1,/.test(CODE) &&
    /bucket: lvl === 'red' \? 'action' : 'watch',/.test(CODE));
 /* An amber flag is a watch item, not a date. There is no Watch tile here, by
    her design: Home has her four. The row still appears in the unfiltered
@@ -63,10 +72,20 @@ ok('a red Pulse flag ranks first',
 ok('...and an amber one is a watch item, so no tile claims it',
    !/\['watch',/.test(CODE.match(/const TODAY_BUCKETS = \[[\s\S]*?\];/)[0]));
 ok('...and the headline is still what the row says', /why: pulseFirst\(pp\.headline\)/.test(CODE));
-ok('Success in 30 ranks second', /rank: 1, bucket: 'onboarding'/.test(CODE));
-ok('overdue ranks above due-soon',
-   /rank: ex\.tone === 'bad' \? 2 : 3/.test(CODE));
-ok('open visits rank last', /rank: 4, bucket: 'open'/.test(CODE));
+ok('Success in 30 ranks below every Pulse flag', /rank: 2, bucket: 'onboarding'/.test(CODE));
+ok('overdue ranks above due-soon, and both below Success in 30',
+   /rank: ex\.tone === 'bad' \? 3 : 4/.test(CODE));
+ok('open visits rank last', /rank: 5, bucket: 'open'/.test(CODE));
+// Behavioural, over the five kinds of row, in her words' order.
+const RANKS = { pulseRed: 0, pulseAmber: 1, s30: 2, overdue: 3, dueSoon: 4, openVisits: 5 };
+const order = Object.keys(RANKS).sort((a, b) => RANKS[a] - RANKS[b]);
+ok('every Pulse flag outranks Success in 30 and every cadence row',
+   order.indexOf('pulseAmber') < order.indexOf('s30') &&
+   order.indexOf('pulseAmber') < order.indexOf('overdue'));
+ok('...and a red flag still leads an amber one',
+   RANKS.pulseRed < RANKS.pulseAmber);
+ok('...and the whole order is hers',
+   order.join(',') === 'pulseRed,pulseAmber,s30,overdue,dueSoon,openVisits');
 /* ── ONE ROW PER CLIENT ───────────────────────────────────────────────────
    "Each row is a client, why they're on the list, and the next step."
    Singular, three times. It is also the only way the counts can agree: a

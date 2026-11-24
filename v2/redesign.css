@@ -3201,3 +3201,48 @@ button.rd-s30-b.done { background: var(--accent, #C95018); border-color: var(--a
 @media (min-width: 1101px) {
   #rd-attn { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
+
+
+/* -- ROW READABILITY ON BOTH LISTS ----------------------------------------
+   "Neither list has shaded alternate rows or a card around the table, and
+   the row lines are still the faint hairline."
+
+   Both lists are long and read across: the eye loses the row between the
+   client's name and the far column. Alternate shading carries it, and the
+   line between rows is strong enough to see without drawing a grid.
+
+   The tint is warm, not grey, so it sits inside the stone palette rather
+   than on top of it, and hover still beats it. */
+.rd-clt tbody tr:nth-child(even),
+.rd-td-t tbody tr:nth-child(even) { background: var(--wash, #F6F3EE); }
+.rd-clt tbody tr { border-bottom: 1px solid var(--line, #E7E2DA); }
+.rd-clt tbody tr:hover,
+.rd-td-t tbody tr:hover { background: #F0E9DF; }
+.rd-clt tbody tr:last-child { border-bottom: 0; }
+/* The header earns its own weight, so the first row does not read as one. */
+.rd-clt thead th { background: var(--wash, #F6F3EE); border-bottom: 1px solid var(--line, #E7E2DA); }
+
+/* A CARD AROUND THE CLIENTS TABLE. Today's list has had one; this one sat
+   on the page with nothing holding it, so it read as part of the filter row
+   above it rather than as a thing of its own. */
+/* .rd-clt-wrap already exists and already owns the horizontal scroll, so
+   the card is that element rather than another one wrapped round it. */
+.rd-clt-wrap {
+  background: var(--card, #FFFDFA); border: 1px solid var(--line, #E7E2DA);
+  border-radius: 12px;
+}
+.rd-clt-wrap .rd-clt thead th:first-child,
+.rd-clt-wrap .rd-clt tbody th[scope="row"] { padding-left: 14px; }
+.rd-clt-wrap .rd-clt thead th:last-child,
+.rd-clt-wrap .rd-clt tbody td:last-child { padding-right: 14px; }
+.rd-clt-wrap .rd-clt thead th { padding-top: 10px; padding-bottom: 10px; }
+.rd-clt-wrap .rd-clt tbody th[scope="row"],
+.rd-clt-wrap .rd-clt tbody td { padding-top: 10px; padding-bottom: 10px; }
+
+/* THE PULSE SENTENCE WAS CUT AFTER THREE OR FOUR WORDS. The Status column is
+   narrow at these widths and the line was clamped to two, so it stopped at
+   "Charles moved to Trule...". Three lines, and no 34ch ceiling below the
+   width where the column has room for one. */
+@media (max-width: 1400px) {
+  .rd-clt-pl { max-width: none; -webkit-line-clamp: 3; }
+}

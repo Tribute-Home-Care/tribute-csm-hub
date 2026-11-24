@@ -4045,8 +4045,19 @@
            row, with the evidence sentence under it, which is how she draws
            it. Owner and audience ride along so the row can be read without
            opening the client. */
+        /* THE BUCKET SPLIT HAD LEAKED INTO THE RANK. An amber Pulse was
+           rank 3, which put it below Success in 30 (1) and below "No visit
+           on record" (2), so a Safety flag sat under three routine cadence
+           rows. Her order is "Pulse flags, then Success in 30 milestones,
+           then overdue visits and touchpoints, then due this week" -- ALL
+           Pulse flags first, not just the red ones.
+
+           Red still leads amber, and the BUCKET is untouched: amber stays
+           in Watch so a tile and a tab cannot disagree about one client.
+           Which tab a row belongs to and where it sits in the list are two
+           different questions, and one answer was being used for both. */
         const lab = pulseLabel(pp);
-        out.push({ rank: lvl === 'red' ? 0 : 3, tier: c.tier,
+        out.push({ rank: lvl === 'red' ? 0 : 1, tier: c.tier,
                    kind: (lab && lab.label) || 'Pulse', isPulse: true,
                    owner: pulseOwner(pp, lab), tell: pulseTell(pp, lab),
                    bucket: lvl === 'red' ? 'action' : 'watch',
@@ -4062,7 +4073,7 @@
       const age = c.startDate ? daysSince(c.startDate) : null;
       if (age !== null && age <= 30) {
         const done = rowsFor('s60', c.id).length;
-        out.push({ rank: 1, bucket: 'onboarding', cid: c.id, name: c.name,
+        out.push({ rank: 2, bucket: 'onboarding', cid: c.id, name: c.name,
                    tier: c.tier, kind: 'Success in 30',
                    why: 'Day ' + (age + 1) + ' of 30' + (done ? ' · ' + plural(done, 'milestone') + ' logged' : ' · nothing logged yet'),
                    step: 'Work the onboarding checklist', s30: s30Open(c),
@@ -4070,7 +4081,7 @@
       }
       // 3 and 4. The cadence exception, which already knows overdue from due.
       const ex = exceptionFor(c);
-      if (ex) out.push({ rank: ex.tone === 'bad' ? 2 : 3,
+      if (ex) out.push({ rank: ex.tone === 'bad' ? 3 : 4,
                          bucket: ex.tone === 'bad' ? 'action'
                                  : (ex.rank === 4 || ex.rank === 5) ? 'watch' : 'week',
                          cid: c.id, name: c.name, why: ex.text, tier: c.tier,
@@ -4095,7 +4106,7 @@
       const byClient = openVisitsSoon().byClient;
       Object.keys(byClient).forEach(function (k) {
         const c = cl.find(function (x) { return x.name === k; });
-        out.push({ rank: 4, bucket: 'open', cid: c ? c.id : '', name: k,
+        out.push({ rank: 5, bucket: 'open', cid: c ? c.id : '', name: k,
                    tier: c ? c.tier : '', kind: 'Open visits',
                    why: plural(byClient[k], 'visit') + ' unfilled in the next 48 hours',
                    step: 'With the Scheduling Partner', tone: 'warn' });
