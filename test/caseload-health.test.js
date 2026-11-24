@@ -76,6 +76,13 @@ ok('it is still the folding section, closed on arrival',
    cards rendered straight through the closed state. */
 ok('...and the open-state grid cannot show through the closed state',
    /\.rd-sec-fold\[data-open\] > \.g4 \{/.test(CSS));
+/* #rd-s-case .g4 { display: flex } further up carries an ID, so it outranked
+   .rd-sec-fold:not([data-open]) > * and the stat cards rendered through a
+   closed section: the card looked open on arrival however often it was shut.
+   Same specificity, so the closed state has to say it with an ID too. */
+ok('...and the closed state outranks the ID rule that was beating it',
+   /#rd-s-case\.rd-sec-fold:not\(\[data-open\]\) > \.g4/.test(CSS) &&
+   /#rd-s-case\.rd-sec-fold:not\(\[data-open\]\) > #home-caseload/.test(CSS));
 ok('tier mix only appears once tiers are actually set',
    /const tiersSet = \[hi, med, lo\]\.filter/.test(CODE) && /if \(h\.tiersSet\) \{/.test(CODE));
 

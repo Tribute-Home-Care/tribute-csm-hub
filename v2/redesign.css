@@ -2759,6 +2759,14 @@ input[type="email"], select { min-height: var(--h-ctl); }
 #rd-home-cols .rd-hr > .rd-sec.rd-sec-fold[data-open] > .g4 {
   display: grid !important; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px;
 }
+/* AND IT STAYS SHUT WHEN SHUT. `#rd-s-case .g4 { display: flex }` further up
+   carries an ID, so it outranked `.rd-sec-fold:not([data-open]) > *` and the
+   stat cards rendered through a closed section: Caseload health looked open
+   on arrival however many times it was collapsed. Same specificity, so this
+   has to say it with an ID too. */
+#rd-s-case.rd-sec-fold:not([data-open]) > .g4,
+#rd-s-case.rd-sec-fold:not([data-open]) > #home-caseload,
+#rd-s-case.rd-sec-fold:not([data-open]) > #home-drill { display: none !important; }
 
 /* TODAY'S LIST, as her Home picture draws it: a titled card with three
    column headings, the tier under the name, the reason labelled, and an Open

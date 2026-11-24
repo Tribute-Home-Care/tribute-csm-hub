@@ -284,6 +284,23 @@ ok('needing action today cancels merely due this week, by being an else',
    /if \(needsAction\(c\)\) b\.push\('action'\);\n\s*else if/.test(CODE));
 ok('...and In first 30 days still overlaps, being a different axis',
    /if \(age !== null && age <= 30\) b\.push\('onboarding'\);/.test(CODE));
+/* A CLIENT WHO STARTS TODAY IS NOT MISSING. `(daysSince(c.startDate) || 999)
+   <= 30` had a hole in it: daysSince returns 0 for care starting TODAY, 0 is
+   falsy, so 0 becomes 999 and the newest client drops out of the filter. Home
+   counted four in their first 30 days while the chip and the Onboarding badge
+   counted three; the missing one had started that morning, which is the
+   client most likely to need the checklist worked. */
+ok('days in care is null-checked, not truthy-checked',
+   /function inFirstDays\(c, n\) \{[\s\S]{0,120}return d !== null && d <= n;/.test(CODE));
+ok('...and nothing is left using the falsy guard', !/\|\| 999\) <= 30/.test(CODE));
+
+/* NO FALLBACK TO THE ROW'S OWN BUCKET. When no client predicate matched, the
+   row kept the bucket the dedupe had given it, which is the row-derived
+   bucket this change exists to replace: a client due in EIGHT days stayed in
+   Home's "week" tile while the chip correctly left her out. */
+ok('a row that matches no tile is counted by none of them',
+   /r\.buckets = b;/.test(CODE) && !/r\.buckets = b\.length \? b :/.test(CODE));
+
 ok('...and a bucket the row carried that is not one of the four survives',
    /\['action', 'watch', 'week', 'onboarding'\]\.indexOf\(x\) < 0/.test(CODE));
 const buckets = bs => { const b = bs.slice();

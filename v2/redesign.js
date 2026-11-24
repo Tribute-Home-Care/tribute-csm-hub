@@ -807,7 +807,7 @@
       if (q) list = list.filter(function (r) { return clientHaystack(r.c).indexOf(q) > -1; });
       if (tf) list = list.filter(function (r) { return r.c.tier === tf; });
     }
-    else if (_view === 'onboarding') list = list.filter(function (r) { return r.c.startDate && (daysSince(r.c.startDate) || 999) <= 30; });
+    else if (_view === 'onboarding') list = list.filter(function (r) { return inFirstDays(r.c, 30); });
 
     /* SORTING. Urgency first is the right default and stays the default, but
        she asked to be able to sort by next visit due, start date and A to Z
@@ -925,7 +925,7 @@
       attention: all.filter(needsAction).length,
       watch: all.filter(onWatch).length,
       soon: all.filter(dueThisWeek).length,
-      onboarding: all.filter(function (c) { return c.startDate && (daysSince(c.startDate) || 999) <= 30; }).length,
+      onboarding: all.filter(function (c) { return inFirstDays(c, 30); }).length,
       covering: coveringRows().length
     };
     const rows = trackerRows();
@@ -1250,7 +1250,7 @@
       const nv = nextVisit(c);
       // An assessment due inside a week is marked, which was an action item
       // from 12 Nov and is the one row state worth catching at a glance.
-      const newish = c.startDate && (daysSince(c.startDate) || 999) <= 30;
+      const newish = inFirstDays(c, 30);
       // daysSince is negative for a future date, so days-until is its negation.
       const until = nv ? -daysSince(nv) : null;
       const soonAsmt = newish && until !== null && until >= 0 && until <= 7;
@@ -3317,7 +3317,7 @@
                           tone: 'warn', go: 'priority', badge: true,
                           bucket: 'open', doorway: true });
     } catch (e) {}
-    const onb = real.filter(function (c) { return c.startDate && (daysSince(c.startDate) || 999) <= 30; });
+    const onb = real.filter(function (c) { return inFirstDays(c, 30); });
     if (onb.length) out.push({ n: onb.length, label: 'In first 30 days', sub: 'Onboarding milestones', tone: 'info', go: 's60', bucket: 'onboarding' });
     const ltc = app.ltcBoard;
     if (ltc && ltc.counts && ltc.counts.blocked) out.push({ n: ltc.counts.blocked, label: 'LTC blocked', sub: 'Cannot submit yet', tone: 'bad', go: 'ltc' });
@@ -3471,19 +3471,52 @@
      change to the Pulse builder in tribute-api, not to the Hub. */
   const STEP_VERB = {
     checking: 'Check', confirming: 'Confirm', clarifying: 'Clarify', calling: 'Call',
-    scheduling: 'Schedule', asking: 'Ask', 'a call': 'Call', 'a conversation': 'Talk',
-    'a quick check': 'Check'
+    scheduling: 'Schedule', asking: 'Ask', reviewing: 'Review', reaching: 'Reach',
+    following: 'Follow', letting: 'Let', getting: 'Get', making: 'Make',
+    'a call': 'Call', 'a conversation': 'Talk', 'a quick check': 'Check',
+    'a direct call': 'Call', 'a quick call': 'Call', 'a short call': 'Call',
+    'a note': 'Note', 'a message': 'Message'
   };
   function shortStep(t) {
     let s = String(t || '').trim().replace(/^Worth\s+/i, '');
     s = s.split(/\s[\u2014\u2013-]\s/)[0];
     if (s.length > 95) { const cut = s.indexOf(', ', 45); if (cut > 0) s = s.slice(0, cut); }
     s = s.replace(/[.,;]$/, '');
-    s = s.replace(/^a call to\b/i, 'Call');
-    s = s.replace(/^(a quick check|a call|a conversation|\w+ing)\b/i, function (m) {
+    /* Strip the hedges Pulse writes to soften a suggestion. They turn an
+       instruction into an opinion, and the column has room for one short
+       instruction. "Might be worth a quick call to Dede" becomes "Call
+       Dede". */
+    s = s.replace(/^(it (?:might|may) be worth|might be worth|worth|consider|perhaps|possibly)\s+/i, '');
+    s = s.replace(/^(a (?:direct|quick|short) call|a call)\s+(?:to|with)\b/i, 'Call');
+    s = s.replace(/^(a (?:direct|quick|short) call|a call)\b/i, 'Call');
+    s = s.replace(/^(the\s+)?(\w+ing)\b/i, function (m, the, verb) {
+      const v = STEP_VERB[String(verb).toLowerCase()];
+      return v ? v : m;
+    });
+    s = s.replace(/^(a quick check|a conversation)\b/i, function (m) {
       return STEP_VERB[m.toLowerCase()] || m;
     });
     return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+
+  /* DAYS IN CARE, OR NULL. `(daysSince(c.startDate) || 999) <= 30` was in
+     four places here and five more in index.html, and it has a hole in it:
+     daysSince returns 0 for a client whose care starts TODAY, 0 is falsy, so
+     `0 || 999` becomes 999 and the newest client on the caseload drops out of
+     every one of those filters.
+
+     Found on 23 November: Home counted four clients in their first 30 days
+     and the Clients chip and the Onboarding badge counted three. The missing
+     one was Nancy Munson, who started that day -- the single client most
+     likely to need the checklist worked. */
+  function daysInCare(c) {
+    if (!c || !c.startDate) return null;
+    const d = daysSince(c.startDate);
+    return (d === null || d === undefined || isNaN(d)) ? null : d;
+  }
+  function inFirstDays(c, n) {
+    const d = daysInCare(c);
+    return d !== null && d <= n;
   }
 
   function todayRows() {
@@ -3645,7 +3678,16 @@
       (r.buckets || []).forEach(function (x) {
         if (['action', 'watch', 'week', 'onboarding'].indexOf(x) < 0 && b.indexOf(x) < 0) b.push(x);
       });
-      r.buckets = b.length ? b : (r.buckets || [r.bucket]);
+      /* NO FALLBACK TO THE ROW'S OWN BUCKET. When none of the client
+         predicates match, this used to keep whatever the row had been given,
+         which is the row-derived bucket the whole change exists to replace.
+         Elizabeth Treitler is due in EIGHT days: not due this week, so the
+         Clients chip excluded her, while Home's tile kept her old 'week'
+         bucket and read 3 against the chip's 2.
+
+         A row that matches no tile still appears in the unfiltered list. It
+         simply is not counted by a tile that does not describe it. */
+      r.buckets = b;
     });
     const one = order.map(function (k) { return best[k]; });
     /* HER ORDER: Pulse, then Success in 30, then overdue, then due this week,
