@@ -2691,6 +2691,40 @@ input[type="email"], select { min-height: var(--h-ctl); }
 .rd-cbtn:hover { border-color: var(--accent); color: var(--accent); }
 .rd-cbtn svg { width: 11px; height: 11px; }
 
+/* HOME IS A PAGE OF CARDS, which is what "more organization" means here.
+   Every section bled into the page with no edge, so the list, the visits and
+   the CSM's own work floated in one field with nothing grouping them. Her
+   picture is four tiles and then boxes: one card for the list, one per rail
+   section. The edges ARE the organisation.
+
+   One heading style for all of them, too. Home carried three weights doing
+   the same job: a page heading over the tiles, a card title, and small caps
+   in the rail. The rail and the card now share the small-caps title and the
+   page heading over the tiles is gone, because her tiles sit under the date
+   with no label at all. */
+.rd-sec-bare > .rd-sec-h { display: none; }
+#rd-attn { margin-bottom: 16px; }
+
+#rd-home-cols .rd-hr > .rd-sec {
+  background: var(--card, #FFFDFA); border: 1px solid var(--line);
+  border-radius: 12px; padding: 13px 15px 14px;
+}
+#rd-home-cols .rd-hr > .rd-sec > .rd-sec-h { margin: 0 0 9px; }
+#rd-home-cols .rd-hr > .rd-sec > .rd-sec-h h3 {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--ink-3); margin: 0;
+}
+#rd-home-cols .rd-hr > .rd-sec > .rd-sec-h .lede { font-size: 11px; color: var(--ink-3); }
+/* The cards inside the rail are already inside a card, so they lose their
+   own frame rather than drawing a box in a box. */
+#rd-home-cols .rd-hr .card {
+  background: none; border: 0; border-radius: 0; padding: 0; box-shadow: none; margin: 0;
+}
+#rd-home-cols .rd-hr .card + .card { margin-top: 14px; padding-top: 13px; border-top: 1px solid var(--line-2); }
+/* Caseload health is the one that folds, so its heading has to look pressable
+   rather than like the two above it that do not. */
+#rd-home-cols .rd-hr > .rd-sec.rd-sec-fold > .rd-sec-h { cursor: pointer; margin: 0; }
+
 /* TODAY'S LIST, as her Home picture draws it: a titled card with three
    column headings, the tier under the name, the reason labelled, and an Open
    button on the row. It was a bare full-bleed list of twenty-five rows. */

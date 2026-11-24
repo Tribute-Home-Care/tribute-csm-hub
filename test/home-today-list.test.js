@@ -25,8 +25,14 @@ ok('the list is mounted on Home under the tiles',
    one. A tile inside the left column would read as part of the list. */
 ok('...with the tiles spanning both columns, since they filter the left one',
    CODE.indexOf('id="rd-attn"') < CODE.indexOf('id="rd-home-cols"'));
-ok('the tiles and the list sit under one heading, because they are one thing',
-   /sec\('rd-s-attn', 'Needs attention', 'What is new, and not yet sorted'\)/.test(CODE));
+/* NO HEADING OVER THE TILES. Her Home has none: the tiles sit under the date
+   and the card below them carries its own title. Ours added a third heading
+   competing with the card title and the rail titles for the same job, and it
+   read as a label for the tiles rather than for the list. */
+ok('the tiles and the list share a section with no heading of its own',
+   /sec\('rd-s-attn', '', ''\)/.test(CODE) &&
+   /sAttn\.classList\.add\('rd-sec-bare'\)/.test(CODE) &&
+   /\.rd-sec-bare > \.rd-sec-h \{ display: none; \}/.test(CSS));
 /* Three of the four names are hers. The second is not: she wrote "Due this
    week", and the data behind that bucket is the warn-tone exception, which is
    due within FOURTEEN days and is what the Clients page has always called Due

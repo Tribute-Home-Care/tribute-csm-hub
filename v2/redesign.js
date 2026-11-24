@@ -2816,7 +2816,8 @@
     };
     /* One heading over the tiles AND the list, because they are one thought:
        the tiles are the filters and the list is what they filter. */
-    const sAttn = sec('rd-s-attn', 'Needs attention', 'What is new, and not yet sorted');
+    const sAttn = sec('rd-s-attn', '', '');
+    sAttn.classList.add('rd-sec-bare');
     /* HER HOME IS TWO COLUMNS, and that is the whole difference between her
        picture and what shipped. Hers fits a screen: the tiles across the top,
        Today's list on the left, and a narrow rail on the right holding the
