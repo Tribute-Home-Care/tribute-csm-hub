@@ -2301,6 +2301,21 @@
     return null;
   }
 
+  /* HER CHECKLIST HEADER ON THE CLIENT PAGE (Courtney, 23 Nov): "no
+     checkboxes with proof, no progress bar, and no All / Mine (CSM) / CSP
+     filter." The onboarding board has had all three since the 21st; this is
+     the same thing on the page a CSM actually reads before a call.
+
+     S30 milestones carry exactly two owners -- _s30Owner returns CSP for a
+     Viv item and CSM for everything else -- so her three tabs cover the
+     whole list with nothing left over.
+
+     THE FILTER HIDES ROWS, IT DOES NOT MOVE THE BAR. The bar and the counts
+     are the whole checklist every time. A CSP looking at their own four
+     items should still see the client is two of ten through; a bar that
+     moved with the filter would be measuring the filter. */
+  const S30_WHO = [['all', 'All'], ['CSM', 'Mine (CSM)'], ['CSP', 'CSP']];
+  let _s30Who = 'all';
   function wsS30(c) {
     let k = null;
     try { k = typeof s30Checklist === 'function' ? s30Checklist(c) : null; } catch (e) { return ''; }
@@ -2315,7 +2330,19 @@
         : '<span class="rd-s30-due">Due ' + esc(fmtShort(r.due)) + '</span>';
       return '<li class="rd-s30-r' + (r.done ? ' done' : '') + (r.overdue ? ' late' : '') +
         (r.done && r.viv ? ' viv' : '') + '">' +
-        '<span class="rd-s30-b" aria-hidden="true">' + (r.done ? '\u2713' : '') + '</span>' +
+        /* A CHECKBOX, NOT A DECORATION. This was an aria-hidden span showing
+           a tick, so there was no way to say an item was done from the page
+           a CSM reads: measured live, both milestone stores were empty for
+           every client in their first thirty days. A Viv-synced tick is not
+           pressable, because un-ticking it would be overruling the system of
+           record from a checklist. */
+        (r.done && r.viv
+          ? '<span class="rd-s30-b done viv" title="Picked up from Viv">\u2713</span>'
+          : '<button type="button" class="rd-s30-b' + (r.done ? ' done' : '') +
+            '" data-s30tick="' + esc(r.id || '') + '" data-s30done="' + (r.done ? '1' : '') +
+            '" aria-pressed="' + (r.done ? 'true' : 'false') +
+            '" title="' + (r.done ? 'Remove this tick' : 'Mark it done, with proof') + '">' +
+            (r.done ? '\u2713' : '') + '</button>') +
         '<span class="rd-s30-t">' + esc(r.label) +
           (r.proof ? '<span class="rd-s30-p">' + esc(r.proof) + '</span>' : '') +
           (function () {
@@ -2337,15 +2364,30 @@
          the assessment was shut. A status that names what you cannot see is
          worse than no status. */
       const open = !w.finished;
+      // The filter hides rows; the week's own count stays the week's count,
+      // for the same reason the bar does not move.
+      const items = w.items.filter(function (r) { return _s30Who === 'all' || r.owner === _s30Who; });
+      if (!items.length) return '';
       return '<details class="rd-s30-w' + (w.finished ? ' fin' : '') + '"' + (open ? ' open' : '') + '>' +
         '<summary>' + esc(w.label) +
         '<span class="n' + (w.finished ? ' fin' : '') + '">' + w.done + ' of ' + w.total + '</span>' +
-        '</summary><ul class="rd-s30-l">' + w.items.map(row).join('') + '</ul></details>';
+        '</summary><ul class="rd-s30-l">' + items.map(row).join('') + '</ul></details>';
     }).join('');
+    const lateN = k.weeks.reduce(function (n, w) {
+      return n + w.items.filter(function (r) { return r.overdue; }).length;
+    }, 0);
+    const pct = k.total ? Math.round(k.done / k.total * 100) : 0;
     return '<section class="rd-s30 ' + TONE[k.state] + '">' +
       '<header><h4>First 30 days \u00b7 day ' + (k.daysIn + 1) + '</h4>' +
       '<span class="rd-s30-st">' + esc(WORD[k.state]) + '</span>' +
-      '<span class="rd-s30-n">' + k.done + ' of ' + k.total + '</span></header>' +
+      '<span class="rd-s30-n">' + k.done + ' of ' + k.total + ' done' +
+        (lateN ? '<span class="rd-s30-late">' + lateN + ' overdue</span>' : '') + '</span></header>' +
+      '<div class="rd-s30-prog" role="progressbar" aria-valuenow="' + pct +
+        '" aria-valuemin="0" aria-valuemax="100"><i style="width:' + pct + '%"></i></div>' +
+      '<div class="rd-s30-who">' + S30_WHO.map(function (w) {
+        return '<button type="button" class="rd-s30-wb' + (_s30Who === w[0] ? ' on' : '') +
+          '" data-s30who="' + w[0] + '">' + esc(w[1]) + '</button>';
+      }).join('') + '</div>' +
       '<p class="rd-s30-why">' + esc(k.why) + '</p>' + weeks + '</section>';
   }
 
@@ -3034,6 +3076,40 @@
      draft library, and V1's own log panels. An action whose function is not
      on the page says so instead of failing silently. */
   function wireS30Steps(ws, c) {
+    /* The filter is a view, so it repaints the page and nothing else. */
+    $$('[data-s30who]', ws).forEach(function (b) {
+      b.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        _s30Who = b.dataset.s30who;
+        renderWorkspace();
+      });
+    });
+    /* Ticking asks for proof; un-ticking does not. Taking a tick off is
+       correcting a mistake, and making somebody justify a correction is how
+       wrong ticks stay on the record. */
+    $$('[data-s30tick]', ws).forEach(function (b) {
+      b.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        const id = b.dataset.s30tick;
+        if (!id) return;
+        if (b.dataset.s30done) {
+          if (typeof window.untickS30 === 'function') window.untickS30(c.id, id);
+          else renderWorkspace();
+          return;
+        }
+        const li = b.closest('.rd-s30-r');
+        const tEl = li ? li.querySelector('.rd-s30-t') : null;
+        const owner = li ? (li.querySelector('.rd-s30-o') || {}).textContent : '';
+        const label = tEl && tEl.firstChild && tEl.firstChild.textContent
+          ? tEl.firstChild.textContent : 'Success in 30 milestone';
+        if (typeof window.openS30Proof === 'function') {
+          window.openS30Proof(c.id, id, String(label).trim(), String(owner || '').trim());
+        } else {
+          rdDialog({ title: 'Not available',
+                     body: 'The onboarding module is not loaded, so there is nowhere to record the proof.' });
+        }
+      });
+    });
     $$('.rd-s30-step', ws).forEach(function (b) {
       b.addEventListener('click', function (ev) {
         ev.stopPropagation();
@@ -4971,6 +5047,9 @@
     perf: perf,
     select: function (cid) { if (_selected !== cid) selectClient(cid); },
     deselect: function () { if (_selected) deselectClient(); },
+    // v2-onboarding.js calls this after a proof is saved or a tick removed,
+    // so the client page redraws without it needing to know how.
+    repaintClient: function () { try { renderWorkspace(); } catch (e) {} },
     get selected() { return _selected; },
     get section() { return _section; },
     // perf.maxMs is a session high-water mark. Switching role in-session is

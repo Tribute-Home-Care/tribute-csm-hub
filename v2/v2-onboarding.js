@@ -704,6 +704,30 @@ function toggleObTask(cid,id){
   _obProofFor={cid,id,item};
   openObProof();
 }
+/* -- THE SAME PROOF, FOR THE SUCCESS IN 30 CHECKLIST --------------------
+   Courtney, 23 Nov: "The checklist on the client page is unchanged. It has
+   next-step buttons, but no checkboxes with proof."
+
+   The onboarding board has had checkboxes with proof since the 21st. The
+   client page had the NEXT STEP button and no way to say the step was done,
+   so measured on the live caseload both milestone stores were empty for
+   every client in their first thirty days: nobody had ever ticked a Success
+   in 30 item, because there was nothing to tick, and every client read
+   "0 of 10" and "At risk". This opens the same dialog and writes the
+   milestone log instead of the onboarding log. */
+function openS30Proof(cid,id,label,owner){
+  _obProofFor={cid,id,kind:'s30',item:{id,label,owner,hub:'',na:''}};
+  openObProof();
+}
+function untickS30(cid,id){
+  // Taking a tick off is correcting a mistake, and making somebody justify a
+  // correction is how wrong ticks stay on the record. It asks nothing.
+  // The pair is the key: V1's own delS60 filters on id alone, and these rows
+  // carry a MILESTONE id rather than a timestamp, so id alone would reach
+  // across clients.
+  set('s60',(get('s60')||[]).filter(r=>!(r.clientId===cid&&r.id===id)));
+  try{ if(window.TributeRedesign&&TributeRedesign.repaintClient)TributeRedesign.repaintClient(); }catch(e){}
+}
 function openObProof(){
   const {item}=_obProofFor;
   const d=item.draft?draftById(item.draft):null;
@@ -734,6 +758,7 @@ function openObProof(){
 function saveObProof(na){
   if(!_obProofFor)return;
   const {cid,id,item}=_obProofFor;
+  if(_obProofFor.kind==='s30'){ saveS30Proof(na); return; }
   const rows=get('s60_ob');
   const who=(document.getElementById('obp-who').value||'').trim();
   const when=(document.getElementById('obp-date').value||'').slice(0,10);
@@ -756,6 +781,40 @@ function saveObProof(na){
   closeObProof();
   renderObChecklist(cid);
   try{ if(typeof renderClientMaster==='function')renderClientMaster(); }catch(e){}
+}
+/* s30Checklist() matches a milestone by `id` on an s60 row, and reads
+   type!=='TASK' as "Viv picked this up". A hand tick is therefore type TASK,
+   which is what makes it read as ticked BY SOMEBODY rather than as synced,
+   and that distinction is the whole point of the proof. */
+function saveS30Proof(na){
+  if(!_obProofFor)return;
+  const {cid,id,item}=_obProofFor;
+  const who=(document.getElementById('obp-who').value||'').trim();
+  const when=(document.getElementById('obp-date').value||'').slice(0,10)||new Date().toISOString().slice(0,10);
+  const note=(document.getElementById('obp-note').value||'').trim();
+  const proof=[who?('with '+who):'',note].filter(Boolean).join(' \u00b7 ');
+  const rows=get('s60')||[];
+  if(!rows.some(r=>r.clientId===cid&&r.id===id)){
+    rows.push({id,clientId:cid,date:when,type:'TASK',notes:item.label,
+               by:_initialsOf((P&&P.name)||''),proof,na:!!na,
+               loggedAt:new Date().toISOString()});
+    set('s60',rows);
+  }
+  /* Proof lands on the CLIENT too, not only on the checklist, so a covering
+     CSM or a manager sees it was done the right way without opening the
+     checklist at all. Same rule as the onboarding board. */
+  if(!na){
+    const tasks=get('tasks')||[];
+    tasks.unshift(Object.assign({id:'task'+Date.now(),clientId:cid,date:when,
+      text:item.label,outcome:'Success in 30 milestone completed',note:proof,
+      source:'s30',by:P?P.name:'',at:new Date().toISOString()},
+      typeof actorStamp==='function'?actorStamp():{}));
+    set('tasks',tasks);
+  }
+  closeObProof();
+  try{ if(window.TributeRedesign&&TributeRedesign.repaintClient)TributeRedesign.repaintClient(); }catch(e){}
+  try{ if(typeof renderClientMaster==='function')renderClientMaster(); }catch(e){}
+  try{ if(typeof updateHome==='function')updateHome(); }catch(e){}
 }
 function closeObProof(){ document.getElementById('m-ob-proof').classList.remove('open'); _obProofFor=null; }
 function openObDraft(){

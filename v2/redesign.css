@@ -3067,7 +3067,14 @@ button.rd-cbtn, button.rd-act { font: inherit; background: none; cursor: pointer
   color: var(--ink-2, #5C554C); cursor: pointer;
 }
 .rd-td-sort:hover { border-color: var(--accent, #C95018); color: var(--accent, #C95018); }
-.rd-td-o { white-space: nowrap; }
+/* SORT AND OPEN STACK, they do not sit on one line. Side by side the cell
+   needs 120px and the column gets 101, which is the whole of the 19px the
+   table was overflowing its card by. */
+.rd-td-o {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 5px;
+  white-space: nowrap;
+}
+.rd-td-sort { margin-right: 0; }
 /* The label heading carries her words now, so it reads as a label rather
    than as the system's name for the feed. */
 .rd-td-k { font-weight: 700; }
@@ -3086,3 +3093,38 @@ button.rd-cbtn, button.rd-act { font: inherit; background: none; cursor: pointer
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+
+/* -- the client page checklist: her header --------------------------------
+   The bar, the overdue count and All / Mine (CSM) / CSP. The filter hides
+   rows and does not move the bar: the bar is the whole checklist every time,
+   or it would be measuring the filter. */
+.rd-s30-n { display: inline-flex; align-items: center; gap: 8px; }
+.rd-s30-late {
+  padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 700;
+  color: #9A2F14; background: #FBEADF;
+}
+.rd-s30-prog {
+  height: 6px; border-radius: 999px; background: var(--line-2, #EFEAE2);
+  overflow: hidden; margin: 10px 0 11px;
+}
+.rd-s30-prog i { display: block; height: 100%; background: var(--accent, #C95018); border-radius: 999px; }
+.rd-s30-who { display: flex; gap: 6px; margin: 0 0 11px; flex-wrap: wrap; }
+.rd-s30-wb {
+  padding: 3px 11px; border: 1px solid var(--line, #E7E2DA); border-radius: 999px;
+  background: var(--card, #FFFDFA); font: inherit; font-size: 11.5px; font-weight: 600;
+  color: var(--ink-2, #5C554C); cursor: pointer;
+}
+.rd-s30-wb:hover { border-color: var(--accent, #C95018); color: var(--accent, #C95018); }
+.rd-s30-wb.on { background: var(--accent, #C95018); border-color: var(--accent, #C95018); color: #fff; }
+/* The tick box is a control now, not a decoration. A Viv-synced tick is a
+   span and is not pressable: un-ticking it would be overruling the system of
+   record from a checklist. */
+button.rd-s30-b {
+  font: inherit; cursor: pointer; line-height: 1;
+  border: 1.5px solid var(--line, #E7E2DA); border-radius: 6px;
+  background: var(--card, #FFFDFA); color: transparent;
+}
+button.rd-s30-b:hover { border-color: var(--accent, #C95018); }
+button.rd-s30-b.done { background: var(--accent, #C95018); border-color: var(--accent, #C95018); color: #fff; }
+.rd-s30-b.viv { opacity: .75; cursor: default; }
