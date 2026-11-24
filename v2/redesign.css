@@ -3663,3 +3663,21 @@ input.ob-cb:disabled { opacity: .5; cursor: not-allowed; }
 /* The rail badge while the counts are still arriving. Muted, so a row of
    dashes at boot reads as "not counted yet" and not as a count. */
 .nav-item .nav-cnt.wait { color: var(--ink-3); font-weight: 500; }
+
+/* ── A SEPARATOR THAT SEPARATES ───────────────────────────────────────────
+   A contact's phone and email are joined by what was written as a separator:
+   <span class="rd-sub"></span>, with nothing in it. But .rd-sub is
+   display: block globally, so that empty span measured 438px wide and forced
+   a line break between the two -- reported as "the phone and email are
+   stacked on separate lines where the prompt asked for one line". They fit
+   easily: measured 78px and 117px inside a 445px cell.
+
+   A middot with air around it, and nothing that can collapse to a block. The
+   dd stays a block and the links stay inline, so a long email still wraps at
+   the separator rather than overflowing the column. */
+.rd-con-sep {
+  display: inline;
+  color: var(--ink-3);
+  margin: 0 7px;
+}
+.rd-con dd { line-height: 1.6; }

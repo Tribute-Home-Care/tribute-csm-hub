@@ -787,7 +787,13 @@
          Said plainly here. If Scheduling calls it something else, this is
          the one line to change. */
       const label = vivStatusLabel(c.vivStatus);
-      return { tone: 'bad', text: label + (c.vivDischarged ? ' · ' + fmtShort(c.vivDischarged) : ''), rank: 0 };
+      /* isStatus, because the client HEADER prints this same word three
+         inches above: "Needs Attention still repeats the header. Both say
+         'Being set up in Viv' for this client. One is enough." The flag is
+         carried here rather than inferred from rank 0 at the other end, so
+         adding a rank later cannot silently un-say it. */
+      return { tone: 'bad', isStatus: true,
+               text: label + (c.vivDischarged ? ' · ' + fmtShort(c.vivDischarged) : ''), rank: 0 };
     }
     const vs = visitSt(c), ts = tpSt(c), cs = ciSt(c);
     if (vs === 'never') return { tone: 'bad', text: 'No visit on record', rank: 1 };
@@ -3260,7 +3266,13 @@
        the flag, it has a date on it, and it is not in the banner. */
     const banner = !!(pp && pp.level && pp.level !== 'green' && !c.pulseAck);
     const attn = [];
-    if (ex) attn.push({ tone: ex.tone, text: ex.text });
+    /* SAME RULE AS THE BANNER ABOVE, applied to the header. A Viv status is
+       already on the header line, so repeating it as the one thing needing
+       attention makes a page look like two problems where there is one, and
+       says it with less the second time. Every OTHER exception earns its
+       place: a cadence exception has a date on it and the header does not
+       carry it. */
+    if (ex && !ex.isStatus) attn.push({ tone: ex.tone, text: ex.text });
     if (pp && pp.level && pp.level !== 'green' && !c.pulseAck && !banner)
       attn.push({ tone: pp.level === 'red' ? 'bad' : 'warn',
                   text: pulseFirst(pp.headline) + '.', go: 'care' });
@@ -3370,7 +3382,7 @@
       out += block('Contacts',
         (pc ? '<div class="rd-con"><dt>' + esc(pc.name || 'Primary contact') +
             (pc.relationship ? '<span class="rd-sub">' + esc(pc.relationship) + '</span>' : '') + '</dt>' +
-            '<dd>' + [tel(pc.phone), mail(pc.email)].filter(Boolean).join('<span class="rd-sub"></span>') + '</dd></div>' : '') +
+            '<dd>' + [tel(pc.phone), mail(pc.email)].filter(Boolean).join('<span class="rd-con-sep" aria-hidden="true">\u00b7</span>') + '</dd></div>' : '') +
         (ct.phone ? '<div class="rd-con"><dt>Client' + (ct.otherPhone ? '' : '') + '</dt><dd>' + tel(ct.phone) + '</dd></div>' : '') +
         (others.length
           ? '<details class="rd-more"><summary>' + plural(others.length, 'other contact') + '</summary>' +
@@ -3378,7 +3390,7 @@
               return '<div class="rd-con"><dt>' + esc(x.name) +
                 (x.relationship ? '<span class="rd-sub">' + esc(x.relationship) + '</span>' : '') +
                 (x.emergency ? '<span class="rd-sub">Emergency</span>' : '') + '</dt>' +
-                '<dd>' + [tel(x.phone), mail(x.email)].filter(Boolean).join('<span class="rd-sub"></span>') + '</dd></div>';
+                '<dd>' + [tel(x.phone), mail(x.email)].filter(Boolean).join('<span class="rd-con-sep" aria-hidden="true">\u00b7</span>') + '</dd></div>';
             }).join('') + '</details>'
           : ''));
     } else {
@@ -3635,7 +3647,7 @@
     if (others.length) out += '<details class="rd-more"><summary>Other contacts (' + others.length + ')</summary>' +
       '<dl class="rd-kvs">' + others.map(function (x) {
         return '<div class="rd-kv"><dt>' + esc(x.name) + (x.relationship ? ' · ' + esc(x.relationship) : '') + '</dt>' +
-          '<dd>' + [tel(x.phone), mail(x.email)].filter(Boolean).join('<span class="rd-sub"></span>') +
+          '<dd>' + [tel(x.phone), mail(x.email)].filter(Boolean).join('<span class="rd-con-sep" aria-hidden="true">\u00b7</span>') +
           (x.emergency ? '<span class="rd-sub">Emergency contact</span>' : '') + '</dd></div>';
       }).join('') + '</dl></details>';
 

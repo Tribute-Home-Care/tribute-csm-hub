@@ -105,5 +105,37 @@ ok('...and the tiles use that same dash', /<span class="rd-attn-n">\u2014<\/span
 ok('...and the waiting path actually calls it',
    /if \(!countsReady\(\)\) \{ renderAttnWaiting\(el\); refreshNavCounts\(null\); return; \}/.test(RD));
 
+// ── the leftovers found on 11:27 ─────────────────────────────────────────
+/* The "separator" between a contact's phone and email was
+   <span class="rd-sub"></span> -- empty, and .rd-sub is display:block
+   globally, so it measured 438px and forced a line break between two links
+   that were 78px and 117px inside a 445px cell. */
+ok('a contact\u2019s phone and email are separated by a separator',
+   !/'<span class="rd-sub"><\/span>'/.test(RD) &&
+   /'<span class="rd-con-sep" aria-hidden="true">\\u00b7<\/span>'/.test(RD));
+ok('...in all three places contacts are built',
+   (RD.match(/rd-con-sep/g) || []).length >= 3);
+ok('...and it cannot collapse to a block again',
+   /\.rd-con-sep \{\s*\n?\s*display: inline;/.test(CSSR));
+/* A long email still has to be able to wrap rather than overflow, so the dd
+   stays a block and the links stay inline. */
+ok('...while a long email can still wrap', !/\.rd-con dd \{[^}]*white-space: nowrap/.test(CSSR));
+
+/* "Needs Attention still repeats the header. Both say 'Being set up in Viv'
+   for this client. One is enough." Same rule the Pulse banner already
+   follows two blocks above it. */
+ok('the Viv status is marked as the thing the header already says',
+   /return \{ tone: 'bad', isStatus: true,/.test(RD));
+ok('...so the Summary does not say it twice',
+   /if \(ex && !ex\.isStatus\) attn\.push\(\{ tone: ex\.tone, text: ex\.text \}\);/.test(RD));
+/* Every other exception still earns its place: it carries a date the header
+   does not. Dropping all of them would hide an overdue visit. */
+ok('...and a cadence exception is still reported',
+   /if \(vs === 'never'\) return \{ tone: 'bad', text: 'No visit on record', rank: 1 \};/.test(RD));
+/* needsAction drives the badge and the Clients tabs off the same function, so
+   the flag must not change what counts -- only what the Summary prints. */
+ok('...and what counts as needing action is unchanged',
+   /function needsAction\(c\) \{\s*\n\s*const e = exceptionFor\(c\);\s*\n\s*if \(e && e\.tone === 'bad'\) return true;/.test(RD));
+
 console.log('\n' + (fail ? 'FAILED ' + fail : 'PASSED all ' + pass));
 process.exit(fail ? 1 : 0);
