@@ -418,21 +418,40 @@ function renderObBoard(){
   const cnt=document.getElementById('s60-board-n');
   if(cnt)cnt.textContent=rows.length?(rows.length+(rows.length===1?' client':' clients')):'';
   if(!rows.length){ box.innerHTML='<div class="es"><div class="ei">\u2713</div><p>Nothing in this list right now.</p></div>'; return; }
-  /* A HEADER ROW, because nine columns without one is a grid of numbers
-     nobody can name. Her rule: a header whenever a row has more than two
-     columns. It is emitted only when every row in the tab uses the
-     nine-column shape -- the offboarding rows are a different four-column
-     row, and one header cannot describe both. */
-  const allOb = rows.every(r => !(r.tab === 'offboarding' || (r.off && r.tab === 'done')));
-  const head = allOb
-    ? '<div class="obb-r obb-ob obb-head" role="row">' +
-      ['Client', 'Start of care', 'Day', 'Status', 'Phase 1', 'Phase 2', 'Phase 3',
-       'Next item due', 'Owner'].map(h => '<span>' + escHtml(h) + '</span>').join('') +
+  /* A HEADER ROW, because her rule is a header whenever a row has more than
+     two columns -- and this board draws THREE different rows.
+
+     The first cut tested the shape one way and drew it another: allOb only
+     excluded the offboarding rows, while the renderer below gives the
+     Success-in-30 rows a four-column shape of their own. So the S30 tab put
+     nine labels over four cells, on grids that shared not one edge --
+     measured 265/68/62/78/56/56/56/285/54 above 349/507/112/72. A header that
+     names columns that are not there is worse than no header, because it is
+     read as if it were true.
+
+     So the shape is decided ONCE, by the function both ends now use, and each
+     shape carries its own header. The Completed tab can hold finished
+     onboarding AND finished offboarding at the same time, and no single
+     header describes both, so a mixed tab gets none. */
+  const SHAPES = {
+    ob:  { cls: 'obb-ob', cols: ['Client', 'Start of care', 'Day', 'Status',
+                                 'Phase 1', 'Phase 2', 'Phase 3', 'Next item due', 'Owner'] },
+    s30: { cls: '',       cols: ['Client', 'Status', 'Day', 'Checklist'] },
+    off: { cls: '',       cols: ['Client', 'Ending type', 'Final visit', 'Checklist'] }
+  };
+  const shapeOf = r => (r.tab === 'offboarding' || (r.off && r.tab === 'done')) ? 'off'
+                     : r.tab === 's30' ? 's30'
+                     : 'ob';
+  const shapes = [...new Set(rows.map(shapeOf))];
+  const shape = shapes.length === 1 ? SHAPES[shapes[0]] : null;
+  const head = shape
+    ? '<div class="obb-r ' + shape.cls + ' obb-head" role="row">' +
+      shape.cols.map(h => '<span>' + escHtml(h) + '</span>').join('') +
       '</div>'
     : '';
   box.innerHTML='<div class="obb">'+head+rows.map(r=>{
     const open=`openObClient('${r.c.id}')`;
-    if(r.tab==='offboarding'||(r.off&&r.tab==='done')){
+    if(shapeOf(r)==='off'){
       const t=(OFF_TYPES.find(x=>x.id===r.off.type)||{}).label||'Type not recorded';
       return `<button type="button" class="obb-r${r.off.finished?'':' live'}" onclick="${open}">
         <span class="obb-n">${escHtml(r.c.name)}</span>
@@ -440,7 +459,7 @@ function renderObBoard(){
         <span class="obb-d">Final ${escHtml(new Date(r.off.end+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}))}</span>
         <span class="obb-p">${r.off.done} of ${r.off.total}</span></button>`;
     }
-    if(r.tab==='s30'){
+    if(shapeOf(r)==='s30'){
       const st=r.k?r.k.state:'ontrack';
       return `<button type="button" class="obb-r ${st}" onclick="${open}">
         <span class="obb-n">${escHtml(r.c.name)}</span>

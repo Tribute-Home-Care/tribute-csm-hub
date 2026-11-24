@@ -163,5 +163,48 @@ ok('...and guards the call sites it kept',
    /typeof renderObBoard===.function./.test(HUB) &&
    /typeof renderObChecklist===.function./.test(HUB));
 
+// ── THE BOARD DRAWS THREE DIFFERENT ROWS ──────────────────────────────────
+/* Found in the 11:54 sweep, and it was mine. The header was emitted whenever
+   no row was an offboarding row, but the renderer gives the Success-in-30 rows
+   a four-column shape of their own -- so the S30 tab put nine labels over four
+   cells, on grids sharing not one edge. Measured live:
+
+     header 265.674 / 67.998 / 61.992 / 77.998 / 55.996 / 55.996 / 55.996 /
+            284.658 / 53.994   (9 cells)
+     rows   348.857 / 507.422 / 111.992 / 71.992                    (4 cells)
+
+   A header naming columns that are not there is worse than no header, because
+   it is read as if it were true. No test covered the header at all, which is
+   how it shipped. */
+{
+  const OB = require('fs').readFileSync(require('path').join(__dirname, '../v2/v2-onboarding.js'), 'utf8');
+  ok('the row shape is decided by one function', /const shapeOf = r =>/.test(OB));
+  ok('...and the header asks it', /const shapes = \[\.\.\.new Set\(rows\.map\(shapeOf\)\)\];/.test(OB));
+  ok('...and both renderers ask it too',
+     /if\(shapeOf\(r\)==='off'\)\{/.test(OB) && /if\(shapeOf\(r\)==='s30'\)\{/.test(OB));
+  /* The test that drifted from the renderer is gone, not merely corrected. */
+  ok('...and nothing tests the shape a second way',
+     !/rows\.every\(r => !\(r\.tab === 'offboarding'/.test(OB));
+  ok('each shape carries its own header',
+     /ob:\s+\{ cls: 'obb-ob', cols: \['Client', 'Start of care', 'Day', 'Status',/.test(OB) &&
+     /s30: \{ cls: '',\s+cols: \['Client', 'Status', 'Day', 'Checklist'\] \}/.test(OB) &&
+     /off: \{ cls: '',\s+cols: \['Client', 'Ending type', 'Final visit', 'Checklist'\] \}/.test(OB));
+  /* Her rule, which the offboarding rows had been failing for several rounds:
+     a header whenever a row has more than two columns. Four is more than two. */
+  ok('...so the four-column tabs are no longer bare',
+     /cols: \['Client', 'Ending type', 'Final visit', 'Checklist'\]/.test(OB));
+  /* Only the nine-column header takes the nine-column class; the other two
+     fall through to the four-column base grid on .obb-r. */
+  const CSS2 = require('fs').readFileSync(require('path').join(__dirname, '../v2/v2-onboarding.css'), 'utf8');
+  ok('...and the four-column header lands on the four-column grid',
+     /\.obb-r\{display:grid;grid-template-columns:minmax\(0,1\.1fr\) minmax\(0,1\.6fr\) 112px 72px;/.test(CSS2) &&
+     /\.obb-r\.obb-ob\{grid-template-columns:/.test(CSS2));
+  /* The Completed tab holds finished onboarding and finished offboarding at
+     once, and no single header describes both. */
+  ok('a tab holding two shapes gets no header at all',
+     /const shape = shapes\.length === 1 \? SHAPES\[shapes\[0\]\] : null;/.test(OB) &&
+     /const head = shape\s*\n\s*\?/.test(OB));
+}
+
 console.log('\n' + (fail ? 'FAILED ' + fail : 'PASSED all ' + pass));
 process.exit(fail ? 1 : 0);
