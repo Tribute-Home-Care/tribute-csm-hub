@@ -2234,6 +2234,171 @@
     watchHeadCollapse(ws);
   }
 
+  /* ── MARYLAND COMPLIANCE ─────────────────────────────────────────────────
+     Courtney, section 8. Her three complaints about this page, in her order:
+
+       "Five tabs with one problem per row, instead of one row per client
+        with a column for each requirement."
+       "Very old items at the top mixed with current deadlines."
+       "No Mine / All CSMs / Group by CSM switch, only a Mine toggle."
+
+     A tab per PROBLEM means a client with three problems is read three
+     times and a client with none is invisible, so the page answers "which
+     problems exist" when the question a CSM has is "is this client clear".
+     One row per client, one column per requirement, and the answer is the
+     row.
+
+     THE COLUMNS COME FROM MD_REGS, not from a list written here. The page
+     calls these "the seven Baltimore requirements" and MD_REGS defines SIX;
+     driving the table off the constant means the table and the regulation
+     list cannot drift apart, whichever of the two is corrected. */
+  const MD_SHORT = {
+    initial: '48h initial', cadence: 'Assessment', annual: 'Annual',
+    reassess: 'Reassessment', weekly: 'Weekly note', pmof: 'PMOF'
+  };
+  /* The same expressions renderMdDetail uses, in one place so the table and
+     the detail panel cannot disagree about one client. true = on file,
+     false = not met, null = nothing to judge it against. */
+  function mdStates(r) {
+    const a = r.lastAssessment, ini = r.initial || {}, tr = r.reassessmentOwed || [];
+    return {
+      initial:  (ini.ok === null || ini.ok === undefined) ? null : ini.ok,
+      cadence:  !a ? null : (r.overdueByEff > 0 ? false : true),
+      annual:   !a ? null : (r.annualOverdueBy > 0 ? false : true),
+      reassess: tr.length ? false : true,
+      weekly:   (r.touchSource && r.touchSource.noActivity) ? null : (r.missedWeeks12 === 0),
+      pmof:     r.pmofNeeded ? null : true
+    };
+  }
+  /* VERY OLD IS NOT URGENT, IT IS HISTORY. Her second complaint: an
+     assessment 971 days overdue sat above one due next week. Nothing that
+     old is a deadline anybody is going to meet this month; it is a record to
+     correct. A year is the line, because an annual assessment that has been
+     missed for more than a year is a different kind of problem from one
+     that slipped. */
+  const MD_CLEANUP_DAYS = 365;
+  function mdIsCleanup(r) {
+    if (r.overdueByEff !== null && r.overdueByEff !== undefined && r.overdueByEff > MD_CLEANUP_DAYS) return true;
+    // No assessment on file AND no Viv forms at all is a records problem.
+    return r.statusEff === 'none' && r.formsOnFile === 0;
+  }
+  const MD_VIEWS = [['mine', 'Mine'], ['all', 'All CSMs'], ['bycsm', 'Group by CSM']];
+  let _mdView = 'mine';
+  function mdOwn(r) {
+    const me = ((A().profile || {}).name) || '';
+    return !!me && String(r.csm || '').toLowerCase() === me.toLowerCase();
+  }
+  function mdCell(st) {
+    if (st === null || st === undefined)
+      return '<td class="rd-md-c none" title="Nothing on file to judge this against">' +
+             '<i class="rd-dot"></i><span class="rd-sr">Not known</span></td>';
+    if (st) return '<td class="rd-md-c ok" title="On file"><i class="rd-dot"></i>' +
+                   '<span class="rd-sr">On file</span></td>';
+    return '<td class="rd-md-c bad" title="Not met"><i class="rd-dot"></i>' +
+           '<span class="rd-sr">Not met</span></td>';
+  }
+  function mdRowHtml(r) {
+    const st = mdStates(r);
+    const open = (r.overdueByEff !== null && r.overdueByEff !== undefined && r.overdueByEff > 0)
+      ? plural(r.overdueByEff, 'day') + ' overdue'
+      : (r.nextDueEff ? 'Due ' + fmtShort(r.nextDueEff) : '');
+    return '<tr class="rd-md-r" data-mdcid="' + esc(r.cid) + '" tabindex="0">' +
+      '<th scope="row">' + esc(r.name || '') +
+        (open ? '<span class="rd-md-when">' + esc(open) + '</span>' : '') + '</th>' +
+      '<td class="rd-md-csm">' + esc(r.csm || '') + '</td>' +
+      MD_REGS.map(function (g) { return mdCell(st[g[0]]); }).join('') +
+      '</tr>';
+  }
+  function mdTableHtml(rows) {
+    return '<div class="rd-clt-wrap"><table class="rd-clt rd-md"><thead><tr>' +
+      '<th scope="col">Client</th><th scope="col">CSM</th>' +
+      MD_REGS.map(function (g) {
+        return '<th scope="col" class="rd-md-h" title="' + esc(g[1]) + '">' +
+               esc(MD_SHORT[g[0]] || g[0]) + '</th>';
+      }).join('') +
+      '</tr></thead><tbody>' + rows.map(mdRowHtml).join('') + '</tbody></table></div>';
+  }
+  function renderMdTable() {
+    const host = $('#rd-md-table');
+    if (!host || typeof _mdRows !== 'function') return;
+    let rows = [];
+    try { rows = _mdRows(); } catch (e) { return; }
+    const q = String(($('#md-search') || {}).value || '').trim().toLowerCase();
+    if (q) rows = rows.filter(function (r) {
+      return (String(r.name || '') + ' ' + String(r.csm || '')).toLowerCase().indexOf(q) > -1;
+    });
+    if (_mdView === 'mine') rows = rows.filter(mdOwn);
+    const live = rows.filter(function (r) { return !mdIsCleanup(r); });
+    const old = rows.filter(mdIsCleanup);
+    // Soonest deadline first inside the live group; the cleanup group is the
+    // worst first, because that is the order you would work a backlog in.
+    live.sort(function (a, b) { return (b.overdueByEff || -9999) - (a.overdueByEff || -9999); });
+    old.sort(function (a, b) { return (b.overdueByEff || 0) - (a.overdueByEff || 0); });
+
+    let body;
+    if (_mdView === 'bycsm') {
+      const by = {};
+      live.forEach(function (r) { (by[r.csm || 'No CSM'] = by[r.csm || 'No CSM'] || []).push(r); });
+      body = Object.keys(by).sort().map(function (k) {
+        return '<h4 class="rd-md-g">' + esc(k) + '<span>' + plural(by[k].length, 'client') + '</span></h4>' +
+               mdTableHtml(by[k]);
+      }).join('');
+    } else {
+      body = live.length ? mdTableHtml(live)
+        : '<p class="rd-ws-quiet">Nothing outstanding under this view.</p>';
+    }
+    host.innerHTML =
+      '<div class="rd-md-views">' + MD_VIEWS.map(function (v) {
+        return '<button type="button" class="rd-view' + (_mdView === v[0] ? ' on' : '') +
+               '" data-mdview="' + v[0] + '">' + esc(v[1]) + '</button>';
+      }).join('') + '</div>' + body +
+      (old.length
+        ? '<details class="rd-md-clean"><summary>Cleanup · ' + plural(old.length, 'client') +
+          ' more than a year past due<span>Records to correct, not deadlines to meet</span></summary>' +
+          mdTableHtml(old) + '</details>'
+        : '');
+    $$('[data-mdview]', host).forEach(function (b) {
+      b.addEventListener('click', function () { _mdView = b.dataset.mdview; renderMdTable(); });
+    });
+    $$('[data-mdcid]', host).forEach(function (tr) {
+      const go = function () {
+        try { window._mdSel = tr.dataset.mdcid; if (typeof renderMdDetail === 'function') renderMdDetail(); } catch (e) {}
+      };
+      tr.addEventListener('click', go);
+      tr.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+    });
+    swapIcons(host);
+  }
+  /* V1's five problem tabs and its own row list come off, and the table
+     takes their place. The DETAIL panel stays exactly as it is: it already
+     reads as she wants, and it is the thing a row opens. */
+  function decorateMd() {
+    const page = $('#page-md');
+    if (!page || page.dataset.rdMd) return;
+    const rowsEl = $('#md-rows', page);
+    if (!rowsEl) return;
+    page.dataset.rdMd = '1';
+    const tabs = rowsEl.previousElementSibling;
+    if (tabs) {
+      $$('button', tabs).forEach(function (b) { b.hidden = true; });   // the five problem tabs
+    }
+    rowsEl.hidden = true;
+    const host = document.createElement('div');
+    host.id = 'rd-md-table';
+    rowsEl.parentElement.insertBefore(host, rowsEl);
+    const search = $('#md-search', page);
+    if (search) search.addEventListener('input', function () { renderMdTable(); });
+    if (typeof window.renderMdRows === 'function') {
+      const orig = window.renderMdRows;
+      window.renderMdRows = function () {
+        const r = orig.apply(this, arguments);
+        try { renderMdTable(); } catch (e) {}
+        return r;
+      };
+    }
+    renderMdTable();
+  }
+
   /* ── TEAM ────────────────────────────────────────────────────────────────
      V1's page is headed "Manager Hub" with a rocket and a sentence about
      cross-market views. Her rail calls it Team, and a page should be called
@@ -2292,10 +2457,104 @@
       if (ov && typeof window.teamViewTab === 'function') window.teamViewTab('overview', ov);
     }
   }
+  /* HER TEAM PAGE IS A TABLE, not a card per person (section 9). Nine cards
+     of sixteen numbers each is a wall: comparing two CSMs meant reading two
+     cards and holding one in your head. One row per CSM, the same numbers,
+     and the column you care about reads straight down.
+
+     The numbers are V1's own -- workloadFor() and getOv() -- so the table
+     and the cards it replaces cannot disagree. It is rendered after V1's own
+     pass, into the element V1 drew the cards in.
+
+     Self is already excluded: V1's pool filters p.id !== P.id. */
+  const TEAM_COLS = [
+    ['clients', 'Clients'], ['high', 'High need'], ['touch', 'Touches 30d'],
+    ['over', 'Overdue'], ['s30', 'In first 30'], ['comp', 'Visit compliance']
+  ];
+  function teamRowsData() {
+    const g = function (n) { return typeof window[n] === 'function' ? window[n] : null; };
+    const getCl = g('get'), ov = g('getOv'), wl = g('workloadFor'), ago = g('daysAgo');
+    if (!getCl || !ov || !wl) return null;
+    let pool = [];
+    try {
+      pool = (window.PROFILES || []).filter(function (p) {
+        return p.id !== (window.P && window.P.id) && !p.coverageMarketOnly;
+      });
+      const mk = window._teamMarket;
+      if (mk && mk !== 'all') pool = pool.filter(function (p) {
+        return p.market === mk || (Array.isArray(p.hub) ? p.hub.indexOf(mk) > -1 : p.hub === mk);
+      });
+    } catch (e) { return null; }
+    return pool.map(function (p) {
+      const cl = getCl('clients', p.id) || [];
+      const over = ov(p.id) || [];
+      const w = wl(p.id) || {};
+      const trackable = cl.filter(function (c) { return c.freq !== 'NA'; });
+      const comp = trackable.length
+        ? Math.round((trackable.length - over.length) / trackable.length * 100) : null;
+      return { p: p, clients: cl.length,
+               high: cl.filter(function (c) { return c.tier === 'High'; }).length,
+               touch: w.touches || 0, over: over.length,
+               /* inFirstDays, not (daysAgo || 999) <= 30: daysAgo returns 0
+                  for care starting today, so the falsy fallback dropped the
+                  newest client on every CSM's row. Still live in V1. */
+               s30: cl.filter(function (c) { return inFirstDays(c, 30); }).length,
+               comp: comp };
+    });
+  }
+  function renderTeamTable() {
+    const host = $('#team-cards');
+    if (!host) return;
+    const rows = teamRowsData();
+    if (!rows) return;                       // V1 keeps its cards if we cannot
+    if (!rows.length) { host.innerHTML = '<p class="rd-ws-quiet">No CSMs for this market.</p>'; return; }
+    rows.sort(function (a, b) { return b.over - a.over || b.clients - a.clients; });
+    const cell = function (r, k) {
+      if (k === 'comp') {
+        if (r.comp === null) return '<td class="rd-tm-n"><span class="rd-ws-quiet">—</span></td>';
+        const tone = r.comp >= 90 ? 'ok' : r.comp >= 75 ? 'warn' : 'bad';
+        return '<td class="rd-tm-n ' + tone + '">' + r.comp + '%</td>';
+      }
+      const v = r[k];
+      const tone = (k === 'over' && v) ? 'bad' : (k === 'high' && v) ? 'warn' : '';
+      return '<td class="rd-tm-n' + (tone ? ' ' + tone : '') + '">' + v + '</td>';
+    };
+    host.className = '';                     // drop V1's g3 card grid
+    host.innerHTML = '<div class="rd-clt-wrap"><table class="rd-clt rd-tm"><thead><tr>' +
+      '<th scope="col">CSM</th>' +
+      TEAM_COLS.map(function (c) { return '<th scope="col" class="rd-tm-h">' + esc(c[1]) + '</th>'; }).join('') +
+      '</tr></thead><tbody>' +
+      rows.map(function (r) {
+        return '<tr class="rd-tm-r" data-csm="' + esc(r.p.id) + '" tabindex="0">' +
+          '<th scope="row"><span class="rd-tm-who">' + esc(r.p.name) + '</span>' +
+          '<span class="rd-tm-role">' + esc(r.p.role || '') +
+            (r.p.market ? ' · ' + esc(r.p.market) : '') + '</span></th>' +
+          TEAM_COLS.map(function (c) { return cell(r, c[0]); }).join('') + '</tr>';
+      }).join('') + '</tbody></table></div>';
+    $$('[data-csm]', host).forEach(function (tr) {
+      const go = function () { try { if (window.openCSMDetail) openCSMDetail(tr.dataset.csm); } catch (e) {} };
+      tr.addEventListener('click', go);
+      tr.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+    });
+  }
+  function installTeamTable() {
+    if (typeof window.renderTeamOverview !== 'function' || window.renderTeamOverview.__rdTeam) return;
+    const orig = window.renderTeamOverview;
+    const wrapped = function () {
+      const r = orig.apply(this, arguments);
+      try { renderTeamTable(); } catch (e) { /* V1's cards stand if this throws */ }
+      return r;
+    };
+    wrapped.__rdTeam = true;
+    window.renderTeamOverview = wrapped;
+  }
+
   function decorateTeam() {
     const page = $('#page-team');
     if (!page || page.dataset.rdTeam) return;
     page.dataset.rdTeam = '1';
+    installTeamTable();
+    try { renderTeamTable(); } catch (e) {}
     const h = $('.ph h2', page);
     if (h) h.textContent = 'Team';
     const p = $('.ph p', page);
@@ -5141,6 +5400,7 @@
          manager modules create their own page elements during their own
          bootstrap and may not have run yet when this layer starts. */
       if (p === 'team') { try { decorateTeam(); swapIcons($('#page-team') || document); } catch (e) {} }
+      if (p === 'md') { try { decorateMd(); } catch (e) {} }
       return r;
     };
     wrapped.__rdSwap = true;

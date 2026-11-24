@@ -3259,3 +3259,58 @@ button.rd-s30-b.done { background: var(--accent, #C95018); border-color: var(--a
    count. */
 #rd-home-cols .rd-hr > .rd-sec.rd-sec-fold[data-open] > .g4[hidden],
 #rd-s-case .g4[hidden] { display: none !important; }
+
+
+/* -- MARYLAND COMPLIANCE: one row per client ------------------------------
+   Her section 8. A tab per PROBLEM meant a client with three problems was
+   read three times and a client with none was invisible, so the page
+   answered "which problems exist" when the question is "is this client
+   clear". One row per client, one column per requirement.
+
+   The columns are narrow on purpose: each one is a yes, a no or a "nothing
+   to judge it against", and the detail panel holds the date and the form. */
+.rd-md-views { display: flex; gap: 6px; margin: 0 0 10px; flex-wrap: wrap; }
+.rd-md th.rd-md-h {
+  writing-mode: horizontal-tb; font-size: 10px; letter-spacing: .03em;
+  white-space: normal; max-width: 72px; line-height: 1.25; vertical-align: bottom;
+}
+.rd-md-c { text-align: center; width: 72px; }
+.rd-md-c .rd-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
+.rd-md-c.ok { color: #3D7A5B; }
+.rd-md-c.bad { color: #B4453C; }
+.rd-md-c.none { color: #C9C2B6; }
+.rd-md-csm { font-size: 12px; color: var(--ink-2, #5C554C); white-space: nowrap; }
+.rd-md-when { display: block; font-size: 11px; font-weight: 500; color: var(--ink-3, #8C857B); margin-top: 2px; }
+.rd-md-r { cursor: pointer; }
+.rd-md-g {
+  margin: 16px 0 7px; font-size: 11px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--ink-3, #8C857B);
+  display: flex; align-items: baseline; gap: 8px;
+}
+.rd-md-g span { font-weight: 500; letter-spacing: 0; text-transform: none; font-size: 11.5px; }
+/* VERY OLD IS NOT URGENT, IT IS HISTORY. An assessment 971 days overdue sat
+   above one due next week; nothing that old is a deadline anybody will meet
+   this month. Folded, and named for what it is. */
+.rd-md-clean { margin-top: 16px; }
+.rd-md-clean > summary {
+  cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--ink-2, #5C554C);
+  padding: 9px 12px; background: var(--wash, #F6F3EE);
+  border: 1px solid var(--line, #E7E2DA); border-radius: 10px;
+}
+.rd-md-clean > summary span { display: block; font-weight: 400; font-size: 11.5px; color: var(--ink-3, #8C857B); margin-top: 2px; }
+.rd-md-clean[open] > summary { border-radius: 10px 10px 0 0; }
+.rd-md-clean .rd-clt-wrap { border-radius: 0 0 10px 10px; border-top: 0; }
+
+
+/* -- TEAM AS A TABLE (her section 9) --------------------------------------
+   Nine cards of sixteen numbers each is a wall: comparing two CSMs meant
+   reading two cards and holding one in your head. One row per CSM, and the
+   column you care about reads straight down. */
+.rd-tm th.rd-tm-h { text-align: right; }
+.rd-tm-n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rd-tm-n.ok { color: #3D7A5B; font-weight: 600; }
+.rd-tm-n.warn { color: #B06A12; font-weight: 600; }
+.rd-tm-n.bad { color: #B4453C; font-weight: 600; }
+.rd-tm-who { display: block; font-weight: 600; }
+.rd-tm-role { display: block; font-size: 11px; color: var(--ink-3, #8C857B); margin-top: 1px; }
+.rd-tm-r { cursor: pointer; }
