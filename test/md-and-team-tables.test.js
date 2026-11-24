@@ -102,11 +102,26 @@ ok('...by wrapping V1\'s renderer rather than racing it',
    /function installTeamTable\(\)/.test(CODE) && /window\.renderTeamOverview = wrapped;/.test(CODE));
 ok('...and V1\'s cards stand if the table throws',
    /V1's cards stand if this throws/.test(SRC) && /if \(!rows\) return;/.test(CODE));
-/* The numbers are V1's own, so the table and the cards cannot disagree. */
-ok('the numbers come from V1\'s own helpers',
-   /g\('getOv'\)/.test(CODE) && /g\('workloadFor'\)/.test(CODE));
+/* BARE NAMES, NOT window LOOKUPS. get, workloadFor, daysAgo, PROFILES and P
+   are top-level `const` declarations in a classic script: they live in the
+   shared global LEXICAL environment and are readable by name, but they are
+   NOT properties of window. Asking window for them returned undefined, and
+   the first cut silently fell back to V1's cards on a page that had every
+   number it needed. */
+ok('the numbers come from V1\'s own helpers, read by name',
+   /\(typeof workloadFor === 'function'\) \? workloadFor : null/.test(CODE) &&
+   /\(typeof get === 'function'\) \? get : null/.test(CODE) &&
+   /\(typeof PROFILES !== 'undefined'\) \? PROFILES : null/.test(CODE));
+ok('...and not through window, which does not carry them',
+   !/window\.PROFILES/.test(CODE) && !/g\('workloadFor'\)/.test(CODE));
+/* getOv is a const declared INSIDE renderTeamOverview, so nothing outside
+   can reach it. Its rule is written out rather than pretended at. */
+ok('the overdue rule is reproduced, since V1 keeps it as a local',
+   /return c\.freq !== 'NA' && \(d === null \|\| d > \(parseInt\(c\.freq\) \|\| 90\)\);/.test(CODE));
+ok('...and it matches the rule in index.html',
+   /return c\.freq!=='NA'&&\(d===null\|\|d>\(parseInt\(c\.freq\)\|\|90\)\);/.test(HUB));
 ok('self is excluded, as V1 already excludes it',
-   /p\.id !== \(window\.P && window\.P\.id\)/.test(CODE));
+   /p\.id !== \(me && me\.id\)/.test(CODE));
 /* daysAgo returns 0 for care starting today, so (daysAgo || 999) <= 30
    dropped the newest client. Still live in V1; not repeated here. */
 ok('the first-30 count uses the null-checked helper, not the falsy one',

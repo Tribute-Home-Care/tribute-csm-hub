@@ -2498,16 +2498,38 @@
     ['clients', 'Clients'], ['high', 'High need'], ['touch', 'Touches 30d'],
     ['over', 'Overdue'], ['s30', 'In first 30'], ['comp', 'Visit compliance']
   ];
+  /* BARE NAMES, NOT window LOOKUPS. These are top-level `const` declarations
+     in a classic script, so they live in the shared global LEXICAL
+     environment and are readable by name from here -- but they are not
+     properties of window, and asking window for them returned undefined.
+     That is how the first cut silently fell back to V1's cards on a page
+     that had all the data it needed.
+
+     getOv is worse than that: it is a const declared INSIDE
+     renderTeamOverview, so it is a local nothing outside can reach. Its rule
+     is three lines and is reproduced here rather than pretended at --
+     `freq !== 'NA' && (never visited || days since > cadence)`. If V1's rule
+     changes this has to change with it, which is why the rule is written out
+     rather than hidden behind a helper name. */
   function teamRowsData() {
-    const g = function (n) { return typeof window[n] === 'function' ? window[n] : null; };
-    const getCl = g('get'), ov = g('getOv'), wl = g('workloadFor'), ago = g('daysAgo');
-    if (!getCl || !ov || !wl) return null;
+    const getCl = (typeof get === 'function') ? get : null;
+    const wl = (typeof workloadFor === 'function') ? workloadFor : null;
+    const ago = (typeof daysAgo === 'function') ? daysAgo : null;
+    const profiles = (typeof PROFILES !== 'undefined') ? PROFILES : null;
+    const me = (typeof P !== 'undefined') ? P : null;
+    if (!getCl || !wl || !ago || !profiles) return null;
+    const ov = function (pid) {
+      return (getCl('clients', pid) || []).filter(function (c) {
+        const d = ago(c.lastVisit);
+        return c.freq !== 'NA' && (d === null || d > (parseInt(c.freq) || 90));
+      });
+    };
     let pool = [];
     try {
-      pool = (window.PROFILES || []).filter(function (p) {
-        return p.id !== (window.P && window.P.id) && !p.coverageMarketOnly;
+      pool = profiles.filter(function (p) {
+        return p.id !== (me && me.id) && !p.coverageMarketOnly;
       });
-      const mk = window._teamMarket;
+      const mk = (typeof _teamMarket !== 'undefined') ? _teamMarket : 'all';
       if (mk && mk !== 'all') pool = pool.filter(function (p) {
         return p.market === mk || (Array.isArray(p.hub) ? p.hub.indexOf(mk) > -1 : p.hub === mk);
       });
