@@ -1068,7 +1068,20 @@
     let list = [];
     try { list = (window.TributeClientData && TributeClientData.contacts(c.vivId)) || []; }
     catch (e) { list = []; }
+    /* VIV FILES THE SAME PERSON TWICE: once as the primary contact, where
+       the relationship field holds the word "primary", and again under
+       family, where it holds the actual relationship. Taking the first entry
+       gave the right person with no relationship, which is why her "(dtr)"
+       bracket was missing on nearly every row. So the name comes from the
+       first entry and the relationship from whichever entry for that person
+       actually has one. */
     const first = list.find(function (x) { return x && (x.name || x.phone); });
+    if (first && !relShort(first.relation) && first.name) {
+      const named = list.find(function (x) {
+        return x && x !== first && x.name === first.name && relShort(x.relation);
+      });
+      if (named) first.relation = named.relation;
+    }
     if (first) {
       return { name: first.name || '', rel: relShort(first.relation),
                phone: first.phone || '', email: first.email || c.contactEmail || '' };
