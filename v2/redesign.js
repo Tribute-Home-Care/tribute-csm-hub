@@ -2994,6 +2994,24 @@
       });
     } catch (e) {}
 
+    /* Visits LOGGED this month, which is not the same question as visit
+       compliance and was sitting unlabelled beside it. V1's tile said "15"
+       over "Visits This Month" next to "5 of 27 due visits done", and the two
+       numbers look like they should reconcile. They never will: one counts
+       visit records written this month, the other counts CLIENTS whose
+       cadence fell due this month and have had one. */
+    let logged = 0;
+    try {
+      const now = new Date(), y = now.getFullYear(), m = now.getMonth();
+      (app.fn.get('visits') || []).forEach(function (v) {
+        if (!v.date) return;
+        const d = new Date(String(v.date).slice(0, 10) + 'T12:00:00');
+        if (!isNaN(d) && d.getFullYear() === y && d.getMonth() === m) logged++;
+      });
+    } catch (e) {}
+
+    const firstDays = cl.filter(function (c) { return inFirstDays(c, 30); }).length;
+
     const tier = function (k) { return cl.filter(function (c) { return (c.tier || 'Medium') === k; }).length; };
     const hi = tier('High'), med = tier('Medium'), lo = tier('Low');
     const tiersSet = [hi, med, lo].filter(function (n) { return n > 0; }).length > 1;
@@ -3008,12 +3026,22 @@
     } catch (e) {}
 
     return { n: cl.length, vc: vc, over: over.length, mine: mine, auto: auto,
+             logged: logged, firstDays: firstDays,
              hi: hi, med: med, lo: lo, tiersSet: tiersSet, highNeed: highNeed };
   }
 
   function renderCaseloadHealth() {
     const el = $('#home-caseload');
     if (!el) return;
+    /* V1'S FOUR STAT TILES COME OUT. They sat beside this card inside the same
+       section, saying "In Onboarding 3" where every other count on the page
+       said 4 -- the falsy-zero fault, still live in index.html -- and "Visits
+       This Month 15" directly above "5 of 27 due visits done" with nothing to
+       say why those do not reconcile. Both numbers are in this card now, with
+       labels that say what they count, so there is one place to read them and
+       one place to fix them. */
+    const g4 = $('#rd-s-case .g4');
+    if (g4) g4.hidden = true;
     const h = caseloadHealth();
     if (!h) { el.style.display = 'none'; return; }
     el.style.display = '';
@@ -3026,9 +3054,12 @@
     const pct = h.vc && h.vc.due ? h.vc.pct : null;
     const parts = [
       pill(h.n, 'Clients', ''),
+      pill(h.highNeed, 'High need, per Pulse', h.highNeed ? 'warn' : ''),
+      pill(h.firstDays, 'In first 30 days', ''),
       pill(h.over, 'Visits overdue', h.over ? 'bad' : 'ok'),
       h.vc ? pill((pct === null ? '\u2014' : pct + '%'), 'Visit compliance',
                   pct === null ? '' : pct >= 90 ? 'ok' : pct >= 75 ? 'warn' : 'bad') : '',
+      pill(h.logged, 'Visits logged this month', ''),
       pill(h.mine, 'Touchpoints you logged', '')
     ];
     if (h.tiersSet) {
@@ -3038,6 +3069,11 @@
     }
 
     const notes = [];
+    /* The two visit numbers that look like they should reconcile. */
+    if (h.vc && h.vc.due) {
+      notes.push('Visits logged this month counts visit records. Visit compliance counts ' +
+                 'clients whose cadence fell due this month, which is a different question.');
+    }
     if (h.vc && h.vc.due) {
       notes.push(h.vc.done + ' of ' + h.vc.due + ' clients due a visit this month have had one.');
     }

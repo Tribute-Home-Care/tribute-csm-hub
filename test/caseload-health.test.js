@@ -68,6 +68,24 @@ ok('both visit figures come from visitCompliance()',
 ok('...and a month with nothing due shows a dash, not a hundred per cent',
    /const pct = h\.vc && h\.vc\.due \? h\.vc\.pct : null;/.test(CODE));
 
+/* ── V1's four stat tiles come out ───────────────────────────────────── */
+/* They sat beside this card inside the same section, saying "In Onboarding 3"
+   where every other count on the page said 4 (the falsy-zero fault, still
+   live in index.html), and "Visits This Month 15" directly above "5 of 27 due
+   visits done" with nothing to say why those two do not reconcile. */
+ok('V1 stat tiles are stood down', /const g4 = \$\('#rd-s-case \.g4'\);/.test(CODE) && /g4\.hidden = true;/.test(CODE));
+ok('...and the card says all four itself',
+   /pill\(h\.highNeed, 'High need, per Pulse'/.test(CODE) &&
+   /pill\(h\.firstDays, 'In first 30 days'/.test(CODE) &&
+   /pill\(h\.logged, 'Visits logged this month'/.test(CODE));
+ok('...with first 30 days using the null-checked count, not the falsy one',
+   /const firstDays = cl\.filter\(function \(c\) \{ return inFirstDays\(c, 30\); \}\)\.length;/.test(CODE));
+/* The two visit numbers never reconcile: one counts visit RECORDS this month,
+   the other counts CLIENTS whose cadence fell due this month and have had
+   one. Sitting unlabelled next to each other, they read as a contradiction. */
+ok('...and the card says why the two visit numbers differ',
+   /counts visit records\. Visit compliance counts/.test(CODE));
+
 /* ── 4. still manager information ─────────────────────────────────────── */
 ok('it is still the folding section, closed on arrival',
    /sCase\.classList\.add\('rd-sec-fold'\);/.test(CODE) &&
