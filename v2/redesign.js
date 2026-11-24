@@ -2318,9 +2318,35 @@
       }).join('') +
       '</tr></thead><tbody>' + rows.map(mdRowHtml).join('') + '</tbody></table></div>';
   }
+  /* THE LAYER'S OWN EARLIER BAR, which is the one she can actually see.
+     workflows.js builds #md-views: the counted problem tabs -- "Needs
+     attention 45", "Assessment due 8" -- and a single Mine toggle. That is
+     exactly what she asked to be replaced ("five tabs with one problem per
+     row", "only a Mine toggle"), and hiding V1's pill row underneath it
+     changed nothing on screen. Without this the page grows a THIRD row of
+     controls instead of losing one.
+
+     IT IS DONE ON EVERY RENDER, not once at decorate time: workflows.js
+     builds that bar on its own pass, which on a cold open happens AFTER the
+     page is first shown. Doing it once found nothing and left the tabs up.
+
+     The SEARCH box lives inside it, because workflows.js MOVED the
+     application's own input there rather than recreating one, so it is
+     moved out rather than hidden with its parent -- otherwise the page
+     loses its search and the table loses the field it filters on. */
+  function supersedeMdBar(host) {
+    const bar = $('#md-views');
+    if (!bar || bar.classList.contains('rd-md-superseded')) return;
+    const search = $('#md-search');
+    /* BEFORE the host, not inside it: renderMdTable rewrites host.innerHTML
+       on every pass, which would destroy the input it had just rescued. */
+    if (search && host && host.parentElement) host.parentElement.insertBefore(search, host);
+    bar.classList.add('rd-md-superseded');
+  }
   function renderMdTable() {
     const host = $('#rd-md-table');
     if (!host || typeof _mdRows !== 'function') return;
+    supersedeMdBar(host);
     let rows = [];
     try { rows = _mdRows(); } catch (e) { return; }
     const q = String(($('#md-search') || {}).value || '').trim().toLowerCase();
@@ -2389,24 +2415,6 @@
     host.id = 'rd-md-table';
     rowsEl.parentElement.insertBefore(host, rowsEl);
     rowsEl.hidden = true;
-    /* AND THE LAYER'S OWN EARLIER BAR, which is the one she can actually
-       see. workflows.js builds #md-views: the counted problem tabs --
-       "Needs attention 45", "Assessment due 8" -- and a single Mine toggle.
-       That is exactly what she asked to be replaced ("five tabs with one
-       problem per row", "only a Mine toggle"), and hiding V1's pill row
-       underneath it changed nothing on screen. Without this the page grew a
-       THIRD row of controls instead of losing one.
-
-       The SEARCH box lives inside that bar, because workflows.js MOVED the
-       application's own input there rather than recreating it. It is moved
-       again rather than hidden with its parent, or the page loses its
-       search and the table loses the field it filters on. */
-    const old = $('#md-views');
-    if (old) {
-      const search = $('#md-search');
-      if (search) host.appendChild(search);
-      old.classList.add('rd-md-superseded');
-    }
     const search2 = $('#md-search', page);
     if (search2) search2.addEventListener('input', function () { renderMdTable(); });
     if (typeof window.renderMdRows === 'function') {

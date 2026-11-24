@@ -36,17 +36,26 @@ ok('...and V1\'s own pill row comes off',
    replaced. Hiding V1's pill row underneath it changed nothing on screen,
    and the new switch arrived as a THIRD row of controls. */
 ok('...and so does the layer\'s own earlier bar',
-   /const old = \$\('#md-views'\);/.test(CODE) &&
-   /old\.classList\.add\('rd-md-superseded'\);/.test(CODE) &&
+   /function supersedeMdBar\(host\)/.test(CODE) &&
+   /bar\.classList\.add\('rd-md-superseded'\);/.test(CODE) &&
    /#md-views\.rd-md-superseded \.rd-views,[\s\S]{0,80}display: none !important;/.test(CSS));
+/* ON EVERY RENDER, NOT ONCE. workflows.js builds that bar on its own pass,
+   which on a cold open happens AFTER the page is first shown, so doing this
+   at decorate time found nothing and left the tabs up. */
+ok('...on every render, because that bar is built after the page is shown',
+   /supersedeMdBar\(host\);/.test(CODE) &&
+   /if \(!bar \|\| bar\.classList\.contains\('rd-md-superseded'\)\) return;/.test(CODE));
 ok('...and workflows.js is still the thing that builds it',
    /bar\.id = 'md-views';/.test(fs.readFileSync(path.join(__dirname, '../v2/workflows.js'), 'utf8')));
 /* The search input lives INSIDE that bar: workflows.js MOVED the
    application's own input there rather than recreating one, so hiding the
    bar with it inside would cost the page its search and cost the table the
    field it filters on. */
-ok('the search is moved out before the bar is retired',
-   /const search = \$\('#md-search'\);\n\s*if \(search\) host\.appendChild\(search\);/.test(CODE));
+/* The search is moved BEFORE the host, not into it: renderMdTable rewrites
+   host.innerHTML on every pass and would destroy the input it just
+   rescued. */
+ok('the search is moved out, and to a place the render does not overwrite',
+   /host\.parentElement\.insertBefore\(search, host\);/.test(CODE));
 /* The pill row has to be found BEFORE the table host is inserted, or the
    host becomes rowsEl's previous sibling and the lookup finds the wrong
    element. */
