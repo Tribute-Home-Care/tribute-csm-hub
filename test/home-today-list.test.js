@@ -222,6 +222,15 @@ ok('...the tier is a pill under the name', /rd-td-tier/.test(CODE) &&
 ok('...the reason is labelled and takes the row s tone',
    /rd-td-k/.test(CODE) && /\.rd-td-r\.bad \.rd-td-k/.test(CSS));
 ok('...and the row carries an Open button', /rd-td-b.>Open</.test(CODE));
+/* ACCENT WAS NEVER DEFINED. Ten rules reached for var(--accent): every focus
+   ring on the new tables, the Show-more link, the Call and Email hover, and
+   this button. An undefined custom property makes the whole declaration
+   invalid, so the Open button rendered white text on a transparent
+   background and the focus rings were simply absent. */
+ok('...and the accent the button is painted with exists',
+   /--accent: #/.test(CSS));
+ok('...so nothing is left reaching for a token that is not there',
+   !/var\(--accent\)/.test(CSS) || /--accent: #/.test(CSS));
 
 /* AND IT STOPS AT FIVE. Hers shows five and offers the rest. A caseload like
    Julia s puts twenty-five rows here, which is the wall she complained about:

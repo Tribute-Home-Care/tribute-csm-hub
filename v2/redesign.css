@@ -48,6 +48,14 @@
   --orange-soft: #FBEEE6;
   --orange-fg: #A8400F;
   --brand: #C95018;
+  /* ACCENT WAS NEVER DEFINED. Ten rules reached for var(--accent): every
+     focus ring on the new tables, the Show-more link, the Call and Email
+     buttons hover, and the Open button on Today's list. An undefined custom
+     property makes the whole declaration invalid, so the Open button was
+     white text on a transparent background and the focus rings simply were
+     not there. Aliased rather than find-and-replaced, so the name keeps
+     working and the nine other uses come back with it. */
+  --accent: #C95018;
   --brand-ink: #A8400F;
   --brand-soft: #FBEEE6;
 
