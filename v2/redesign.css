@@ -3537,8 +3537,37 @@ input.ob-cb:disabled { opacity: .5; cursor: not-allowed; }
 .rd-next-row { border-bottom: 1px solid var(--row-line); }
 .rd-next-row:nth-child(even) { background: var(--row-zebra); }
 .rd-next-row:hover { background: var(--row-hover); }
-.rd-rdy-row, .rd-comm-row {
-  border-bottom: 1px solid var(--row-line);
+/* COVERAGE READINESS and COMMUNITIES. The first pass gave these two lists
+   classes -- .rd-rdy-row, .rd-comm-row -- that exist nowhere in the Hub, so
+   the rules matched nothing and the reviewer correctly reported the faint
+   lines unchanged. Both lists are built by V1 with the row line written as an
+   INLINE style (#F1EEE8 on readiness, var(--line-soft) on communities), and an
+   inline declaration beats any stylesheet rule that is not !important. Hence
+   the attribute selector and the !important on the border alone: the zebra and
+   the hover are not set inline, so they need neither. */
+#cov-summary > div[onclick], #ec-list > div[onclick] {
+  border-bottom: 1px solid var(--row-line) !important;
 }
-.rd-rdy-row:nth-child(even), .rd-comm-row:nth-child(even) { background: var(--row-zebra); }
-.rd-rdy-row:hover, .rd-comm-row:hover { background: var(--row-hover); }
+#cov-summary > div[onclick]:nth-of-type(even),
+#ec-list > div[onclick]:nth-of-type(even) { background: var(--row-zebra); }
+#cov-summary > div[onclick]:hover, #ec-list > div[onclick]:hover { background: var(--row-hover); }
+/* The selected community keeps its own inline highlight, which outranks both
+   of the above and should: it says where you are, and that beats the zebra. */
+
+/* ── MARYLAND: ONE SET OF NUMBERS ─────────────────────────────────────────
+   V1's four-tile strip -- "5 Assessment overdue, 9 Reassessment owed, 17
+   Documentation gaps, 28 Initial 48h missed" -- sat directly above V2's chips
+   reading 42 / 2 / 66 / 2. Neither is wrong; they count different taxonomies,
+   V1's four-problem framing and the Late / Due in 14 days / Check by hand /
+   Cleanup grouping Courtney replaced it with. Two boards for one page is the
+   badge-and-list fault this page exists to fix, so the superseded one goes.
+
+   HIDDEN, NOT REMOVED: md-kpi is written by V1's own render on every Viv
+   refresh and it does not null-guard the handle. The existing rule only hid
+   it while :empty, which is exactly when it was harmless. */
+#page-md #md-kpi { display: none !important; }
+/* supersedeMdBar() marks V1's control bar and the rule below hid the tab row
+   and the Mine toggle by name, which left the empty .rd-subbar holding a row
+   of vertical space under the heading. The search input is moved OUT of this
+   bar before the mark is set, so nothing inside it is still needed. */
+#md-views.rd-md-superseded > * { display: none !important; }

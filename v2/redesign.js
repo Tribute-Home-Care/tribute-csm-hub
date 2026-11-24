@@ -1893,6 +1893,28 @@
       (meta ? '<span class="m">' + esc(meta) + '</span>' : '') + '</div>';
   }
   function quiet(t) { return '<p class="rd-ws-quiet">' + esc(t) + '</p>'; }
+  /* SECOND AND THIRD SECTIONS OFF THE SAME READ. Next visit and Care team are
+     both derived from the client read that Today has already reported on, so
+     they must not repeat "Reading today's schedule from Viv..." underneath it
+     -- but rendering NOTHING is worse, and that is what they did.
+
+     A reviewer opened a client whose read took about seven seconds and wrote
+     it up as a regression: "the Today block sat on Reading today's schedule
+     from Viv for more than seven seconds, and the Next Visit and Care Team
+     cards never appeared." The read was slow (the median measured on this
+     build is near one second), but the report was fair, because an absent
+     section and an empty section look identical and mean opposite things --
+     the same fault as a contacts cache answering "None on file" while it is
+     still warming.
+
+     So the headings stay up with one short line under them. `none` returns
+     null deliberately: with no Viv connection at all these sections have
+     nothing to say that Today has not already said. */
+  function alsoWaiting(snap) {
+    if (snap.state === 'loading') return '<p class="rd-ws-load">Still reading from Viv\u2026</p>';
+    if (snap.state === 'error') return '<p class="rd-ws-warn">Not known \u2014 the Viv read above did not answer.</p>';
+    return null;
+  }
   /* A read that did not answer and a day with nothing in it look identical on
      screen and mean opposite things, so they never share a rendering. */
   function unread(snap, what) {
@@ -3240,6 +3262,7 @@
 
     /* Next visit — only once today is done with, so it is never a duplicate. */
     const sv = (snap.data && snap.data.schedule && snap.data.schedule.visits) || [];
+    const wait = alsoWaiting(snap);
     const nowCut = localDay(0);
     const next = sv.filter(function (v) { return !v.canceled && v.date > nowCut; })[0];
     if (next) out += block('Next visit',
@@ -3247,6 +3270,7 @@
       '<span class="dot">·</span>' + esc(next.start) + ' – ' + esc(next.end) + '</p>' +
       '<p class="rd-ws-plain">' + esc(next.open ? 'Open visit · needs coverage' : (next.caregiver || 'Caregiver')) +
       (next.type && !next.open ? '<span class="dot">·</span>' + esc(next.type) : '') + '</p>');
+    else if (wait) out += block('Next visit', wait);
     else if (!today.length && snap.state === 'ready')
       out += block('Next visit', quiet('Nothing scheduled in the next two weeks.'));
 
@@ -3261,6 +3285,10 @@
       '<ul class="rd-team">' + team.slice(0, 3).map(teamRow).join('') + '</ul>' +
       (team.length > 3 ? '<button type="button" class="rd-link" data-go="team">All ' +
         team.length + ' caregivers →</button>' : ''));
+    else if (wait) out += block('Care team', wait);
+    else if (snap.state === 'ready') out += block('Care team',
+      quiet(sv.length ? 'No caregiver is named on any visit yet.'
+                      : 'Nothing on the schedule for this client.'));
 
     /* Anything Scribe has waiting. Only when there is something: a CSM with
        no drafts should see no mention of Scribe here at all. */
