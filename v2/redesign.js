@@ -2396,7 +2396,34 @@
         return r;
       };
     }
+    /* AND THE LOAD ITSELF, which is the one that matters. Caught live: the
+       page opens, renderMd() goes off to fetch the board, and the table drew
+       once against an empty _mdData and read "Nothing outstanding under this
+       view" for a CSM with twenty-seven clients on it. renderMd is async and
+       does not call renderMdRows on every path, so the table waits on the
+       promise rather than on a redraw that may not come. */
+    if (typeof window.renderMd === 'function') {
+      const origMd = window.renderMd;
+      window.renderMd = function () {
+        const out = origMd.apply(this, arguments);
+        Promise.resolve(out).then(function () {
+          try { renderMdTable(); } catch (e) {}
+        }, function () {});
+        return out;
+      };
+    }
     renderMdTable();
+    /* The page may already be mid-load when this runs, in which case neither
+       hook fires for the pass that is in flight. One short follow-up, only
+       while the table is still empty, rather than a poll that never stops. */
+    let tries = 0;
+    const settle = setInterval(function () {
+      tries++;
+      const host = $('#rd-md-table');
+      if (!host || tries > 12) { clearInterval(settle); return; }
+      if (host.querySelector('table.rd-md')) { clearInterval(settle); return; }
+      try { renderMdTable(); } catch (e) {}
+    }, 1000);
   }
 
   /* ── TEAM ────────────────────────────────────────────────────────────────

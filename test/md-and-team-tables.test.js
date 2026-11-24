@@ -82,6 +82,18 @@ ok('a row opens the detail panel V1 already draws',
    /window\._mdSel = tr\.dataset\.mdcid/.test(CODE) && /renderMdDetail\(\)/.test(CODE));
 ok('...and the table repaints when V1 re-renders its rows',
    /window\.renderMdRows = function \(\)/.test(CODE));
+/* THE LOAD IS THE ONE THAT MATTERS. Caught live: the page opens, renderMd()
+   goes off to fetch the board, and the table drew once against an empty
+   _mdData and read "Nothing outstanding under this view" for a CSM with
+   twenty-seven clients on it. renderMd is async and does not call
+   renderMdRows on every path. */
+ok('...and it waits on the load, not only on a redraw',
+   /window\.renderMd = function \(\)/.test(CODE) &&
+   /Promise\.resolve\(out\)\.then\(function \(\) \{/.test(CODE));
+/* A load already in flight fires neither hook for that pass. */
+ok('...with a short follow-up that stops once there is a table',
+   /if \(host\.querySelector\('table\.rd-md'\)\) \{ clearInterval\(settle\); return; \}/.test(CODE) &&
+   /tries > 12/.test(CODE));
 
 /* ── TEAM: one row per CSM ─────────────────────────────────────────────── */
 ok('the layer draws a table into the element V1 drew cards in',
