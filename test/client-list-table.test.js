@@ -72,8 +72,36 @@ ok('...and never fetches, per row or otherwise',
 ok('the crawl is still asked for once, not per render',
    /if \(bulkState === 'loading' \|\| bulkState === 'ready'\) return/.test(
      fs.readFileSync(path.join(__dirname, '../v2/v2-client.js'), 'utf8')));
-ok('a call is a real tel: on the contact\'s number',
-   /href="tel:' \+ esc\(String\(f\.phone\)\.replace/.test(CODE));
+/* CALL IS A CHOICE OF LINE, NOT A LINK. Courtney: "Call has no recorded or
+   non-recorded line choice. On the list and the client page it is a plain
+   phone link." Recorded means placed through Teams, which the call recorder
+   captures; not recorded is the plain handset link. It is never a default:
+   a recorded call is one a family may be told about, so the CSM picks. */
+ok('a call offers the two lines rather than dialling one',
+   /function callButton\(phone, who, cls, label\)/.test(CODE) &&
+   /acts\.push\(callButton\(f\.phone/.test(CODE));
+ok('...the recorded line goes through Teams',
+   /teams\.microsoft\.com\/l\/call\/0\/0\?users=4:/.test(CODE) &&
+   /Call on recorded line/.test(CODE));
+ok('...and the other is the plain handset link, named as not recorded',
+   /function telHref\(p\)/.test(CODE) && /Call \(not recorded\)/.test(CODE));
+/* A number Teams cannot dial must not silently become a non-recorded call.
+   e164() returns null rather than guessing, and the menu says so. */
+ok('a number Teams cannot dial says so instead of guessing',
+   /Recorded line unavailable/.test(CODE) &&
+   /return null;   \/\/ not a number we can hand to Teams with any confidence/.test(SRC));
+// Behavioural, over the shapes the roster actually holds.
+const e164 = (p) => {
+  const d = String(p || '').replace(/\D+/g, '');
+  if (d.length === 10) return '+1' + d;
+  if (d.length === 11 && d[0] === '1') return '+' + d;
+  if (String(p || '').trim().charAt(0) === '+' && d.length > 7) return '+' + d;
+  return null;
+};
+ok('a ten digit number becomes E.164', e164('6178773313') === '+16178773313');
+ok('...however it was punctuated', e164('(617) 877-3313') === '+16178773313');
+ok('...and a leading 1 is not doubled', e164('16178773313') === '+16178773313');
+ok('an extension or a fragment is not dialled', e164('x412') === null && e164('') === null);
 ok('an email is a real mailto', /href="mailto:' \+ esc\(f\.email\)/.test(CODE));
 
 /* "NOT READ YET" IS NOT "NO CONTACT". The column was blank on every row and
@@ -120,8 +148,9 @@ ok('...and the dot takes its colour from the tone, not a second rule',
 
 // 4. Call and Email are buttons in her picture. A bare link under a name
 //    reads as part of the name; a button reads as a thing you press.
-ok('call and email are buttons', /class="rd-cbtn" href="tel:/.test(CODE) &&
-   /class="rd-cbtn rd-mailbtn" href="mailto:/.test(CODE) && /\.rd-cbtn \{/.test(CSS));
+ok('call and email are buttons', /callButton\(f\.phone[\s\S]{0,80}'rd-cbtn'\)/.test(CODE) &&
+   /class="rd-cbtn rd-mailbtn" href="mailto:/.test(CODE) && /\.rd-cbtn \{/.test(CSS) &&
+   /button\.rd-cbtn, button\.rd-act \{/.test(CSS));
 
 /* EMAILING THE FAMILY FROM THE LIST COUNTS. Her section 3: "Both log to the
    client's Activity automatically, so a quick call from the list still counts

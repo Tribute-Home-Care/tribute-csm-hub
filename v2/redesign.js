@@ -1096,6 +1096,193 @@
      reader has to interpret: on this caseload the column was empty on every
      single row, and an empty cell reads as "no contact" when it meant
      "not read yet". */
+  /* ── RECORDED OR NOT, AS A CHOICE AT THE MOMENT OF DIALLING ────────────
+     Courtney: "Call has no recorded or non-recorded line choice. On the list
+     and the client page it is a plain phone link."
+
+     Recorded means placed through Teams, which is what the call recorder
+     captures; not recorded means the plain handset link. Both dial the same
+     person -- the difference is the route, and therefore whether the call
+     joins Call Intelligence.
+
+     This is deliberately a CHOICE and never a default. A recorded call is
+     one a family may be told about, so the CSM picks the line each time
+     rather than the Hub picking for them. */
+  function e164(p) {
+    const d = String(p || '').replace(/\D+/g, '');
+    if (d.length === 10) return '+1' + d;
+    if (d.length === 11 && d[0] === '1') return '+' + d;
+    if (String(p || '').trim().charAt(0) === '+' && d.length > 7) return '+' + d;
+    return null;   // not a number we can hand to Teams with any confidence
+  }
+  function teamsCallHref(p) {
+    const n = e164(p);
+    return n ? 'https://teams.microsoft.com/l/call/0/0?users=4:' + encodeURIComponent(n) : null;
+  }
+  function telHref(p) { return 'tel:' + String(p || '').replace(/[^\d+]/g, ''); }
+  /* One menu, built once, moved to whichever button was pressed. A popover
+     per row would be forty popovers in the DOM on a full caseload. */
+  function popEl() {
+    let m = document.getElementById('rd-callmenu');
+    if (m) return m;
+    m = document.createElement('div');
+    m.id = 'rd-callmenu';
+    m.className = 'rd-callmenu';
+    m.hidden = true;
+    m.setAttribute('role', 'menu');
+    document.body.appendChild(m);
+    document.addEventListener('click', function (e) {
+      if (!m.hidden && !m.contains(e.target) && !e.target.closest('[data-callbtn],[data-sortbtn]')) m.hidden = true;
+    });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') m.hidden = true; });
+    window.addEventListener('scroll', function () { m.hidden = true; }, true);
+    return m;
+  }
+  function openCallMenu(btn) {
+    const phone = btn.getAttribute('data-phone') || '';
+    const who = btn.getAttribute('data-who') || '';
+    const teams = teamsCallHref(phone);
+    const m = popEl();
+    m.innerHTML =
+      (who ? '<div class="rd-cm-h">' + esc(who) + '</div>' : '') +
+      (teams
+        ? '<a class="rd-cm-i" role="menuitem" href="' + esc(teams) + '" target="_blank" rel="noreferrer">' +
+          I('phone') + '<span><b>Call on recorded line</b>' +
+          '<small>Through Teams. The call is recorded.</small></span></a>'
+        : '<div class="rd-cm-i off"><span><b>Recorded line unavailable</b>' +
+          '<small>This number is not in a form Teams can dial.</small></span></div>') +
+      '<a class="rd-cm-i" role="menuitem" href="' + esc(telHref(phone)) + '">' +
+      I('phone') + '<span><b>Call (not recorded)</b>' +
+      '<small>Your handset. Nothing is captured.</small></span></a>';
+    m.hidden = false;
+    const r = btn.getBoundingClientRect();
+    const w = m.offsetWidth || 260;
+    m.style.top = (r.bottom + 6) + 'px';
+    m.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) + 'px';
+    swapIcons(m);
+    const first = m.querySelector('a.rd-cm-i');
+    if (first) first.focus();
+  }
+  document.addEventListener('click', function (e) {
+    const b = e.target.closest('[data-callbtn]');
+    if (!b) return;
+    e.preventDefault();
+    e.stopPropagation();
+    openCallMenu(b);
+  });
+  function callButton(phone, who, cls, label) {
+    return '<button type="button" class="' + cls + '" data-callbtn' +
+      ' data-phone="' + esc(String(phone)) + '"' +
+      (who ? ' data-who="' + esc(who) + '"' : '') +
+      ' aria-haspopup="menu"' +
+      ' title="Choose a recorded or non-recorded line">' +
+      I('phone') + (label || 'Call') + '</button>';
+  }
+
+  /* ── HER PLAIN LABELS, AND WHO THEY BELONG TO ──────────────────────────
+     Courtney: "no plain label (Safety, Family not told), no Who Needs to
+     Know or Owner column, and no sort buttons on the row."
+
+     THE LABEL IS DERIVED FROM THE COUNTS, NOT THE CODE. flagReason is L1 to
+     L8 and the feed carries no label for any of them, so mapping her words
+     onto those letters would be guessing. The counts say what the rule
+     actually found, in order of seriousness.
+
+     "FAMILY NOT TOLD" IS DELIBERATELY ABSENT. The nearest field is
+     notifyContact, and it holds WHO to tell ("Daughter", "GCM"), not whether
+     they have been told. Measured on the live feed, firing her label on a
+     populated notifyContact would have labelled 119 of 168 flagged clients
+     "Family not told" -- 71%, which tells a CSM nothing and is the same
+     fault as a row of L-codes. notifyContact is the audience column instead,
+     which is what it actually is. That label needs a field that does not
+     exist yet; it is a question for Courtney, not a guess for here.
+
+     OWNER FOLLOWS THE KIND OF FLAG, which is her rule. Measured spread over
+     168 flagged clients: Coverage at risk 83, Clinical 36, Reliability 7,
+     Safety 1, and 41 with no count to go on. */
+  const PULSE_LABELS = [
+    ['Safety',           function (p) { return p.safeCount > 0; },
+     'CSM + MCE',                  'Family, MCE'],
+    ['Clinical',         function (p) { return p.clinCount > 0; },
+     'CSM + MCE',                  'Family, MCE'],
+    ['Coverage at risk', function (p) { return p.coverageCount > 0 || p.matchFailure; },
+     'CSM + Scheduling Partner',   'Family, Scheduling Partner'],
+    ['Reliability',      function (p) { return p.relCount > 0; },
+     'CSM + Scheduling Partner',   'Scheduling Partner'],
+    ['Needs a look',     function () { return true; },
+     'CSM',                        'CSM']
+  ];
+  function pulseLabel(pp) {
+    if (!pp) return null;
+    for (let i = 0; i < PULSE_LABELS.length; i++) {
+      const row = PULSE_LABELS[i];
+      let hit = false;
+      try { hit = !!row[1](pp); } catch (e) { hit = false; }
+      if (hit) return { label: row[0], owner: row[2], fallbackTell: row[3] };
+    }
+    return null;
+  }
+  /* WHO NEEDS TO KNOW is the Pulse's own notify fields where it has them,
+     because those name real people on this client ("Daughter", "GCM"), and
+     the label's default audience where it has none. 13 of 168 flagged
+     clients carry neither. */
+  function pulseTell(pp, lab) {
+    const bits = [];
+    const push = function (v) {
+      String(v || '').split(/[,;]+/).forEach(function (x) {
+        const t = x.trim();
+        if (t && bits.indexOf(t) < 0) bits.push(t);
+      });
+    };
+    push(pp && pp.notifyContact);
+    push(pp && pp.notifySchedule);
+    if (bits.length) return bits.join(', ');
+    return (lab && lab.fallbackTell) || '';
+  }
+
+  /* The three ways a CSM sorts a flag, which are V1's own acknowledgement
+     states. Sorting moves the row off Today's list and into Following up,
+     which is what the footer has been promising with no button to do it. */
+  const SORT_STATES = [
+    ['aware_working', 'Working on it',   'It stays with you, off this list.'],
+    ['aware_1to1',    'Raising in the 1:1', 'Goes to your next 1:1.'],
+    ['aware_none',    'Nothing needed',  'Seen, and no action for now.']
+  ];
+  function openSortMenu(btn) {
+    const cid = btn.getAttribute('data-sortbtn') || '';
+    const m = popEl();
+    m.innerHTML = '<div class="rd-cm-h">Sort this flag</div>' +
+      SORT_STATES.map(function (st) {
+        return '<button type="button" class="rd-cm-i" role="menuitem" data-sort-set="' +
+          esc(st[0]) + '" data-sort-cid="' + esc(cid) + '">' +
+          '<span><b>' + esc(st[1]) + '</b><small>' + esc(st[2]) + '</small></span></button>';
+      }).join('');
+    m.hidden = false;
+    const r = btn.getBoundingClientRect();
+    const w = m.offsetWidth || 260;
+    m.style.top = (r.bottom + 6) + 'px';
+    m.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) + 'px';
+    const first = m.querySelector('button.rd-cm-i');
+    if (first) first.focus();
+  }
+  document.addEventListener('click', function (e) {
+    const b = e.target.closest('[data-sortbtn]');
+    if (b) { e.preventDefault(); e.stopPropagation(); openSortMenu(b); return; }
+    const pick = e.target.closest('[data-sort-set]');
+    if (!pick) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const m = document.getElementById('rd-callmenu');
+    if (m) m.hidden = true;
+    /* The note is passed empty on purpose. setPulseAck prompts when the note
+       is left undefined, which is right at the client record and wrong here:
+       sorting a row on Today's list is a triage gesture, and a blocking
+       prompt in the middle of it is how the gesture stops being used. */
+    try { if (window.setPulseAck) setPulseAck(pick.getAttribute('data-sort-cid'), pick.getAttribute('data-sort-set'), ''); }
+    catch (err) {}
+    renderToday();
+  });
+
   function contactCell(c) {
     const f = familyContact(c);
     if (!f || (!f.name && !f.phone && !f.email)) {
@@ -1105,8 +1292,7 @@
     }
     const who = esc(f.name) + (f.rel ? ' <span class="rd-clt-rel">(' + esc(f.rel) + ')</span>' : '');
     const acts = [];
-    if (f.phone) acts.push('<a class="rd-cbtn" href="tel:' + esc(String(f.phone).replace(/[^\d+]/g, '')) +
-      '" onclick="event.stopPropagation()">' + I('phone') + 'Call</a>');
+    if (f.phone) acts.push(callButton(f.phone, f.name + (f.rel ? ' (' + f.rel + ')' : ''), 'rd-cbtn'));
     /* EMAILING THE FAMILY FROM THE LIST COUNTS. Her section 3: "Call and
        Email buttons under the family contact... Both log to the client's
        Activity automatically, so a quick call from the list still counts as a
@@ -1836,8 +2022,7 @@
       const who = fam && fam.phone && fam.name
         ? String(fam.name).trim().split(/\s+/)[0] + (fam.rel ? ' (' + fam.rel + ')' : '')
         : '';
-      acts.push('<a class="rd-act" href="tel:' + esc(phone.replace(/[^\d+]/g, '')) + '">' +
-        I('phone') + '<span>' + (who ? 'Call ' + esc(who) : 'Call') + '</span></a>');
+      acts.push(callButton(phone, who, 'rd-act', '<span>' + (who ? 'Call ' + esc(who) : 'Call') + '</span>'));
     }
     if (fam && fam.email) {
       acts.push('<a class="rd-act" href="mailto:' + esc(fam.email) + '">' +
@@ -3634,7 +3819,14 @@
       if (lvl) {
         // Red is today's work, amber is this week's. The same split as the
         // tabs, so a tile and a tab cannot disagree about one client.
-        out.push({ rank: lvl === 'red' ? 0 : 3, tier: c.tier, kind: 'Pulse',
+        /* Her plain label replaces the word "Pulse" as the heading on the
+           row, with the evidence sentence under it, which is how she draws
+           it. Owner and audience ride along so the row can be read without
+           opening the client. */
+        const lab = pulseLabel(pp);
+        out.push({ rank: lvl === 'red' ? 0 : 3, tier: c.tier,
+                   kind: (lab && lab.label) || 'Pulse', isPulse: true,
+                   owner: (lab && lab.owner) || '', tell: pulseTell(pp, lab),
                    bucket: lvl === 'red' ? 'action' : 'watch',
                    cid: c.id, name: c.name,
                    why: pulseFirst(pp.headline),
@@ -3875,7 +4067,8 @@
        list would ignore a press. */
     const key = _todayFilter + '|' + _todayAll + '|' + rows.length + '|' +
       shown.map(function (r) {
-        return [r.cid, r.name, r.tone, r.kind, r.why, r.step, r.s30, r.tier].join('\u0001');
+        return [r.cid, r.name, r.tone, r.kind, r.why, r.step, r.s30, r.tier,
+                r.owner, r.tell, r.isPulse].join('\u0001');
       }).join('\u0002');
     if (key === _todayKey) return;
     _todayKey = key;
@@ -3904,7 +4097,8 @@
           '<div class="rd-td-head">Today\u2019s list \u2014 work top to bottom</div>' +
           '<table class="rd-td-t"><thead><tr>' +
           '<th scope="col">Client</th><th scope="col">Why it\u2019s here</th>' +
-          '<th scope="col">Next step</th><th scope="col"><span class="rd-sr">Open</span></th>' +
+          '<th scope="col">Who needs to know</th><th scope="col">Owner</th>' +
+          '<th scope="col">Next step</th><th scope="col"><span class="rd-sr">Sort and open</span></th>' +
           '</tr></thead><tbody>' +
           vis.map(function (r) {
             /* A cadence exception leads with its own words, so it is toned
@@ -3920,8 +4114,16 @@
               '<td class="rd-td-w"><div class="rd-c2" title="' + esc(r.why) + '">' + why + '</div>' +
                 (r.s30 ? '<div class="rd-td-s30"><b>Success in 30:</b> ' + r.s30 +
                          ' milestone' + (r.s30 > 1 ? 's' : '') + ' open</div>' : '') + '</td>' +
+              '<td class="rd-td-tell">' + (r.tell ? '<span title="' + esc(r.tell) + '">' + esc(r.tell) + '</span>'
+                                                   : '<span class="rd-ws-quiet">\u2014</span>') + '</td>' +
+              '<td class="rd-td-own">' + (r.owner ? '<span class="rd-td-ow">' + esc(r.owner) + '</span>' : '') + '</td>' +
               '<td class="rd-td-s"><div class="rd-c3" title="' + esc(r.full || r.step) + '">' + esc(r.step) + '</div></td>' +
-              '<td class="rd-td-o">' + (r.cid ? '<span class="rd-td-b">Open</span>' : '') + '</td></tr>';
+              '<td class="rd-td-o">' +
+                (r.isPulse && r.cid
+                  ? '<button type="button" class="rd-td-sort" data-sortbtn="' + esc(r.cid) +
+                    '" aria-haspopup="menu" title="Sort this flag off the list">Sort</button>'
+                  : '') +
+                (r.cid ? '<span class="rd-td-b">Open</span>' : '') + '</td></tr>';
           }).join('') +
           '</tbody></table>' +
           '<div class="rd-td-foot">' +
