@@ -96,6 +96,14 @@ ok('the rail badge waits for the same counts the tiles wait for',
 ok('...and says so with the tiles\u2019 em dash, muted',
    /\.nav-item \.nav-cnt\.wait \{ color: var\(--ink-3\)/.test(CSSR));
 ok('...and the tiles use that same dash', /<span class="rd-attn-n">\u2014<\/span>/.test(RD));
+/* THE BRANCH HAS TO BE REACHABLE. refreshNavCounts is called at the far end of
+   renderAttention, past the early return taken when the counts are not ready,
+   so while they were not ready it was never called and the badge kept its old
+   text. The dash was dead code until the waiting path called it too. Verified
+   live before this line was added: forcing the waiting state left the badge
+   reading 30. */
+ok('...and the waiting path actually calls it',
+   /if \(!countsReady\(\)\) \{ renderAttnWaiting\(el\); refreshNavCounts\(null\); return; \}/.test(RD));
 
 console.log('\n' + (fail ? 'FAILED ' + fail : 'PASSED all ' + pass));
 process.exit(fail ? 1 : 0);

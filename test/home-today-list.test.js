@@ -324,7 +324,12 @@ ok('the list redraws outside the tile cache key',
    number: long enough to read, and it disagrees with its replacement. */
 ok('the tiles wait for Pulse rather than counting without it',
    /function countsReady\(\)/.test(CODE) &&
-   /if \(!countsReady\(\)\) \{ renderAttnWaiting\(el\); return; \}/.test(CODE));
+   /if \(!countsReady\(\)\) \{ renderAttnWaiting\(el\); refreshNavCounts\(null\); return; \}/.test(CODE));
+/* The rail badge was given the same wait, which is why that line now carries a
+   refreshNavCounts(null) as well: the call that paints the badges sits past
+   this early return, so while the counts were not ready it never ran and the
+   badge kept its last text. Reported as "the Clients badge reads 18 before it
+   changes to 30 -- the same partial-data flash the Home tiles had." */
 /* AN EMPTY byCid IS NOT A LOADED PULSE. The first cut asked `app.pulse &&
    app.pulse.byCid`, which went TRUE the moment _PULSE was initialised with
    an empty map. Measured on build 08:23: dashes at 0s, the wrong 18 / 5 at
@@ -358,7 +363,7 @@ ok('...and the waiting tile carries no number and cannot be pressed',
 /* The key must NOT be set while waiting, or the real render never happens. */
 ok('the repaint key is not consumed by the waiting state', (() => {
   const fn = (CODE.match(/function renderAttention\(\) \{[\s\S]*?const sig = attentionSignals\(\);/) || [''])[0];
-  return /renderAttnWaiting\(el\); return;/.test(fn) && !/_attnKey =/.test(fn);
+  return /renderAttnWaiting\(el\); refreshNavCounts\(null\); return;/.test(fn) && !/_attnKey =/.test(fn);
 })());
 ok('...and something repaints when the feed lands',
    /_attnWait = setInterval/.test(CODE) && /_attnKey = '';/.test(CODE));

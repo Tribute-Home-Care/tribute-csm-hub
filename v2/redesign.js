@@ -5269,7 +5269,12 @@
     const el = $('#rd-attn');
     if (!el) return;
     /* The key is NOT set while waiting, so the real render still happens. */
-    if (!countsReady()) { renderAttnWaiting(el); return; }
+    /* THE RAIL WAITS WITH THE TILES. refreshNavCounts is called at the far
+       end of this function, past this early return, so while the counts were
+       not ready it was never called at all and the badge kept whatever text
+       it already had. The dash branch inside it was unreachable until this
+       line passed it a null signal set on the way out. */
+    if (!countsReady()) { renderAttnWaiting(el); refreshNavCounts(null); return; }
     const sig = attentionSignals();
     const rank = { bad: 0, warn: 1, info: 2 };
     sig.sort(function (a, b) { return (rank[a.tone] - rank[b.tone]) || (b.n - a.n); });
