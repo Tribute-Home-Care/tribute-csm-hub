@@ -224,7 +224,14 @@ ok('...and follows the filter if something else changes it',
    community the first number on the record is often the community's. */
 ok('the client page prefers the family contact to dial',
    /const phone = \(fam && fam\.phone\) \|\| ct\.phone/.test(CODE));
-ok('...and names who it is about to call', /\? 'Call ' \+ esc\(who\) : 'Call'/.test(CODE));
+/* It still names them, by FIRST NAME only. With the relationship appended the
+   label read "Call Cathy (dtr)" and the column truncated it to "Call Cathy
+   (..." -- width spent on a bracket and then hidden anyway. The menu this
+   button opens already carries the relationship in its header, and data-who
+   still receives the full form. */
+ok('...and names who it is about to call',
+   /\? 'Call ' \+ esc\(first\) : 'Call'/.test(CODE) &&
+   /const who = first \? first \+ \(fam\.rel/.test(CODE));
 ok('there is no Call button that cannot dial',
    !/>Call</.test((CODE.match(/function clientListTable[\s\S]*?\n  \}/) || [''])[0]));
 

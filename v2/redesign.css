@@ -3702,3 +3702,66 @@ input.ob-cb:disabled { opacity: .5; cursor: not-allowed; }
 }
 .rd-fp-none p { margin: 0; }
 .rd-fp-none p + p { margin-top: 6px; }
+
+/* ── THE CLIENT ACTION ROW ─────────────────────────────────────────────────
+   Four faults in one row, reported 24 Nov.
+
+   1. THE MENUS RENDERED AS BARE TEXT OVER THE PAGE. `.rd-menu-list` carries
+      `bottom: calc(100% + 6px)` from when Log activity lived in the footer and
+      opened UPWARD. `.rd-act-menu .rd-menu-list` then added `top: 100%` and
+      never cleared the bottom, so BOTH edges were pinned -- and an absolutely
+      positioned box with both set has its height forced to the gap between
+      them. Measured: 9px tall, 190px wide, with the items spilling out of it
+      unpainted. A fix for exactly this already existed at
+      `.rd-cw-moremenu .rd-menu-list`, scoped to a class these menus do not
+      carry.
+   2. Items needed room to be pressed rather than read.
+   3. The Call label spent its width on a bracket -- see redesign.js.
+   4. Six buttons in three different looks, stacked two lines high. */
+.rd-act-menu .rd-menu-list {
+  top: calc(100% + 6px);
+  bottom: auto;
+  min-width: 210px;
+  padding: 6px;
+  border-radius: 12px;
+}
+.rd-act-menu .rd-menu-list button { padding: 9px 12px; border-radius: 8px; }
+
+/* ONE LOOK, ONE LINE. The row was six tiles 81px tall with the icon stacked
+   above the label, and the two menus put a chevron under that again, which is
+   what read as "taller and off-centre". Her mockup is one line high.
+
+   The white background has to be restated here because
+   `button.rd-cbtn, button.rd-act { background: none }` -- added to stop a
+   <button> looking like a UA button, with the background as collateral --
+   is (0,1,1) and beat `.rd-act` at (0,1,0). That is why the two ANCHORS came
+   out white and the four BUTTONS came out transparent: same class, different
+   element, one of them outranked. Scoping to `.rd-cw-acts .rd-act` is (0,2,0),
+   which wins without touching `.rd-act` anywhere else in the Hub. */
+.rd-cw-acts { grid-template-columns: repeat(auto-fit, minmax(146px, 1fr)); }
+.rd-cw-acts .rd-act {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--tap);
+  padding: 0 14px;
+  background: #fff;
+  font-size: 13px;
+}
+.rd-cw-acts .rd-act:hover { background: var(--surface-2); }
+.rd-cw-acts .rd-act .rd-soon { margin-left: 2px; }
+
+/* CALL IS THE ONE YOU CAME TO PRESS. Courtney's mockup has it solid and the
+   rest as outlines; a row of six identical buttons makes the reader choose
+   where there is an obvious answer. The icon follows currentColor, so it
+   turns white with the label. */
+.rd-cw-acts .rd-act[data-callbtn] {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+.rd-cw-acts .rd-act[data-callbtn]:hover {
+  background: var(--brand-ink);
+  border-color: var(--brand-ink);
+}

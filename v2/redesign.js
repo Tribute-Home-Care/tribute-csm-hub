@@ -2265,10 +2265,16 @@
     const fam = familyContact(c);
     const phone = (fam && fam.phone) || ct.phone || (d.primaryContact && d.primaryContact.phone) || '';
     if (phone) {
-      const who = fam && fam.phone && fam.name
-        ? String(fam.name).trim().split(/\s+/)[0] + (fam.rel ? ' (' + fam.rel + ')' : '')
-        : '';
-      acts.push(callButton(phone, who, 'rd-act', '<span>' + (who ? 'Call ' + esc(who) : 'Call') + '</span>'));
+      /* THE LABEL IS THE NAME; THE RELATIONSHIP IS IN THE MENU.
+         The button read "Call Cathy (dtr)" and the column truncated it to
+         "Call Cathy (...", which spends the width on a bracket and then hides
+         it anyway. The menu this button opens already carries the
+         relationship in its header, so data-who keeps the full form and the
+         label keeps only what has to be read at a glance. */
+      const first = fam && fam.phone && fam.name
+        ? String(fam.name).trim().split(/\s+/)[0] : '';
+      const who = first ? first + (fam.rel ? ' (' + fam.rel + ')' : '') : '';
+      acts.push(callButton(phone, who, 'rd-act', '<span>' + (first ? 'Call ' + esc(first) : 'Call') + '</span>'));
     }
     if (fam && fam.email) {
       acts.push('<a class="rd-act" href="mailto:' + esc(fam.email) + '">' +
@@ -4150,19 +4156,62 @@
     });
   }
 
+  /* ── MENUS THAT CLOSE ──────────────────────────────────
+     Reported: "Pressing Escape or clicking elsewhere on the page leaves the
+     More menu open. You have to click the button again."
+
+     Both true, and for one reason: the outside-click handler was registered
+     with { once: true }, so it fired on the first document click of the
+     session -- wherever that happened to land -- and was then removed. After
+     that nothing closed a menu but the button itself. There was no Escape
+     handler at all.
+
+     One closer, installed once for the whole page rather than per render, so
+     re-rendering the workspace can neither stack duplicates nor lose it.
+     Escape returns focus to the button that opened the menu, because a
+     keyboard user who dismisses a menu has nowhere to be otherwise. */
+  function closeMenus(focusBtn) {
+    $$('.rd-menu-list.open').forEach(function (l) {
+      l.classList.remove('open');
+      const b = $('[data-menu="' + l.dataset.for + '"]');
+      if (b) {
+        b.setAttribute('aria-expanded', 'false');
+        if (focusBtn) { try { b.focus(); } catch (e) {} }
+      }
+    });
+  }
+  let _menuCloseOn = false;
+  function installMenuClose() {
+    if (_menuCloseOn) return;
+    _menuCloseOn = true;
+    document.addEventListener('click', function (e) {
+      // A click inside a menu is that menu's own business; its items close it.
+      if (e.target && e.target.closest && e.target.closest('.rd-menu')) return;
+      closeMenus(false);
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape' || !$('.rd-menu-list.open')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      closeMenus(true);
+    });
+  }
+
   function wireWsActions(ws, c) {
     wireS30Steps(ws, c);
     const call = function (fn) { const f = window[fn]; return typeof f === 'function' ? f : null; };
     $$('[data-menu]', ws).forEach(function (b) {
+      b.setAttribute('aria-haspopup', 'menu');
+      b.setAttribute('aria-expanded', 'false');
       b.addEventListener('click', function (e) {
         e.stopPropagation();
         const list = $('.rd-menu-list[data-for="' + b.dataset.menu + '"]', ws);
         const open = list.classList.contains('open');
-        $$('.rd-menu-list', ws).forEach(function (l) { l.classList.remove('open'); });
-        if (!open) list.classList.add('open');
+        closeMenus(false);
+        if (!open) { list.classList.add('open'); b.setAttribute('aria-expanded', 'true'); }
       });
     });
-    document.addEventListener('click', function () { $$('.rd-menu-list').forEach(function (l) { l.classList.remove('open'); }); }, { once: true });
+    installMenuClose();
 
     $$('[data-go]', ws).forEach(function (b) {
       b.addEventListener('click', function (e) {
