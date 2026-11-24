@@ -1200,42 +1200,94 @@
      OWNER FOLLOWS THE KIND OF FLAG, which is her rule. Measured spread over
      168 flagged clients: Coverage at risk 83, Clinical 36, Reliability 7,
      Safety 1, and 41 with no count to go on. */
+  /* THE LABEL DESCRIBES THE SENTENCE IT SITS ABOVE.
+     The first cut derived it from the rule counts (safeCount, clinCount,
+     coverageCount, relCount) and that was wrong in a way worth recording:
+     the counts are 45-day rule tallies and the headline is the AI's read of
+     this week, so they answer different questions. Measured live: a client
+     whose headline described a skin injury a caregiver had observed, with
+     no record that the named contacts were told, carried safeCount 0,
+     clinCount 0 and coverageCount 1 -- and so was labelled "Coverage at
+     risk" directly above evidence about an unreported injury. A label that
+     contradicts the sentence under it is worse than no label.
+
+     So it reads the evidence: the headline, what the card says is already
+     done, and what it says is documented. Measured spread over 168 flagged
+     clients: Family not told 63, Clinical 58, Safety 23, Coverage at risk
+     12, Reliability 4, and 8 with nothing to match on.
+
+     The stems take \w*, because \b(...|bruis|...)\b needs a boundary AFTER
+     the stem and so never matched "bruising", "injuries" or "catheterised".
+     "on the floor" is in Safety because that is how a fall is most often
+     described in a visit note, without the word. `burn` does NOT take \w*,
+     because caregiver BURNOUT is not a burn: a flag about a lead caregiver
+     carrying too many hours was reading as a safety incident.
+
+     THE ORDER IS THE OPEN DECISION, and it is Courtney's. A fall nobody
+     reported is both Safety and Family not told. Safety wins here because
+     it is the more serious of the two, but she may want the communication
+     gap to lead, since that is the part a CSM can close today. */
   const PULSE_LABELS = [
-    ['Safety',           function (p) { return p.safeCount > 0; },
-     'CSM + MCE',                  'Family, MCE'],
-    ['Clinical',         function (p) { return p.clinCount > 0; },
-     'CSM + MCE',                  'Family, MCE'],
-    ['Coverage at risk', function (p) { return p.coverageCount > 0 || p.matchFailure; },
-     'CSM + Scheduling Partner',   'Family, Scheduling Partner'],
-    ['Reliability',      function (p) { return p.relCount > 0; },
-     'CSM + Scheduling Partner',   'Scheduling Partner'],
-    ['Needs a look',     function () { return true; },
-     'CSM',                        'CSM']
+    ['Safety',
+     /\b(fall|fell|falls|fallen|bruis\w*|red marks|skin tear|wound\w*|bed ?sore|pressure (sore|ulcer)|injur\w*|unsafe|burn(s|ed|ing)?|on the floor)\b/i,
+     'CSM + MCE',                'Family, MCE'],
+    ['Family not told',
+     /\b(no record|no documentation|not been|was not|were not|nothing|never)\b[^.]{0,60}\b(told|notified|informed|aware|notif\w*)/i,
+     'CSM',                      'Family'],
+    ['Clinical',
+     /\b(catheter\w*|infection\w*|uti|hospital\w*|medication\w*|condition|weight loss|pain|bleeding|confusion|declin\w*|pneumonia)\b/i,
+     'CSM + MCE',                'Family, MCE'],
+    ['Coverage at risk',
+     /\b(call-?out|coverage|unfilled|no caregiver|open (shift|visit)|cancell?ed (shift|visit)|leave the case|removal|fill)\b/i,
+     'CSM + Scheduling Partner', 'Family, Scheduling Partner'],
+    ['Reliability',
+     /\b(complaint\w*|late|no-?show|reliability|cell ?phone)\b/i,
+     'CSM + Scheduling Partner', 'Scheduling Partner'],
+    ['Needs a look', null, 'CSM', 'CSM']
   ];
+  function pulseEvidence(pp) {
+    if (!pp) return '';
+    const h = Array.isArray(pp.headline) ? pp.headline.join(' ') : pp.headline;
+    const card = pp.card || {};
+    return [h, card.alreadyDone, card.documented].filter(Boolean).join(' ');
+  }
   function pulseLabel(pp) {
     if (!pp) return null;
+    const ev = pulseEvidence(pp);
     for (let i = 0; i < PULSE_LABELS.length; i++) {
       const row = PULSE_LABELS[i];
-      let hit = false;
-      try { hit = !!row[1](pp); } catch (e) { hit = false; }
-      if (hit) return { label: row[0], owner: row[2], fallbackTell: row[3] };
+      if (row[1] === null || row[1].test(ev)) {
+        return { label: row[0], owner: row[2], fallbackTell: row[3] };
+      }
     }
     return null;
   }
-  /* WHO NEEDS TO KNOW is the Pulse's own notify fields where it has them,
-     because those name real people on this client ("Daughter", "GCM"), and
-     the label's default audience where it has none. 13 of 168 flagged
-     clients carry neither. */
+  /* OWNER IS THE CARD'S OWN ANSWER, not a guess from the label. The Pulse
+     already writes `whoseCall`, and on the live feed it normalises onto her
+     three phrases for 161 of 168 flags: "CSM" 97, "CSM and MCE" and its
+     longer forms 54, "CSM and Scheduling" 10. Seven say nothing, and those
+     fall back to the owner the label implies. */
+  function pulseOwner(pp, lab) {
+    const w = String((pp && pp.card && pp.card.whoseCall) || '');
+    if (/\bMCE\b/i.test(w)) return 'CSM + MCE';
+    if (/schedul/i.test(w)) return 'CSM + Scheduling Partner';
+    if (/\bCSM\b/i.test(w)) return 'CSM';
+    return (lab && lab.owner) || '';
+  }
+  /* WHO NEEDS TO KNOW is the card's own sentence, which names the real
+     people on this client and how to reach them. The first cut used
+     notifyContact, which holds a fragment -- a name, a number and a
+     dangling ampersand -- and read as a broken field in a column. */
   function pulseTell(pp, lab) {
+    const w = String((pp && pp.card && pp.card.whoNeedsToKnow) || '').trim();
+    if (w) return w;
     const bits = [];
-    const push = function (v) {
-      String(v || '').split(/[,;]+/).forEach(function (x) {
+    [pp && pp.notifyContact, pp && pp.notifySchedule].forEach(function (v) {
+      String(v || '').split(/[,;&]+/).forEach(function (x) {
         const t = x.trim();
         if (t && bits.indexOf(t) < 0) bits.push(t);
       });
-    };
-    push(pp && pp.notifyContact);
-    push(pp && pp.notifySchedule);
+    });
     if (bits.length) return bits.join(', ');
     return (lab && lab.fallbackTell) || '';
   }
@@ -3793,8 +3845,8 @@
 
      Found on 23 November: Home counted four clients in their first 30 days
      and the Clients chip and the Onboarding badge counted three. The missing
-     one was Nancy Munson, who started that day -- the single client most
-     likely to need the checklist worked. */
+     one had started care that very day -- the single client most likely to
+     need the checklist worked. */
   function daysInCare(c) {
     if (!c || !c.startDate) return null;
     const d = daysSince(c.startDate);
@@ -3826,7 +3878,7 @@
         const lab = pulseLabel(pp);
         out.push({ rank: lvl === 'red' ? 0 : 3, tier: c.tier,
                    kind: (lab && lab.label) || 'Pulse', isPulse: true,
-                   owner: (lab && lab.owner) || '', tell: pulseTell(pp, lab),
+                   owner: pulseOwner(pp, lab), tell: pulseTell(pp, lab),
                    bucket: lvl === 'red' ? 'action' : 'watch',
                    cid: c.id, name: c.name,
                    why: pulseFirst(pp.headline),
@@ -4097,7 +4149,7 @@
           '<div class="rd-td-head">Today\u2019s list \u2014 work top to bottom</div>' +
           '<table class="rd-td-t"><thead><tr>' +
           '<th scope="col">Client</th><th scope="col">Why it\u2019s here</th>' +
-          '<th scope="col">Who needs to know</th><th scope="col">Owner</th>' +
+          '<th scope="col">Who needs to know</th><th scope="col" class="rd-td-own">Owner</th>' +
           '<th scope="col">Next step</th><th scope="col"><span class="rd-sr">Sort and open</span></th>' +
           '</tr></thead><tbody>' +
           vis.map(function (r) {
@@ -4114,8 +4166,13 @@
               '<td class="rd-td-w"><div class="rd-c2" title="' + esc(r.why) + '">' + why + '</div>' +
                 (r.s30 ? '<div class="rd-td-s30"><b>Success in 30:</b> ' + r.s30 +
                          ' milestone' + (r.s30 > 1 ? 's' : '') + ' open</div>' : '') + '</td>' +
+              /* The owner rides inside this cell as well, hidden until the
+                 Owner column itself is folded away. Six columns do not fit
+                 Home's left column below about 1500px, and dropping the
+                 owner entirely would lose it rather than move it. */
               '<td class="rd-td-tell">' + (r.tell ? '<span title="' + esc(r.tell) + '">' + esc(r.tell) + '</span>'
-                                                   : '<span class="rd-ws-quiet">\u2014</span>') + '</td>' +
+                                                   : '<span class="rd-ws-quiet">\u2014</span>') +
+                (r.owner ? '<span class="rd-td-ow rd-td-ow-in">' + esc(r.owner) + '</span>' : '') + '</td>' +
               '<td class="rd-td-own">' + (r.owner ? '<span class="rd-td-ow">' + esc(r.owner) + '</span>' : '') + '</td>' +
               '<td class="rd-td-s"><div class="rd-c3" title="' + esc(r.full || r.step) + '">' + esc(r.step) + '</div></td>' +
               '<td class="rd-td-o">' +

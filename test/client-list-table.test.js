@@ -128,8 +128,8 @@ ok('...and an unknown relationship is printed, not dropped',
    1. V1 carries a bare `th { text-transform: uppercase; font-size: 10.5px;
       background: #F7F4EF }` written for column HEADINGS. The client name is a
       `<th scope="row">`, correctly, for screen readers. So every client was
-      printed SHOUTING, small and on a tinted cell: "NANCY MUNSON" where her
-      picture has "Nancy Munson". Reset on the redesign table rather than by
+      printed SHOUTING, small and on a tinted cell, where her picture has it
+      in ordinary case. Reset on the redesign table rather than by
       weakening V1's rule, which other tables rely on. */
 ok('the client name is not styled as a column heading',
    /\.rd-clt th\[scope="row"\] \{[\s\S]{0,200}text-transform: none;/.test(CSS) &&

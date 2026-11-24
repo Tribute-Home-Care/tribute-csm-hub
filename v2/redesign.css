@@ -2670,7 +2670,7 @@ input[type="email"], select { min-height: var(--h-ctl); }
    10.5px; background: #F7F4EF; letter-spacing: .4px }` written for column
    headings. The client name is a `<th scope="row">`, correctly, for screen
    readers. So every client on the page was printed SHOUTING, small, and on a
-   tinted cell: "NANCY MUNSON". Her picture has "Nancy Munson".
+   tinted cell, in capitals. Her picture has it in ordinary case.
    Reset here rather than weakening the V1 rule, which other tables rely on. */
 .rd-clt th[scope="row"] {
   text-transform: none; letter-spacing: 0; background: none;
@@ -3054,10 +3054,7 @@ button.rd-cbtn, button.rd-act { font: inherit; background: none; cursor: pointer
    narrow ones and both clamp. Who needs to know is a name or two, Owner is
    one of three fixed phrases. */
 .rd-td-tell, .rd-td-own { font-size: 12.5px; color: var(--ink-2, #5C554C); }
-.rd-td-tell span {
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-  overflow: hidden; max-width: 15ch;
-}
+
 .rd-td-ow {
   display: inline-block; padding: 2px 7px; border-radius: 999px;
   background: var(--wash, #F6F3EE); border: 1px solid var(--line, #E7E2DA);
@@ -3074,3 +3071,18 @@ button.rd-cbtn, button.rd-act { font: inherit; background: none; cursor: pointer
 /* The label heading carries her words now, so it reads as a label rather
    than as the system's name for the feed. */
 .rd-td-k { font-weight: 700; }
+
+/* SIX COLUMNS DO NOT FIT HOME'S LEFT COLUMN below about 1500px: the rail is
+   a fixed 320px, so the list gets roughly 720 and the two new columns were
+   squeezed to 74px each with the table overflowing its own card. Above that
+   width Owner is its own column, as she draws it. Below it, the owner moves
+   into the Who needs to know cell rather than being dropped. */
+.rd-td-ow-in { display: none; margin-top: 4px; }
+@media (max-width: 1499px) {
+  .rd-td-t .rd-td-own { display: none; }
+  .rd-td-ow-in { display: inline-block; }
+}
+.rd-td-tell span[title] {
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
