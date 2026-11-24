@@ -60,9 +60,22 @@ ok('...except for this year, where the year is the one thing nobody needs',
    #3 with scores underneath. */
 ok('the ranking is gated on an open event', /function fpHasEvent\(\) \{/.test(RD) &&
    /function decorateFillPriority\(\) \{/.test(RD));
-ok('...and it is checked on arrival', /if \(p === 'priority'\) \{ try \{ decorateFillPriority\(\); \}/.test(RD));
-ok('...and again when an event is chosen, so the list comes straight back',
-   /sel\.addEventListener\('change', function \(\) \{ setTimeout\(decorateFillPriority, 0\); \}\)/.test(RD));
+ok('...and it is checked on arrival', /if \(p === 'priority'\) \{ try \{ installFillPriority\(\); decorateFillPriority\(\);/.test(RD));
+/* AND ON EVERY V1 RENDER. The first cut hung it on arrival plus a change
+   listener on the dropdown, which covers choosing an event and nothing else.
+   Probed live with a real-shaped active event forced in after arrival, the
+   list stayed hidden: V1 repaints this page for its own reasons -- closing an
+   event, one opened on another profile -- and none of those fire a change
+   event, so the display this layer last set just persisted. Wrapping V1's own
+   render is the pattern the Team table already uses, and V1's onchange calls
+   renderFillPriority itself, so it covers the dropdown too. */
+ok('...and again on every render V1 does of that page',
+   /function installFillPriority\(\) \{/.test(RD) &&
+   /wrapped\.__rdFp = true;\s*\n\s*window\.renderFillPriority = wrapped;/.test(RD));
+ok('...installed before the first decorate, so the wrapper is never skipped',
+   /if \(p === 'priority'\) \{ try \{ installFillPriority\(\); decorateFillPriority\(\); \}/.test(RD));
+ok('...and the listener it replaced is gone, not left alongside it',
+   !/sel\.addEventListener\('change', function \(\) \{ setTimeout\(decorateFillPriority/.test(RD));
 /* Hidden, not emptied: V1 rewrites #fp-list on its own passes and would not
    know to rebuild anything this layer had thrown away. */
 ok('...and V1’s list is hidden rather than destroyed',

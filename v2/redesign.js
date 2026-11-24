@@ -3108,11 +3108,29 @@
     const on = fpHasEvent();
     list.style.display = on ? '' : 'none';
     note.style.display = on ? 'none' : '';
-    const sel = $('#fp-event-select');
-    if (sel && !sel.__rdFp) {
-      sel.__rdFp = true;
-      sel.addEventListener('change', function () { setTimeout(decorateFillPriority, 0); });
-    }
+  }
+  /* RE-APPLIED ON EVERY V1 RENDER, not on events.
+     The first cut hung this on page arrival plus a change listener on the
+     dropdown, which covers choosing an event and nothing else. Probed with a
+     real-shaped active event forced in after arrival, the list stayed hidden:
+     V1 re-renders this page for its own reasons -- closing an event, an event
+     opened on another profile, any internal repaint -- and none of those fire
+     a change event, so whatever display this layer last set just persisted.
+
+     Wrapping V1's own render is the pattern the Team table already uses here
+     and it removes the whole class of staleness: if V1 drew the page, the
+     gate has been re-asked. V1's onchange calls renderFillPriority itself, so
+     this covers the dropdown too and the listener is gone. */
+  function installFillPriority() {
+    if (typeof window.renderFillPriority !== 'function' || window.renderFillPriority.__rdFp) return;
+    const orig = window.renderFillPriority;
+    const wrapped = function () {
+      const r = orig.apply(this, arguments);
+      try { decorateFillPriority(); } catch (e) {}
+      return r;
+    };
+    wrapped.__rdFp = true;
+    window.renderFillPriority = wrapped;
   }
 
   function decorateTeam() {
@@ -6235,7 +6253,7 @@
          bootstrap and may not have run yet when this layer starts. */
       if (p === 'team') { try { decorateTeam(); swapIcons($('#page-team') || document); } catch (e) {} }
       if (p === 'md') { try { decorateMd(); } catch (e) {} }
-      if (p === 'priority') { try { decorateFillPriority(); } catch (e) {} }
+      if (p === 'priority') { try { installFillPriority(); decorateFillPriority(); } catch (e) {} }
       return r;
     };
     wrapped.__rdSwap = true;
