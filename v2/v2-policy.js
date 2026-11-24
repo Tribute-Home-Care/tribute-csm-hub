@@ -389,8 +389,14 @@
     const el = document.getElementById('v2-blocked-count');
     if (!el) return;
     const sw = App.serverWrite;
+    /* ONE VOCABULARY, AND IT IS THE CSM'S. Courtney: "under the logo it reads
+       'writes on \u00b7 1 thing to look at', which is still unclear." It was:
+       "writes" is our word for this, not theirs. The only question a CSM has
+       about this strip is whether their work is being saved, so all four
+       states are said in those terms now. The strip stays -- it is how the
+       diagnostics panel is reached and how a kill switch becomes visible. */
     if (!sw.known)        el.textContent = 'checking\u2026';
-    else if (!sw.enabled) el.textContent = 'writes off';
+    else if (!sw.enabled) el.textContent = 'saving is off';
     else if (!sw.isPilotWriter) el.textContent = 'read-only';
     // Was "N saved", which Courtney read as an unexplained counter and she
     // was right: the number means nothing without the panel that lists them.
@@ -399,7 +405,7 @@
     // AND IT IS NOT A PILOT ANY MORE. Saying "write pilot" to every CSM on
     // the only Hub there is tells them their real work is a trial. The
     // normal case is now the quiet one: nothing to report.
-    else el.textContent = 'writes on';
+    else el.textContent = 'saving works';
   }
   App.updateWriteBadge = updateBadge;
 

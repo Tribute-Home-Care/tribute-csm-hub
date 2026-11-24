@@ -287,7 +287,7 @@
        is reached and how a kill switch or a refused write becomes visible --
        it just stops claiming this is a pilot. */
     m.innerHTML =
-      '<span class="v2-state" title="How this account can use the Hub. Click for diagnostics.">' +
+      '<span class="v2-state" title="Whether your work is being saved. Click for diagnostics.">' +
       '<span id="v2-blocked-count">checking…</span>' +
       '<span id="v2-anom"></span></span>';
     brand.appendChild(m);

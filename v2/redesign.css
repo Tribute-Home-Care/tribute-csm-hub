@@ -3681,3 +3681,24 @@ input.ob-cb:disabled { opacity: .5; cursor: not-allowed; }
   margin: 0 7px;
 }
 .rd-con dd { line-height: 1.6; }
+
+/* ── THE CLOCK BESIDE THE DATE ────────────────────────────────────────────
+   "Next Due shows a date without what is due." The date now carries the name
+   of the clock it belongs to, under it and quiet, so the column still scans
+   as dates while answering which deadline each one is. */
+.rd-clt-due {
+  display: block;
+  font-size: 11px;
+  color: var(--ink-3);
+  line-height: 1.3;
+  margin-top: 1px;
+}
+
+/* Fill Priority's empty state, where the ranking used to be printed against
+   no event at all. */
+.rd-fp-none {
+  background: #fff; border: 1px solid var(--line); border-radius: 10px;
+  padding: 16px 18px; box-shadow: 0 1px 2px rgba(35, 31, 32, .04);
+}
+.rd-fp-none p { margin: 0; }
+.rd-fp-none p + p { margin-top: 6px; }

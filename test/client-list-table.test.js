@@ -23,8 +23,20 @@ ok('the shipped copy and the build source agree',
 // of this matched VIEWS and ACT_FILTERS too and failed on a correct table.
 const colsSrc = (CODE.match(/const CL_COLS = \[([\s\S]*?)\];/) || [])[1] || '';
 const cols = [...colsSrc.matchAll(/\['[a-z]*', '([^']+)'\]/g)].map(m => m[1]);
-ok('all seven columns are there, in her order',
-   JSON.stringify(cols) === JSON.stringify(['Client', 'Tier', 'Status', 'Last visit', 'Next due', 'Family contact', 'Community']));
+/* EIGHT NOW, AND THAT IS A DEPARTURE FROM HER SEVEN. Courtney's list is
+   Client, Tier, Status, Last visit, Next due, Family contact, Community. The
+   24 Nov review asked for a sort by start date, and a sort has to live in a
+   column header, so Start of care is inserted before Last visit -- the two
+   date columns together, oldest fact first. The sort itself was already
+   written: `_sortKey === 'start'` has sorted on c.startDate since this list
+   was built, with nothing in the UI able to ask for it. Flagged for Courtney
+   rather than slipped in: if she wants her seven back, the column goes and
+   the sort needs another home. */
+ok('her seven columns are all there, in her order',
+   JSON.stringify(cols.filter(c => c !== 'Start of care')) ===
+   JSON.stringify(['Client', 'Tier', 'Status', 'Last visit', 'Next due', 'Family contact', 'Community']));
+ok('...and the eighth is the one the start-date sort needs',
+   cols.indexOf('Start of care') === 3 && cols.length === 8);
 ok('it renders as a real table with a header row', /<table class="rd-clt"><thead>/.test(CODE));
 ok('the client name is a row header, not a cell', /<th scope="row">/.test(CODE));
 

@@ -666,18 +666,51 @@
      far as "soon" — which is fourteen days for a visit, seven for a
      touchpoint and thirty for a care conversation. One tab cannot be built
      out of three different meanings of soon. */
-  function daysUntilDue(c) {
+  /* Last + cadence, by the same arithmetic V1's own nextDue() uses, so a date
+     this layer prints cannot drift from one V1 prints for the same clock. */
+  function dueOn(iso, days) {
+    if (!iso) return null;
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return null;
+    d.setDate(d.getDate() + days);
+    return d.toISOString().slice(0, 10);
+  }
+  /* THE THREE CLOCKS, EACH STILL KNOWING WHICH ONE IT IS.
+     daysUntilDue answered "how many days" and threw away which clock it read,
+     so the Clients list could only print a bare date -- "Next Due shows a date
+     without what is due". Worse, its Next due column read the VISIT clock
+     alone, so a client with no visit on record got a blank cell: on the Needs
+     action tab, which is where every such client is, the column was empty for
+     all thirty rows.
+
+     daysUntilDue is derived from this now rather than repeating the sums, so
+     the column and the "Due this week" tab cannot disagree about which date
+     they mean. The visit date comes from nextVisit(), which wraps V1's own
+     nextDue, rather than being recomputed here. */
+  function dueClocks(c) {
     const app = A(), out = [];
-    if (c.freq !== 'NA') {
-      const cad = parseInt(c.freq) || 90, d = daysSince(c.lastVisit);
-      if (d !== null) out.push(cad - d);
-    }
-    const tc = (app.tpCadence || {})[c.tier] || 30, td = daysSince(lastOf('touchpoints', c.id));
-    if (td !== null) out.push(tc - td);
-    const cc = (app.ciCadence || {})[c.tier] || 180, cd = daysSince(lastOf('checkins', c.id));
-    if (cd !== null) out.push(cc - cd);
-    const ahead = out.filter(function (n) { return n >= 0; });
-    return ahead.length ? Math.min.apply(null, ahead) : null;
+    const add = function (what, cadence, last, date) {
+      const since = daysSince(last);
+      if (since === null) return;
+      out.push({ what: what, days: cadence - since, date: date });
+    };
+    if (c.freq !== 'NA') add('Visit', parseInt(c.freq) || 90, c.lastVisit, nextVisit(c));
+    const tpL = lastOf('touchpoints', c.id);
+    add('Touchpoint', (app.tpCadence || {})[c.tier] || 30, tpL,
+        dueOn(tpL, (app.tpCadence || {})[c.tier] || 30));
+    const ciL = lastOf('checkins', c.id);
+    add('Care conversation', (app.ciCadence || {})[c.tier] || 180, ciL,
+        dueOn(ciL, (app.ciCadence || {})[c.tier] || 180));
+    return out;
+  }
+  function nextDueDetail(c) {
+    const ahead = dueClocks(c).filter(function (x) { return x.days >= 0; });
+    if (!ahead.length) return null;
+    return ahead.reduce(function (a, b) { return b.days < a.days ? b : a; });
+  }
+  function daysUntilDue(c) {
+    const n = nextDueDetail(c);
+    return n ? n.days : null;
   }
   /* A date inside seven days, on a client who is not already in trouble. */
   function dueThisWeek(c) {
@@ -1117,7 +1150,13 @@
      the search box. So this is what the CSM recorded, and an email is a real
      mailto. A phone number needs the Viv read, so there is no Call button
      here pretending it can dial. */
+  /* START OF CARE is here because the sort for it was already written and had
+     no way to be asked for: `_sortKey === 'start'` has sorted on c.startDate
+     since this list was built, but no column carried data-sort="start", so
+     "there is no sort by start date" was true of the UI and not of the code.
+     The field is populated on 43 of 44 clients on a real caseload. */
   const CL_COLS = [['name', 'Client'], ['tier', 'Tier'], ['', 'Status'],
+                   ['start', 'Start of care'],
                    ['last', 'Last visit'], ['next', 'Next due'],
                    ['', 'Family contact'], ['community', 'Community']];
 /* WHO TO CALL, ON THE ROW. Courtney's Clients picture gives every row a
@@ -1587,6 +1626,8 @@
     const body = rows.map(function (r) {
       const c = r.c, ex = r.ex;
       const nv = nextVisit(c);
+      const clocks = dueClocks(c);
+      const nd = nextDueDetail(c);
       // An assessment due inside a week is marked, which was an action item
       // from 12 Nov and is the one row state worth catching at a glance.
       const newish = inFirstDays(c, 30);
@@ -1645,8 +1686,18 @@
                 '<button type="button" class="rd-td-sort rd-clt-sort" data-sortbtn="' + esc(c.id) +
                 '" aria-haspopup="menu" title="Sort this flag off Today\u2019s list">Sort</button>'
                 : '') + '</td>' +
+        '<td>' + (c.startDate ? esc(fmtShort(c.startDate)) : '<span class="rd-ws-quiet">\u2014</span>') + '</td>' +
         '<td>' + (c.lastVisit ? esc(fmtShort(c.lastVisit)) : '<span class="rd-ws-quiet">None</span>') + '</td>' +
-        '<td>' + (nv ? esc(fmtShort(nv)) : (c.freq === 'NA' ? '<span class="rd-ws-quiet">No cadence</span>' : '')) + '</td>' +
+        /* The date AND the clock it belongs to. A cell that cannot name what
+           is due is a cell a CSM has to open the client to understand. Where
+           nothing is ahead, the three states are told apart rather than all
+           rendering as blank: everything overdue (the Status column says
+           which), no cadence at all, and nothing on record to count from. */
+        '<td>' + (nd
+          ? esc(fmtShort(nd.date)) + '<span class="rd-clt-due">' + esc(nd.what) + '</span>'
+          : (clocks.length ? '<span class="rd-ws-quiet">Overdue</span>'
+            : (c.freq === 'NA' ? '<span class="rd-ws-quiet">No cadence</span>'
+                               : '<span class="rd-ws-quiet">Nothing on record</span>'))) + '</td>' +
         '<td class="rd-clt-con">' + contactCell(c) + '</td>' +
         '<td>' + esc([c.loc, c.city].filter(Boolean).join(', ')) + '</td>' +
         '</tr>';
@@ -3003,6 +3054,48 @@
     };
     wrapped.__rdTeam = true;
     window.renderTeamOverview = wrapped;
+  }
+
+  /* ── FILL PRIORITY RANKS NOTHING WITHOUT AN EVENT ──────────────────────
+     Courtney: "Fill Priority: all 44 clients are still ranked with no active
+     event." The page says so itself, in its own dropdown -- "Active Coverage
+     Event: no active event" -- and then prints #1, #2, #3 with scores under
+     it anyway. The ranking only means anything against a real event: it is
+     the order you would work a caseload in while somebody is off, and read
+     outside one it is a league table of clients.
+
+     The ranking is built by V1 (renderFillPriority), which is not touched, so
+     the list is hidden and an empty state put in its place -- hidden, not
+     emptied, because V1 rewrites #fp-list on its own passes and would not
+     know to rebuild anything this layer had thrown away.
+
+     It is re-checked on every arrival AND on the dropdown, because choosing
+     an event has to bring the list straight back. */
+  function fpHasEvent() {
+    const sel = $('#fp-event-select');
+    return !!(sel && sel.value);
+  }
+  function decorateFillPriority() {
+    const list = $('#fp-list');
+    if (!list) return;
+    let note = $('#rd-fp-none');
+    if (!note) {
+      note = document.createElement('div');
+      note.id = 'rd-fp-none';
+      note.className = 'rd-fp-none';
+      note.innerHTML = '<p class="rd-ws-plain">No coverage event is open.</p>' +
+        '<p class="rd-ws-quiet">The priority order is how you would work a caseload ' +
+        'while somebody is out. Open an event above and the ranking appears here.</p>';
+      list.parentElement.insertBefore(note, list);
+    }
+    const on = fpHasEvent();
+    list.style.display = on ? '' : 'none';
+    note.style.display = on ? 'none' : '';
+    const sel = $('#fp-event-select');
+    if (sel && !sel.__rdFp) {
+      sel.__rdFp = true;
+      sel.addEventListener('change', function () { setTimeout(decorateFillPriority, 0); });
+    }
   }
 
   function decorateTeam() {
@@ -6125,6 +6218,7 @@
          bootstrap and may not have run yet when this layer starts. */
       if (p === 'team') { try { decorateTeam(); swapIcons($('#page-team') || document); } catch (e) {} }
       if (p === 'md') { try { decorateMd(); } catch (e) {} }
+      if (p === 'priority') { try { decorateFillPriority(); } catch (e) {} }
       return r;
     };
     wrapped.__rdSwap = true;

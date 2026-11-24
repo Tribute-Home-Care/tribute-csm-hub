@@ -78,7 +78,10 @@ ok('...and so is the preview suffix on the tab title',
    /<title>Tribute CSM Hub<\/title>/.test(V2) && !/V2 Preview<\/title>/.test(V2));
 ok('...with the build asserting the production title it depends on',
    /assert '<title>Tribute CSM Hub<\/title>' in html/.test(BLD));
-ok('...and the badge no longer says pilot', !/'write pilot'/.test(POLICY) && /'writes on'/.test(POLICY));
+/* The normal-state word changed from "writes on" to "saving works" -- the
+   assertion's point is that it no longer says pilot, so it pins the current
+   normal state rather than that particular wording forever. */
+ok('...and the badge no longer says pilot', !/'write pilot'/.test(POLICY) && /'saving works'/.test(POLICY));
 ok('...and a refused account is told plainly, without naming a pilot',
    /cannot write to the Hub/.test(POLICY) && !/not in the write pilot/.test(POLICY));
 ok('...and the diagnostics line says the same',
