@@ -27,8 +27,15 @@ ok('visits, your work and caseload health are a rail, in that order',
 ok('...and the rail is the right-hand column of Home',
    /const rail = sAttn\.querySelector\('\.rd-hr'\);/.test(CODE) &&
    /#rd-home-cols \{ display: grid; grid-template-columns: minmax\(0, 1fr\) 320px;/.test(CSS));
+/* 1199, NOT 1080. From 1081 to 1199 a fixed 320px rail sat beside Today's
+   list: measured at a 1100px viewport the card was 462px wide, so even as a
+   four-column grid the reason got 86px and the next step 66px. Nothing
+   overlapped and nothing was clipped, and it was still unreadable. The rail
+   now comes off at the same width the list changes shape. */
 ok('...and it drops under the list on a narrow screen, rather than squeezing it',
-   /@media \(max-width: 1080px\) \{\s*\n\s*#rd-home-cols \{ grid-template-columns: minmax\(0, 1fr\); \}/.test(CSS));
+   /@media \(max-width: 1199px\) \{\s*\n\s*#rd-home-cols \{ grid-template-columns: minmax\(0, 1fr\); \}/.test(CSS));
+ok('...at the same width Today\'s list becomes a grid, so the two cannot disagree',
+   (CSS.match(/@media \(max-width: 1199px\)/g) || []).length >= 2);
 /* HOME IS A PAGE OF CARDS. Every section bled into the page with no edge, so
    the list, the visits and the CSM s own work floated in one field with
    nothing grouping them. The edges ARE the organisation, and one heading

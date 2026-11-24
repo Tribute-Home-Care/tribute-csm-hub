@@ -2863,7 +2863,13 @@ input[type="email"], select { min-height: var(--h-ctl); }
 #rd-home-cols .rd-hr .rd-sec-h h3 { font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); }
 #rd-home-cols .rd-hr .rd-sec-h .lede { font-size: 11px; }
 #rd-home-cols .rd-hr .g2 { display: flex; flex-direction: column; gap: 12px; }
-@media (max-width: 1080px) {
+/* THE RAIL COMES OFF AT THE SAME WIDTH THE LIST CHANGES SHAPE. This was
+   1080, which left a fixed 320px rail beside Today's list from 1081 to
+   1199: measured at a 1100px viewport the card was 462px wide, so even as
+   a four-column grid the reason got 86px and the next step 66px. No
+   overlap and nothing clipped, and still unreadable. One column from 1199
+   gives the list the width instead, and the rail falls underneath it. */
+@media (max-width: 1199px) {
   #rd-home-cols { grid-template-columns: minmax(0, 1fr); }
 }
 
