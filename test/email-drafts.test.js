@@ -13,9 +13,22 @@ const fs = require('fs'), path = require('path');
 let pass = 0, fail = 0;
 const ok = (n, c) => { if (c) { pass++; console.log('  PASS  ' + n); } else { fail++; console.log('  FAIL  ' + n); } };
 
-const V1 = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
-const V2 = fs.readFileSync(path.join(__dirname, '../v2/index.html'), 'utf8');
+/* SOURCE: the V2 layer, not index.html.
+ *
+ * This feature moved out of index.html on 23 November. index.html is V1 and
+ * V2 is built from it, so a V2 design living there meant changing the hub the
+ * team uses today every time Courtney's review moved. The prototype file is
+ * the source and v2/ is generated, so both are read and asserted identical:
+ * editing the generated copy alone is reverted by the next build with nothing
+ * to show for it.
+ */
+const V1 = fs.readFileSync(path.join(process.env.HOME, 'tribute-csm-hub-redesign/prototype/v2-onboarding.js'), 'utf8');
+const V2 = fs.readFileSync(path.join(__dirname, '../v2/v2-onboarding.js'), 'utf8');
+const PAGE = fs.readFileSync(path.join(__dirname, '../v2/index.html'), 'utf8');
 const CODE = V1.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').filter(l => !/^\s*\/\//.test(l)).join('\n');
+ok('the shipped copy and the build source agree', V1 === V2);
+ok('...and index.html no longer carries the feature',
+   !/const DRAFTS = \[/.test(fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8')));
 
 function lift(decl) {
   const i = CODE.indexOf(decl);
@@ -81,7 +94,7 @@ ok('the internal posts are marked internal, so they are not sent to a family',
 /* The standing family password is in her document and must not be in this
    repository, which is public. */
 ok('no standing password reaches the library',
-   !/Tribute\d{4}!/.test(V1) && !/Tribute\d{4}!/.test(V2));
+   !/Tribute\d{4}!/.test(V1) && !/Tribute\d{4}!/.test(V2) && !/Tribute\d{4}!/.test(PAGE));
 ok('the app access draft says to use it without repeating it',
    /standard family password/.test(by('app_access').body));
 

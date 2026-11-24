@@ -1,0 +1,75 @@
+/* ONBOARDING, OFFBOARDING AND SUCCESS IN 30 — the V2 layer's styles.
+ *
+ * These were in index.html's <style>, which is V1. The markup they dress is
+ * written by v2-onboarding.js, so the styles belong beside it: a selector in
+ * V1 for elements only V2 creates is dead weight there and a puzzle later.
+ *
+ * Loaded after redesign.css, so anything here that shares a selector with the
+ * design system wins, which is the intent: these are specific to the board,
+ * the checklist and the three dialogs.
+ */
+
+.ob-sum{font-size:12px;color:#8C857B;margin:-4px 0 10px;}
+.ob-g>summary{cursor:pointer;font-size:11px;font-weight:700;letter-spacing:.05em;
+  text-transform:uppercase;color:#8C857B;margin:14px 0 4px;display:flex;align-items:baseline;gap:8px;}
+.ob-g>summary .n{margin-left:auto;font-weight:600;color:#B7B0A6;}
+.ob-g>summary .n.fin{color:#0F8F6B;}
+.ob-row{display:grid;grid-template-columns:16px minmax(0,1fr) 74px 92px 104px 64px 58px;
+  gap:9px;align-items:start;padding:8px 0;border-bottom:1px solid #F1EEE8;}
+.ob-cb{width:14px;height:14px;margin-top:2px;accent-color:var(--navy);cursor:pointer;}
+.ob-cb:disabled{cursor:not-allowed;opacity:.45;}
+.ob-l{font-size:13px;line-height:1.4;color:#3D3833;}
+.ob-row.done .ob-l{color:#8C857B;text-decoration:line-through;}
+.ob-row.late .ob-l{color:#A4271E;font-weight:600;}
+.ob-h{font-size:11px;color:#8C857B;margin-top:2px;line-height:1.45;}
+.ob-block{color:#92580B;}
+.ob-rule{color:#7A3B12;}
+.ob-new{display:inline-block;font-size:9px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.06em;color:#7A3B12;background:#FBEADF;border-radius:999px;padding:1px 5px;margin-right:6px;vertical-align:1px;}
+.ob-own,.ob-hub,.ob-due{font-size:10.5px;color:#8C857B;padding-top:2px;}
+.ob-hub{letter-spacing:.04em;}
+.ob-row.late .ob-due{color:#A4271E;font-weight:600;}
+.ob-by{width:100%;font-size:11px;text-align:center;text-transform:uppercase;padding:3px 4px;
+  border:1px solid #EAE6DF;border-radius:6px;background:#fff;}
+.ob-at{font-size:11px;color:#0F8F6B;text-align:right;white-space:nowrap;padding-top:2px;}
+.ob-proof{font-size:11px;color:#0F6E56;margin-top:3px;line-height:1.45;}
+.obb{border-top:1px solid #F1EEE8;}
+.obb-r{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.6fr) 112px 72px;gap:12px;
+  align-items:baseline;width:100%;text-align:left;background:none;border:none;
+  border-bottom:1px solid #F1EEE8;border-left:3px solid transparent;
+  padding:9px 10px;cursor:pointer;font:inherit;}
+.obb-r:hover{background:#FBFAF8;}
+.obb-r.late{border-left-color:var(--hi);}
+.obb-r.watch{border-left-color:var(--med);}
+.obb-r.atrisk{border-left-color:var(--hi);}
+.obb-r.live{border-left-color:var(--med);}
+.d30-q{margin-bottom:12px;}
+.d30-l{display:block;font-size:13px;line-height:1.45;color:#1C1A17;margin-bottom:5px;}
+.d30-a{font-family:inherit;line-height:1.5;}
+.obb-r.obb-ob{grid-template-columns:minmax(0,1.4fr) 68px 62px 78px 56px 56px 56px minmax(0,1.5fr) 54px;}
+.obb-sub{display:block;font-size:11px;font-weight:400;color:#8C857B;font-style:normal;margin-top:1px;}
+.obb-st{font-size:10.5px;font-weight:700;letter-spacing:.03em;text-align:center;
+  padding:3px 0;border-radius:99px;background:#EEF6EE;color:#2F6B37;align-self:center;}
+.obb-st.watch{background:#FDF3E2;color:#92580B;}
+.obb-st.atrisk{background:#FBEAE8;color:#A4271E;}
+.obb-st.done{background:#F1EEE8;color:#6B655C;}
+.obb-ph{display:flex;flex-direction:column;gap:3px;align-self:center;min-width:0;}
+.obb-bar{display:block;height:5px;border-radius:99px;background:#EDE8E0;overflow:hidden;}
+.obb-bar i{display:block;height:100%;background:#4E8C57;border-radius:99px;}
+.obb-ph em{font-size:10px;color:#8C857B;font-style:normal;}
+.obb-next{font-size:12px;color:#57524A;min-width:0;align-self:center;}
+.obb-next.late{color:#A4271E;font-weight:600;}
+.obb-own{font-size:10px;font-weight:700;color:#6B655C;letter-spacing:.03em;align-self:center;text-align:right;}
+.ob-head{display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap;}
+.ob-prog{flex:1;min-width:120px;height:6px;border-radius:99px;background:#EDE8E0;overflow:hidden;}
+.ob-prog i{display:block;height:100%;background:#4E8C57;border-radius:99px;}
+.ob-late{color:#A4271E;font-weight:600;margin-left:9px;}
+.ob-whobar{display:flex;gap:4px;}
+.ob-wb{font-size:11px;padding:4px 10px;border-radius:99px;border:1px solid #E6E0D6;
+  background:#FFFDFA;color:#57524A;cursor:pointer;}
+.ob-wb.on{background:#1C1A17;color:#fff;border-color:#1C1A17;}
+.obb-n{font-size:13px;font-weight:600;color:#1C1A17;min-width:0;}
+.obb-w{font-size:12.5px;color:#57524A;min-width:0;}
+.obb-r.late .obb-w,.obb-r.atrisk .obb-w{color:#A4271E;}
+.obb-d{font-size:11.5px;color:#8C857B;white-space:nowrap;}
+.obb-p{font-size:11.5px;color:#8C857B;text-align:right;font-variant-numeric:tabular-nums;}

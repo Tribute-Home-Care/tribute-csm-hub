@@ -12,16 +12,35 @@ const fs = require('fs'), path = require('path');
 let pass = 0, fail = 0;
 const ok = (n, c) => { if (c) { pass++; console.log('  PASS  ' + n); } else { fail++; console.log('  FAIL  ' + n); } };
 
-const V1 = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
-const V2 = fs.readFileSync(path.join(__dirname, '../v2/index.html'), 'utf8');
+/* SOURCE: the V2 layer, not index.html.
+ *
+ * This feature moved out of index.html on 23 November. index.html is V1 and
+ * V2 is built from it, so a V2 design living there meant changing the hub the
+ * team uses today every time Courtney's review moved. The prototype file is
+ * the source and v2/ is generated, so both are read and asserted identical:
+ * editing the generated copy alone is reverted by the next build with nothing
+ * to show for it.
+ */
+const V1 = fs.readFileSync(path.join(process.env.HOME, 'tribute-csm-hub-redesign/prototype/v2-onboarding.js'), 'utf8');
+const V2 = fs.readFileSync(path.join(__dirname, '../v2/v2-onboarding.js'), 'utf8');
 const CODE = V1.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').filter(l => !/^\s*\/\//.test(l)).join('\n');
 
 for (const [label, SRC] of [['V1', V1], ['V2', V2]]) {
   ok(label + ': her four tabs, in her order',
      /\[\['onboarding','Onboarding'\],\['s30','Success in 30'\],\n?\s*\['offboarding','Offboarding'\],\['done','Completed'\]\]/.test(SRC));
-  ok(label + ': the board is on the page', /id="s60-board"/.test(SRC) && /id="s60-board-rows"/.test(SRC));
-  ok(label + ': ...and it draws when the page opens', /renderObBoard\(\);\}/.test(SRC));
-  ok(label + ': a Mine filter', /id="s60-mine"/.test(SRC));
+  /* The markup is the layer's now too. Leaving it in index.html would have
+     left V1 carrying the furniture for a feature it no longer has, and
+     dialogs whose buttons call functions undefined there. */
+  ok(label + ': the board markup belongs to the layer',
+     /const OB_BOARD_HTML = /.test(SRC) && /s60-board-rows/.test(SRC));
+  ok(label + ': a Mine filter', /id=..s60-mine/.test(SRC));
+  ok(label + ': the layer writes it, once, and only if it is missing',
+     /function mountObUI\(\) \{/.test(SRC) &&
+     /if \(page && !document\.getElementById\('s60-board'\)\)/.test(SRC) &&
+     /if \(!document\.getElementById\('m-ob-proof'\)\)/.test(SRC));
+  ok(label + ': ...before anything goes looking for it',
+     /function renderObBoard\(\)\{[\s\S]{0,12}mountObUI\(\);/.test(SRC) &&
+     /function renderObChecklist\(cid\)\{[\s\S]{0,12}mountObUI\(\);/.test(SRC));
 }
 
 // ── what the list is ordered by ───────────────────────────────────────────
@@ -102,7 +121,7 @@ ok('a client who has not started yet says when they do, not a negative day',
    never offer a market with nothing behind it, and one market is not a
    choice worth showing. */
 ok('the board filters to mine and to a market',
-   /id="s60-mine"/.test(CODE) && /id="s60-market"/.test(CODE));
+   /id=..s60-mine/.test(CODE) && /id=..s60-market/.test(CODE));   // ids live in a JSON string now
 ok('the market list comes from the clients on the board',
    /\[\.\.\.new Set\(\(get\('clients'\)\|\|\[\]\)\.filter\(c=>!c\.isOffice\)[\s\S]{0,80}\.map\(c=>c\.market/.test(CODE));
 ok('...and one market is not offered as a choice',
@@ -130,6 +149,19 @@ ok('a client appears once per tab, not once per row',
 const tabFor = (finished, s30done) => (finished && s30done) ? 'done' : 'onboarding';
 ok('a finished checklist leaves the working list', tabFor(true, true) === 'done');
 ok('...but not while Success in 30 is still running', tabFor(true, false) === 'onboarding');
+
+
+/* V1 KEEPS WORKING WITHOUT IT. index.html no longer defines these, so every
+   call site there is guarded: the Onboarding page degrades to what it was
+   before 23 November rather than throwing on a missing function. */
+const HUB = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+ok('index.html no longer carries the feature',
+   !/function renderObBoard\(\)\{/.test(HUB) && !/const OB_CHECKLIST = /.test(HUB) &&
+   !/id="s60-board"/.test(HUB) && !/id="m-ob-proof"/.test(HUB));
+ok('...and guards the call sites it kept',
+   /typeof renderObManager===.function./.test(HUB) &&
+   /typeof renderObBoard===.function./.test(HUB) &&
+   /typeof renderObChecklist===.function./.test(HUB));
 
 console.log('\n' + (fail ? 'FAILED ' + fail : 'PASSED all ' + pass));
 process.exit(fail ? 1 : 0);

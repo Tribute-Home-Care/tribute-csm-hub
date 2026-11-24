@@ -26,7 +26,14 @@ OUT = os.path.dirname(os.path.abspath(__file__))
 #   mockdata/harness — synthetic data, fake auth, simulated writes
 #   regression       — several suites mutate shared state to build fixtures,
 #                      which is needless risk against a live document
-LAYER = ['brand.js', 'icons.js', 'bridge.js', 'redesign.js', 'workflows.js', 'router.js']
+# v2-onboarding.js is LAST on purpose. It is a classic script with no IIFE,
+# so its top-level function declarations become window properties for the
+# inline onclicks it writes, and its top-level const/let join the shared
+# global lexical scope alongside index.html's. It reads P, DATA, escHtml and
+# the rest by name, so it has to load after index.html's inline script, which
+# every layer file does.
+LAYER = ['brand.js', 'icons.js', 'bridge.js', 'redesign.js', 'workflows.js',
+         'router.js', 'v2-onboarding.js']
 BANNED = ['mockdata.js', 'harness.js', 'regression.js']
 
 def read(p):
@@ -110,7 +117,7 @@ def main():
         return './%s?v=%s' % (name, h)
 
     # Copy the layer across FIRST, so the stamps are taken from what ships.
-    for f in LAYER + ['redesign.css']:
+    for f in LAYER + ['redesign.css', 'v2-onboarding.css']:
         shutil.copyfile(os.path.join(RD, 'prototype', f), os.path.join(OUT, 'v2', f))
 
     # The phone layer and the client reads are maintained HERE, in v2/, because
@@ -139,6 +146,7 @@ def main():
     tags.append('<link rel="stylesheet" href="%s">' % stamp('v2-metrics.css'))
     tags.append('<link rel="stylesheet" href="%s">' % stamp('v2-sereview.css'))
     tags.append('<link rel="stylesheet" href="%s">' % stamp('v2-followups.css'))
+    tags.append('<link rel="stylesheet" href="%s">' % stamp('v2-onboarding.css'))
     for f in LAYER:
         tags.append('<script src="%s"></script>' % stamp(f))
     tags.append('<script src="%s"></script>' % stamp('v2-policy.js'))

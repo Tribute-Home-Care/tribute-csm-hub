@@ -15,10 +15,41 @@
 const fs = require('fs'), path = require('path');
 let pass = 0, fail = 0;
 const ok = (n, c) => { if (c) { pass++; console.log('  PASS  ' + n); } else { fail++; console.log('  FAIL  ' + n); } };
-const SRC = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+/* SOURCE: the V2 layer, not index.html.
+ *
+ * This feature moved out of index.html on 23 November. index.html is V1 and
+ * V2 is built from it, so a V2 design living there meant changing the hub the
+ * team uses today every time Courtney's review moved. The prototype file is
+ * the source and v2/ is generated, so both are read and asserted identical:
+ * editing the generated copy alone is reverted by the next build with nothing
+ * to show for it.
+ */
+const SRC = fs.readFileSync(path.join(process.env.HOME, 'tribute-csm-hub-redesign/prototype/v2-onboarding.js'), 'utf8');
+ok('the shipped copy and the build source agree',
+   SRC === fs.readFileSync(path.join(__dirname, '../v2/v2-onboarding.js'), 'utf8'));
 const CODE = SRC.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').filter(l => !/^\s*\/\//.test(l)).join('\n');
 
+/* _obPlus stayed in index.html, because V1's own Success in 30 email code
+   uses it. The layer reads it by name at runtime; here it is lifted from
+   where it actually lives, so the dates these tests assert are computed by
+   the real helper rather than a stand-in. */
+const HUBSRC = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8')
+  .replace(/\/\*[\s\S]*?\*\//g, '').split('\n').filter(l => !/^\s*\/\//.test(l)).join('\n');
+
+function liftFrom(src, decl) {
+  const i = src.indexOf(decl);
+  if (i < 0) return null;
+  let d = 0, started = false;
+  for (let j = i; j < src.length; j++) {
+    const ch = src[j];
+    if (ch === '{' || ch === '[') { d++; started = true; }
+    else if (ch === '}' || ch === ']') { d--; if (started && d === 0) return src.slice(i, j + 1); }
+  }
+  return null;
+}
+
 function lift(decl) {
+  if (decl === 'function _obPlus(') return liftFrom(HUBSRC, decl);
   const i = CODE.indexOf(decl);
   if (i < 0) return null;
   let d = 0, started = false;
@@ -55,14 +86,16 @@ const el = id => ({
   classList: { remove() {}, add() {} }
 });
 const decl = decls.join(';');
-const env = new Function('get', 'set', 'P', 'document', 'escHtml', 'openM', 'showToast',
+// renderObChecklist mounts its own markup before it draws, now that the
+// markup is the layer's too. The harness has no page, so it stands in.
+const env = new Function('get', 'set', 'P', 'document', 'escHtml', 'openM', 'showToast', 'mountObUI',
   'draftById', 'actorStamp', 'renderObChecklist', 'renderClientMaster', 'openDraftFor',
   decl + ';return {OB_CHECKLIST,_obMap,toggleObTask,openObProof,saveObProof,closeObProof,setObBy,_initialsOf};')(
   (k) => JSON.parse(JSON.stringify(store[k] || [])),
   (k, v) => { store[k] = v; },
   { name: 'Emily Willson' },
   { getElementById: el }, s => s,
-  (id) => opened.push(id), (t) => toasts.push(t),
+  (id) => opened.push(id), (t) => toasts.push(t), () => {},
   () => null, () => ({}), () => {}, () => {}, () => {});
 const { OB_CHECKLIST, toggleObTask, openObProof, saveObProof, closeObProof,
         setObBy, _initialsOf, _obMap } = env;
@@ -256,10 +289,14 @@ ok('initials cope with a single name', _initialsOf('Tracy') === 'T');
 ok('initials cope with an empty name', _initialsOf('') === '' && _initialsOf(null) === '');
 
 // ── the page ──────────────────────────────────────────────────────────────
+/* The container and the touchpoint card below it are still V1's markup; only
+   what goes INTO the container moved. So these read index.html, not the layer. */
+const HUB = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
 ok('the checklist renders above the touchpoint card',
-   CODE.indexOf('id="s60-ob"') > -1 && CODE.indexOf('id="s60-ob"') < CODE.indexOf('id="s60-milestones"'));
-ok('the milestones card is now named for what it holds', /Touchpoint Tasks/.test(CODE));
-ok('it is drawn whenever a client is opened', /renderObChecklist\(cid\);/.test(CODE));
+   HUB.indexOf('id="s60-ob"') > -1 && HUB.indexOf('id="s60-ob"') < HUB.indexOf('id="s60-milestones"'));
+ok('the milestones card is now named for what it holds', /Touchpoint Tasks/.test(HUB));
+ok('it is drawn whenever a client is opened, and guarded for V1',
+   /typeof renderObChecklist===.function..renderObChecklist\(cid\);/.test(HUB));
 
 /* ── her checklist header ──────────────────────────────────────────────────
    The picture: "19 of 27 done" with a bar, "1 overdue" beside it in red, and
