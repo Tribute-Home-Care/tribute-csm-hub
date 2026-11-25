@@ -16,14 +16,14 @@
 window.GUIDE = (function () {
   'use strict';
 
-  const UPDATED = 'October 2026';
+  const UPDATED = 'November 2026';
   const BUILD_NOTE = 'Screenshots are of the current Hub, taken against synthetic data.';
 
   /* ── The shelf ─────────────────────────────────────────────────────── */
   const TOPICS = [
     { id: 'start',   title: 'Start here',
       lede: 'What the Hub is for, how it is laid out, and how to get help.',
-      entries: ['what-it-is', 'how-organised', 'find-client', 'getting-help'] },
+      entries: ['what-it-is', 'whats-new', 'how-organised', 'find-client', 'getting-help'] },
     { id: 'client',  title: 'Working with a client',
       lede: 'The client is the centre of the Hub. This is everything inside one.',
       entries: ['overview', 'care-plan', 'schedule', 'weekly-email', 'activity', 'care-team',
@@ -46,6 +46,47 @@ window.GUIDE = (function () {
   const A = {
 
     /* ─ Start here ─ */
+    'whats-new': {
+      title: 'What changed in November',
+      lede: 'The Hub you open today is V2. This is what moved, and the two things ' +
+            'worth knowing before you use it.',
+      body: [
+        { p: 'There is now one Hub. The old version redirects here, so the link you ' +
+             'have saved still works and there is nothing to change.' },
+        { h: 'Two things that change how you work', ul: [
+          'READ-ONLY WHEN YOU ARE IN SOMEBODY ELSE\u2019S HUB. If you open a colleague\u2019s ' +
+            'Hub to cover for them, you can see everything and save nothing. Anything ' +
+            'that would save is greyed out and says so, and the amber banner at the top ' +
+            'has an Unlock on it if you genuinely need to write as them. This used to ' +
+            'let you fill in a form and then quietly discard it.',
+          'SCRIBE RECORDS A REAL CLIENT. It is off entirely in a read-only view. When ' +
+            'you do use it, what it drafts is yours to review before anything is kept, ' +
+            'and an encounter started by mistake can now be discarded.'
+        ] },
+        { h: 'What looks different', ul: [
+          'HOME. The tiles, the sidebar badge and the list underneath always agree. ' +
+            'While the numbers are still arriving you see dashes rather than a count ' +
+            'that is about to change.',
+          'YOUR CLIENTS. Eight columns, including Start of care, and six of them sort. ' +
+            'Next due now says WHAT is due, not just a date.',
+          'A CLIENT. One line of buttons with Call first, every section in its own card, ' +
+            'and the page split into two columns that no longer drag each other about.',
+          'CARE PLAN. Each section is a card, and long answers keep their headings and ' +
+            'bullet lists instead of running together. Answers are no longer cut off ' +
+            'part-way through a sentence.',
+          'ONBOARDING AND MARYLAND. Column headings on every board, one set of counts ' +
+            'on the Maryland page instead of two that disagreed.'
+        ] },
+        { h: 'If something looks wrong', ul: [
+          'Tell us. The Feedback button at the bottom of the sidebar goes straight to ' +
+            'the people who can fix it, and most of what changed this month came in ' +
+            'that way.',
+          'A number that disagrees with the list under it is always worth reporting. ' +
+            'That is the rule the Hub is held to.'
+        ] }
+      ],
+      related: ['what-it-is', 'home', 'overview', 'record-visit']
+    },
     'what-it-is': {
       title: 'What CSM Hub is',
       lede: 'One place for your caseload, instead of several trackers and a memory.',
