@@ -5937,17 +5937,27 @@
       });
     });
     /* A form that still opens says so at the top, because a disabled button
-       at the bottom of a long form is found last. */
-    $$('.mo.open').forEach(function (m) {
-      const has = $('.' + RO_NOTE, m);
-      if (on && !has && $('[disabled].rd-ro-off', m)) {
+       at the bottom of a long form is found last.
+
+       KEYED ON THE CONTROL, NOT THE CONTAINER. The first cut looked only
+       inside .mo.open, on the assumption that a form is a modal. The Log
+       contact form is not: Touchpoint renders into a .card on #page-comms,
+       so the one form that prompted all of this was the one the notice
+       missed. Anything holding a disabled save control gets the notice,
+       whatever kind of box it is. */
+    $$('.rd-ro-off').forEach(function (b) {
+      const box = b.closest('.mo, .card');
+      if (!box) return;
+      const has = $('.' + RO_NOTE, box);
+      if (on && !has) {
         const p = document.createElement('p');
         p.className = RO_NOTE;
         p.textContent = 'Read-only: you are viewing somebody else\u2019s Hub. Unlock on the banner to make changes.';
-        const body = $('.mo-b', m) || m.firstElementChild || m;
+        const body = $('.mo-b', box) || box;
         body.insertBefore(p, body.firstChild);
-      } else if (!on && has) { has.remove(); }
+      }
     });
+    if (!on) $$('.' + RO_NOTE).forEach(function (n) { n.remove(); });
   }
   let _roWatch = false;
   function installReadOnlyMarks() {

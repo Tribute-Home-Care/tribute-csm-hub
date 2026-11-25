@@ -86,8 +86,16 @@ ok('...with the reason on hover',
 ok('...and restored when the view is unlocked',
    /b\.removeAttribute\('disabled'\);/.test(RD2) && /delete b\.dataset\.roWas;/.test(RD2));
 /* A disabled button at the foot of a long form is found last. */
+/* KEYED ON THE CONTROL, NOT THE CONTAINER. The first cut looked only inside
+   .mo.open, assuming a form is a modal. The Log contact form is not -- it
+   renders into a .card on #page-comms -- so the one form that prompted all of
+   this was the one the notice missed. Caught by opening it. */
 ok('...and an open form says it at the top',
    /p\.className = RO_NOTE;/.test(RD2) && /Unlock on the banner to make changes\./.test(RD2));
+ok('...wherever that form lives, modal or card',
+   /const box = b\.closest\('\.mo, \.card'\);/.test(RD2));
+ok('...and the notices go when the view is unlocked',
+   /if \(!on\) \$\$\('\.' \+ RO_NOTE\)\.forEach\(function \(n\) \{ n\.remove\(\); \}\);/.test(RD2));
 /* Forms are built on demand, so one pass at boot would miss every one. */
 ok('...re-applied as the page builds forms', /new MutationObserver\(function \(\) \{ try \{ markReadOnly\(\); \}/.test(RD2));
 /* EVERY NAME MUST EXIST. A list of handlers that are not on any control is a
