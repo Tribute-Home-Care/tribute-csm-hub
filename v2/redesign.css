@@ -3903,3 +3903,25 @@ input.ob-cb:disabled { opacity: .5; cursor: not-allowed; }
    the stronger claim on width than the card with long sentences, which wrap
    perfectly well. */
 .rd-sum { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
+
+/* ── THE SCRIBE CARD READS LIKE THE REST OF THE PAGE ────────────────
+   The row stacked a centred button over a left-aligned caption, so "Home
+   visit · Nov 24" sat in the middle and "3 questions" underneath it at the
+   margin. The button is centred because .rd-link is a <button>, and a button
+   centres its own text; everything else in a card is one left-aligned line.
+   One row now, matching the entries in Recent directly above it. */
+.rd-scribe-l li {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.rd-scribe-l li > button { text-align: left; }
+
+/* The read-only notice above the Scribe options. */
+.sc-ro {
+  margin: 0 0 10px; padding: 9px 12px;
+  background: var(--surface-2); border-radius: 8px;
+  font-size: 13px; color: var(--ink-2);
+}
+.sc-opt-off { opacity: .55; cursor: default; }

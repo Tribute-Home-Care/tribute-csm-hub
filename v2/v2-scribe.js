@@ -36,8 +36,32 @@
     paused: false, busy: false, error: null, review: null, tab: 'summary'
   };
 
+  /* READ-ONLY MEANS READ-ONLY. queueSave() has refused writes in a view-as
+     session since it was written, and every path that goes through it is
+     safe. This module posts STRAIGHT to the server and never asked, which is
+     how a read-only session recorded a real encounter on a real client on
+     24 Nov -- banner showing "nothing you do here is saved", 25 seconds of a
+     client's visit transcribed and stored, and attributed to the CSM whose
+     Hub was being viewed rather than to the person who pressed the button.
+     The attribution is the worse half: the write is visible, that is not. */
+  /* The same question without the side effect: readOnlyBlocked() shows the
+     refusal, which is right when something was attempted and wrong when the
+     sheet is merely being drawn. */
+  function readOnlyNow() {
+    try { return typeof window.writesBlocked === 'function' && !!window.writesBlocked(); }
+    catch (e) { return false; }
+  }
+  function readOnlyBlocked() {
+    try {
+      if (typeof window.writesBlocked !== 'function' || !window.writesBlocked()) return false;
+      if (typeof window._viewAsRefuse === 'function') window._viewAsRefuse();
+      return true;
+    } catch (e) { return false; }
+  }
+
   function api() { var a = A(); return (typeof a.vivProxy === 'string' && a.vivProxy) || ''; }
   async function call(body) {
+    if (readOnlyBlocked()) throw new Error('Read-only: unlock to use Scribe.');
     var h = (typeof window.dataHeaders === 'function') ? await window.dataHeaders(true) : {};
     h['Content-Type'] = 'application/json';
     var r = await fetch(api() + '?endpoint=scribe', { method: 'POST', headers: h, body: JSON.stringify(body) });
@@ -97,13 +121,23 @@
   /* ── 1. how would you like to document this? ───────────────────────── */
   function viewChoose() {
     var c = S.client || {};
+    /* THE GUARD IN call() IS THE ONE THAT BINDS, and it would refuse this
+       after the microphone had already been opened and the client had
+       already been asked to agree to being recorded. Telling somebody at the
+       end that none of it counted is not an answer, so the choice is closed
+       off at the front as well, with the reason on the buttons rather than in
+       a toast after the fact. */
+    var ro = readOnlyNow();
+    var dis = ro ? ' disabled aria-disabled="true"' : '';
+    var cls = ro ? ' sc-opt-off' : '';
     return head('How would you like to document this interaction?', c.name || '') + err() +
+      (ro ? '<p class="sc-ro">Read-only: unlock to use Scribe.</p>' : '') +
       '<div class="sc-opts">' +
-      '<button type="button" class="sc-opt" data-act="live">' +
+      '<button type="button" class="sc-opt' + cls + '" data-act="live"' + dis + '>' +
         '<span class="sc-opt-i">' + I('mic') + '</span>' +
         '<span class="sc-opt-t">Live Scribe</span>' +
         '<span class="sc-opt-d">Record the conversation while you meet. Needs the client’s agreement.</span></button>' +
-      '<button type="button" class="sc-opt" data-act="recap">' +
+      '<button type="button" class="sc-opt' + cls + '" data-act="recap"' + dis + '>' +
         '<span class="sc-opt-i">' + I('conversation') + '</span>' +
         '<span class="sc-opt-t">Quick Recap</span>' +
         '<span class="sc-opt-d">Tell Scribe what happened, afterwards. A minute or two is plenty.</span></button>' +

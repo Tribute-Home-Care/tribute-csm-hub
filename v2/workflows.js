@@ -1297,6 +1297,16 @@
          intent for V1's ecSend; this one has to do the same, or the request
          arrives unclaimed and is refused as an unlisted write path. One
          authorisation, one request: the tripwire clears it immediately. */
+      /* AN EMAIL LEAVES THE BUILDING. Of everything found in the read-only
+         audit this is the one that cannot be taken back: a manager looking
+         inside somebody else's Hub could send mail from their OWN mailbox,
+         on a page whose banner says nothing they do is saved. Refused before
+         the intent is recorded, so the tripwire is not left holding an
+         authorisation for a request that never goes. */
+      if (typeof window.writesBlocked === 'function' && window.writesBlocked()) {
+        if (typeof window._viewAsRefuse === 'function') window._viewAsRefuse();
+        throw new Error('Read-only: unlock before sending anything.');
+      }
       if (A_) A_.__intent = { capability: 'weekly_send', at: Date.now() };
       const r = await fetch('https://graph.microsoft.com/v1.0/me/sendMail', {
         method: 'POST',

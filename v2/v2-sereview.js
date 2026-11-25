@@ -92,6 +92,7 @@
      longer holds what this card shows, saves, reads it back and logs it. */
   async function fix(x, type) {
     var key = 'se:' + x.id;
+    if (readOnlyBlocked()) return;
     S.busy[key] = true; S.confirm[x.id] = null; render();
     try {
       var h = await headers(); h['Content-Type'] = 'application/json';
@@ -123,7 +124,20 @@
     await load(false);
   }
 
+  /* READ-ONLY MEANS READ-ONLY. See v2-scribe.js for what happens without
+     this: queueSave() has refused writes in a view-as session since it was
+     written, and only the paths that post STRAIGHT to a server were missing
+     it. */
+  function readOnlyBlocked() {
+    try {
+      if (typeof window.writesBlocked !== 'function' || !window.writesBlocked()) return false;
+      if (typeof window._viewAsRefuse === 'function') window._viewAsRefuse();
+      return true;
+    } catch (e) { return false; }
+  }
+
   async function decide(key, decision, extra) {
+    if (readOnlyBlocked()) return;
     S.busy[key] = true; render();
     try {
       var h = await headers(); h['Content-Type'] = 'application/json';

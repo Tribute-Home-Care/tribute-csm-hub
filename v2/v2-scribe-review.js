@@ -22,8 +22,25 @@
 
   var R = { client: null, enc: null, tab: 'summary', busy: false, err: null, open: false, cache: {} };
 
+  /* READ-ONLY MEANS READ-ONLY. queueSave() has refused writes in a view-as
+     session since it was written, and every path that goes through it is
+     safe. This module posts STRAIGHT to the server and never asked, which is
+     how a read-only session recorded a real encounter on a real client on
+     24 Nov -- banner showing "nothing you do here is saved", 25 seconds of a
+     client's visit transcribed and stored, and attributed to the CSM whose
+     Hub was being viewed rather than to the person who pressed the button.
+     The attribution is the worse half: the write is visible, that is not. */
+  function readOnlyBlocked() {
+    try {
+      if (typeof window.writesBlocked !== 'function' || !window.writesBlocked()) return false;
+      if (typeof window._viewAsRefuse === 'function') window._viewAsRefuse();
+      return true;
+    } catch (e) { return false; }
+  }
+
   function api() { var a = A(); return (typeof a.vivProxy === 'string' && a.vivProxy) || ''; }
   async function post(body) {
+    if (readOnlyBlocked()) throw new Error('Read-only: unlock to change a Scribe draft.');
     var h = (typeof window.dataHeaders === 'function') ? await window.dataHeaders(true) : {};
     h['Content-Type'] = 'application/json';
     var r = await fetch(api() + '?endpoint=scribe', { method: 'POST', headers: h, body: JSON.stringify(body) });
