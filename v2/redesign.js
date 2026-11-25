@@ -2331,7 +2331,18 @@
       '<button type="button" data-act="ltc-add">Add LTC record</button>' +
       '</div></div>');
     if (window.TributeScribe && c.vivId) {
-      acts.push('<button type="button" class="rd-act scribe" data-act="scribe">' +
+      /* SAY IT BEFORE THE CLICK, NOT AFTER. Refusing inside the sheet is the
+         guard that binds, but a button that looks ordinary and then tells you
+         it is unavailable has spent somebody's attention to deliver news it
+         could have shown for free. Disabled, with the reason on hover, in the
+         same read-only state that disables the options inside. */
+      const scribeRO = (function () {
+        try { return typeof window.writesBlocked === 'function' && !!window.writesBlocked(); }
+        catch (e) { return false; }
+      })();
+      acts.push('<button type="button" class="rd-act scribe' + (scribeRO ? ' soon' : '') +
+        '" data-act="scribe"' +
+        (scribeRO ? ' disabled aria-disabled="true" title="Read-only: unlock to use Scribe"' : '') + '>' +
         I('mic') + '<span>Scribe</span></button>');
     } else {
       acts.push('<button type="button" class="rd-act soon" disabled aria-disabled="true"' +

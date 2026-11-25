@@ -108,6 +108,21 @@
     if (el) el.classList.remove('on');
     document.body.style.overflow = '';
   }
+  /* ESCAPE CLOSES IT. The menus on the same page gained this today and the
+     dialog did not, which is the worse of the two to leave: a dialog takes
+     the whole page and hides body scroll, so the one key everybody reaches
+     for did nothing and the only way out was finding the small x.
+
+     NOT WHILE RECORDING. Escape is a reflex, and a reflex must not be able
+     to abandon a recording somebody is in the middle of -- the bar exists
+     precisely because a recording can be walked away from. Finish or the x,
+     deliberately, in that one state. */
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape' || !S.open) return;
+    if (S.rec && S.rec.state !== 'inactive') return;
+    e.preventDefault();
+    close();
+  });
 
   function head(title, sub) {
     return '<header class="sc-head"><h2>' + esc(title) + '</h2>' +
