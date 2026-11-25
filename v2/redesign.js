@@ -5876,6 +5876,89 @@
 
      The rule is the obvious one: the newest timestamp wins, whoever wrote it.
      Both ends are guarded, because either can be the one that arrives late. */
+  /* ── READ-ONLY, SAID AT THE CONTROL ────────────────────────────
+     queueSave() has refused the write since it was written, and that is the
+     guard that binds. But it refuses at the END: Log contact opened its full
+     form with an enabled Log Touchpoint button and no notice, so the work was
+     done first and the refusal came after.
+
+     Worse, set() -- which every one of these routes through -- assigns into
+     DATA and THEN calls queueSave(), so in a read-only session the row is
+     added in memory, the toast says "Touchpoint logged!", and nothing
+     persists. A reload silently discards it. That is a false confirmation,
+     which is the one thing a read-only mode must never produce.
+
+     So the control says it first. The list is explicit rather than derived:
+     a rule like "anything whose handler calls set()" would also disable the
+     dialog OPENERS, several of which write a default on the way in, and
+     turning off the way in is not the same as turning off the save. Each
+     entry here is a control that commits something. */
+  const RO_SAVE = [
+    ['logTouchpoint',  'log a touchpoint'],
+    ['saveCheckin',    'log a care conversation'],
+    ['lpSaveVisit',    'log a visit'],
+    ['delVisit',       'remove a visit'],
+    ['deferVisit',     'defer a visit'],
+    ['saveClient',     'edit a client'],
+    ['saveLTCRecord',  'add an LTC record'],
+    ['saveCovNote',    'save a coverage note'],
+    ['addTodo',        'add a to-do'],
+    ['delTodo',        'remove a to-do'],
+    ['clearDone',      'clear finished to-dos'],
+    ['setPulseAck',    'sort a Pulse flag'],
+    ['saveFillPriority', 'change fill priority'],
+    ['ecSaveDraft',    'save a draft'],
+    ['ecSkipWeek',     'skip a week'],
+    ['setMdCadence',   'change a Maryland cadence'],
+    ['setFillRank',    'reorder fill priority']
+  ];
+  const RO_NOTE = 'rd-ro-note';
+  function roActive() {
+    try { return typeof window.writesBlocked === 'function' && !!window.writesBlocked(); }
+    catch (e) { return false; }
+  }
+  function markReadOnly() {
+    const on = roActive();
+    RO_SAVE.forEach(function (pair) {
+      $$('[onclick^="' + pair[0] + '"]').forEach(function (b) {
+        if (on) {
+          if (!b.dataset.roWas) b.dataset.roWas = b.getAttribute('title') || '';
+          b.setAttribute('disabled', 'disabled');
+          b.setAttribute('aria-disabled', 'true');
+          b.setAttribute('title', 'Read-only: unlock to ' + pair[1]);
+          b.classList.add('rd-ro-off');
+        } else if (b.dataset.roWas !== undefined) {
+          b.removeAttribute('disabled');
+          b.removeAttribute('aria-disabled');
+          if (b.dataset.roWas) b.setAttribute('title', b.dataset.roWas); else b.removeAttribute('title');
+          b.classList.remove('rd-ro-off');
+          delete b.dataset.roWas;
+        }
+      });
+    });
+    /* A form that still opens says so at the top, because a disabled button
+       at the bottom of a long form is found last. */
+    $$('.mo.open').forEach(function (m) {
+      const has = $('.' + RO_NOTE, m);
+      if (on && !has && $('[disabled].rd-ro-off', m)) {
+        const p = document.createElement('p');
+        p.className = RO_NOTE;
+        p.textContent = 'Read-only: you are viewing somebody else\u2019s Hub. Unlock on the banner to make changes.';
+        const body = $('.mo-b', m) || m.firstElementChild || m;
+        body.insertBefore(p, body.firstChild);
+      } else if (!on && has) { has.remove(); }
+    });
+  }
+  let _roWatch = false;
+  function installReadOnlyMarks() {
+    if (_roWatch) return;
+    _roWatch = true;
+    markReadOnly();
+    // Forms are built on demand, so the pass runs again whenever the page does.
+    const mo = new MutationObserver(function () { try { markReadOnly(); } catch (e) {} });
+    try { mo.observe(document.body, { childList: true, subtree: true }); } catch (e) {}
+  }
+
   function vivGenOf(o) {
     try {
       const g = o && o.shared && o.shared.viv && o.shared.viv.generatedAt;
@@ -6544,6 +6627,7 @@
          together -- which is the only way they can agree. */
       try { _attnKey = ''; renderAttention(); } catch (e) {}
       try { installVivOrder(); } catch (e) {}
+      try { installReadOnlyMarks(); } catch (e) {}
       try { installVivFreshness(); } catch (e) {}
       return r;
     };
@@ -6662,6 +6746,7 @@
     mountPalette();
     hookShowPage();
     installVivOrder();
+    installReadOnlyMarks();
     installVivFreshness();
     tick('boot');
     let t = null;

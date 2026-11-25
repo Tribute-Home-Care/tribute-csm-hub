@@ -64,5 +64,46 @@ ok('...so the options are closed before the microphone is opened',
 ok('the shared save path still refuses too',
    /if\(typeof writesBlocked==='function'&&writesBlocked\(\)\)\{ _viewAsRefuse\(\); return; \}/.test(read('index.html')));
 
+// ── the eight that route through set() ───────────────────────────────────
+/* These were reported as "covered by queueSave", and they are -- at the END.
+   Log contact opened its full form with an enabled Log Touchpoint button and
+   no notice, so the work was done before the refusal arrived.
+
+   Worse: set() assigns into DATA and THEN calls queueSave(), so in read-only
+   the row is added in memory, the toast says "Touchpoint logged!", and
+   nothing persists. A reload discards it silently. A false confirmation is
+   the one thing a read-only mode must never produce. */
+const RD2 = read('v2/redesign.js');
+const V1  = read('index.html');
+/* [^}]* cannot span this body: it contains {} of its own. Match the line. */
+ok('set() is the choke point every one of them routes through',
+   /function set\(key,val\)\{.*DATA\.profiles\[P\.id\]\[key\]=val;queueSave\(\);\}/.test(V1));
+ok('...and it mutates BEFORE it asks, which is why the control must say so first',
+   V1.indexOf('DATA.profiles[P.id][key]=val') < V1.indexOf('queueSave();}'));
+ok('the controls that commit are disabled in read-only', /const RO_SAVE = \[/.test(RD2));
+ok('...with the reason on hover',
+   /b\.setAttribute\('title', 'Read-only: unlock to ' \+ pair\[1\]\);/.test(RD2));
+ok('...and restored when the view is unlocked',
+   /b\.removeAttribute\('disabled'\);/.test(RD2) && /delete b\.dataset\.roWas;/.test(RD2));
+/* A disabled button at the foot of a long form is found last. */
+ok('...and an open form says it at the top',
+   /p\.className = RO_NOTE;/.test(RD2) && /Unlock on the banner to make changes\./.test(RD2));
+/* Forms are built on demand, so one pass at boot would miss every one. */
+ok('...re-applied as the page builds forms', /new MutationObserver\(function \(\) \{ try \{ markReadOnly\(\); \}/.test(RD2));
+/* EVERY NAME MUST EXIST. A list of handlers that are not on any control is a
+   list that silently protects nothing -- two of the first draft's twelve were
+   invented, and this is what caught them. */
+/* SCOPED TO THE LIST. The first version matched every ['a', 'b'] pair in the
+   file -- 77 of them, nav keys and column definitions included -- and then
+   complained that "home" is not a click handler. */
+const RO_BLOCK = (RD2.match(/const RO_SAVE = \[([\s\S]*?)\];/) || ['', ''])[1];
+const names = [...RO_BLOCK.matchAll(/\['([a-zA-Z]+)',/g)].map(m => m[1]);
+ok('...and every handler named is a control that exists in the app',
+   names.length >= 12 && names.every(n => V1.indexOf('onclick="' + n) > -1));
+/* The list is explicit on purpose: deriving it from "calls set()" would also
+   disable the dialog openers, several of which write a default on the way in. */
+ok('...and the openers are not in it',
+   !names.includes('openSettings') && !names.includes('openNewKBEntry'));
+
 console.log('\n' + (fail ? 'FAILED ' + fail : 'PASSED all ' + pass));
 process.exit(fail ? 1 : 0);

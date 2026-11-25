@@ -3925,3 +3925,11 @@ input.ob-cb:disabled { opacity: .5; cursor: not-allowed; }
   font-size: 13px; color: var(--ink-2);
 }
 .sc-opt-off { opacity: .55; cursor: default; }
+
+/* A control that cannot save, saying so before it is pressed. */
+.rd-ro-off { opacity: .55; cursor: not-allowed; }
+.rd-ro-note {
+  margin: 0 0 12px; padding: 10px 12px;
+  background: var(--surface-2); border-left: 3px solid var(--warn);
+  border-radius: 8px; font-size: 13px; color: var(--ink-2);
+}
