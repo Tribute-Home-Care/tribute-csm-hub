@@ -105,3 +105,8 @@
    CSP doesn't have to look it up." Quieter than the hint above it, because it
    is a signpost rather than a rule. */
 .ob-viv{font-size:11.5px;color:#8C857B;margin-top:2px;}
+
+/* A Day 30 result is a sentence, not a set of figures, so the row gives the
+   summary the room and keeps the name, the state and the button fixed. */
+.obb-r.obb-d30{grid-template-columns:minmax(0,1fr) 92px minmax(0,2.2fr) auto;align-items:center;}
+.obb-r.obb-d30 .obb-w{white-space:normal;line-height:1.45;}

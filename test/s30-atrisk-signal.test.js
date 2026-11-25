@@ -29,7 +29,14 @@ ok('the shipped copy and the build source agree',
 /* ── 1. the signal exists, and reads her rule rather than inventing one ── */
 const risk = (CODE.match(/function s30Risk\(c\) \{[\s\S]*?\n  \}/) || [''])[0];
 ok('there is an s30Risk', !!risk);
-ok('...gated on the first thirty days', /inFirstDays\(c, 30\)/.test(risk));
+/* Thirty days, or sixty where Day 30 extended the client to Success in 60.
+   One window, asked rather than copied, so the board, the client card,
+   Today's list and this signal cannot disagree about whether a client is
+   still being watched. */
+ok('...gated on the success window, not a hardcoded thirty',
+   /inFirstDays\(c, s60Win\(c\)\)/.test(risk));
+ok('...and that window is the onboarding module\'s answer, not a second copy',
+   /typeof s60Window === 'function' \? s60Window\(c\) : 30/.test(CODE));
 ok('...answered by s30Checklist, not by a second copy of her status rules',
    /s30Checklist\(c\)/.test(risk) && !/overdue|complaint|caregiver change/i.test(risk));
 ok('...and only At Risk raises it', /k\.state === 'atrisk'/.test(risk));
@@ -62,7 +69,9 @@ ok('...moves to Need action today when At Risk',
 ok('...keeps rank 2, her reading order, so Pulse flags still lead',
    /rank: 2, bucket: risk/.test(row));
 ok('...names the state rather than the day count alone',
-   /kind: risk \? 'Success in 30 · At Risk'/.test(row));
+   /\(risk \? ' · At Risk' : ''\)/.test(row));
+ok('...and says Success in 60 once the client has been extended',
+   /\(win > 30 \? 'Success in 60' : 'Success in 30'\)/.test(row));
 ok('...carries her own reason sentence', /risk \? \(risk\.why \|\| 'at risk'\)/.test(row));
 ok('...and gives a different next step', /brief your manager/.test(row));
 

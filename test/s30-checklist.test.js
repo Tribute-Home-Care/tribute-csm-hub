@@ -93,7 +93,10 @@ ok('the checklist is at the top of Summary',
 ok('...and only until it is finished', /if \(!k \|\| k\.finished\) return '';/.test(RD));
 // A finished checklist is history and belongs in Activity, not on the page a
 // CSM reads before a call.
-ok('...and not at all past the window', /if \(k\.daysIn > 30\) return '';/.test(RD));
+/* The window is thirty days, or sixty on a client the Day 30 result extended
+   to Success in 60. "Gets 30 more days with the same checks" includes this
+   card, which is where a CSM reads the checks before a call. */
+ok('...and not at all past the window', /if \(k\.daysIn > s60Win\(c\)\) return '';/.test(RD));
 ok('finished weeks are collapsed and the rest are open',
      /'<details class="rd-s30-w' \+ \(w\.finished \? ' fin' : ''\) \+ '"' \+ \(open \? ' open' : ''\)/.test(RD) &&
      /const open = !w\.finished;/.test(RD));

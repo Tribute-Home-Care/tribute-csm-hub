@@ -364,12 +364,17 @@ function obBoardRows(){
     const off=_obOffFor(c);
     if(off){ rows.push({tab:off.finished?'done':'offboarding',c,off,
                         late:0,sort:off.end}); return; }
-    if(daysIn===null||daysIn>30)return;
+    /* SUCCESS IN 60 IS THE SAME BOARD FOR 30 MORE DAYS, which is what "gets
+       30 more days with the same checks" means. Dropping an extended client
+       off the board at Day 31 would end the watch at exactly the moment her
+       rule says to continue it. */
+    const win=s60Window(c);
+    if(daysIn===null||daysIn>win)return;
     const pr=_obProgress(c);
     let k=null; try{ k=s30Checklist(c); }catch(e){ k=null; }
     rows.push({tab:pr.finished&&(!k||k.finished)?'done':'onboarding',
                c,pr,k,daysIn,late:pr.late,sort:c.startDate});
-    if(k&&!k.finished)rows.push({tab:'s30',c,pr,k,daysIn,late:k.weeks?0:0,sort:c.startDate});
+    if(k&&!k.finished)rows.push({tab:'s30',c,pr,k,daysIn,win,late:k.weeks?0:0,sort:c.startDate});
   });
   // Overdue first, then the newest start of care.
   rows.sort((a,b)=>(b.late-a.late)||String(b.sort).localeCompare(String(a.sort)));
@@ -484,7 +489,7 @@ function renderObBoard(){
       return `<button type="button" class="obb-r obb-s30 ${st}" onclick="${open}"
         title="${escHtml(r.k?r.k.why:'')}">
         <span class="obb-n">${escHtml(r.c.name)}</span>
-        <span class="obb-d">Day ${r.daysIn+1} of 30</span>
+        <span class="obb-d">Day ${r.daysIn+1} of ${r.win||30}</span>
         <span class="obb-st ${st}">${escHtml(S30_STATE_LABEL[st]||'On Track')}</span>
         ${wk}
         <span class="obb-next${nd&&nd.overdue?' late':''}">${nd?escHtml(nd.label):'Nothing dated outstanding'}</span>
@@ -634,6 +639,100 @@ function obMetrics(){
   return out;
 }
 
+/* ══════════ DAY 30: GRADUATE, OR EXTEND TO SUCCESS IN 60 ══════════════
+   Part 3: "At Day 30: An On Track client graduates to their normal tier
+   cadence. A Watch or At Risk client gets 30 more days with the same checks
+   (Success in 60). The manager gets a short summary."
+
+   THE DECISION IS A RULE, NOT A JUDGEMENT. Nobody picks: the status at Day 30
+   decides, so nothing here offers a choice. What a person does is ACKNOWLEDGE
+   it, and that is what gets written down.
+
+   WHY IT IS NOT WRITTEN AUTOMATICALLY. A verdict computed during a render and
+   saved during a render is a write nobody asked for, and in a read-only View
+   As it would be a write the Hub had already promised not to make. That fault
+   cost a real Scribe encounter on a real client earlier this month: set()
+   mutates before queueSave() gets to refuse. So the verdict is DERIVED on
+   every read and persisted only when the manager says they have seen it.
+
+   AND WHY IT FREEZES ON ACKNOWLEDGEMENT. Two of her At Risk conditions count
+   inside a window -- "any Client Complaint SE", "two or more caregiver changes
+   in 30 days" -- so they age out. A client extended on Day 30 would read
+   "graduate" again on Day 45 from the same function. The Day 30 answer is a
+   fact about Day 30, so once it is acknowledged it is kept rather than
+   recomputed. Before then it is live, and the card says which day it is
+   reading, so any drift is visible rather than silent. */
+const S60_DAYS=60;
+function d30Records(){ return ((DATA.shared&&DATA.shared.d30Results)||{}); }
+function d30Record(cid){ return d30Records()[cid]||null; }
+function d30Verdict(c){
+  const d=daysAgo(c.startDate);
+  if(d===null||d<30)return null;
+  const frozen=d30Record(c.id);
+  if(frozen)return Object.assign({},frozen,{day:d,frozen:true});
+  let k=null; try{ k=s30Checklist(c); }catch(e){ return null; }
+  if(!k)return null;
+  const grad=(k.state==='ontrack'||k.state==='done');
+  return { day:d, readAt:d, state:k.state, why:k.why||'',
+           outcome:grad?'graduate':'extend',
+           until:grad?'':_todoDay(c.startDate,S60_DAYS),
+           done:k.done, total:k.total, frozen:false };
+}
+/* THE WINDOW THE SAME CHECKS RUN FOR. Thirty days, or sixty for a client the
+   Day 30 result extended. One answer, asked by the board, the client page,
+   Today's list and the At Risk signal, so none of them can disagree about
+   whether a client is still being watched. */
+function s60Window(c){
+  const v=d30Verdict(c);
+  return (v&&v.outcome==='extend')?S60_DAYS:30;
+}
+function inS60(c){
+  const v=d30Verdict(c);
+  return !!(v&&v.outcome==='extend'&&v.day<=S60_DAYS);
+}
+/* HER SHORT SUMMARY. Two sentences: what happened, and what follows from it.
+   The reason is the checklist's own sentence, so the manager reads the same
+   words the CSM has been reading all month. */
+function d30Summary(c,v){
+  if(!v)return '';
+  const when=c.startDate?_todoDay(c.startDate,30):'';
+  const day='Day 30'+(when?' ('+new Date(when+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})+')':'');
+  if(v.outcome==='graduate'){
+    return c.name+' reached '+day+' on track, with '+v.done+' of '+v.total+
+      ' milestones logged. They graduate to the '+(c.tier||'normal')+
+      ' tier cadence from here.';
+  }
+  const until=v.until?new Date(v.until+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
+  return c.name+' reached '+day+' '+(v.state==='atrisk'?'at risk':'on watch')+
+    (v.why?': '+v.why:'')+'. They stay on the same checks for another 30 days'+
+    (until?', through '+until:'')+' (Success in 60).';
+}
+/* ACKNOWLEDGED, NOT DECIDED. The button does not change the outcome; it
+   records that a manager has read it, and freezes the Day 30 answer as the
+   fact about Day 30 that it is. */
+function d30Ack(cid){
+  if(!(P&&(P.isManager||P.isDirector))){ showToast('Only a manager or director can clear a Day 30 result.'); return; }
+  const c=(_obAllClients().find(x=>x.c.id===cid)||{}).c;
+  if(!c)return;
+  const v=d30Verdict(c);
+  if(!v)return;
+  DATA.shared=DATA.shared||{};
+  DATA.shared.d30Results=DATA.shared.d30Results||{};
+  DATA.shared.d30Results[cid]=Object.assign({},v,
+    {frozen:true,seenBy:(P&&P.name)||'',seenAt:new Date().toISOString()});
+  queueSave();
+  showToast(v.outcome==='graduate'?'Noted. '+c.name+' graduates.':'Noted. '+c.name+' continues to Success in 60.');
+  try{ renderObManager(); }catch(e){}
+  try{ renderObBoard(); }catch(e){}
+  try{ if(window.TributeRedesign&&TributeRedesign.repaintClient)TributeRedesign.repaintClient(); }catch(e){}
+}
+/* Everyone who has reached Day 30 and has not been acknowledged yet. */
+function d30Pending(){
+  return _obAllClients().map(x=>({x,v:d30Verdict(x.c)}))
+    .filter(r=>r.v&&!r.v.frozen)
+    .sort((a,b)=>(a.v.outcome===b.v.outcome?0:(a.v.outcome==='extend'?-1:1))||b.v.day-a.v.day);
+}
+
 function renderObManager(){
   const el=document.getElementById('s60-mgr'); if(!el)return;
   const isMgr=!!(P&&(P.isManager||P.isDirector));
@@ -642,7 +741,22 @@ function renderObManager(){
   const all=_obAllClients();
   const pending=all.filter(x=>String(x.c.endType||'')==='tribute'&&!obApprovalFor(x.c.id));
   const metrics=obMetrics();
-  el.innerHTML=`<div class="card" style="margin-bottom:14px;">
+  /* "The manager gets a short summary." Her own channel for this, set out at
+     the top of the document, is the manager view: "Two days later, the
+     owner's manager sees it on the manager view." So the result lands here
+     rather than being mailed, and it stays here until it is read. */
+  const d30=d30Pending();
+  el.innerHTML=`${d30.length?`<div class="card" style="margin-bottom:14px;">
+    <div class="ct">Day 30 results</div>
+    <p style="font-size:11.5px;color:#8C857B;margin:-4px 0 12px;">Graduated or extended to Success in 60. Clearing one keeps it as the Day 30 answer.</p>
+    <div class="obb">${d30.map(r=>`<div class="obb-r obb-d30 ${r.v.outcome}" style="cursor:default;">
+      <span class="obb-n">${escHtml(r.x.c.name)}<em class="obb-sub">${escHtml(r.x.csm.name.split(' ')[0])}${r.x.c.market?' \u00b7 '+escHtml(r.x.c.market):''}</em></span>
+      <span class="obb-st ${r.v.outcome==='graduate'?'ontrack':r.v.state}">${r.v.outcome==='graduate'?'Graduates':'Success in 60'}</span>
+      <span class="obb-w">${escHtml(d30Summary(r.x.c,r.v))}</span>
+      <button class="btn btn-sm" onclick="d30Ack('${r.x.c.id}')">Noted</button>
+    </div>`).join('')}</div>
+  </div>`:''}
+  <div class="card" style="margin-bottom:14px;">
     <div class="ct">Waiting on you</div>
     ${pending.length?`<div class="obb">${pending.map(x=>`<div class="obb-r live" style="cursor:default;">
         <span class="obb-n">${escHtml(x.c.name)}</span>

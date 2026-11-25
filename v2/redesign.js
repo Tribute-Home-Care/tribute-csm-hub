@@ -700,7 +700,7 @@
      the fuller evidence behind it. One client, one row, one reason -- and the
      SEs underneath it are counted once, by Pulse. */
   function s30Risk(c) {
-    if (!inFirstDays(c, 30)) return null;
+    if (!inFirstDays(c, s60Win(c))) return null;
     let k = null;
     try { k = typeof s30Checklist === 'function' ? s30Checklist(c) : null; } catch (e) { return null; }
     return (k && k.state === 'atrisk') ? k : null;
@@ -3391,7 +3391,9 @@
     let k = null;
     try { k = typeof s30Checklist === 'function' ? s30Checklist(c) : null; } catch (e) { return ''; }
     if (!k || k.finished) return '';
-    if (k.daysIn > 30) return '';          // past the window: the Onboarding page keeps the tail
+    // Past the window -- thirty days, or sixty on a client Day 30 extended.
+    // The Onboarding page keeps the tail either way.
+    if (k.daysIn > s60Win(c)) return '';
     const TONE = { ontrack: 'ok', watch: 'warn', atrisk: 'bad', done: 'ok' };
     const WORD = { ontrack: 'On track', watch: 'Watch', atrisk: 'At risk', done: 'Complete' };
     const row = function (r) {
@@ -5260,6 +5262,20 @@
     const d = daysInCare(c);
     return d !== null && d <= n;
   }
+  /* HOW LONG THE SUCCESS CHECKS RUN FOR THIS CLIENT: thirty days, or sixty
+     where the Day 30 result extended them to Success in 60. The onboarding
+     module owns that answer; this asks it rather than keeping a second copy,
+     and falls back to thirty if that module has not loaded, which is the only
+     number this layer has ever used.
+
+     HER TILE IS NOT THIS WINDOW. Home's fourth tile says "In first 30 days"
+     and still means thirty: an extension continues the checks, it does not
+     rename her tile. So the tile's own bucket test is left alone, and this is
+     asked only by the things that decide whether a client is still watched. */
+  function s60Win(c) {
+    try { return typeof s60Window === 'function' ? s60Window(c) : 30; }
+    catch (e) { return 30; }
+  }
 
   function todayRows() {
     const app = A();
@@ -5305,7 +5321,13 @@
       }
       // 2. Success in 30, for anyone inside their first month.
       const age = c.startDate ? daysSince(c.startDate) : null;
-      if (age !== null && age <= 30) {
+      /* THE ROW RUNS FOR THE WHOLE WINDOW, not thirty days. Needs action reads
+         s30Risk over the window, so an extended client At Risk on day 35 was
+         counted by the Clients chip and had no row in Today's list for Home's
+         tile to count: the two-numbers-one-meaning fault, in a place the
+         extension had just created. */
+      const win = s60Win(c);
+      if (age !== null && age <= win) {
         const done = rowsFor('s60', c.id).length;
         /* AT RISK LEADS, AND SAYS WHY. This row read "Day 9 of 30 · nothing
            logged yet" for a client with a complaint on file: true, and not
@@ -5317,8 +5339,9 @@
            the client, so these two cannot drift apart. */
         const risk = s30Risk(c);
         out.push({ rank: 2, bucket: risk ? 'action' : 'onboarding', cid: c.id, name: c.name,
-                   tier: c.tier, kind: risk ? 'Success in 30 · At Risk' : 'Success in 30',
-                   why: 'Day ' + (age + 1) + ' of 30 · ' +
+                   tier: c.tier,
+                   kind: (win > 30 ? 'Success in 60' : 'Success in 30') + (risk ? ' · At Risk' : ''),
+                   why: 'Day ' + (age + 1) + ' of ' + win + ' · ' +
                         (risk ? (risk.why || 'at risk')
                               : (done ? plural(done, 'milestone') + ' logged' : 'nothing logged yet')),
                    step: risk ? 'Work the checklist and brief your manager'
@@ -5973,7 +5996,8 @@
     ['ecSaveDraft',    'save a draft'],
     ['ecSkipWeek',     'skip a week'],
     ['setMdCadence',   'change a Maryland cadence'],
-    ['setFillRank',    'reorder fill priority']
+    ['setFillRank',    'reorder fill priority'],
+    ['d30Ack',         'clear a Day 30 result']
   ];
   const RO_NOTE = 'rd-ro-note';
   function roActive() {
