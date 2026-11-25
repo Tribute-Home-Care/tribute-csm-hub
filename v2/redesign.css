@@ -3937,3 +3937,11 @@ input.ob-cb:disabled { opacity: .5; cursor: not-allowed; }
 /* Who to take an At Risk first-30-days client to. On its own line under the
    reason, because it is an instruction rather than part of the reason. */
 .rd-s30-esc { display: block; margin-top: 4px; font-weight: 600; color: var(--bad, #A4271E); }
+
+/* The four metrics the CSM KSF now owns. Hidden rather than removed: V1's
+   saveKPI() still reads these inputs, and an entry saved before today has to
+   open exactly as it was saved. */
+.rd-ksf-gone { display: none !important; }
+.rd-ksf-note { font-size: 12px; line-height: 1.5; color: var(--muted, #8C857B);
+               margin: 0 0 12px; }
+.rd-ksf-note a { color: var(--brand, #FF671F); font-weight: 600; }

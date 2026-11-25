@@ -2068,7 +2068,7 @@ function showProfileScreen(){
 // and be missing whole pages (2026-08-28: Julia's sidebar had no Email
 // Community). version.json is fetched with no-store on every load; if it
 // names a newer build we reload once (sessionStorage guard stops any loop).
-const HUB_BUILD='2026-11-25T17:58';
+const HUB_BUILD='2026-11-25T18:01';
 (async()=>{
   try{
     const r=await fetch('./version.json?t='+Date.now(),{cache:'no-store'});
@@ -9743,7 +9743,7 @@ window.addEventListener('DOMContentLoaded',async()=>{
 try{ const cur=document.querySelector('.page.active'); TributeUsage.start({ app:'csm', getToken:()=>window.tributeKsfGate.getToken(), view:cur?_pageLabel(cur.id.replace(/^page-/,'')):'Home' }); }catch(e){}
 </script>
 
-<link rel="stylesheet" href="./redesign.css?v=1cee04f5">
+<link rel="stylesheet" href="./redesign.css?v=878234e6">
 <link rel="stylesheet" href="./v2.css?v=90ba8325">
 <link rel="stylesheet" href="./v2-mobile.css?v=9b3cf4a3">
 <link rel="stylesheet" href="./guide.css?v=cc4ff549">
@@ -9755,7 +9755,7 @@ try{ const cur=document.querySelector('.page.active'); TributeUsage.start({ app:
 <script src="./brand.js?v=e644f4fe"></script>
 <script src="./icons.js?v=b1158bce"></script>
 <script src="./bridge.js?v=0053954c"></script>
-<script src="./redesign.js?v=ed5e60d7"></script>
+<script src="./redesign.js?v=64985110"></script>
 <script src="./workflows.js?v=12cd4270"></script>
 <script src="./router.js?v=8cfbdc4c"></script>
 <script src="./v2-onboarding.js?v=e59b6501"></script>

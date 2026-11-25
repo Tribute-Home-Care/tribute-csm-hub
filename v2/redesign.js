@@ -3295,6 +3295,78 @@
     window.renderFillPriority = wrapped;
   }
 
+  /* ── MY KSFs ──────────────────────────────────────────────────────────
+     Her twelfth open item, and the only one left that is about a whole page
+     rather than a control on one.
+
+     WHAT WAS WRONG. The page is headed "KPI Tracker" and reads "Log your
+     monthly KPI data". Above the form sits the live CSM KSF card, which has
+     computed the real numbers from Viv, HubSpot and SurveyMonkey since 18
+     November. Below it, the form asked a CSM to type in four metrics the card
+     had just worked out: client terms due to dissatisfaction, NPS, closure
+     rate, and documentation and visits compliance. A typed copy of a computed
+     number is a second source, and a second source is how two pages come to
+     disagree -- which is the fault her review opened with.
+
+     WHAT IS LEFT TO TYPE is what the KSF genuinely cannot see: leads from
+     existing accounts, which lives in a conversation with a community
+     partner, and the reflection, which is the point of a quarterly review and
+     was never a metric at all.
+
+     V1 IS NOT TOUCHED. The four fields are still in the DOM and saveKPI()
+     still reads them, so an old entry opens exactly as it was saved and
+     nothing in V1 has to know this happened. They are hidden here, with a
+     line saying where the number went, so the retirement is visible rather
+     than a form that quietly lost half its questions. */
+  const KSF_RETIRED = [
+    ['kpi-1', 'Dissatisfaction terminations'],
+    ['kpi-2', 'NPS'],
+    ['kpi-3', 'Long-hour closure rate'],
+    ['kpi-5', 'Documentation compliance and visit cadence']
+  ];
+  function decorateKpi() {
+    const page = $('#page-kpi');
+    if (!page || page.dataset.rdKsf) return;
+    page.dataset.rdKsf = '1';
+    const h = $('.ph h2', page);
+    if (h) h.textContent = 'My KSFs';
+    const p = $('.ph p', page);
+    if (p) p.textContent = 'Your 2026 role expectations, live from Viv, HubSpot and SurveyMonkey. ' +
+      'The log below is for what the KSF cannot compute, and for your own reflection.';
+    /* The four that moved. Each field is hidden rather than removed: removing
+       it would change what saveKPI() reads, and that lives in V1. */
+    let moved = 0;
+    KSF_RETIRED.forEach(function (pair) {
+      const input = document.getElementById(pair[0]);
+      const fg = input ? input.closest('.fg') : null;
+      if (!fg) return;
+      fg.classList.add('rd-ksf-gone');
+      moved++;
+    });
+    if (!moved) return;
+    /* The grey Role Expectation Metrics box, found through a field inside it
+       rather than by position: the first .fg on the page belongs to the Year
+       select, which is in a different box entirely. */
+    const anchorFg = (document.getElementById('kpi-1') || {}).closest
+      ? document.getElementById('kpi-1').closest('.fg') : null;
+    const box = anchorFg ? anchorFg.parentElement : null;
+    if (!box) return;
+    const names = KSF_RETIRED.map(function (x) { return x[1]; });
+    const note = document.createElement('p');
+    note.className = 'rd-ksf-note';
+    note.innerHTML = esc(names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1]) +
+      ' are computed above and are not typed in any more. ' +
+      '<a href="https://tribute-home-care.github.io/TributeKSFs/csm.html" target="_blank" rel="noopener">' +
+      'Open the full CSM KSF</a> for the month by month history.';
+    const head = box.querySelector('p');
+    if (head) box.insertBefore(note, head.nextSibling); else box.insertBefore(note, box.firstChild);
+    /* The one metric that is still a question for a person, said as one. */
+    const left = document.getElementById('kpi-comms');
+    const lf = left ? left.closest('.fg') : null;
+    const lab = lf ? lf.querySelector('.fl') : null;
+    if (lab) lab.textContent = 'Leads from existing accounts \u00b7 the KSF cannot see these, so they are yours to record';
+  }
+
   function decorateTeam() {
     const page = $('#page-team');
     if (!page || page.dataset.rdTeam) return;
@@ -6897,6 +6969,7 @@
          manager modules create their own page elements during their own
          bootstrap and may not have run yet when this layer starts. */
       if (p === 'team') { try { decorateTeam(); swapIcons($('#page-team') || document); } catch (e) {} }
+      if (p === 'kpi') { try { decorateKpi(); } catch (e) {} }
       if (p === 'md') { try { decorateMd(); } catch (e) {} }
       if (p === 'priority') { try { installFillPriority(); decorateFillPriority(); } catch (e) {} }
       if (p === 'ltc') { try { watchLtc(); } catch (e) {} }
