@@ -2958,7 +2958,8 @@
   const TEAM_COLS = [
     ['clients', 'Clients'], ['action', 'Needs action'], ['high', 'High need'],
     ['late', 'Checklist late'], ['s30', 'In first 30'], ['over', 'Overdue'],
-    ['one21', 'Raised in 1:1'], ['touch', 'Touches 30d'], ['comp', 'Visit compliance']
+    ['one21', 'Raised in 1:1'], ['logged', 'Logged contacts 30d'],
+    ['autoc', 'Auto-captured 30d'], ['comp', 'Visit compliance']
   ];
   /* CSPs ARE THEIR OWN SECTION, her words. A CSP does not carry a caseload
      the way a CSM does, so in one table their row read as the worst
@@ -3028,16 +3029,44 @@
       });
       return n;
     };
+    /* One pass over the profile's touchpoints, counted by who put them
+       there. Thirty days, by the same cutoff V1's workloadFor uses, so the
+       two halves still add up to the total it reports. */
+    const tSplit = function (pid) {
+      const cut = localDay(-30);
+      let mine = 0, auto = 0;
+      try {
+        (getCl('touchpoints', pid) || []).forEach(function (t) {
+          if (!t || !t.date || String(t.date).slice(0, 10) < cut) return;
+          if (t.auto) auto++; else mine++;
+        });
+      } catch (e) {}
+      return { mine: mine, auto: auto };
+    };
     return pool.map(function (p) {
       const cl = getCl('clients', p.id) || [];
       const over = ov(p.id) || [];
       const w = wl(p.id) || {};
+      const ts = tSplit(p.id);
       const trackable = cl.filter(function (c) { return c.freq !== 'NA'; });
       const comp = trackable.length
         ? Math.round((trackable.length - over.length) / trackable.length * 100) : null;
       return { p: p, clients: cl.length,
                high: cl.filter(function (c) { return c.tier === 'High'; }).length,
                touch: w.touches || 0, over: over.length,
+               /* HER QUESTION 5, ON THE PAGE THAT PROMPTED IT. "1730 touches
+                  in 30 days for one CSM isn't a number anyone can act on. It
+                  looks like every auto-logged email and call is being
+                  counted." It is: workloadFor sums every touchpoint row, and
+                  the comms sync writes one per call, email and text with
+                  auto:true.
+
+                  Caseload health was split on 24 Nov and this table was not,
+                  so the manager view -- the one page where one CSM is read
+                  against another -- still carried the number she could not
+                  use. Both halves, because the auto figure is real and
+                  hiding it would only move the question. */
+               logged: ts.mine, autoc: ts.auto,
                /* inFirstDays, not (daysAgo || 999) <= 30: daysAgo returns 0
                   for care starting today, so the falsy fallback dropped the
                   newest client on every CSM's row. Still live in V1. */
@@ -3135,10 +3164,18 @@
       '<p class="rd-tm-note">Needs action counts a red Pulse flag or an overdue visit. ' +
       'A touchpoint that is overdue only on someone else\u2019s caseload cannot be read from ' +
       'here, so this is a floor rather than the number on their own Home.</p>' +
+      /* SAID IN WORDS AS WELL AS IN THE HEADING, because the thing she
+         actually asked was what the number counts, and a heading can only
+         carry three words of the answer. */
+      '<p class="rd-tm-note">Logged contacts are the ones a person entered through Log contact. ' +
+      'Auto-captured are calls, emails and texts the comms sync matched to a client, one row each, ' +
+      'which is why that column runs into the hundreds. The two together are the old ' +
+      '\u201cTouches 30d\u201d figure.</p>' +
       (csps.length
         ? '<h4 class="rd-md-g">Client Solutions Partners<span>' + plural(csps.length, 'person') +
           ' · support across the market, not a caseload</span></h4>' +
-          tbl(csps, [['touch', 'Touches 30d'], ['clients', 'Clients named']])
+          tbl(csps, [['logged', 'Logged contacts 30d'], ['autoc', 'Auto-captured 30d'],
+                     ['clients', 'Clients named']])
         : '');
     $$('[data-teamwho]', host).forEach(function (b) {
       b.addEventListener('click', function () { _teamWho = b.dataset.teamwho; renderTeamTable(); });
