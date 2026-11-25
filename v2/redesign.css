@@ -3933,3 +3933,7 @@ input.ob-cb:disabled { opacity: .5; cursor: not-allowed; }
   background: var(--surface-2); border-left: 3px solid var(--warn);
   border-radius: 8px; font-size: 13px; color: var(--ink-2);
 }
+
+/* Who to take an At Risk first-30-days client to. On its own line under the
+   reason, because it is an instruction rather than part of the reason. */
+.rd-s30-esc { display: block; margin-top: 4px; font-weight: 600; color: var(--bad, #A4271E); }

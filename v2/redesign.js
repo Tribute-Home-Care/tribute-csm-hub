@@ -3468,7 +3468,16 @@
         return '<button type="button" class="rd-s30-wb' + (_s30Who === w[0] ? ' on' : '') +
           '" data-s30who="' + w[0] + '">' + esc(w[1]) + '</button>';
       }).join('') + '</div>' +
-      '<p class="rd-s30-why">' + esc(k.why) + '</p>' + weeks + '</section>';
+      '<p class="rd-s30-why">' + esc(k.why) +
+        /* ONLY AT RISK. Her rule escalates At Risk and nothing else, and a
+           line telling a CSM who to escalate to on an On Track client is the
+           same mistake as an alarm that is always on. */
+        (function () {
+          if (k.state !== 'atrisk') return '';
+          const e = escalateTo(c);
+          return e ? '<span class="rd-s30-esc">Take this to ' + esc(e.name) +
+            ' \u00b7 ' + esc(e.role) + '</span>' : '';
+        })() + '</p>' + weeks + '</section>';
   }
 
   function wsCadence(c) {
@@ -4130,6 +4139,16 @@
     if (st === 'MD') return byRole(/^Senior CSM/i, 'MD');
     if (st === 'MA' || st === 'IL') return byRole(/Director of Client Solutions/i);
     return null;
+  }
+  /* THE SAME ANSWER, SHORT ENOUGH FOR A LINE OF TEXT. "Brief Courtney" is an
+     instruction; "brief your manager" is a category, and on a Hub where three
+     markets report to two different people it is the category that sends
+     somebody to the wrong person. Where the role is not filled, the generic
+     is what honestly remains -- better than naming whoever happens to be
+     senior. */
+  function escalateFirst(c) {
+    const e = escalateTo(c);
+    return e && e.name ? String(e.name).split(' ')[0] : 'your manager';
   }
 
   function wsPulseBanner(c, pp) {
@@ -5344,7 +5363,7 @@
                    why: 'Day ' + (age + 1) + ' of ' + win + ' · ' +
                         (risk ? (risk.why || 'at risk')
                               : (done ? plural(done, 'milestone') + ' logged' : 'nothing logged yet')),
-                   step: risk ? 'Work the checklist and brief your manager'
+                   step: risk ? ('Work the checklist and brief ' + escalateFirst(c))
                               : 'Work the onboarding checklist',
                    s30: s30Open(c),
                    tone: risk ? 'bad' : (done ? 'info' : 'warn') });
@@ -6903,6 +6922,11 @@
     // one peak and the measurement stops meaning anything.
     resetPerf: function () { perf.ticks = 0; perf.totalMs = 0; perf.lastMs = 0; perf.maxMs = 0; perf.byReason = {}; },
     dialog: rdDialog,
+    /* v2-onboarding.js asks for the escalation route rather than keeping a
+       second copy of it. One rule, read from PROFILES by role, so a change of
+       job changes every surface at once. */
+    escalateTo: escalateTo,
+    escalateFirst: escalateFirst,
     // Shared with prototype/workflows.js so the three redesigned
     // workflow screens draw from exactly one set of primitives.
     ui: { esc: esc, icon: I, fmtShort: fmtShort, plural: plural,

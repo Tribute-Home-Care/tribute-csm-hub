@@ -73,7 +73,11 @@ ok('...names the state rather than the day count alone',
 ok('...and says Success in 60 once the client has been extended',
    /\(win > 30 \? 'Success in 60' : 'Success in 30'\)/.test(row));
 ok('...carries her own reason sentence', /risk \? \(risk\.why \|\| 'at risk'\)/.test(row));
-ok('...and gives a different next step', /brief your manager/.test(row));
+/* And the step NAMES the person. "Brief your manager" is a category, and on
+   a Hub where three markets report to two different people the category is
+   what sends somebody to the wrong person. */
+ok('...and gives a different next step, naming who to take it to',
+   /'Work the checklist and brief ' \+ escalateFirst\(c\)/.test(row));
 
 /* ── 5. THE DOUBLE-COUNTING RULE ───────────────────────────────────────── */
 /* Nothing here may reach the Pulse score. The score is built server side; the

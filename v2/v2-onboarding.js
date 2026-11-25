@@ -733,6 +733,29 @@ function d30Pending(){
     .sort((a,b)=>(a.v.outcome===b.v.outcome?0:(a.v.outcome==='extend'?-1:1))||b.v.day-a.v.day);
 }
 
+/* "THE MANAGER IS BRIEFED AUTOMATICALLY" -- Part 3, on At Risk, in those
+   words. The brief goes where her document says managers are told: "Two days
+   later, the owner's manager sees it on the manager view."
+
+   Scoped by her escalation route rather than by market alone, so a manager
+   sees the clients that are actually theirs to take: MA and Chicago to the
+   Director of Client Solutions, Maryland to the Senior CSM. The route is
+   asked of the redesign layer, which reads it off PROFILES by role; this
+   keeps no copy of it. */
+function s30AtRiskBrief(){
+  const esc1=(window.TributeRedesign&&TributeRedesign.escalateTo)||null;
+  const me=(P&&P.name)||'';
+  return _obAllClients().map(x=>{
+    const d=daysAgo(x.c.startDate);
+    const win=s60Window(x.c);
+    if(d===null||d>win)return null;
+    let k=null; try{ k=s30Checklist(x.c); }catch(e){ return null; }
+    if(!k||k.state!=='atrisk')return null;
+    const to=esc1?esc1(x.c):null;
+    return {x,k,d,win,to,mine:!to||!me||to.name===me};
+  }).filter(Boolean).filter(r=>r.mine).sort((a,b)=>a.d-b.d);
+}
+
 function renderObManager(){
   const el=document.getElementById('s60-mgr'); if(!el)return;
   const isMgr=!!(P&&(P.isManager||P.isDirector));
@@ -746,7 +769,18 @@ function renderObManager(){
      owner's manager sees it on the manager view." So the result lands here
      rather than being mailed, and it stays here until it is read. */
   const d30=d30Pending();
-  el.innerHTML=`${d30.length?`<div class="card" style="margin-bottom:14px;">
+  const risk=s30AtRiskBrief();
+  el.innerHTML=`${risk.length?`<div class="card" style="margin-bottom:14px;">
+    <div class="ct">At Risk in the first ${risk.some(r=>r.win>30)?'30 to 60':'30'} days</div>
+    <p style="font-size:11.5px;color:#8C857B;margin:-4px 0 12px;">Briefed to you because these escalate to your role. The reason is the checklist's own.</p>
+    <div class="obb">${risk.map(r=>`<div class="obb-r obb-d30 atrisk" style="cursor:pointer;" onclick="openObClient('${r.x.c.id}')">
+      <span class="obb-n">${escHtml(r.x.c.name)}<em class="obb-sub">${escHtml(r.x.csm.name.split(' ')[0])}${r.x.c.market?' \u00b7 '+escHtml(r.x.c.market):''}</em></span>
+      <span class="obb-st atrisk">Day ${r.d+1} of ${r.win}</span>
+      <span class="obb-w">${escHtml(r.k.why||'At risk')}</span>
+      <span style="font-size:11.5px;color:#8C857B;">${r.k.done} of ${r.k.total} done</span>
+    </div>`).join('')}</div>
+  </div>`:''}
+  ${d30.length?`<div class="card" style="margin-bottom:14px;">
     <div class="ct">Day 30 results</div>
     <p style="font-size:11.5px;color:#8C857B;margin:-4px 0 12px;">Graduated or extended to Success in 60. Clearing one keeps it as the Day 30 answer.</p>
     <div class="obb">${d30.map(r=>`<div class="obb-r obb-d30 ${r.v.outcome}" style="cursor:default;">
