@@ -5657,6 +5657,7 @@
     if (app.pulse) return true;
     return (Date.now() - _attnBootAt) > ATTN_GRACE;
   }
+  let _attnPainted = false;
   let _attnWait = null;
   function renderAttnWaiting(el) {
     el.innerHTML = TODAY_BUCKETS.map(function (b) {
@@ -5683,7 +5684,23 @@
        not ready it was never called at all and the badge kept whatever text
        it already had. The dash branch inside it was unreachable until this
        line passed it a null signal set on the way out. */
-    if (!countsReady()) { renderAttnWaiting(el); refreshNavCounts(null); return; }
+    /* DASHES ARE FOR THE FIRST PAINT ONLY.
+       The settle gate is right about not drawing a half-loaded count, and
+       wrong to apply that to numbers already on screen: the tiles were going
+       21 / 4 / 4 / 32, back to dashes for a second, then the same numbers
+       again. Nothing was wrong with either set, so the dashes in the middle
+       said "we do not know" about something we did know, which reads as a
+       glitch and teaches people to distrust the tiles.
+
+       Once a real count is up it stays up until a real count replaces it. A
+       number a second out of date is worth more than a dash, because it is
+       still a number you can go and verify. Before the first paint there is
+       nothing to keep, and a wrong number there has nothing to correct it. */
+    if (!countsReady()) {
+      if (_attnPainted) return;
+      renderAttnWaiting(el); refreshNavCounts(null); return;
+    }
+    _attnPainted = true;
     const sig = attentionSignals();
     const rank = { bad: 0, warn: 1, info: 2 };
     sig.sort(function (a, b) { return (rank[a.tone] - rank[b.tone]) || (b.n - a.n); });

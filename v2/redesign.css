@@ -3893,3 +3893,13 @@ input.ob-cb:disabled { opacity: .5; cursor: not-allowed; }
   .rd-sum { grid-template-columns: minmax(0, 1fr); }
   .rd-sum-l, .rd-sum-r { order: 0; }
 }
+
+/* THE CHECKLIST GETS THE WIDER COLUMN. The last build gave the extra width to
+   the tracking column on my reasoning that its Today and Next visit lines are
+   the longest text on the page. Measured on screen that came out 480px against
+   600px, and it put the checklist -- which carries three columns of its own,
+   task, owner and due date -- in the narrower one, down from the roughly 600px
+   it had before the columns were split. The card with columns inside it has
+   the stronger claim on width than the card with long sentences, which wrap
+   perfectly well. */
+.rd-sum { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }

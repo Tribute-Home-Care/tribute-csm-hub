@@ -324,7 +324,18 @@ ok('the list redraws outside the tile cache key',
    number: long enough to read, and it disagrees with its replacement. */
 ok('the tiles wait for Pulse rather than counting without it',
    /function countsReady\(\)/.test(CODE) &&
-   /if \(!countsReady\(\)\) \{ renderAttnWaiting\(el\); refreshNavCounts\(null\); return; \}/.test(CODE));
+   /renderAttnWaiting\(el\); refreshNavCounts\(null\); return;/.test(CODE));
+/* DASHES ARE FOR THE FIRST PAINT ONLY. The settle gate is right not to draw a
+   half-loaded count and wrong to apply that to numbers already on screen: the
+   tiles went 21 / 4 / 4 / 32, back to dashes for a second, then the same
+   numbers again. Nothing was wrong with either set, so the dashes in between
+   said "we do not know" about something we did know. A number a second out of
+   date is worth more than a dash, because it is still a number you can go and
+   verify. Before the first paint there is nothing to keep. */
+ok('...but once real numbers are up they are not replaced by dashes',
+   /if \(_attnPainted\) return;/.test(CODE) && /_attnPainted = true;/.test(CODE));
+ok('...and that is recorded only after the readiness gate has passed',
+   CODE.indexOf('if (_attnPainted) return;') < CODE.indexOf('_attnPainted = true;'));
 /* The rail badge was given the same wait, which is why that line now carries a
    refreshNavCounts(null) as well: the call that paints the badges sits past
    this early return, so while the counts were not ready it never ran and the

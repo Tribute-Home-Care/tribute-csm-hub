@@ -103,7 +103,7 @@ ok('...and the tiles use that same dash', /<span class="rd-attn-n">\u2014<\/span
    live before this line was added: forcing the waiting state left the badge
    reading 30. */
 ok('...and the waiting path actually calls it',
-   /if \(!countsReady\(\)\) \{ renderAttnWaiting\(el\); refreshNavCounts\(null\); return; \}/.test(RD));
+   /renderAttnWaiting\(el\); refreshNavCounts\(null\); return;/.test(RD));
 
 // ── the leftovers found on 11:27 ─────────────────────────────────────────
 /* The "separator" between a contact's phone and email was
