@@ -111,6 +111,15 @@ ok('...and so does the metrics admin view', /if \(typeof a\.isAdmin === 'functio
 ok('...and the feedback inbox', /admin = typeof A\.isAdmin === 'function' \? !!A\.isAdmin\(\) : !!A\.isAdmin;/.test(RD));
 /* Courtney reaches her own review by profile, not by being an admin, so that
    path must survive untouched. */
+/* AND THE RAIL ASKS AGAIN WHEN THE ANSWER EXISTS. The gate was correct and
+   evaluated too early: the Hub does not know who is an administrator until
+   the csm_data read lands, which is after the rail is built. ensureNavExtras
+   was called once, at boot, so the answer was always no and both entries were
+   missing for the whole session with nothing to say why. */
+ok('the gated rail entries are re-checked when the data arrives',
+   /try \{ ensureNavExtras\(\); \} catch \(e\) \{\}/.test(RD));
+ok('...from the hook V1 calls when that data changes',
+   RD.indexOf('ensureNavExtras(); } catch (e) {}') > RD.indexOf('window.updateHome = wrapped;') - 4000);
 ok('...and Courtney still reaches it by profile',
    /var OWNER_PROFILE = 'courtney';/.test(SE) && /mine\.id === OWNER_PROFILE/.test(SE));
 

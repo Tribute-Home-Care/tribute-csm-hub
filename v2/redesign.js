@@ -6638,6 +6638,17 @@
       try { _attnKey = ''; renderAttention(); } catch (e) {}
       try { installVivOrder(); } catch (e) {}
       try { installReadOnlyMarks(); } catch (e) {}
+      /* THE GATED RAIL ENTRIES ARE ASKED AGAIN. Exception Review and Daily
+         Metrics are shown only to an administrator, and the Hub does not know
+         who that is until the csm_data read lands -- which is AFTER the rail
+         is built. ensureNavExtras() exists for exactly this and was only ever
+         called once, at boot, so the answer it got was always "no". Both
+         entries were therefore missing for the whole session for the accounts
+         they exist for, and nothing said why.
+
+         updateHome is what V1 calls when that data arrives, so it is the
+         moment the question can finally be answered. */
+      try { ensureNavExtras(); } catch (e) {}
       try { installVivFreshness(); } catch (e) {}
       return r;
     };
