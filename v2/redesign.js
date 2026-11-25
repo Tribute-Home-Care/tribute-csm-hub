@@ -672,10 +672,57 @@
              note: first && head ? first : String(pp.headline || '') };
   }
 
+  /* AT RISK IS A NEW-CLIENT SIGNAL, NOT A SECOND SCORE.
+
+     Part 4 of the Onboarding, Offboarding & Success in 30 document: "Send At
+     Risk clients into Client Pulse as a new-client signal, without
+     double-counting SEs that Pulse already scores."
+
+     The first half was half built. s30Checklist has decided At Risk since the
+     21st, and Part 3 tells it to read service exceptions and caregiver
+     changes to do so -- but NOTHING outside the Success in 30 board ever read
+     that answer. A client could read At Risk on the board, Stable on the
+     Clients list, and sit outside Home's Needs action tile on the same
+     afternoon. That is the "if the badge says 9, the list under it has 9
+     clients in it" fault in a new place, and the one Courtney opened her
+     review with.
+
+     THE SECOND HALF IS THE DOUBLE-COUNTING RULE, and the Client Pulse
+     Flagging Guidance says exactly where it bites: "Service exception volume
+     and caregiver changes are already scored in Part A's banded Service
+     Events field -- do not score them again here."
+
+     So this adds NOTHING to the Pulse score, and nothing here is reachable
+     from pulseFor / pulseLevel / pulseStatus. It raises a separate signal
+     alongside the flag, and where Pulse has already flagged the same client
+     the signal stands down: todayRows keeps one row per client and the
+     action-bucket tie goes to the lower rank, which is the Pulse flag with
+     the fuller evidence behind it. One client, one row, one reason -- and the
+     SEs underneath it are counted once, by Pulse. */
+  function s30Risk(c) {
+    if (!inFirstDays(c, 30)) return null;
+    let k = null;
+    try { k = typeof s30Checklist === 'function' ? s30Checklist(c) : null; } catch (e) { return null; }
+    return (k && k.state === 'atrisk') ? k : null;
+  }
+  /* The Status cell's third fallback. A client At Risk on the checklist with
+     a healthy cadence and no Pulse flag had an EMPTY status cell while being
+     counted under Needs action -- a row in a list of problems that does not
+     say what the problem is, which is the fault pulseStatus exists to fix,
+     one checklist along. The cell holds the KIND; her sentence rides in the
+     title, because .rd-cl-ex is nowrap and one long reason stretches the
+     column off the screen. */
+  function s30RiskStatus(c) {
+    const k = s30Risk(c);
+    if (!k) return null;
+    return { tone: 'bad', text: 'At risk in first 30 days', note: k.why || '' };
+  }
+
   function needsAction(c) {
     const e = exceptionFor(c);
     if (e && e.tone === 'bad') return true;
-    return pulseLevel(c) === 'red';
+    if (pulseLevel(c) === 'red') return true;
+    return !!s30Risk(c);
   }
   /* DAYS UNTIL THE NEXT DATE FALLS DUE, across the three cadences, or null
      when the client is on no clock at all. A tab that says "this week" has to
@@ -1665,7 +1712,10 @@
          thing with a date on it. A client whose cadence is fine and whose
          Pulse is flagged shows the flag instead of nothing at all. */
       const ps = pulseStatus(c);
-      const st = ex || ps;
+      /* `const st = ex || ps` was dead from the day the cell stopped printing
+         a sentence. Replaced rather than extended: the fallback that matters
+         is the third one. */
+      const s3 = (!ex && !ps) ? s30RiskStatus(c) : null;
       /* HER PLAIN LABEL HERE TOO. "The Clients list still shows only the
          sentence." Today's list has carried the label, the audience and the
          owner since the 23rd; this row carried the word "Pulse" and the
@@ -1676,9 +1726,9 @@
       const powner = ps ? pulseOwner(pp, plab) : '';
       // The cadence exception leads where there is one, because it has a date
       // on it. Where there is not, the flag is named by her label.
-      const stText = ex ? ex.text : (ps ? ((plab && plab.label) || 'Pulse flag') : '');
-      const stTone = ex ? ex.tone : (ps ? ps.tone : '');
-      const tip = ps && ps.note ? ps.note : '';
+      const stText = ex ? ex.text : (ps ? ((plab && plab.label) || 'Pulse flag') : (s3 ? s3.text : ''));
+      const stTone = ex ? ex.tone : (ps ? ps.tone : (s3 ? s3.tone : ''));
+      const tip = (ps && ps.note) ? ps.note : (s3 ? s3.note : '');
       return '<tr class="rd-clt-row' + (soonAsmt ? ' due' : '') + '" data-cid="' + esc(c.id) + '" tabindex="0"' +
         (tip ? ' title="' + esc(tip) + '"' : '') + '>' +
         '<th scope="row"><span class="rd-clt-n">' + esc(c.name) + '</span>' +
@@ -5257,11 +5307,24 @@
       const age = c.startDate ? daysSince(c.startDate) : null;
       if (age !== null && age <= 30) {
         const done = rowsFor('s60', c.id).length;
-        out.push({ rank: 2, bucket: 'onboarding', cid: c.id, name: c.name,
-                   tier: c.tier, kind: 'Success in 30',
-                   why: 'Day ' + (age + 1) + ' of 30' + (done ? ' · ' + plural(done, 'milestone') + ' logged' : ' · nothing logged yet'),
-                   step: 'Work the onboarding checklist', s30: s30Open(c),
-                   tone: done ? 'info' : 'warn' });
+        /* AT RISK LEADS, AND SAYS WHY. This row read "Day 9 of 30 · nothing
+           logged yet" for a client with a complaint on file: true, and not
+           the thing worth knowing. The rank is untouched at 2, which is her
+           reading order -- "Pulse flags, then Success in 30 milestones, then
+           overdue visits" -- and only the BUCKET moves, so an At Risk new
+           client is counted under Need action today on every surface at once.
+           The bucket mapper below derives the tile from needsAction(c) over
+           the client, so these two cannot drift apart. */
+        const risk = s30Risk(c);
+        out.push({ rank: 2, bucket: risk ? 'action' : 'onboarding', cid: c.id, name: c.name,
+                   tier: c.tier, kind: risk ? 'Success in 30 · At Risk' : 'Success in 30',
+                   why: 'Day ' + (age + 1) + ' of 30 · ' +
+                        (risk ? (risk.why || 'at risk')
+                              : (done ? plural(done, 'milestone') + ' logged' : 'nothing logged yet')),
+                   step: risk ? 'Work the checklist and brief your manager'
+                              : 'Work the onboarding checklist',
+                   s30: s30Open(c),
+                   tone: risk ? 'bad' : (done ? 'info' : 'warn') });
       }
       // 3 and 4. The cadence exception, which already knows overdue from due.
       const ex = exceptionFor(c);

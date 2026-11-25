@@ -31,8 +31,13 @@ for (const [label, p] of [['shipped', '../v2/redesign.js'],
      RED flag joins Needs attention and an AMBER one joins Due soon. The first
      pass put both into Needs attention, which made a watch look like an
      emergency and filled the tab with things nobody was asked to do today. */
-  ok(label + ': ...as a bad cadence exception OR a RED Pulse flag',
-     /if \(e && e\.tone === 'bad'\) return true;\n\s*return pulseLevel\(c\) === 'red';/.test(CODE));
+  /* A THIRD REASON ARRIVED ON 25 NOV: a client At Risk on the Success in 30
+     checklist. Part 4 asks for exactly that, and the point of putting it HERE
+     rather than on each surface is that the tile, the sidebar badge, the
+     Clients chip and Today's bucket all derive from this one function, so
+     they still cannot report different numbers. */
+  ok(label + ': ...as a bad cadence exception, a RED Pulse flag, or At Risk in the first 30 days',
+     /if \(e && e\.tone === 'bad'\) return true;\n\s*if \(pulseLevel\(c\) === 'red'\) return true;\n\s*return !!s30Risk\(c\);/.test(CODE));
   ok(label + ': an amber flag is a watch, so it lands in Due soon',
      /if \(pulseLevel\(c\) === 'amber'\) return true;/.test(CODE));
   ok(label + ': a sorted flag is in neither',
@@ -225,12 +230,22 @@ ok('a row can match more than one filter',
    now includes an unsorted Pulse flag, and the Status column reads
    exceptionFor(), so a flagged client with a healthy cadence appeared there
    with an EMPTY status cell: worse than not appearing at all. */
+/* THREE REASONS A ROW CAN BE IN A LIST OF PROBLEMS, in one order. The
+   cadence exception leads, because it is the thing with a date on it; then
+   the Pulse flag; then, since 25 Nov, At Risk on the Success in 30 checklist,
+   which until that day left the cell EMPTY on a client Needs action was
+   counting. The precedence used to live in a `const st = ex || ps` that
+   nothing read -- the cell was already built from stText and stTone -- so it
+   is asserted where it actually is. */
 ok('a Pulse-flagged client with no cadence problem still says why',
-   /function pulseStatus\(c\) \{/.test(CODE) && /const st = ex \|\| ps;/.test(CODE));
+   /function pulseStatus\(c\) \{/.test(CODE) &&
+   /const stText = ex \? ex\.text : \(ps \?/.test(CODE));
 ok('...and the cadence exception still leads where there is one',
-   /const st = ex \|\| ps;/.test(CODE));
+   /const stText = ex \? ex\.text :/.test(CODE) && /const stTone = ex \? ex\.tone :/.test(CODE));
+ok('...then the flag, then At Risk in the first 30 days',
+   /const s3 = \(!ex && !ps\) \? s30RiskStatus\(c\) : null;/.test(CODE) &&
+   /\(ps \? ps\.tone : \(s3 \? s3\.tone : ''\)\)/.test(CODE));
 ok('...the Status cell reads whichever it is',
-   /const st = ex \|\| ps;/.test(CODE) &&
    /'<td>' \+ \(stText \? '<span class="rd-cl-ex ' \+ stTone/.test(CODE));
 /* THE EVIDENCE, NOT THE CODE. The first pass mapped flagReason through
    {L1,L2,L3}, copied from Home's own map. Checked against the live feed: the
@@ -268,7 +283,7 @@ ok('...it counts what needs action and what is a watch',
 // One-line rows: the sentence goes in the title, and she said herself the
 // full read belongs on the client page under the banner.
 ok('the sentence is on the row, not in the cell',
-   /const tip = ps && ps\.note \? ps\.note : '';/.test(CODE));
+   /const tip = \(ps && ps\.note\) \? ps\.note : \(s3 \? s3\.note : ''\);/.test(CODE));
 
 /* ONE DEFINITION OF EACH BUCKET, SHARED WITH THE CLIENTS CHIPS. Home
    counted a client's bucket from the ROW the dedupe kept, while the chips

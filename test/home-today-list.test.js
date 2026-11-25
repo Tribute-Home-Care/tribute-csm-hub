@@ -72,7 +72,14 @@ ok('a red Pulse flag ranks first, and an amber one second',
 ok('...and an amber one is a watch item, so no tile claims it',
    !/\['watch',/.test(CODE.match(/const TODAY_BUCKETS = \[[\s\S]*?\];/)[0]));
 ok('...and the headline is still what the row says', /why: pulseFirst\(pp\.headline\)/.test(CODE));
-ok('Success in 30 ranks below every Pulse flag', /rank: 2, bucket: 'onboarding'/.test(CODE));
+/* THE RANK AND THE BUCKET ANSWER DIFFERENT QUESTIONS, which is why only one
+   of them moves when a new client is At Risk. The rank is where the row sits
+   in her reading order -- "Pulse flags, then Success in 30 milestones, then
+   overdue visits" -- and stays at 2 whatever the status. The bucket is which
+   tile counts the client, and an At Risk new client belongs under Need action
+   today. Pinning both to 'onboarding' would have frozen the tile. */
+ok('Success in 30 ranks below every Pulse flag, At Risk or not',
+   /rank: 2, bucket: risk \? 'action' : 'onboarding'/.test(CODE));
 ok('overdue ranks above due-soon, and both below Success in 30',
    /rank: ex\.tone === 'bad' \? 3 : 4/.test(CODE));
 ok('open visits rank last', /rank: 5, bucket: 'open'/.test(CODE));

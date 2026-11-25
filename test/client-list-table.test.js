@@ -269,8 +269,10 @@ ok('...clamped to two lines, with the rest on hover',
    Pulse sentence into .rd-cl-ex, which was white-space: nowrap. One sentence
    stretched the column to about 800px and pushed Last visit, Next due, Family
    contact and Community off the screen. */
+/* The third fallback, At risk in first 30 days, arrived on 25 Nov and obeys
+   the same rule: a KIND in the cell, the sentence in the row title. */
 ok('the status says what kind of thing it is, not the whole sentence',
-   /const stText = ex \? ex\.text : \(ps \? \(\(plab && plab\.label\) \|\| 'Pulse flag'\) : ''\);/.test(CODE));
+   /const stText = ex \? ex\.text : \(ps \? \(\(plab && plab\.label\) \|\| 'Pulse flag'\) : \(s3 \? s3\.text : ''\)\);/.test(CODE));
 ok('...and that kind is her label, not the word Pulse', !/\? 'Pulse flag' : ''\);/.test(CODE.replace(/\(\(plab && plab\.label\) \|\| 'Pulse flag'\)/g, 'X')));
 ok('...and every flagged row carries the sentence on the clamped line',
    /\(ps \? '<div class="rd-clt-pl"/.test(CODE));
