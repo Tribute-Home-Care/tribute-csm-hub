@@ -17,10 +17,27 @@ ok('...bullets become a real list',
    /<ul class="rd-cp-ul">/.test(RD) && /'<li>' \+ esc\(x\) \+ '<\/li>'/.test(RD));
 /* A short unpunctuated line is a heading only when it HEADS something. One at
    the very end is just a short answer. */
-ok('...a short unpunctuated line becomes a sub-heading only if it heads something',
-   /const heads = i < lines\.length - 1 &&/.test(RD) &&
+/* A HEADING HEADS A LIST. The first rule asked only whether a short
+   unpunctuated line had anything after it, and "Susan (daughter) and Stacey
+   (daughter)" under Emergency Contact #2 passed that: content rendered bold as
+   though it were a title. The next line must be a bullet. */
+ok('...a short unpunctuated line is a sub-heading only when a list follows it',
+   /const nextIsBullet = i < lines\.length - 1 && BULLET\.test\(lines\[i \+ 1\]\);/.test(RD) &&
+   /const heads = nextIsBullet &&/.test(RD) &&
    /l\.length <= 48 &&/.test(RD) &&
    /!\/\[\.!\?,;:\]\$\/\.test\(l\)/.test(RD));
+/* One definition of a bullet, shared by the test above and the parser, so the
+   two cannot disagree about what a list item looks like. */
+ok('...and a bullet is defined once', /const BULLET = \/\^\[/.test(RD) &&
+   !/\/\^\[\\u2022\\u00b7\\u25cf\\u25aa\*-\]\\s\+\/\.test\(l\)/.test(RD));
+/* A RECORD ID IS NOT AN ANSWER. Emergency Contact #1 printed a bare 24-char
+   Viv id on every client checked. */
+ok('...and a bare record id is not printed at a CSM',
+   /const RAW_ID = \/\^\[a-f0-9\]\{24\}\$\/i;/.test(RD) &&
+   /if \(lines\.length === 1 && RAW_ID\.test\(lines\[0\]\)\) \{/.test(RD));
+ok('...it says what it is and where the answer lives instead',
+   /Recorded in Viv as a link to a contact record/.test(RD) &&
+   /under Contacts\./.test(RD));
 ok('...and everything else stays prose', /'<p class="rd-cp-p">' \+ esc\(l\) \+ '<\/p>'/.test(RD));
 /* Every branch escapes. An unescaped care plan would be an injection straight
    from a Viv form into the page. */

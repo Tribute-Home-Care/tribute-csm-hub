@@ -950,8 +950,18 @@
       return dir * nullsLast(a.c.lastVisit).localeCompare(nullsLast(b.c.lastVisit)) || byName(a, b); });
     else if (_sortKey === 'next') list.sort(function (a, b) {
       return dir * nullsLast(nextVisit(a.c)).localeCompare(nullsLast(nextVisit(b.c))) || byName(a, b); });
+    /* BLANKS LAST IN BOTH DIRECTIONS. nullsLast maps a missing value to a
+       character that sorts after every date, which puts blanks last ascending
+       and therefore FIRST descending -- reported as the dashes jumping to the
+       top when sorting newest first. A row with no start date is not the
+       newest one; it is the one we cannot place, and it belongs at the end
+       whichever way the column is pointing. */
     else if (_sortKey === 'start') list.sort(function (a, b) {
-      return dir * nullsLast(a.c.startDate).localeCompare(nullsLast(b.c.startDate)) || byName(a, b); });
+      const av = a.c.startDate || '', bv = b.c.startDate || '';
+      if (!av && !bv) return byName(a, b);
+      if (!av) return 1;
+      if (!bv) return -1;
+      return dir * av.localeCompare(bv) || byName(a, b); });
     else if (_sortKey === 'community') list.sort(function (a, b) {
       return dir * nullsLast(a.c.loc || a.c.city).localeCompare(nullsLast(b.c.loc || b.c.city)) || byName(a, b); });
     else list.sort(function (a, b) {
@@ -3681,10 +3691,24 @@
      A line is treated as a sub-heading only when it heads something: short,
      unpunctuated, no bullet, and followed by at least one more line. A short
      unpunctuated line at the very end is just a short answer. */
+  const BULLET = /^[\u2022\u00b7\u25cf\u25aa*-]\s+/;
+  /* A RECORD ID IS NOT AN ANSWER. Emergency Contact #1 renders as a bare
+     24-character Viv id on every client checked: the form stores a reference
+     to a contact record and the plan text carries the reference, not the
+     person. Resolving it needs the contact that reference points at, which
+     this read does not carry, so the honest thing is to say so and point at
+     the place that DOES have it rather than print a database key at somebody
+     who is standing in a client's hallway. */
+  const RAW_ID = /^[a-f0-9]{24}$/i;
   function cpAnswer(a) {
     const lines = String(a == null ? '' : a).split('\n')
       .map(function (l) { return l.trim(); }).filter(Boolean);
     if (!lines.length) return '';
+    if (lines.length === 1 && RAW_ID.test(lines[0])) {
+      return '<p class="rd-ws-quiet">Recorded in Viv as a link to a contact record, ' +
+             'which this view cannot open. The people to call are on the Summary tab ' +
+             'under Contacts.</p>';
+    }
     const out = [];
     let ul = [];
     const flush = function () {
@@ -3695,10 +3719,16 @@
       ul = [];
     };
     lines.forEach(function (l, i) {
-      const bullet = /^[\u2022\u00b7\u25cf\u25aa*-]\s+/.test(l);
-      if (bullet) { ul.push(l.replace(/^[\u2022\u00b7\u25cf\u25aa*-]\s+/, '')); return; }
+      if (BULLET.test(l)) { ul.push(l.replace(BULLET, '')); return; }
       flush();
-      const heads = i < lines.length - 1 &&
+      /* A HEADING HEADS A LIST. The first cut asked only whether a short
+         unpunctuated line had anything after it, and "Susan (daughter) and
+         Stacey (daughter)" under Emergency Contact #2 satisfied that: it is
+         content, rendered bold as though it were a title. Requiring the NEXT
+         line to be a bullet is the honest test, because that is the shape the
+         rule was written for -- "Morning" over a list of morning tasks. */
+      const nextIsBullet = i < lines.length - 1 && BULLET.test(lines[i + 1]);
+      const heads = nextIsBullet &&
                     l.length <= 48 &&
                     l.split(/\s+/).length <= 6 &&
                     !/[.!?,;:]$/.test(l);
@@ -5553,9 +5583,16 @@
          empty, which is a real answer, as against nothing having started.
      Without the last distinction a caseload with no flags would sit on
      dashes for the whole grace period. */
+  let _dataLoading = false;
   function countsReady() {
     const app = A();
     if (!app.ready) return false;
+    /* The ROSTER can still be arriving too. The tiles were reported flashing
+       17 / 6 / 3 / 27 and then 17 / 6 / 4 / 32 before settling on 21 / 4 / 3 /
+       27: those were real counts of a roster that was not finished loading,
+       drawn because this only ever waited for Client Pulse. A count of a
+       half-loaded caseload is exactly the number nobody can go and verify. */
+    if (_dataLoading) return false;
     if (window._pulseLoading) return false;
     /* _PULSE IS ASSIGNED WHOLE OR NOT AT ALL -- loadPulse builds its byCid map
        and then assigns the object in one go -- so its mere PRESENCE is the
@@ -5744,6 +5781,81 @@
   const VIV_RETRY = 3 * 60 * 1000;      // the rebuild took about two minutes
   const VIV_MAX_TRIES = 10;             // a dead feed must not be hammered
   let _vivKickAt = 0, _vivTries = 0;
+  /* ── VIV DATA MUST NOT GO BACKWARDS ───────────────────────────
+     Reported on 16:47: the header showed "Viv data from 8:51 PM" at 1.6s and
+     then reverted to "Viv data 5h old, from 4:25 PM" and STAYED there. Newer
+     data arrived and was replaced by older.
+
+     Two writers, no ordering between them. applyVivData puts a fresh sync
+     into memory; loadDataFromFile replaces DATA wholesale with the server's
+     stored document. Whichever lands last wins, regardless of age.
+
+     It is permanent rather than momentary because of how the fresh copy was
+     meant to persist: applyVivData calls queueSave(), which debounces 1500ms
+     AND refuses outright when writesBlocked() -- so in a read-only view-as
+     session, which is what every manager reviewing someone else's Hub is in,
+     the fresh snapshot is never saved at all. The next read of the stored
+     document therefore reverts it for good.
+
+     The rule is the obvious one: the newest timestamp wins, whoever wrote it.
+     Both ends are guarded, because either can be the one that arrives late. */
+  function vivGenOf(o) {
+    try {
+      const g = o && o.shared && o.shared.viv && o.shared.viv.generatedAt;
+      const t = g ? new Date(g).getTime() : 0;
+      return isNaN(t) ? 0 : t;
+    } catch (e) { return 0; }
+  }
+  let _vivOrderOn = false;
+  function installVivOrder() {
+    if (_vivOrderOn) return;
+    let both = 0;
+    if (typeof window.applyVivData === 'function') {
+      both++;
+      if (!window.applyVivData.__rdOrder) {
+        const orig = window.applyVivData;
+        const wrapped = function (d) {
+          try {
+            const inc = d && d.generatedAt ? new Date(d.generatedAt).getTime() : 0;
+            const have = vivGenOf(window.DATA);
+            // Equal is not older: a re-apply of the same snapshot is harmless.
+            if (inc && have && inc < have) return;
+          } catch (e) {}
+          return orig.apply(this, arguments);
+        };
+        wrapped.__rdOrder = true;
+        window.applyVivData = wrapped;
+      }
+    }
+    if (typeof window.loadDataFromFile === 'function') {
+      both++;
+      if (!window.loadDataFromFile.__rdOrder) {
+        const orig = window.loadDataFromFile;
+        const wrapped = async function () {
+          let keepAt = 0, keep = null;
+          try {
+            keepAt = vivGenOf(window.DATA);
+            if (keepAt) keep = window.DATA.shared.viv;
+          } catch (e) {}
+          _dataLoading = true;
+          let r;
+          try { r = await orig.apply(this, arguments); }
+          finally { _dataLoading = false; }
+          try {
+            if (keep && vivGenOf(window.DATA) < keepAt) {
+              window.DATA.shared = window.DATA.shared || {};
+              window.DATA.shared.viv = keep;
+            }
+          } catch (e) {}
+          return r;
+        };
+        wrapped.__rdOrder = true;
+        window.loadDataFromFile = wrapped;
+      }
+    }
+    if (both === 2) _vivOrderOn = true;
+  }
+
   function vivDataAge() {
     try {
       const app = A();
@@ -6352,6 +6464,7 @@
          call repaints the tiles, the list, the badge and the sync line
          together -- which is the only way they can agree. */
       try { _attnKey = ''; renderAttention(); } catch (e) {}
+      try { installVivOrder(); } catch (e) {}
       try { installVivFreshness(); } catch (e) {}
       return r;
     };
@@ -6469,6 +6582,7 @@
   function boot() {
     mountPalette();
     hookShowPage();
+    installVivOrder();
     installVivFreshness();
     tick('boot');
     let t = null;

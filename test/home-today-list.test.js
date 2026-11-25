@@ -405,5 +405,38 @@ ok('pulse never answered is drawn anyway once the grace is up',
    ready({ ready: true }, false, 25000));
 ok('...but not before', !ready({ ready: true }, false, 5000));
 
+// ── Viv data must not go backwards ───────────────────────────────────────
+/* Reported on 16:47: the header showed "Viv data from 8:51 PM" at 1.6s and
+   then reverted to "Viv data 5h old, from 4:25 PM" and STAYED. Two writers
+   with no ordering between them: applyVivData puts a fresh sync in memory,
+   loadDataFromFile replaces DATA wholesale with the stored document, and
+   whichever lands last wins regardless of age.
+
+   Permanent rather than momentary because of how the fresh copy persists:
+   applyVivData calls queueSave(), which debounces 1500ms AND refuses outright
+   when writesBlocked() -- so in the read-only view-as every reviewing manager
+   is in, it is never saved, and the next read reverts it for good. */
+ok('the newest Viv snapshot wins, whoever wrote it', /function installVivOrder\(\) \{/.test(CODE));
+ok('...a sync carrying older data is ignored',
+   /if \(inc && have && inc < have\) return;/.test(CODE));
+ok('...and a stored document older than memory does not replace it',
+   /if \(keep && vivGenOf\(window\.DATA\) < keepAt\) \{/.test(CODE));
+/* Re-applying the SAME snapshot must stay harmless, so the comparison is
+   strictly less-than. Asserted behaviourally: CODE here has its comments
+   stripped, so a rule stated only in a comment cannot be checked at all. */
+{
+  const accepts = (incoming, have) => !(incoming && have && incoming < have);
+  ok('...a newer sync is accepted', accepts(200, 100) === true);
+  ok('...an older sync is ignored', accepts(100, 200) === false);
+  ok('...and re-applying the same one is still accepted', accepts(100, 100) === true);
+  ok('...as is the first one, when nothing is held yet', accepts(100, 0) === true);
+}
+ok('...and it is installed on both write paths',
+   /window\.applyVivData = wrapped;/.test(CODE) && /window\.loadDataFromFile = wrapped;/.test(CODE));
+/* The tiles were flashing real counts of a half-loaded roster. */
+ok('the tiles wait for the document as well as for Pulse',
+   /if \(_dataLoading\) return false;/.test(CODE) &&
+   /_dataLoading = true;/.test(CODE) && /finally \{ _dataLoading = false; \}/.test(CODE));
+
 console.log('\n' + (fail ? 'FAILED ' + fail : 'PASSED all ' + pass));
 process.exit(fail ? 1 : 0);

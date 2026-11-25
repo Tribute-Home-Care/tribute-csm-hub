@@ -44,7 +44,27 @@ ok('the visit date comes from V1’s nextDue, not a second copy',
 // ── 2. the sort that had no column ────────────────────────────────────────
 ok('Start of care is a column now', /\['start', 'Start of care'\]/.test(RD));
 ok('...and the sort it needs was already written',
-   /else if \(_sortKey === 'start'\) list\.sort\(function \(a, b\) \{\s*\n\s*return dir \* nullsLast\(a\.c\.startDate\)/.test(RD));
+   /else if \(_sortKey === 'start'\) list\.sort\(function \(a, b\) \{/.test(RD));
+/* BLANKS LAST IN BOTH DIRECTIONS. nullsLast maps a missing value to a
+   character sorting after every date, which puts blanks last ascending and
+   therefore FIRST descending -- the dashes jumped to the top on newest-first.
+   A row with no start date is not the newest; it is the one we cannot place. */
+ok('...and a row with no start date sorts last whichever way the column points',
+   /if \(!av && !bv\) return byName\(a, b\);/.test(RD) &&
+   /if \(!av\) return 1;/.test(RD) &&
+   /if \(!bv\) return -1;/.test(RD));
+{
+  const dirSort = (dir, rows) => rows.slice().sort((a, b) => {
+    const av = a.startDate || '', bv = b.startDate || '';
+    if (!av && !bv) return 0;
+    if (!av) return 1;
+    if (!bv) return -1;
+    return dir * av.localeCompare(bv);
+  }).map(r => r.startDate || '-');
+  const rows = [{startDate:'2022-11-07'},{startDate:''},{startDate:'2026-11-24'}];
+  ok('...ascending puts the blank last', dirSort(1, rows).join(',') === '2022-11-07,2026-11-24,-');
+  ok('...and so does descending', dirSort(-1, rows).join(',') === '2026-11-24,2022-11-07,-');
+}
 /* WITH THE YEAR. fmtShort drops it, which is right for a visit last week and
    wrong here: the first sort by start date came back reading "Jul 20, Aug 10,
    Nov 7, May 11, Sep 2" -- correct across 2022 and 2023, and indistinguishable
