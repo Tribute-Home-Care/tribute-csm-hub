@@ -2184,7 +2184,12 @@
     // documented this client on this day. Model logs are not, and none appear.
     try {
       const sc = window.TributeScribeReview && TributeScribeReview.cached(c.vivId);
-      (sc || []).forEach(function (e) {
+      /* A DISCARDED ENCOUNTER IS NOT ACTIVITY. Recent listed every encounter
+         whatever its state, so retiring one through the review op would have
+         left the row in place and merely relabelled it "Documentation
+         reviewed" -- trading a false record of a visit for a false record of
+         a review. The Summary card already filters on status; this did not. */
+      (sc || []).filter(function (e) { return e.status !== 'discarded'; }).forEach(function (e) {
         const n = (e.counts || {});
         const bits = [];
         if (n.carePlan) bits.push(plural(n.carePlan, 'care plan change') + ' proposed');
