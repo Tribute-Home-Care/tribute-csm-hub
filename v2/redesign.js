@@ -147,8 +147,8 @@
                     if (!fb) return;
                     let admin = false;
                     try {
-                      const me = String(((A.account || {}).username) || '').toLowerCase();
-                      admin = (A.adminUpns || []).some(u => String(u).toLowerCase() === me);
+                      // The server's answer, not a list the client holds.
+                      admin = typeof A.isAdmin === 'function' ? !!A.isAdmin() : !!A.isAdmin;
                     } catch (e) {}
                     if (admin && fb.openInbox) fb.openInbox(); else fb.open();
                   } },

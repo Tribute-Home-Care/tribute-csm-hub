@@ -39,7 +39,16 @@
     myProfileId:    () => (typeof MY_PROFILE_ID !== 'undefined' ? MY_PROFILE_ID : null),
     selectedHub:    () => (typeof selectedHub !== 'undefined' ? selectedHub : ''),
     activeMarket:   () => (typeof activeMarket !== 'undefined' ? activeMarket : ''),
-    adminUpns:      () => (typeof ADMIN_UPNS !== 'undefined' ? ADMIN_UPNS : []),
+    /* ADMIN_UPNS NO LONGER EXISTS. It was a literal list of staff addresses in
+       index.html, in a public repo, and on 24 Nov it moved server-side: the
+       csm_data read returns viewer.isAdmin for the caller and the client keeps
+       only the answer. This accessor kept reading the deleted name, so it has
+       been returning [] to everything that asked -- which closed Exception
+       Review, the feedback inbox and the metrics admin view to the very
+       accounts they exist for. The list is gone for good, so the shape
+       changes with it: ask isAdmin, not "am I in this array". */
+    adminUpns:      () => [],
+    isAdmin:        () => (typeof _viewerIsAdmin !== 'undefined' ? !!_viewerIsAdmin : false),
     hubMeta:        () => (typeof HUB_META !== 'undefined' ? HUB_META : {}),
     vivNames:       () => (typeof VIV_NAMES !== 'undefined' ? VIV_NAMES : {}),
 

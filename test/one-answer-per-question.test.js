@@ -94,5 +94,25 @@ ok('zebra and hover need no !important and do not use one',
 /* Her floor, restated where it is enforced. */
 ok('no list line is lighter than her floor', /--row-line: #DDD6CC;/.test(CSS));
 
+// ── the admin answer reaches the things that gate on it ─────────────────
+/* Removing ADMIN_UPNS from the client on 24 Nov left bridge.js reading a name
+   that no longer existed, so it returned [] to everything that asked. Three
+   views silently closed to the accounts they exist for: Exception Review, the
+   feedback inbox and the metrics admin view. Found because the Exception
+   Review built for Courtney could not be opened. */
+const BR = fs.readFileSync(path.join(__dirname, '../v2/bridge.js'), 'utf8');
+const SE = fs.readFileSync(path.join(__dirname, '../v2/v2-sereview.js'), 'utf8');
+const MT = fs.readFileSync(path.join(__dirname, '../v2/v2-metrics.js'), 'utf8');
+ok('the bridge no longer reads the deleted list', !/typeof ADMIN_UPNS !== 'undefined'/.test(BR));
+ok('...and publishes the answer the server gives instead',
+   /isAdmin:\s+\(\) => \(typeof _viewerIsAdmin !== 'undefined' \? !!_viewerIsAdmin : false\)/.test(BR));
+ok('Exception Review asks it', /if \(typeof a\.isAdmin === 'function' \? a\.isAdmin\(\) : !!a\.isAdmin\) return true;/.test(SE));
+ok('...and so does the metrics admin view', /if \(typeof a\.isAdmin === 'function' \? a\.isAdmin\(\) : !!a\.isAdmin\) return true;/.test(MT));
+ok('...and the feedback inbox', /admin = typeof A\.isAdmin === 'function' \? !!A\.isAdmin\(\) : !!A\.isAdmin;/.test(RD));
+/* Courtney reaches her own review by profile, not by being an admin, so that
+   path must survive untouched. */
+ok('...and Courtney still reaches it by profile',
+   /var OWNER_PROFILE = 'courtney';/.test(SE) && /mine\.id === OWNER_PROFILE/.test(SE));
+
 console.log('\n' + (fail ? 'FAILED ' + fail : 'PASSED all ' + pass));
 process.exit(fail ? 1 : 0);

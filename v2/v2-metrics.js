@@ -57,6 +57,9 @@
     var a = A();
     var me = '';
     try { me = String(((a.account || {}).username) || '').toLowerCase(); } catch (e) {}
+    /* The server decides who is an admin now; the client only holds the
+       answer. The old test read a list that no longer exists. */
+    if (typeof a.isAdmin === 'function' ? a.isAdmin() : !!a.isAdmin) return true;
     if (me && (a.adminUpns || []).some(function (u) { return String(u).toLowerCase() === me; })) return true;
     // No identity, no access. Never fall through to the open profile.
     if (!a.account || typeof a.profileForAccount !== 'function') return false;

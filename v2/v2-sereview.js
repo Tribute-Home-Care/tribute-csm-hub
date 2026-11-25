@@ -44,6 +44,9 @@
   function allowed() {
     var a = A(); var me = '';
     try { me = String(((a.account || {}).username) || '').toLowerCase(); } catch (e) {}
+    /* The server decides who is an admin now; the client only holds the
+       answer. The old test read a list that no longer exists. */
+    if (typeof a.isAdmin === 'function' ? a.isAdmin() : !!a.isAdmin) return true;
     if (me && (a.adminUpns || []).some(function (u) { return String(u).toLowerCase() === me; })) return true;
     if (!a.account || typeof a.profileForAccount !== 'function') return false;
     try { var mine = a.profileForAccount(a.account); return !!(mine && mine.id === OWNER_PROFILE); }
