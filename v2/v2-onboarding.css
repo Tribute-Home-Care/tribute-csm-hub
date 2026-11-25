@@ -95,3 +95,13 @@
 }
 .obb-head:hover { background: var(--row-zebra, #F7F3ED) !important; }
 .obb-head span { white-space: normal; line-height: 1.25; }
+
+/* Success in 30 on the board: her five weeks, then the next item and its
+   owner. Ten columns against the onboarding row's nine, because the first 30
+   days are grouped into five windows rather than three phases. */
+.obb-r.obb-s30{grid-template-columns:minmax(0,1.4fr) 76px 78px 44px 56px 56px 56px 56px minmax(0,1.5fr) 54px;}
+/* WHERE THE TASK LIVES IN VIV. Courtney, section 7: "Viv location under the
+   task in small grey text (Profile > General) for the Viv setup items, so the
+   CSP doesn't have to look it up." Quieter than the hint above it, because it
+   is a signpost rather than a rule. */
+.ob-viv{font-size:11.5px;color:#8C857B;margin-top:2px;}

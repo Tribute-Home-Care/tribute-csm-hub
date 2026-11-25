@@ -185,10 +185,19 @@ ok('...and guards the call sites it kept',
   /* The test that drifted from the renderer is gone, not merely corrected. */
   ok('...and nothing tests the shape a second way',
      !/rows\.every\(r => !\(r\.tab === 'offboarding'/.test(OB));
+  /* Success in 30 grew from four columns to ten on 25 Nov: her five weeks,
+     then the next item due and its owner. The header has to grow with it, or
+     it names columns that are not there -- the exact fault this block was
+     written for. */
   ok('each shape carries its own header',
      /ob:\s+\{ cls: 'obb-ob', cols: \['Client', 'Start of care', 'Day', 'Status',/.test(OB) &&
-     /s30: \{ cls: '',\s+cols: \['Client', 'Status', 'Day', 'Checklist'\] \}/.test(OB) &&
+     /s30: \{ cls: 'obb-s30', cols: \['Client', 'Day', 'Status',/.test(OB) &&
+     /'Next item due', 'Owner'\] \}/.test(OB) &&
      /off: \{ cls: '',\s+cols: \['Client', 'Ending type', 'Final visit', 'Checklist'\] \}/.test(OB));
+  /* And the header is as long as the row is wide: ten headings, ten cells. */
+  ok('...and the Success in 30 header has one heading per column',
+     (((OB.match(/s30: \{ cls: 'obb-s30', cols: \[([\s\S]*?)\] \}/) || ['', ''])[1]
+        .match(/'/g) || []).length / 2) === 10);
   /* Her rule, which the offboarding rows had been failing for several rounds:
      a header whenever a row has more than two columns. Four is more than two. */
   ok('...so the four-column tabs are no longer bare',

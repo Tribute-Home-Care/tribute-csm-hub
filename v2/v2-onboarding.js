@@ -91,24 +91,24 @@ const OB_CHECKLIST = [
      hint:'New clients start at the Medium floor for their first 90 days, and may go to High after assessment.'}
   ]},
   {g:'Phase 2 — Viv setup', items:[
-    {id:'ob_geo', label:'Set "Located In" and "Payor" to the same Geo', owner:'CSP',
+    {id:'ob_geo', viv:'Profile > General > Edit General', label:'Set "Located In" and "Payor" to the same Geo', owner:'CSP',
      hub:'AUTO+ALERT', due:{order:'first'}, gate:true,
      hint:'Profile > General > Edit General. Must be done BEFORE the Workflow or Tasks.'},
-    {id:'ob_icd', label:'Important Client Details', owner:'CSP + CSM', hub:'AUTO',
+    {id:'ob_icd', viv:'Profile > General > Edit General', label:'Important Client Details', owner:'CSP + CSM', hub:'AUTO',
      due:{before:'firstVisit'}, needs:'ob_geo',
      hint:'Profile > General > Edit General. Paste the template and complete it with the CSM.'},
-    {id:'ob_contacts', label:'Client contacts', owner:'CSP + CSM', hub:'AUTO',
+    {id:'ob_contacts', viv:'Profile', label:'Client contacts', owner:'CSP + CSM', hub:'AUTO',
      due:{before:'firstVisit'}, needs:'ob_geo',
      hint:'Profile. Tick Primary Contact and/or Emergency Contact, plus PHI Consent for App Received for anyone who will use the app.'},
-    {id:'ob_reqs', label:'Requirements page', owner:'CSP', hub:'AUTO',
+    {id:'ob_reqs', viv:'Scheduling > Requirements', label:'Requirements page', owner:'CSP', hub:'AUTO',
      due:{before:'firstVisit'}, needs:'ob_geo',
      hint:'Scheduling > Requirements. Edit the map, add no mandatory requirements, list Tribute Secure as preferred (and CNA-I, CNA-II in Maryland), and write a short blurb on client needs.'},
-    {id:'ob_tag', label:'Hourly or Live-In tag', owner:'CSP', hub:'AUTO',
+    {id:'ob_tag', viv:'Summary (scroll to the bottom)', label:'Hourly or Live-In tag', owner:'CSP', hub:'AUTO',
      due:{before:'firstVisit'}, needs:'ob_geo', hint:'Summary, at the bottom.'},
-    {id:'ob_mgrs', label:'Add the CSM as Account Manager and the CSP as Clinical Manager',
+    {id:'ob_mgrs', viv:'Summary', label:'Add the CSM as Account Manager and the CSP as Clinical Manager',
      owner:'CSP', hub:'AUTO', due:{before:'firstVisit'}, needs:'ob_geo',
      hint:'Summary. Market Director instead if the client is shared with them. Leave Billing Assignee and Scheduling Partner blank.'},
-    {id:'ob_wf', label:'Workflow for requested services', owner:'CSP', hub:'AUTO',
+    {id:'ob_wf', viv:'blue box / white “+” in the top menu', label:'Workflow for requested services', owner:'CSP', hub:'AUTO',
      due:{before:'firstVisit'}, needs:'ob_geo', hint:'Blue box, or the white + in the top menu.'},
     {id:'ob_csa', label:'Email the Client Service Agreement to the family', owner:'CSP',
      hub:'EMAIL', due:{at:'assessment'}, draft:'csa',
@@ -116,14 +116,14 @@ const OB_CHECKLIST = [
     {id:'ob_csa_up', label:'Confirm the CSA is uploaded to Viv and tell the CSM it is signed',
      owner:'CSP', hub:'AUTO+ALERT', due:{before:'serviceBegins'}, needs:'ob_csa',
      hint:'Still unsigned as start of care approaches: follow up with the family right away, document the delay and loop in the Market Director.'},
-    {id:'ob_app', label:'Send the Viv app access email and create the family user account',
+    {id:'ob_app', viv:'Accounts > User (black menu panel) > click the green person with (+)', label:'Send the Viv app access email and create the family user account',
      owner:'CSP', hub:'EMAIL+AUTO', due:{before:'firstVisit'}, draft:'app_access',
      hint:'Accounts > User > the green person with a +. Use the standard family password; it is not repeated here.'},
     {id:'ob_task', label:'Create the Task for Scheduling', owner:'CSP', hub:'AUTO',
      due:{before:'firstVisit'}, needs:'ob_geo'},
-    {id:'ob_cp', label:'Complete the Tribute Care Plan with the CSM', owner:'CSP + CSM',
+    {id:'ob_cp', viv:'Documents > Tribute Care Plan', label:'Complete the Tribute Care Plan with the CSM', owner:'CSP + CSM',
      hub:'AUTO+ALERT', due:{from:'assessment', hrs:24}, hint:'Documents > Tribute Care Plan.'},
-    {id:'ob_note', label:'Assessment note labelled "Clinical Progress Note"', owner:'CSM',
+    {id:'ob_note', viv:'Service Delivery > Notes', label:'Assessment note labelled "Clinical Progress Note"', owner:'CSM',
      hub:'AUTO+ALERT', due:{from:'assessment', hrs:24}, hint:'Service Delivery > Notes.'}
   ]},
   {g:'Phase 3 — First 60 days', items:[
@@ -436,7 +436,19 @@ function renderObBoard(){
   const SHAPES = {
     ob:  { cls: 'obb-ob', cols: ['Client', 'Start of care', 'Day', 'Status',
                                  'Phase 1', 'Phase 2', 'Phase 3', 'Next item due', 'Owner'] },
-    s30: { cls: '',       cols: ['Client', 'Status', 'Day', 'Checklist'] },
+    /* HER WEEKS, NOT THE ONBOARDING PHASES. Part 3 groups the first 30 days
+       as Before Start of Care, Days 1-7, 8-14, 15-21 and 22-30, and her
+       section 7 asks for "Success in 30 shows progress by week instead of by
+       phase".
+
+       The weeks were already computed -- s30Checklist returns them with a
+       done and a total each -- and the board simply never read them. It drew
+       one lump "4 of 10", so a client three weeks in with nothing done in
+       week 3 looked the same as one who had done week 3 and nothing else. */
+    s30: { cls: 'obb-s30', cols: ['Client', 'Day', 'Status',
+                                  'Pre', 'Days 1\u20137', 'Days 8\u201314',
+                                  'Days 15\u201321', 'Days 22\u201330',
+                                  'Next item due', 'Owner'] },
     off: { cls: '',       cols: ['Client', 'Ending type', 'Final visit', 'Checklist'] }
   };
   const shapeOf = r => (r.tab === 'offboarding' || (r.off && r.tab === 'done')) ? 'off'
@@ -461,11 +473,22 @@ function renderObBoard(){
     }
     if(shapeOf(r)==='s30'){
       const st=r.k?r.k.state:'ontrack';
-      return `<button type="button" class="obb-r ${st}" onclick="${open}">
+      /* One bar per week, in her order, and a week with nothing in it is
+         drawn as an empty bar rather than skipped: the columns have to line
+         up across every row or the board cannot be read down. */
+      const wk=['pre','w1','w2','w3','w4'].map(id=>{
+        const w=(r.k&&r.k.weeks||[]).find(x=>x.id===id);
+        return w?_obBar(w.done,w.total):_obBar(0,0);
+      }).join('');
+      const nd=r.k?_s30NextDue(r.k):null;
+      return `<button type="button" class="obb-r obb-s30 ${st}" onclick="${open}"
+        title="${escHtml(r.k?r.k.why:'')}">
         <span class="obb-n">${escHtml(r.c.name)}</span>
-        <span class="obb-w">${escHtml(r.k?r.k.why:'')}</span>
         <span class="obb-d">Day ${r.daysIn+1} of 30</span>
-        <span class="obb-p">${r.k?r.k.done:0} of ${r.k?r.k.total:0}</span></button>`;
+        <span class="obb-st ${st}">${escHtml(S30_STATE_LABEL[st]||'On Track')}</span>
+        ${wk}
+        <span class="obb-next${nd&&nd.overdue?' late':''}">${nd?escHtml(nd.label):'Nothing dated outstanding'}</span>
+        <span class="obb-own">${escHtml(nd?nd.owner:'')}</span></button>`;
     }
     /* HER ONBOARDING ROW: client, SOC, day, status, a bar per phase, the one
        thing due next, and who owns it. The status is the Success in 30 state,
@@ -484,6 +507,17 @@ function renderObBoard(){
       <span class="obb-next${nd&&nd.late?' late':''}">${nd?escHtml(nd.item.label+(nd.say?' \u00b7 '+nd.say:'')):'Nothing dated outstanding'}</span>
       <span class="obb-own">${escHtml(nd?nd.item.owner:'')}</span></button>`;
   }).join('')+'</div>';
+}
+/* THE ONE THING DUE NEXT in the first 30 days. Overdue first, then the
+   nearest date, mirroring _obNextDue for the onboarding board so the two
+   columns mean the same thing. An item with no date is not a candidate:
+   announcing an undated item as due next would be inventing urgency. */
+function _s30NextDue(k){
+  const open=[];
+  (k.weeks||[]).forEach(w=>(w.items||[]).forEach(i=>{ if(!i.done&&i.due)open.push(i); }));
+  if(!open.length)return null;
+  open.sort((a,b)=>(b.overdue-a.overdue)||String(a.due).localeCompare(String(b.due)));
+  return open[0];
 }
 const S30_STATE_LABEL={ontrack:'On Track',watch:'Watch',atrisk:'At Risk',done:'Complete'};
 function _obBar(d,t){
@@ -665,6 +699,7 @@ function renderObChecklist(cid){
       <div class="ob-t">
         <div class="ob-l">${i.isNew?'<span class="ob-new">New</span>':''}${escHtml(i.label)}</div>
         ${i.hint?`<div class="ob-h">${escHtml(i.hint)}</div>`:''}
+        ${i.viv?`<div class="ob-viv">In Viv: ${escHtml(i.viv)}</div>`:''}
         ${d&&(d.who||d.note||d.na)?`<div class="ob-proof">${d.na?'Not applicable':''}${d.who?escHtml('with '+d.who):''}${d.note?(d.who?' \u00b7 ':'')+escHtml(d.note):''}${d.when?' \u00b7 '+new Date(d.when+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}):''}</div>`:''}
         ${blocked?`<div class="ob-h ob-block">Waiting on: ${escHtml((OB_CHECKLIST.flatMap(g=>g.items).find(x=>x.id===i.needs)||{}).label||'the step above')}</div>`:''}
         ${due.note?`<div class="ob-h ob-rule">${escHtml(due.note)}</div>`:''}
