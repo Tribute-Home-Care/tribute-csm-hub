@@ -22,7 +22,18 @@ ok('the shipped copy and the build source agree',
 
 // ── structure ─────────────────────────────────────────────────────────────
 ok('Summary renders as two columns', /<div class="rd-sum">[\s\S]{0,200}rd-sum-l[\s\S]{0,200}rd-sum-r/.test(CODE));
-ok('cadence leads the left column', /'<div class="rd-sum-l">' \+ wsCadence\(c\) \+ out/.test(CODE));
+/* THE COLUMNS SWAPPED ON 24 NOV, and the checklist moved into one of them.
+   Before: three children in a two-column grid, so the right column wrapped to
+   row 2 and row 1 grew as tall as the longer thing in it -- 350px of nothing
+   under the checklist on any client inside their first 30 days.
+   Now: what you need in your hand on the left with the checklist above it,
+   what you are tracking on the right, each its own stack. */
+ok('what you need in your hand leads the left column, under the checklist',
+   /'<div class="rd-sum-l">' \+ wsS30\(c\) \+ wsSummaryRight\(c, snap\)/.test(CODE));
+ok('cadence leads the tracking column',
+   /'<div class="rd-sum-r">' \+ wsCadence\(c\) \+ out/.test(CODE));
+ok('...and neither column can be moved by the other\u2019s height',
+   /\.rd-sum-l, \.rd-sum-r \{ display: flex; flex-direction: column; gap: 12px; \}/.test(CSS));
 ok('the right column is its own builder', /wsSummaryRight\(c, snap\)/.test(CODE));
 ok('the two columns exist in the stylesheet', /\.rd-sum \{[\s\S]{0,200}grid-template-columns/.test(CSS));
 // Her phone order: the number matters more than a late touchpoint in the car.

@@ -85,7 +85,11 @@ for (const [label, SRC] of [['V1', V1], ['V2', V2]]) {
 }
 
 // ── where it renders ──────────────────────────────────────────────────────
-ok('the checklist is at the top of Summary', /wsS30\(c\) \+\n\s*'<div class="rd-sum-l">'/.test(RD));
+/* INSIDE a column now, not a third child of the two-column grid: as a sibling
+   of the columns it took a cell of its own and pushed the second column to a
+   new row, leaving 350px of blank space beneath it. */
+ok('the checklist is at the top of Summary',
+   /'<div class="rd-sum-l">' \+ wsS30\(c\) \+/.test(RD));
 ok('...and only until it is finished', /if \(!k \|\| k\.finished\) return '';/.test(RD));
 // A finished checklist is history and belongs in Activity, not on the page a
 // CSM reads before a call.

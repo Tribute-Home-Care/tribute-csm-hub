@@ -3867,3 +3867,29 @@ input.ob-cb:disabled { opacity: .5; cursor: not-allowed; }
 @media (max-width: 700px) {
   .rd-cp-kvs .rd-kv { grid-template-columns: minmax(0, 1fr); gap: 4px; }
 }
+
+/* ── THE SUMMARY IS TWO INDEPENDENT STACKS ────────────────────────
+   Each column is a flex stack with its own gap, aligned to the top, so no
+   card's position can depend on the height of a card in the other column --
+   which is what produced the 350px hole under the checklist.
+
+   The cards carry their own margin-top for the places they are used singly,
+   and that would add to the gap here, so it is zeroed inside these columns
+   and the gap does the spacing on its own.
+
+   The tracking column keeps the greater width it had: it holds six cards to
+   the other's four, and the Today and Next visit lines are the longest text
+   on the page. */
+.rd-sum { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); align-items: start; }
+.rd-sum-l, .rd-sum-r { display: flex; flex-direction: column; gap: 12px; }
+.rd-sum-l > *, .rd-sum-r > * { margin-top: 0; }
+
+@media (max-width: 1000px) {
+  /* One column, in Courtney's phone order: what you need in your hand first.
+     That is the LEFT column now, and it is already first in the markup, so
+     the order overrides the old layout needed are removed rather than
+     reversed -- an order property that merely restates the DOM is a thing to
+     get wrong later. */
+  .rd-sum { grid-template-columns: minmax(0, 1fr); }
+  .rd-sum-l, .rd-sum-r { order: 0; }
+}

@@ -12,7 +12,9 @@ const CSS = fs.readFileSync(path.join(__dirname, '../v2/redesign.css'), 'utf8');
 const CSSR = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
 
 // ── the answer has three shapes, and they are read, not invented ─────────
-ok('an answer is parsed into the shapes it already has', /function cpAnswer\(a\) \{/.test(RD));
+/* It takes the client too, so a row that holds only a reference can show the
+   contact the Hub has already loaded rather than send the reader elsewhere. */
+ok('an answer is parsed into the shapes it already has', /function cpAnswer\(a, c\) \{/.test(RD));
 ok('...bullets become a real list',
    /<ul class="rd-cp-ul">/.test(RD) && /'<li>' \+ esc\(x\) \+ '<\/li>'/.test(RD));
 /* A short unpunctuated line is a heading only when it HEADS something. One at
@@ -35,16 +37,26 @@ ok('...and a bullet is defined once', /const BULLET = \/\^\[/.test(RD) &&
 ok('...and a bare record id is not printed at a CSM',
    /const RAW_ID = \/\^\[a-f0-9\]\{24\}\$\/i;/.test(RD) &&
    /if \(lines\.length === 1 && RAW_ID\.test\(lines\[0\]\)\) \{/.test(RD));
-ok('...it says what it is and where the answer lives instead',
-   /Recorded in Viv as a link to a contact record/.test(RD) &&
-   /under Contacts\./.test(RD));
+/* AND THE ANSWER IS SHOWN, NOT POINTED AT. Sending somebody to another tab is
+   honest, but it is the wrong thing to do in the row headed Emergency Contact
+   when the Hub already holds that client's contacts. The label still says
+   where it came from, because the care plan itself does NOT record this -- it
+   records a reference we cannot open, and the reader should know. */
+ok('...the contact the Hub already holds is shown in the row',
+   /const fc = c \? familyContact\(c\) : null;/.test(RD) &&
+   /if \(fc && \(fc\.name \|\| fc\.phone\)\) \{/.test(RD));
+ok('...labelled as coming from Contacts, not from the plan',
+   /From Contacts\. The care plan records a link to a/.test(RD));
+ok('...with the number dialable', /'<a href="tel:' \+ esc\(String\(fc\.phone\)/.test(RD));
+ok('...and the plain message kept for a client with no contact at all',
+   /and no contact is on file for this client/.test(RD));
 ok('...and everything else stays prose', /'<p class="rd-cp-p">' \+ esc\(l\) \+ '<\/p>'/.test(RD));
 /* Every branch escapes. An unescaped care plan would be an injection straight
    from a Viv form into the page. */
 ok('...and every branch escapes what it prints',
    (RD.match(/esc\(l\)/g) || []).length >= 2 && /esc\(x\)/.test(RD) &&
    !/<p class="rd-cp-p">' \+ l \+/.test(RD));
-ok('the row renders through it', /'<\/dt><dd>' \+ cpAnswer\(it\.a\) \+ '<\/dd><\/div>'/.test(RD));
+ok('the row renders through it', /'<\/dt><dd>' \+ cpAnswer\(it\.a, c\) \+ '<\/dd><\/div>'/.test(RD));
 /* pre-line plus real markup would double every gap. */
 ok('...and pre-line is turned off now there is markup',
    /\.rd-cp-kvs \.rd-kv dd \{ white-space: normal; \}/.test(CSSR));

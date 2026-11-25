@@ -3542,10 +3542,22 @@
        The right column is assembled from the views that sat under More, which
        is why they can stop being separate destinations. Nothing is removed
        from the Hub, it is moved to where it gets read. */
+    /* TWO INDEPENDENT STACKS, AND THE CHECKLIST BELONGS TO ONE OF THEM.
+       This passed THREE children to a two-column grid: the checklist, then
+       each column. With no span the checklist took a cell of its own, so the
+       right-hand column wrapped to row 2 and row 1 grew as tall as the longer
+       of the two things in it. Measured on a client inside their first 30
+       days: the checklist ended around 890px and Contacts began around
+       1250px, with 350px of nothing in between. Invisible on everyone else,
+       because the checklist is the only client in their first 30 days.
+
+       Now each column is its own stack and holds what it is for: what you
+       need in your hand on the left, with the checklist on top of it, and
+       what you are tracking on the right. No card's position depends on the
+       height of a card in the other column. */
     return '<div class="rd-sum">' +
-      wsS30(c) +
-      '<div class="rd-sum-l">' + wsCadence(c) + out + '</div>' +
-      '<div class="rd-sum-r">' + wsSummaryRight(c, snap) + '</div>' +
+      '<div class="rd-sum-l">' + wsS30(c) + wsSummaryRight(c, snap) + '</div>' +
+      '<div class="rd-sum-r">' + wsCadence(c) + out + '</div>' +
       '</div>';
   }
 
@@ -3700,14 +3712,31 @@
      the place that DOES have it rather than print a database key at somebody
      who is standing in a client's hallway. */
   const RAW_ID = /^[a-f0-9]{24}$/i;
-  function cpAnswer(a) {
+  function cpAnswer(a, c) {
     const lines = String(a == null ? '' : a).split('\n')
       .map(function (l) { return l.trim(); }).filter(Boolean);
     if (!lines.length) return '';
     if (lines.length === 1 && RAW_ID.test(lines[0])) {
+      /* THE ANSWER IS ONE WE ALREADY HAVE. Sending somebody to another tab is
+         honest, but it is the wrong thing to do in the row headed Emergency
+         Contact: the Hub has already loaded this client's contacts for the
+         Summary tab, so the name and number can simply be here. The label says
+         where it came from, because this is NOT what the care plan itself
+         records -- the plan holds a reference we cannot open, and the reader
+         is entitled to know the difference. */
+      const fc = c ? familyContact(c) : null;
+      if (fc && (fc.name || fc.phone)) {
+        return '<p class="rd-cp-p"><strong>' + esc(fc.name || 'Contact') + '</strong>' +
+               (fc.rel ? ' <span class="rd-sub">(' + esc(fc.rel) + ')</span>' : '') +
+               (fc.phone ? '<span class="dot">\u00b7</span>' +
+                 '<a href="tel:' + esc(String(fc.phone).replace(/[^\d+]/g, '')) + '">' +
+                 esc(fc.phone) + '</a>' : '') + '</p>' +
+               '<p class="rd-ws-quiet">From Contacts. The care plan records a link to a ' +
+               'contact record, which this view cannot open.</p>';
+      }
       return '<p class="rd-ws-quiet">Recorded in Viv as a link to a contact record, ' +
-             'which this view cannot open. The people to call are on the Summary tab ' +
-             'under Contacts.</p>';
+             'which this view cannot open, and no contact is on file for this client ' +
+             'either.</p>';
     }
     const out = [];
     let ul = [];
@@ -3774,7 +3803,7 @@
       out += secs.map(function (s, i) {
         const long = s.items.length > 4;
         const items = '<dl class="rd-kvs rd-cp-kvs">' + s.items.map(function (it) {
-          return '<div class="rd-kv"><dt>' + esc(it.q) + '</dt><dd>' + cpAnswer(it.a) + '</dd></div>';
+          return '<div class="rd-kv"><dt>' + esc(it.q) + '</dt><dd>' + cpAnswer(it.a, c) + '</dd></div>';
         }).join('') + '</dl>';
         if (!long) return '<section class="rd-cp-sec"><h5>' + esc(s.title) + '</h5>' + items + '</section>';
         return '<details class="rd-cp-sec rd-cp-fold"' + (i < 2 ? ' open' : '') + '>' +
@@ -5584,6 +5613,8 @@
      Without the last distinction a caseload with no flags would sit on
      dashes for the whole grace period. */
   let _dataLoading = false;
+  let _lastDataChangeAt = 0;
+  const SETTLE_MS = 700;
   function countsReady() {
     const app = A();
     if (!app.ready) return false;
@@ -5593,6 +5624,19 @@
        drawn because this only ever waited for Client Pulse. A count of a
        half-loaded caseload is exactly the number nobody can go and verify. */
     if (_dataLoading) return false;
+    /* AND NOT IN THE GAP BETWEEN TWO LOADS. The tiles were still flashing one
+       wrong set -- 17 / 6 / 4 / 32 at 1.3s, dashes again at 2.0s, then the
+       real 21 / 4 / 4 / 32 -- because the Hub reads the document more than
+       once on a cold open and this gate only knew about one read at a time.
+       Those middle numbers were a true count of the FIRST document, which is
+       no comfort to whoever read them.
+
+       So the tiles wait for the data to STOP MOVING rather than for any
+       particular load to finish: a short settle window after the last change,
+       re-checked every second by the waiting state. It costs well under a
+       second of dashes, and it is the difference between drawing once and
+       drawing three times. */
+    if (_lastDataChangeAt && Date.now() - _lastDataChangeAt < SETTLE_MS) return false;
     if (window._pulseLoading) return false;
     /* _PULSE IS ASSIGNED WHOLE OR NOT AT ALL -- loadPulse builds its byCid map
        and then assigns the object in one go -- so its mere PRESENCE is the
@@ -5821,7 +5865,9 @@
             // Equal is not older: a re-apply of the same snapshot is harmless.
             if (inc && have && inc < have) return;
           } catch (e) {}
-          return orig.apply(this, arguments);
+          const r = orig.apply(this, arguments);
+          _lastDataChangeAt = Date.now();
+          return r;
         };
         wrapped.__rdOrder = true;
         window.applyVivData = wrapped;
@@ -5840,7 +5886,7 @@
           _dataLoading = true;
           let r;
           try { r = await orig.apply(this, arguments); }
-          finally { _dataLoading = false; }
+          finally { _dataLoading = false; _lastDataChangeAt = Date.now(); }
           try {
             if (keep && vivGenOf(window.DATA) < keepAt) {
               window.DATA.shared = window.DATA.shared || {};

@@ -436,7 +436,15 @@ ok('...and it is installed on both write paths',
 /* The tiles were flashing real counts of a half-loaded roster. */
 ok('the tiles wait for the document as well as for Pulse',
    /if \(_dataLoading\) return false;/.test(CODE) &&
-   /_dataLoading = true;/.test(CODE) && /finally \{ _dataLoading = false; \}/.test(CODE));
+   /_dataLoading = true;/.test(CODE) &&
+   /finally \{ _dataLoading = false; _lastDataChangeAt = Date\.now\(\); \}/.test(CODE));
+/* AND FOR THE GAP BETWEEN TWO LOADS. The Hub reads the document more than once
+   on a cold open, and a gate that knows about one read at a time drew a true
+   count of the FIRST document in between -- 17 / 6 / 4 / 32 before the real
+   21 / 4 / 4 / 32. The tiles wait for the data to stop moving instead. */
+ok('...and for the data to stop moving, not just for one read to end',
+   /if \(_lastDataChangeAt && Date\.now\(\) - _lastDataChangeAt < SETTLE_MS\) return false;/.test(CODE) &&
+   /const SETTLE_MS = 700;/.test(CODE));
 
 console.log('\n' + (fail ? 'FAILED ' + fail : 'PASSED all ' + pass));
 process.exit(fail ? 1 : 0);
