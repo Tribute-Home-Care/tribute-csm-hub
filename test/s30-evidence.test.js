@@ -98,5 +98,32 @@ ok('a missed day 14 visit is named as itself',
 ok('...and the count says which items it counted',
    /late\+' of the items the Hub can check are overdue'/.test(OB));
 
+/* ── 7. unfilled visits, and the call-out we cannot see ──────────────── */
+/* Part 4: "Turn caregiver changes, call-outs, and open visits in the first
+   30 days into Watch or At Risk triggers." */
+ok('the thresholds are named, so they can be moved in one place',
+   /const S30_OPEN_WATCH = 1, S30_OPEN_ATRISK = 3;/.test(OB));
+const ov = (OB.match(/function s30OpenVisits\(c,pid\)\{[\s\S]*?\n\}/) || [''])[0];
+ok('open visits are counted from the client\'s own feed, inside the window',
+   /vivOpenVisits/.test(ov) && /d>=soc/.test(ov));
+const sch = (OB.match(/function s30WithSchedule\(c,pid,k\)\{[\s\S]*?\n\}/) || [''])[0];
+ok('three or more unfilled visits is At Risk', /open>=S30_OPEN_ATRISK&&k\.state!=='atrisk'/.test(sch));
+ok('one is a Watch, and only on a client who was otherwise fine',
+   /open>=S30_OPEN_WATCH&&\(k\.state==='ontrack'\|\|k\.state==='done'\)/.test(sch));
+ok('...naming the count rather than saying "unfilled visits" vaguely',
+   /why:open\+' unfilled visits in the first 30 days'/.test(sch));
+/* The schedule is the one thing that can raise the status, so it runs last,
+   and a status it raised is not the checklist's to take back. */
+ok('the schedule can only raise, never lower',
+   /if\(out\.state!==k\.state\)return out;/.test(OB));
+/* CALL-OUTS ARE NOT INFERRED FROM AN OPEN VISIT. The feed says a visit is
+   unfilled, never why, and a routine gap is not a caregiver letting a
+   client down. */
+ok('call-outs are listed as something the Hub cannot see, not guessed',
+   /whether an unfilled visit was a call-out or a routine gap/.test(OB));
+ok('...alongside the other two it cannot see',
+   /whether the family has asked to remove a caregiver/.test(OB) &&
+   /which kind of service exception was raised/.test(OB));
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

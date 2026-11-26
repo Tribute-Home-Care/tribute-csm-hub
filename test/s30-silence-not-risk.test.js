@@ -72,8 +72,11 @@ ok('...and a checklist with derived evidence counts as started',
 ok('the day 14 milestone is not treated as evidence', !/visit2/.test(ev));
 
 /* ── 3. only the count on an untouched checklist is downgraded ───────── */
+/* Only At Risk and Watch are ever downgraded, and the state tested is the
+   one AFTER the schedule has had its say, so a client the unfilled-visit
+   trigger raised is considered too. */
 ok('only At Risk and Watch are ever adjusted',
-   /if\(k\.state!=='atrisk'&&k\.state!=='watch'\)return out;/.test(adj));
+   /if\(out\.state!=='atrisk'&&out\.state!=='watch'\)return out;/.test(adj));
 ok('...and the downgrade is a state of its own, not On Track',
    /state:'notstarted'/.test(adj) && !/state:'ontrack'/.test(adj));
 ok('...that says what it actually means',
