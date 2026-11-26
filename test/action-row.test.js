@@ -127,9 +127,13 @@ ok('the prose cap no longer applies to the button row',
    /\.rd-cw-head \.rd-cw-acts \{ max-width: none; \}/.test(CSSR));
 ok('...and it still applies to the three that want it',
    /\.rd-ws-body, \.rd-cw-acts, \.rd-cw-addr, \.rd-cw-meta \{ max-width: 760px; \}/.test(CSSR));
-/* 6 * 184 + 5 * 8 = 1144px for one line, wrapping below that. */
-ok('...so six fit on one line when there is room',
-   /grid-template-columns: repeat\(auto-fit, minmax\(146px, 184px\)\);/.test(lastRule('.rd-cw-acts')));
+/* ADDING ASK MADE SEVEN, on 26 Nov. At the old 184px cap that is 7 * 184 +
+   6 * 8 = 1336px of buttons in a row measured live at 1256px, so Scribe
+   dropped to a second line and her "one line of actions with Call first"
+   was broken by the button she had asked for. The cap is 168px now:
+   7 * 168 + 48 = 1224px, which fits, and the labels still fit inside it. */
+ok('...so all seven fit on one line when there is room',
+   /grid-template-columns: repeat\(auto-fit, minmax\(132px, 168px\)\);/.test(lastRule('.rd-cw-acts')));
 ok('...with the spare width at the end rather than stretched across it',
    /justify-content: start;/.test(lastRule('.rd-cw-acts')));
 

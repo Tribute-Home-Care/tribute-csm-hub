@@ -94,6 +94,36 @@ window.GUIDE = (function () {
           'MY KSFs IS THE REAL KSF. The four metrics the CSM KSF computes are no longer ' +
             'typed in by hand.'
         ] },
+        { h: 'Success in 30 now reads the record', ul: [
+          'IT COUNTS WHAT IT CAN SEE. The assessment and the second visit come ' +
+            'off the CSM visit list, and the four weekly family contacts off the ' +
+            'contact log, so six of the ten milestones answer themselves. Before ' +
+            'this there were ten ticks in the whole company and the checklist ' +
+            'measured nothing.',
+          'A MILESTONE IT PICKED UP IS NOT ONE YOU TICKED. Your tick is still ' +
+            'yours and still the record. Nothing is written to your checklist on ' +
+            'your behalf.',
+          'NOT STARTED IS ITS OWN STATE. Four items \u2014 the caregiver prep call, ' +
+            'the week-one check-in and the two Viv setup fields \u2014 have nothing ' +
+            'behind them but a tick, so an overdue one says nobody recorded it, ' +
+            'not that nobody did it. Those four no longer make a client At Risk. ' +
+            'They still show, because somebody should tick them.',
+          'UNFILLED VISITS COUNT. One in the first 30 days is a Watch, three or ' +
+            'more is At Risk.',
+          'ONE QUESTION THE HUB HAS TO ASK YOU. "Has the family asked to remove a ' +
+            'caregiver?" sits on the first-30-days card. Nothing in Viv records it ' +
+            'and it is one of the At Risk rules, so it is the one thing you answer ' +
+            'by hand. Unanswered is not No.'
+        ] },
+        { h: 'And three smaller ones', ul: [
+          'ASK. A button on every client that opens the Assistant with your ' +
+            'question already started and the client named.',
+          'THE COVERAGE NOTE IS ON THE CLIENT. It used to appear only while ' +
+            'somebody was covering, which is after the point of writing it. It is ' +
+            'always there now, and says plainly when there is none.',
+          'NUMBERS ON THE TEAM PAGE OPEN. Press a count and the clients behind it ' +
+            'are listed under the table, with why each one is in it.'
+        ] },
         { h: 'If something looks wrong', ul: [
           'Tell us. The Feedback button at the bottom of the sidebar goes straight to ' +
             'the people who can fix it, and most of what changed this month came in ' +
@@ -223,7 +253,13 @@ window.GUIDE = (function () {
           'An open visit is marked “Needs coverage”.' },
         { h: 'Care snapshot', p: 'A short read of the care plan — the sections the plan itself flags as important. ' +
           'Full care plan is one tap away.' },
-        { h: 'Care team and Recent', p: 'Who is currently visiting, and the last few things anyone did with this client.' }
+        { h: 'Care team and Recent', p: 'Who is currently visiting, and the last few things anyone did with this client.' },
+        { h: 'Coverage', p: 'This client\u2019s coverage note, and who is covering if anybody. ' +
+          'It is always on the page, including when there is no note, because the moment you ' +
+          'need to know whether one exists is before somebody goes away rather than after. ' +
+          'One link opens the Coverage page with this client already picked.' },
+        { h: 'Ask', p: 'Opens the Assistant with your question already started and this ' +
+          'client named, since that is the only reason to press Ask from a client page.' }
       ],
       know: [
         'If the Hub cannot reach Viv it says so and offers Try again. It never shows an empty day instead.',
@@ -593,13 +629,31 @@ window.GUIDE = (function () {
           'days with exactly the same checks, which is Success in 60, and the board counts them ' +
           '\u201cDay 34 of 60\u201d from there. Either way the result goes to your manager, who ' +
           'clears it once they have read it.' },
+        { h: 'Six of the ten answer themselves', p: 'The assessment and the second ' +
+          'in-person visit come off the CSM visit list, and the four weekly family ' +
+          'contacts off the contact log. You do not tick those for the Hub to know ' +
+          'them. What it picks up is marked as picked up, and a tick of yours is ' +
+          'still yours: nothing is written to your checklist on your behalf.' },
+        { h: 'The four it cannot see', p: 'The caregiver prep call, the week-one ' +
+          'check-in and the two Viv setup fields have nothing behind them but a tick. ' +
+          'So an overdue one means nobody recorded it, not that nobody did it, and ' +
+          'those four no longer make a client At Risk on their own. They still show ' +
+          'as outstanding, because somebody should tick them. A client whose only ' +
+          'outstanding items are those four reads Not started, which is the truth.' },
+        { h: 'Unfilled visits', p: 'One in the first 30 days is a Watch. Three or more ' +
+          'is At Risk. A new client watching shifts go unfilled is the one who leaves.' },
+        { h: 'The one question you answer', p: '"Has the family asked to remove a ' +
+          'caregiver?" is one of her At Risk rules and nothing in Viv records it, so ' +
+          'the card asks you, once, and keeps the answer where your manager sees the ' +
+          'same one. Unanswered is not No.' },
         { h: 'A milestone with no date', p: 'has not happened yet. It is not a gap in the data.' }
       ],
       know: [
-        'One condition the Hub cannot check is whether the family has asked to remove a ' +
-          'caregiver. The card says so rather than implying it looked.',
         'The Day 30 result is a fact about day 30. Once your manager has cleared it, it is ' +
-          'kept as it was rather than worked out again from a later day.'
+          'kept as it was rather than worked out again from a later day.',
+        'Three things the Hub still cannot see, and says so rather than guessing: whether an ' +
+          'unfilled visit was a call-out or a routine gap, which kind of service exception was ' +
+          'raised, and whether a scheduled visit has a note in Viv.'
       ],
       related: ['home', 'communication', 'team']
     },
@@ -639,6 +693,13 @@ window.GUIDE = (function () {
       body: [
         { p: 'Each Maryland client against each requirement, with what is done, what is due and what is late. ' +
              'The board is assembled on a schedule and tells you when it was last built.' }
+      ],
+      know: [
+        'Mark checked records that somebody reviewed this client, not that the requirement ' +
+          'is met. It is there so a board worked by going down it does not get the same ' +
+          'client opened three times and the awkward one opened never.',
+        'Add to to-do writes what is actually outstanding, not just the name, and dates it ' +
+          'a week out.'
       ],
       related: ['ltc-other']
     },
@@ -702,7 +763,11 @@ window.GUIDE = (function () {
           'who escalate to you, so it is the clients that are actually yours to take.' },
         { h: 'Day 30 results', p: 'Who graduated and who was extended to Success in 60, one ' +
           'sentence each. They stay until you clear them, and clearing one keeps it as the ' +
-          'day 30 answer.' }
+          'day 30 answer.' },
+        { h: 'Every number opens', p: 'Press a count and the clients behind it are listed ' +
+          'under the table, named, with their tier and why each one is in that number. ' +
+          'Press it again to close it. A zero opens nothing, and neither do the two contact ' +
+          'columns, which count messages rather than people.' }
       ],
       related: ['kpi', 's30']
     },
@@ -995,7 +1060,7 @@ window.GUIDE = (function () {
   const PAGE_ALIASES = {
     home: 'dashboard landing first screen start morning',
     'find-client': 'client list caseload my clients find a client search tracker',
-    overview: 'client detail client record open a client profile workspace',
+    overview: 'client detail client record open a client profile workspace ask assistant coverage note',
     'care-plan': 'careplan plan of care adls care needs',
     schedule: 'visits shifts who is coming rota calendar',
     'care-team': 'caregivers who is caring aides',
@@ -1005,7 +1070,7 @@ window.GUIDE = (function () {
     pulse: 'red amber green attention level needs attention monitor status quo',
     s30: 'onboarding new client first 30 days milestones success in 30 success in 60 at risk watch on track day 30 graduate extend status weeks viv location escalate',
     coverage: 'time off vacation out of office handoff cover covering communities',
-    md: 'compliance regulation baltimore assessment overdue reassessment maryland',
+    md: 'compliance regulation baltimore assessment overdue reassessment maryland mark checked add to to-do open in viv',
     priority: 'open shifts unfilled visits gaps staffing fill',
     emailcomm: 'community email weekly update senior living building',
     'weekly-email': 'weekly schedule email family send recipients contacts draft automatic who it goes to outlook sent items mailbox send now',
