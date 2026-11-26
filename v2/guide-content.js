@@ -77,6 +77,23 @@ window.GUIDE = (function () {
           'ONBOARDING AND MARYLAND. Column headings on every board, one set of counts ' +
             'on the Maryland page instead of two that disagreed.'
         ] },
+        { h: 'Success in 30, and the first thirty days', ul: [
+          'PROGRESS BY WEEK. The Success in 30 board shows the five windows from the ' +
+            'Onboarding document (before start of care, days 1\u20137, 8\u201314, 15\u201321 and ' +
+            '22\u201330) instead of one lump figure, plus the next item due and who owns it.',
+          'EVERY VIV TASK SAYS WHERE IT LIVES. Each of the ten Viv setup tasks on the ' +
+            'onboarding checklist carries its own path in small grey type, so nobody has ' +
+            'to go looking for the right screen.',
+          'AT RISK IS NOW A FLAG LIKE ANY OTHER. A new client who is At Risk appears ' +
+            'under Need action today, on your Clients list and in your badge, with the ' +
+            'checklist\u2019s own reason and the name of who to take it to. The service ' +
+            'exceptions behind it are still counted once, by Client Pulse.',
+          'DAY 30 DECIDES ITSELF. On track, the client graduates to their normal tier ' +
+            'cadence. On Watch or At Risk, they stay on the same checks for another ' +
+            'thirty days, which is Success in 60, and your manager is told either way.',
+          'MY KSFs IS THE REAL KSF. The four metrics the CSM KSF computes are no longer ' +
+            'typed in by hand.'
+        ] },
         { h: 'If something looks wrong', ul: [
           'Tell us. The Feedback button at the bottom of the sidebar goes straight to ' +
             'the people who can fix it, and most of what changed this month came in ' +
@@ -520,7 +537,8 @@ window.GUIDE = (function () {
         caption: 'Needs attention first, then today, then your work, then the numbers.' },
       body: [
         { h: 'Needs attention', p: 'Counts that are each a real thing to do — clients out of cadence, open visits, ' +
-          'overdue tasks, changes of condition. A category with nothing in it produces no card at all.' },
+          'overdue tasks, changes of condition, and since 25 November a new client who is At Risk ' +
+          'on their Success in 30 checklist. A category with nothing in it produces no card at all.' },
         { h: 'Today', p: 'Your visits and the fortnight ahead.' },
         { h: 'Your work', p: 'To-dos and quick notes. Both save as you type.' },
         { h: 'Caseload health', p: 'The numbers, last — where they inform rather than greet you.' }
@@ -547,13 +565,43 @@ window.GUIDE = (function () {
 
     s30: {
       title: 'Success in 30',
-      lede: 'The first thirty days of a new client, as a checklist that knows the dates.',
+      lede: 'The first thirty days of a new client, as a checklist that knows the dates \u2014 ' +
+            'and a status that says how it is going.',
       body: [
-        { p: 'Assessment, the caregiver prep call, the second in-person visit inside fourteen days, the week-one caregiver ' +
-             'check-in, weekly family contact, and Viv updated. Anything overdue is surfaced first.' },
+        { p: 'The onboarding checklist covers the tasks. Success in 30 covers the outcome: ' +
+             'by day 30, is this client set up to stay with us? Assessment, the caregiver prep ' +
+             'call, the second in-person visit inside fourteen days, the week-one caregiver ' +
+             'check-in, weekly family contact, and Viv updated.' },
+        { h: 'Read by week, not in one lump', p: 'The board shows the five windows from the ' +
+          'Onboarding, Offboarding & Success in 30 document (before start of care, days ' +
+          '1\u20137, 8\u201314, 15\u201321 and 22\u201330) with a bar each, then the next item due and ' +
+          'who owns it. A week with nothing in it is drawn as an empty bar rather than ' +
+          'skipped, so the columns line up and the board can be read down.' },
+        { h: 'On Track, Watch, At Risk', p: 'One rule decides this, and it is the rule from ' +
+          'Part 3 of the document. On Track is everything due so far done, with no open ' +
+          'client dissatisfaction exception. Watch is one item up to three days overdue, OR ' +
+          'one new service exception of any kind, OR one unplanned caregiver change. At Risk ' +
+          'is two or more items overdue, OR the day 14 visit missed, OR any client complaint ' +
+          'exception, OR two or more caregiver changes in thirty days.' },
+        { h: 'What At Risk does', p: 'The client joins Need action today, your Clients list ' +
+          'and your badge, with the checklist\u2019s own sentence as the reason and the name of ' +
+          'the person to take it to. Your manager sees the same client on their own page ' +
+          'without you having to send anything. The service exceptions underneath are not ' +
+          'counted a second time, because Client Pulse already scores those.' },
+        { h: 'Day 30', p: 'On Track, the client graduates to their normal tier cadence and ' +
+          'the checklist comes off your Home. On Watch or At Risk, they get another thirty ' +
+          'days with exactly the same checks, which is Success in 60, and the board counts them ' +
+          '\u201cDay 34 of 60\u201d from there. Either way the result goes to your manager, who ' +
+          'clears it once they have read it.' },
         { h: 'A milestone with no date', p: 'has not happened yet. It is not a gap in the data.' }
       ],
-      related: ['home', 'communication']
+      know: [
+        'One condition the Hub cannot check is whether the family has asked to remove a ' +
+          'caregiver. The card says so rather than implying it looked.',
+        'The Day 30 result is a fact about day 30. Once your manager has cleared it, it is ' +
+          'kept as it was rather than worked out again from a later day.'
+      ],
+      related: ['home', 'communication', 'team']
     },
 
     priority: {
@@ -641,8 +689,22 @@ window.GUIDE = (function () {
       lede: 'Everyone’s caseload at once. Managers and directors only.',
       shot: { src: 'guide-shots/guide-team.png',
         alt: 'The Team overview showing each CSM with their caseload summary.' },
-      body: [{ p: 'Per-CSM caseload, cadence and visit summary across the market, for 1:1s and for spotting a caseload under strain.' }],
-      related: ['kpi']
+      body: [
+        { p: 'Per-CSM caseload, cadence and visit summary across the market, for 1:1s and ' +
+             'for spotting a caseload under strain.' },
+        { h: 'Logged contacts, and auto-captured', p: 'These used to be one column called ' +
+          '\u201cTouches 30d\u201d, and it ran into the thousands because it counted every call, ' +
+          'email and text the comms sync matched to a client. They are two columns now. ' +
+          'Logged contacts are the ones a person entered through Log contact. Auto-captured ' +
+          'is everything the sync found. Added together they are the old figure.' },
+        { h: 'At Risk in the first 30 days', p: 'Every new client on your route who is At ' +
+          'Risk, oldest first, with the checklist\u2019s own reason. It is scoped to the people ' +
+          'who escalate to you, so it is the clients that are actually yours to take.' },
+        { h: 'Day 30 results', p: 'Who graduated and who was extended to Success in 60, one ' +
+          'sentence each. They stay until you clear them, and clearing one keeps it as the ' +
+          'day 30 answer.' }
+      ],
+      related: ['kpi', 's30']
     },
 
     /* ─ Tools ─ */
@@ -711,8 +773,21 @@ window.GUIDE = (function () {
       related: ['md', 'pulse', 'team']
     },
 
-    kpi: { title: 'KPI Tracker', lede: 'Your quarterly numbers.',
-      body: [{ p: 'Quarterly KPI entry and history, against the targets in Role Expectations.' }],
+    kpi: { title: 'My KSFs', lede: 'Your 2026 role expectations, worked out for you.',
+      body: [
+        { p: 'The card at the top is the Client Solutions KSF, the same numbers as the ' +
+             'full CSM KSF dashboard, live from Viv, HubSpot and SurveyMonkey. A CSM sees ' +
+             'their own caseload; a manager, director or CSP sees their market.' },
+        { h: 'What you no longer type', p: 'Dissatisfaction terminations, NPS, long-hour ' +
+          'closure rate, and documentation compliance and visit cadence are all computed ' +
+          'above. They used to be four boxes on the form underneath, which meant the same ' +
+          'number existed twice and could disagree with itself.' },
+        { h: 'What is still yours to record', p: 'Leads from existing accounts, because that ' +
+          'lives in a conversation with a community partner and nothing can see it, and the ' +
+          'reflection, which was always the point of a quarterly review.' }
+      ],
+      know: ['Entries you saved before 25 November open exactly as you saved them, with the ' +
+             'numbers you typed at the time.'],
       related: ['expectations', 'team'] },
 
     expectations: { title: 'Role Expectations', lede: 'What the CSM role is measured on.',
@@ -928,7 +1003,7 @@ window.GUIDE = (function () {
     activity: 'history timeline what happened recent',
     'record-visit': 'scribe recording record visit dictate transcribe microphone consent recap call scribe documentation visit note draft encounter service exception SE incident complaint file exception escalation fall injury medication error reliability lateness',
     pulse: 'red amber green attention level needs attention monitor status quo',
-    s30: 'onboarding new client first 30 days milestones success in 30',
+    s30: 'onboarding new client first 30 days milestones success in 30 success in 60 at risk watch on track day 30 graduate extend status weeks viv location escalate',
     coverage: 'time off vacation out of office handoff cover covering communities',
     md: 'compliance regulation baltimore assessment overdue reassessment maryland',
     priority: 'open shifts unfilled visits gaps staffing fill',
@@ -936,8 +1011,8 @@ window.GUIDE = (function () {
     'weekly-email': 'weekly schedule email family send recipients contacts draft automatic who it goes to outlook sent items mailbox send now',
     ltc: 'long term care insurance submission carrier invoice blocked',
     assistant: 'ai ask a question chatbot knowledge base templates',
-    kpi: 'quarterly numbers metrics targets',
-    team: 'manager director team overview everyone mine team all',
+    kpi: 'quarterly numbers metrics targets my ksfs ksf role expectations nps dissatisfaction closure documentation',
+    team: 'manager director team overview everyone mine team all touches logged contacts auto-captured day 30 results at risk brief',
     install: 'iphone home screen pwa install app add to home screen safari standalone',
     'mobile-nav': 'phone mobile bottom bar more drawer menu',
     feedback: 'report a problem bug suggestion tell someone'
