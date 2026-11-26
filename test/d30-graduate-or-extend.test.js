@@ -86,6 +86,12 @@ ok('...with one full stop between the two sentences, not two',
 /* And the manager view waits for the profile instead of answering without
    one: on a cold load the route resolves first, and a saved link ending in
    #s60 used to land a manager on a page with no manager view at all. */
+/* V1's showPage calls renderObManager BEFORE renderObBoard, and it is
+   renderObBoard that calls mountObUI and creates #s60-mgr. On the first
+   visit this returned on a null host and the board then mounted an empty
+   one, so the manager view was absent until a second visit. */
+ok('the manager view mounts its own host before looking for it',
+   /function renderObManager\(\)\{\n(\s*\/\*[\s\S]*?\*\/\n)?\s*mountObUI\(\);/.test(OB));
 ok('the manager view waits for the profile, for ten seconds and no longer',
    /if\(!P\)\{ if\(_obMgrWaits<20\)\{ _obMgrWaits\+\+; setTimeout\(renderObManager,500\); \} return; \}/.test(OB));
 ok('...naming the tier a graduating client goes back to',

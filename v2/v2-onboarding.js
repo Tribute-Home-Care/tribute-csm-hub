@@ -833,6 +833,13 @@ function s30AtRiskBrief(){
 
 let _obMgrWaits=0;
 function renderObManager(){
+  /* THE HOST DOES NOT EXIST YET ON THE FIRST VISIT. V1's showPage calls this
+     BEFORE renderObBoard, and it is renderObBoard that calls mountObUI and
+     creates #s60-mgr. So on the first visit this returned on a null host and
+     the board then mounted an empty one: no At Risk brief and no Day 30
+     results until the manager navigated away and came back. renderObChecklist
+     has always mounted first; this did not. */
+  mountObUI();
   const el=document.getElementById('s60-mgr'); if(!el)return;
   /* THE ROUTE RESOLVES BEFORE THE PROFILE IS CHOSEN. On a cold load the Hub
      restores whatever page the URL carries, and a manager whose saved link
