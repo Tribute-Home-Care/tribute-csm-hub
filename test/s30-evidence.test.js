@@ -143,8 +143,10 @@ ok('an unanswered question is null, not a No',
 ok('...and only a Yes raises the client', /if\(s30FamilyAsk\(c\.id\)==='yes'\)return true;/.test(OB));
 ok('...named first in the reason, being the most serious of the three',
    /s30FamilyAsk\(c\.id\)==='yes' \? 'the family has asked to remove a caregiver'/.test(OB));
+/* Listed by its data attribute, not its handler name: this layer binds with
+   addEventListener, and RO_SAVE only selects onclick attributes. */
 ok('...and it is a write, so read-only knows about it',
-   /\['setS30FamilyAsk', 'answer the caregiver question'\]/.test(RD));
+   /\['data-s30ask', 'answer the caregiver question'\]/.test(RD));
 ok('...and it is no longer listed as something the Hub cannot see',
    !/whether the family has asked to remove a caregiver/.test(OB));
 

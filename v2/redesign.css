@@ -3968,3 +3968,9 @@ input.ob-cb:disabled { opacity: .5; cursor: not-allowed; }
 .rd-tm-pl li { display: flex; align-items: baseline; gap: 8px; padding: 6px 14px; font-size: 13px; }
 .rd-tm-pn { font-weight: 600; }
 .rd-tm-pw { color: var(--muted, #8C857B); font-size: 12.5px; }
+
+/* The actions on the Maryland panel, under the cadence toggles they used to
+   be alone with. */
+.rd-md-acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+              margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line, #E8E4E0); }
+.rd-md-chk { flex: 1 1 100%; font-size: 11.5px; line-height: 1.5; color: var(--muted, #8C857B); }

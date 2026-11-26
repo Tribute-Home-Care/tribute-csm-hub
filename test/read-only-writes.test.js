@@ -106,8 +106,30 @@ ok('...re-applied as the page builds forms', /new MutationObserver\(function \(\
    complained that "home" is not a click handler. */
 const RO_BLOCK = (RD2.match(/const RO_SAVE = \[([\s\S]*?)\];/) || ['', ''])[1];
 const names = [...RO_BLOCK.matchAll(/\['([a-zA-Z]+)',/g)].map(m => m[1]);
+/* The Day 30 Noted button is bound by v2-onboarding, not index.html, so the
+   search covers every file that ships markup. */
+const MARKUP = V1 + require('fs').readFileSync(
+  require('path').join(process.env.HOME, 'tribute-csm-hub-redesign/prototype/v2-onboarding.js'), 'utf8');
 ok('...and every handler named is a control that exists in the app',
-   names.length >= 12 && names.every(n => V1.indexOf('onclick="' + n) > -1));
+   names.length >= 12 && names.every(n => MARKUP.indexOf('onclick="' + n) > -1));
+/* AND THE LAYER'S OWN WRITE CONTROLS. RO_SAVE selects [onclick^="name"],
+   which is how V1 binds. This layer binds with addEventListener on a data
+   attribute, so a name in RO_SAVE would have matched nothing: a guard that
+   looks present and selects no elements is the fault that put a Scribe
+   encounter on a real client. */
+const RO_DATA_BLOCK = (RD2.match(/const RO_DATA = \[([\s\S]*?)\];/) || ['', ''])[1];
+const attrs = [...RO_DATA_BLOCK.matchAll(/\['(data-[a-z0-9-]+)',/g)].map(m => m[1]);
+ok('the layer\'s write controls are listed by their data attribute',
+   attrs.length >= 3 && attrs.indexOf('data-s30ask') > -1 &&
+   attrs.indexOf('data-mdchk') > -1 && attrs.indexOf('data-mdtodo') > -1);
+ok('...and each one is really on a control in the layer',
+   attrs.every(a => RD2.indexOf(a + '="') > -1));
+ok('...and the guard selects them by attribute, not by onclick',
+   /pair\[0\]\.indexOf\('data-'\) === 0\n?\s*\? '\[' \+ pair\[0\] \+ '\]' : '\[onclick\^="' \+ pair\[0\] \+ '"\]'/.test(RD2));
+ok('...and both lists are walked', /RO_SAVE\.concat\(RO_DATA\)\.forEach/.test(RD2));
+/* Reading is not writing: opening the list behind a team count stays live
+   in a read-only view, which is the point of looking without touching. */
+ok('a read-only control is not disabled', attrs.indexOf('data-tmcell') < 0);
 /* The list is explicit on purpose: deriving it from "calls set()" would also
    disable the dialog openers, several of which write a default on the way in. */
 ok('...and the openers are not in it',

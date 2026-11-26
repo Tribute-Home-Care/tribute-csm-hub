@@ -2843,6 +2843,104 @@
     });
     swapIcons(host);
   }
+  /* ── THE THREE ACTIONS ON THE MARYLAND PANEL ─────────────────────
+     Her review: "the panel opens beside the list as you asked, but carries
+     only the cadence toggles."
+
+     V1 owns #md-detail and V1 is not to be touched, so renderMdDetail is
+     wrapped and the actions are appended after it has drawn. The panel is
+     rebuilt on every selection, so they are re-appended each time rather
+     than bound once.
+
+     MARK CHECKED is the one Jada actually needs: a compliance board is
+     worked by going down it, and without a record of who has looked at
+     what, the same client gets opened three times and the awkward one gets
+     opened never. It records that somebody reviewed this client, NOT that
+     the requirement is met, and the line under it says so in those words.
+
+     OPEN IN VIV reads a setting. Nothing in the Hub, the shared document or
+     the settings holds Viv's client URL pattern, and a guessed deep link is
+     the same fault as a guessed Viv path: it sends somebody somewhere wrong
+     with confidence. The button is absent until the pattern is supplied and
+     present the moment it is. */
+  function mdChecks() {
+    try { return (A().data.shared || {}).mdChecked || {}; } catch (e) { return {}; }
+  }
+  function mdCheckedFor(cid) { return mdChecks()[cid] || null; }
+  function setMdChecked(cid, on) {
+    try {
+      const d = A().data;
+      d.shared = d.shared || {};
+      d.shared.mdChecked = d.shared.mdChecked || {};
+      if (on) d.shared.mdChecked[cid] = { by: (A().profile || {}).name || '', at: new Date().toISOString() };
+      else d.shared.mdChecked[cid] = null;
+      if (typeof window.queueSave === 'function') window.queueSave();
+      if (typeof showToast === 'function') showToast(on ? 'Marked as checked.' : 'Check removed.');
+      if (typeof window.renderMdDetail === 'function') window.renderMdDetail();
+      if (typeof renderMdTable === 'function') renderMdTable();
+    } catch (e) {}
+  }
+  function mdAddTodo(cid) {
+    try {
+      const r = (typeof _mdRows === 'function' ? _mdRows() : []).filter(function (x) { return x.cid === cid; })[0];
+      if (!r) return;
+      /* The to-do says what is wrong, not just whose name it is. _mdFlags is
+         the same list the board shows on the row, so the task and the board
+         cannot describe one client differently. */
+      let why = '';
+      try { why = (typeof _mdFlags === 'function' ? _mdFlags(r) : []).join(', '); } catch (e) {}
+      const txt = 'Maryland: ' + (why || 'review the requirements') + ' · ' + (r.name || 'client');
+      const td = A().fn.get('todos') || [];
+      td.unshift({ id: Date.now().toString(), text: txt, clientId: mdClientId(cid),
+                   due: localDay(7), priority: 'High', done: false,
+                   createdAt: new Date().toISOString(), source: 'maryland' });
+      if (typeof window.set === 'function') window.set('todos', td);
+      if (typeof window.renderTodos === 'function') window.renderTodos();
+      if (typeof showToast === 'function') showToast('Added to your to-do list, due in a week.');
+    } catch (e) {}
+  }
+  /* The Maryland board is keyed by Viv client id; a to-do wants the Hub's
+     own client id so it opens the right client. Matched on vivId, and left
+     blank rather than guessed when there is no match. */
+  function mdClientId(cid) {
+    try {
+      return ((A().fn.get('clients') || []).filter(function (c) { return c.vivId === cid; })[0] || {}).id || '';
+    } catch (e) { return ''; }
+  }
+  function mdActionsHtml(cid) {
+    const chk = mdCheckedFor(cid);
+    let base = '';
+    try { base = ((A().data.shared || {}).settings || {}).vivClientUrl || ''; } catch (e) {}
+    return '<div class="rd-md-acts">' +
+      (base ? '<a class="btn btn-sm btn-o" target="_blank" rel="noopener" href="' +
+        esc(base.replace('{id}', encodeURIComponent(cid))) + '">Open in Viv</a>' : '') +
+      '<button type="button" class="btn btn-sm" data-mdchk="' + esc(cid) + '">' +
+        (chk ? 'Checked' : 'Mark checked') + '</button>' +
+      '<button type="button" class="btn btn-sm btn-o" data-mdtodo="' + esc(cid) + '">Add to to-do</button>' +
+      (chk ? '<span class="rd-md-chk">Reviewed by ' + esc(chk.by || 'somebody') +
+             (chk.at ? ' · ' + esc(fmtShort(String(chk.at).slice(0, 10))) : '') +
+             '. This records that somebody looked, not that the requirement is met.' +
+             ' <button type="button" class="rd-link" data-mdchk="' + esc(cid) + '" data-off="1">Undo</button></span>' : '') +
+      '</div>';
+  }
+  function decorateMdDetail() {
+    const el = $('#md-detail');
+    if (!el || typeof _mdSel === 'undefined' || !_mdSel) return;
+    if (el.querySelector('.rd-md-acts')) return;
+    const card = el.querySelector('.card');
+    if (!card) return;
+    card.insertAdjacentHTML('beforeend', mdActionsHtml(_mdSel));
+    $$('[data-mdchk]', el).forEach(function (b) {
+      b.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        setMdChecked(b.dataset.mdchk, !b.dataset.off && !mdCheckedFor(b.dataset.mdchk));
+      });
+    });
+    $$('[data-mdtodo]', el).forEach(function (b) {
+      b.addEventListener('click', function (ev) { ev.stopPropagation(); mdAddTodo(b.dataset.mdtodo); });
+    });
+  }
+
   /* V1's five problem tabs and its own row list come off, and the table
      takes their place. The DETAIL panel stays exactly as it is: it already
      reads as she wants, and it is the thing a row opens. */
@@ -2870,6 +2968,16 @@
       window.renderMdRows = function () {
         const r = orig.apply(this, arguments);
         try { renderMdTable(); } catch (e) {}
+        return r;
+      };
+    }
+    /* The panel is rebuilt from scratch on every selection, so the actions
+       are appended after each draw rather than bound once. */
+    if (typeof window.renderMdDetail === 'function') {
+      const origD = window.renderMdDetail;
+      window.renderMdDetail = function () {
+        const r = origD.apply(this, arguments);
+        try { decorateMdDetail(); } catch (e) {}
         return r;
       };
     }
@@ -6260,8 +6368,22 @@
     ['ecSkipWeek',     'skip a week'],
     ['setMdCadence',   'change a Maryland cadence'],
     ['setFillRank',    'reorder fill priority'],
-    ['d30Ack',         'clear a Day 30 result'],
-    ['setS30FamilyAsk', 'answer the caregiver question']
+    ['d30Ack',         'clear a Day 30 result']
+  ];
+  /* THE LAYER'S OWN WRITE CONTROLS. RO_SAVE selects [onclick^="name"],
+     which is how V1 binds everything and how v2-onboarding binds the Day 30
+     Noted button. This layer binds with addEventListener on a data
+     attribute, so a name in the list above would have matched no elements
+     and disabled nothing: a guard that looks present and selects nothing is
+     the fault that put a Scribe encounter on a real client.
+
+     Only controls that WRITE belong here. Opening the list behind a team
+     count writes nothing and stays live in a read-only view, which is the
+     point of being able to look without being able to touch. */
+  const RO_DATA = [
+    ['data-s30ask', 'answer the caregiver question'],
+    ['data-mdchk',  'mark a Maryland client checked'],
+    ['data-mdtodo', 'add a Maryland to-do']
   ];
   const RO_NOTE = 'rd-ro-note';
   function roActive() {
@@ -6270,8 +6392,10 @@
   }
   function markReadOnly() {
     const on = roActive();
-    RO_SAVE.forEach(function (pair) {
-      $$('[onclick^="' + pair[0] + '"]').forEach(function (b) {
+    RO_SAVE.concat(RO_DATA).forEach(function (pair) {
+      const sel = pair[0].indexOf('data-') === 0
+        ? '[' + pair[0] + ']' : '[onclick^="' + pair[0] + '"]';
+      $$(sel).forEach(function (b) {
         if (on) {
           if (!b.dataset.roWas) b.dataset.roWas = b.getAttribute('title') || '';
           b.setAttribute('disabled', 'disabled');
