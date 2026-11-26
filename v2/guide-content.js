@@ -671,10 +671,12 @@ window.GUIDE = (function () {
           'first 30 days is At Risk, as the rules say. A call-out counts when it was ' +
           'preventable; the feed marks the other kind "not preventable", and a caregiver ' +
           'whose car broke down is not evidence about the client.',
-        'Two things it still cannot see, and says so rather than guessing: whether a ' +
-          'particular scheduled visit has a note, as opposed to how long it has been since ' +
-          'the last one, and whether a client dissatisfaction exception is open, which comes ' +
-          'from the Viv discharge reason rather than from a type.'
+        'The card tells you how long it has been since the last visit note. Which ' +
+          'particular visits are missing one is known to Viv and is not plumbed through to ' +
+          'the Hub yet, so the card says the part it can stand behind.',
+        'One thing it genuinely cannot see: whether a client dissatisfaction exception is ' +
+          'open. That comes from the Viv discharge reason rather than from an exception ' +
+          'type, so the rule that depends on it is still waiting.'
       ],
       related: ['home', 'communication', 'team']
     },

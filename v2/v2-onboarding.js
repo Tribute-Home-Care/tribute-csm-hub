@@ -1003,11 +1003,24 @@ function s30DocGaps(c){
 
 /* No longer listed: whether the family has asked to remove a caregiver. It
    is a question on the card now rather than a thing the Hub gives up on. */
-/* TWO CAME OFF THIS LIST on 26 Nov, because they were never missing: the
-   service exception's type and the visit notes were both in the Pulse
-   payload the whole time. What is left is genuinely absent. */
-const S30_MISSING = ['whether a particular scheduled visit has a note, as opposed ' +
-                     'to how long it has been since the last one',
+/* WHAT IS MISSING, AND WHAT IS ONLY UNWIRED. Three things came off this list
+   on 26 Nov because they were never missing, and the third is the one I was
+   most wrong about.
+
+   "Whether a particular scheduled visit has a note" is NOT unanswerable. Viv
+   carries queries.tasks per visit, the API already runs a grouped query over
+   the visitAudit dataset that returns it summed per client-day (groupBy cgid
+   + calendarStartDay + bookingType + CID), and the LTC packet check has been
+   counting blank note prompts out of the activity sheet PDF for months. The
+   Rise build reads __cid__ off those rows only to skip binder clients and
+   then throws the client dimension away, because it wants per caregiver.
+
+   So it is one API change away, not out of reach, and the card says so. Until
+   it lands the card reports the staleness it CAN see, which is the honest
+   subset rather than a claim that nothing is knowable. */
+const S30_MISSING = ['which particular visits are missing a note \u2014 the Hub shows how ' +
+                     'long it has been since the last one, and the per-visit figure is ' +
+                     'one API change away rather than unavailable',
                      'whether a client dissatisfaction exception is open, which ' +
                      'comes from the Viv discharge reason rather than a type'];
 function s30Adjusted(c,pid){

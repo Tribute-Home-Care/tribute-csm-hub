@@ -160,9 +160,13 @@ ok('the schedule can only raise, never lower',
 ok('an unfilled visit is not read as a call-out',
    !/open[\s\S]{0,60}call ?out/i.test((OB.match(/function s30WithSchedule[\s\S]*?\n\}/)||[''])[0]
      .split('const open=')[1] || ''));
-/* Two things came off the missing list because they were never missing. */
-ok('the missing list holds only what is genuinely absent',
-   /whether a particular scheduled visit has a note/.test(OB) &&
+/* THREE came off, and the third is the one I was most wrong about. The
+   per-visit note figure is NOT unanswerable: the API already runs a grouped
+   visitAudit query returning queries.tasks summed per client-day, and the
+   LTC packet check has counted blank note prompts for months. So the list
+   says "one API change away", not "cannot". */
+ok('the missing list distinguishes unwired from unknowable',
+   /one API change away rather than unavailable/.test(OB) &&
    /whether a client dissatisfaction exception is open/.test(OB) &&
    !/which kind of service exception was raised/.test(OB));
 
@@ -204,11 +208,12 @@ ok('...and is drawn as the quiet line it is', /\.rd-s30-gap \{/.test(CSSRD));
 /* The other half she describes cannot be measured: the Hub's visit log is
    synced from the same Viv feed as the CSM visit list, so comparing them is
    one list against itself. It is listed as unseeable instead. */
-/* The visit-note half is BUILT now, from the payload the Hub already loads.
-   What remains out of reach is pairing a note to a particular visit, because
-   the feed carries notes rather than visits. */
-ok('what is left out of reach is pairing a note to a visit',
-   /as opposed ' \+\s*'to how long it has been since the last one/.test(OB));
+/* The staleness half is built from the payload the Hub already loads. The
+   per-visit half is a plumbing job, and the card says which it is rather
+   than implying nobody could know. */
+ok('the per-visit figure is described as unwired, not unknowable',
+   /which particular visits are missing a note/.test(OB) &&
+   /one API change away/.test(OB));
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
