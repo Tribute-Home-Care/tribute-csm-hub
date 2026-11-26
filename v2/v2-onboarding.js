@@ -843,7 +843,18 @@ function s30Adjusted(c,pid){
      the day 14 visit missed -- both counted over the six with a feed -- or
      caregiver churn, which does not depend on the checklist at all. */
   const late=s30ObservableLate(k);
-  if(s30Evidence(c)||late>1||s30D14Missed(k))return out;
+  const f=s30Facts(c);
+  if(s30Evidence(c)||late>1||s30D14Missed(k)){
+    /* AND THE REASON NAMES WHAT FIRED. s30Checklist counts all ten items, so
+       a client kept At Risk by a missed day 14 visit was reading "5 items
+       overdue" -- four of which are items the Hub cannot see and did not
+       count towards the decision. A reason that cites evidence the decision
+       ignored is worse than no reason. Her order, her words. */
+    return Object.assign(out,{why:
+      s30Evidence(c) ? f.cgChanges+' caregiver changes in the first 30 days'
+      : s30D14Missed(k) ? 'the day 14 visit was missed'
+      : late+' of the items the Hub can check are overdue'});
+  }
   return Object.assign(out,{state:'notstarted',
     why: started
       ? 'Nothing is outstanding that the Hub can see. What is left is the '+
