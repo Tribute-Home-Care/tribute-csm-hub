@@ -813,6 +813,7 @@ function s30D14Missed(k){
    still not readable: the feed counts exceptions without saying which kind,
    so claiming one would be inventing it. */
 function s30Evidence(c){
+  if(s30FamilyAsk(c.id)==='yes')return true;
   const f=s30Facts(c);
   return f.cgChanges!==null&&f.cgChanges>1;
 }
@@ -855,9 +856,58 @@ function s30OpenVisits(c,pid){
   }catch(e){ return 0; }
 }
 
-const S30_MISSING = ['whether the family has asked to remove a caregiver',
-                     'whether an unfilled visit was a call-out or a routine gap',
-                     'which kind of service exception was raised'];
+/* HER CONDITION THE HUB CANNOT SEE, MADE ANSWERABLE. "The family has asked
+   to remove a caregiver" is the one At Risk condition in Part 3 that nothing
+   in Viv records, and two rounds of this work have said so on the card
+   rather than guessing. Saying so is honest; leaving it unanswerable forever
+   is not.
+
+   So the card asks, once, of a client inside their window, and the answer is
+   kept in the shared document the way a discharge approval is, so a manager
+   and the CSM see the same thing. Unanswered is not No: until somebody says,
+   the condition is reported as unchecked, which is what it has always been.
+
+   This is the only Success in 30 input a person types, and it exists because
+   it is the only one a person is the source for. */
+function s30FamilyAsks(){ return ((DATA.shared&&DATA.shared.s30FamilyRemove)||{}); }
+function s30FamilyAsk(cid){ const r=s30FamilyAsks()[cid]; return r?r.answer:null; }
+function setS30FamilyAsk(cid,answer){
+  DATA.shared=DATA.shared||{};
+  DATA.shared.s30FamilyRemove=DATA.shared.s30FamilyRemove||{};
+  DATA.shared.s30FamilyRemove[cid]={answer:answer==='yes'?'yes':'no',
+    by:(P&&P.name)||'',at:new Date().toISOString()};
+  queueSave();
+  showToast(answer==='yes'
+    ? 'Recorded. This client is At Risk for the first 30 days.'
+    : 'Recorded.');
+  try{ if(window.TributeRedesign&&TributeRedesign.repaintClient)TributeRedesign.repaintClient(); }catch(e){}
+  try{ renderObBoard(); renderObManager(); }catch(e){}
+}
+/* DOCUMENTATION GAPS, STATED AND NOT SCORED. Her Part 4 asks the Hub to
+   "point out documentation gaps neutrally, without blaming anyone", so these
+   are a line on the card and nothing else: they do not move the status, they
+   do not reach Needs action, and they name the gap rather than the person.
+
+   Only the care plan is here. The other half she describes, a scheduled
+   visit with no note, cannot be measured: the Hub's visit log is synced from
+   the same Viv feed as the CSM visit list, so comparing them reports 158
+   matched and zero gaps, which is one list compared with itself. It needs
+   Viv's visit-note field, which the Hub is not sent. */
+function s30DocGaps(c){
+  const out=[];
+  const d=daysAgo(c.startDate);
+  if(d!==null&&d>7&&c.carePlanEdits30===0){
+    out.push('The care plan has not been edited in the last 30 days. '+
+             'After the first caregiver feedback it usually is.');
+  }
+  return out;
+}
+
+/* No longer listed: whether the family has asked to remove a caregiver. It
+   is a question on the card now rather than a thing the Hub gives up on. */
+const S30_MISSING = ['whether an unfilled visit was a call-out or a routine gap',
+                     'which kind of service exception was raised',
+                     'whether a scheduled visit has a note in Viv'];
 function s30Adjusted(c,pid){
   let k=null;
   try{ k=s30WithEvidence(c,pid); }catch(e){ return null; }
@@ -889,7 +939,8 @@ function s30Adjusted(c,pid){
        count towards the decision. A reason that cites evidence the decision
        ignored is worse than no reason. Her order, her words. */
     return Object.assign(out,{why:
-      s30Evidence(c) ? f.cgChanges+' caregiver changes in the first 30 days'
+      s30FamilyAsk(c.id)==='yes' ? 'the family has asked to remove a caregiver'
+      : s30Evidence(c) ? f.cgChanges+' caregiver changes in the first 30 days'
       : s30D14Missed(k) ? 'the day 14 visit was missed'
       : late+' of the items the Hub can check are overdue'});
   }

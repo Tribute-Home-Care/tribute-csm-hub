@@ -26,6 +26,8 @@ const PROTO = path.join(process.env.HOME, 'tribute-csm-hub-redesign/prototype');
 const strip = s => s.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').filter(l => !/^\s*\/\//.test(l)).join('\n');
 const OB = strip(fs.readFileSync(path.join(PROTO, 'v2-onboarding.js'), 'utf8'));
 const V1 = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+const RD = strip(fs.readFileSync(path.join(PROTO, 'redesign.js'), 'utf8'));
+const CSSRD = fs.readFileSync(path.join(PROTO, 'redesign.css'), 'utf8');
 
 /* ── 1. the evidence, from where her document says to look ───────────── */
 const der = (OB.match(/function s30Derived\(c,pid\)\{[\s\S]*?\n\}/) || [''])[0];
@@ -122,8 +124,47 @@ ok('the schedule can only raise, never lower',
 ok('call-outs are listed as something the Hub cannot see, not guessed',
    /whether an unfilled visit was a call-out or a routine gap/.test(OB));
 ok('...alongside the other two it cannot see',
-   /whether the family has asked to remove a caregiver/.test(OB) &&
-   /which kind of service exception was raised/.test(OB));
+   /which kind of service exception was raised/.test(OB) &&
+   /whether a scheduled visit has a note in Viv/.test(OB));
+
+/* ── 8. the one condition made answerable ────────────────────────────── */
+/* "The family has asked to remove a caregiver" is the At Risk condition
+   nothing in Viv records. Two rounds said so on the card. Saying so is
+   honest; leaving it unanswerable forever is not. */
+ok('the card asks the question', /Has the family asked to remove a caregiver\?/.test(RD));
+ok('...once answered Yes, it says so rather than asking again',
+   /The family has asked to remove a caregiver\. /.test(RD));
+ok('...and the answer is kept in the shared document, like a discharge approval',
+   /DATA\.shared\.s30FamilyRemove/.test(OB));
+ok('...with who answered and when', /by:\(P&&P\.name\)\|\|'',at:new Date\(\)\.toISOString\(\)/.test(OB));
+/* Unanswered is NOT No. */
+ok('an unanswered question is null, not a No',
+   /function s30FamilyAsk\(cid\)\{ const r=s30FamilyAsks\(\)\[cid\]; return r\?r\.answer:null; \}/.test(OB));
+ok('...and only a Yes raises the client', /if\(s30FamilyAsk\(c\.id\)==='yes'\)return true;/.test(OB));
+ok('...named first in the reason, being the most serious of the three',
+   /s30FamilyAsk\(c\.id\)==='yes' \? 'the family has asked to remove a caregiver'/.test(OB));
+ok('...and it is a write, so read-only knows about it',
+   /\['setS30FamilyAsk', 'answer the caregiver question'\]/.test(RD));
+ok('...and it is no longer listed as something the Hub cannot see',
+   !/whether the family has asked to remove a caregiver/.test(OB));
+
+/* ── 9. documentation gaps, stated and not scored ────────────────────── */
+/* Part 4: "point out documentation gaps neutrally, without blaming anyone." */
+const gaps = (OB.match(/function s30DocGaps\(c\)\{[\s\S]*?\n\}/) || [''])[0];
+ok('there is a gaps read', !!gaps);
+ok('...using the care plan edit count that is really on the record',
+   /c\.carePlanEdits30===0/.test(gaps) && /d>7/.test(gaps));
+ok('...worded without blaming anyone', !/you |your |failed|missed|should have/i.test(gaps));
+/* They are a line on the card and nothing else: they do not move the status
+   and they do not reach Needs action. */
+ok('a gap does not move the status',
+   !/s30DocGaps/.test(OB.slice(OB.indexOf('function s30Adjusted'))));
+ok('...and is drawn as the quiet line it is', /\.rd-s30-gap \{/.test(CSSRD));
+/* The other half she describes cannot be measured: the Hub's visit log is
+   synced from the same Viv feed as the CSM visit list, so comparing them is
+   one list against itself. It is listed as unseeable instead. */
+ok('the visit-note half is named as something the Hub cannot see',
+   /whether a scheduled visit has a note in Viv/.test(OB));
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

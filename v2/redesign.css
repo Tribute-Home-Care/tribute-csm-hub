@@ -3945,3 +3945,10 @@ input.ob-cb:disabled { opacity: .5; cursor: not-allowed; }
 .rd-ksf-note { font-size: 12px; line-height: 1.5; color: var(--muted, #8C857B);
                margin: 0 0 12px; }
 .rd-ksf-note a { color: var(--brand, #FF671F); font-weight: 600; }
+
+/* The one Success in 30 question a person answers, and the gaps the Hub
+   points out without scoring them. Both quiet: neither is an alarm. */
+.rd-s30-ask { margin-top: 6px; font-size: 12.5px; color: var(--muted, #8C857B); }
+.rd-s30-ask.yes { color: var(--bad, #A4271E); font-weight: 600; }
+.rd-s30-ask .rd-link { margin-left: 4px; }
+.rd-s30-gap { margin-top: 6px; font-size: 12.5px; line-height: 1.5; color: var(--muted, #8C857B); }

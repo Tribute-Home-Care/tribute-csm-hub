@@ -3613,7 +3613,29 @@
           const e = escalateTo(c);
           return e ? '<span class="rd-s30-esc">Take this to ' + esc(e.name) +
             ' \u00b7 ' + esc(e.role) + '</span>' : '';
-        })() + '</p>' + weeks + '</section>';
+        })() + '</p>' +
+      /* THE ONE QUESTION THE HUB HAS TO ASK. Her At Risk condition that
+         nothing records. Asked once, answerable in one click, and the answer
+         is kept where a manager sees the same one. */
+      (function () {
+        const ask = (typeof s30FamilyAsk === 'function') ? s30FamilyAsk(c.id) : null;
+        if (ask === 'no') return '';
+        if (ask === 'yes') {
+          return '<p class="rd-s30-ask yes">The family has asked to remove a caregiver. ' +
+            '<button type="button" class="rd-link" data-s30ask="no">Not any more</button></p>';
+        }
+        return '<p class="rd-s30-ask">Has the family asked to remove a caregiver? ' +
+          '<button type="button" class="rd-link" data-s30ask="yes">Yes</button> ' +
+          '<button type="button" class="rd-link" data-s30ask="no">No</button></p>';
+      })() +
+      /* AND THE GAPS, NAMED NEUTRALLY. They do not move the status and they
+         do not name a person, which is what she asked for. */
+      (function () {
+        let g = [];
+        try { g = (typeof s30DocGaps === 'function') ? s30DocGaps(c) : []; } catch (e) { return ''; }
+        if (!g.length) return '';
+        return '<p class="rd-s30-gap">' + g.map(esc).join(' ') + '</p>';
+      })() + weeks + '</section>';
   }
 
   function wsCadence(c) {
@@ -4424,6 +4446,12 @@
      on the page says so instead of failing silently. */
   function wireS30Steps(ws, c) {
     /* The filter is a view, so it repaints the page and nothing else. */
+    $$('[data-s30ask]', ws).forEach(function (b) {
+      b.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        if (typeof window.setS30FamilyAsk === 'function') window.setS30FamilyAsk(c.id, b.dataset.s30ask);
+      });
+    });
     $$('[data-s30who]', ws).forEach(function (b) {
       b.addEventListener('click', function (ev) {
         ev.stopPropagation();
@@ -6152,7 +6180,8 @@
     ['ecSkipWeek',     'skip a week'],
     ['setMdCadence',   'change a Maryland cadence'],
     ['setFillRank',    'reorder fill priority'],
-    ['d30Ack',         'clear a Day 30 result']
+    ['d30Ack',         'clear a Day 30 result'],
+    ['setS30FamilyAsk', 'answer the caregiver question']
   ];
   const RO_NOTE = 'rd-ro-note';
   function roActive() {
