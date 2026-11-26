@@ -824,10 +824,45 @@ function s30Progress(c,pid){
   rows.forEach(r=>{ if(ids.indexOf(r.id)>-1)hit[r.id]=1; });
   return {done:Object.keys(hit).length,total:ids.length,started:rows.length>0};
 }
+/* UNFILLED VISITS IN THE FIRST 30 DAYS. Her Part 4 asks for these as a
+   trigger, and her outcome 5 says why: "a core care team is in place by day
+   30, there are no open consistency or booking complaints". A new client
+   watching shifts go unfilled is the one who leaves.
+
+   THE THRESHOLDS ARE A JUDGEMENT, not hers, and they are named here so they
+   can be moved in one place after a month, which is how she framed her own
+   starting rules. One unfilled visit is a Watch; three or more is At Risk.
+   Three rather than two deliberately: measured on the live roster, ten of
+   twenty-one new clients have at least one open visit and a two-visit bar
+   would have put most of a normal week into Needs action.
+
+   CALL-OUTS ARE NOT HERE. The open-visit feed carries the day, the type, the
+   client and the hours, and nothing that says WHY a visit is unfilled. An
+   open shift is often a routine gap rather than a caregiver letting somebody
+   down, and reading one as the other would put a scheduling fact on a care
+   record. It is in `missing` instead, where the card can say so. */
+const S30_OPEN_WATCH = 1, S30_OPEN_ATRISK = 3;
+function s30OpenVisits(c,pid){
+  try{
+    const ov=((DATA.profiles[pid||(P&&P.id)])||{}).vivOpenVisits||[];
+    const soc=String(c.startDate||'').slice(0,10);
+    if(!soc)return 0;
+    const end=_obPlus(soc,60)||'';
+    return ov.filter(v=>v.clientId===c.id&&(()=>{
+      const d=String(v.day||'').slice(0,10);
+      return d>=soc&&(!end||d<=end);
+    })()).length;
+  }catch(e){ return 0; }
+}
+
+const S30_MISSING = ['whether the family has asked to remove a caregiver',
+                     'whether an unfilled visit was a call-out or a routine gap',
+                     'which kind of service exception was raised'];
 function s30Adjusted(c,pid){
   let k=null;
   try{ k=s30WithEvidence(c,pid); }catch(e){ return null; }
   if(!k)return null;
+  k=Object.assign({},k,{missing:S30_MISSING});
   /* STARTED NOW MEANS THE CHECKLIST CAN BE READ, not that somebody typed.
      The silence rule was written when the Hub could see nothing: an overdue
      item meant nobody had recorded anything. Where the record shows an
@@ -836,9 +871,12 @@ function s30Adjusted(c,pid){
   const pr=s30Progress(c,pid);
   const derived=s30Derived(c,pid).length;
   const started=pr.started||derived>0;
-  const out=Object.assign({},k,{started:started,derived:derived,
-                                ticked:pr.done,total:k.total});
-  if(k.state!=='atrisk'&&k.state!=='watch')return out;
+  const out0=Object.assign({},k,{started:started,derived:derived,
+                                 ticked:pr.done,total:k.total});
+  const out=s30WithSchedule(c,pid,out0);
+  if(out.state!=='atrisk'&&out.state!=='watch')return out;
+  /* A status the schedule raised is not the checklist's to take back. */
+  if(out.state!==k.state)return out;
   /* HER RULE, ON THE ITEMS IT CAN BE ASKED ABOUT. Two or more overdue, or
      the day 14 visit missed -- both counted over the six with a feed -- or
      caregiver churn, which does not depend on the checklist at all. */
@@ -862,6 +900,23 @@ function s30Adjusted(c,pid){
         'fields, and only a tick can record those.'
       : 'The checklist has not been started, so an overdue item here means '+
         'nothing has been recorded rather than nothing has been done.'});
+}
+/* The one place the status can go UP rather than down. Everything above
+   reads the checklist; this reads the schedule, which the checklist has no
+   view of at all, so it is applied last and only where it would raise the
+   client. A client already At Risk is not made more so. */
+function s30WithSchedule(c,pid,k){
+  if(!k)return k;
+  const open=s30OpenVisits(c,pid);
+  if(open>=S30_OPEN_ATRISK&&k.state!=='atrisk'){
+    return Object.assign({},k,{state:'atrisk',openVisits:open,
+      why:open+' unfilled visits in the first 30 days'});
+  }
+  if(open>=S30_OPEN_WATCH&&(k.state==='ontrack'||k.state==='done')){
+    return Object.assign({},k,{state:'watch',openVisits:open,
+      why:(open===1?'an unfilled visit':open+' unfilled visits')+' in the first 30 days'});
+  }
+  return Object.assign({},k,{openVisits:open});
 }
 
 /* ══════════ DAY 30: GRADUATE, OR EXTEND TO SUCCESS IN 60 ══════════════
