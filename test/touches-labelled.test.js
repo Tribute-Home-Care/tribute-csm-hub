@@ -39,7 +39,16 @@ const sp = (CODE.match(/const tSplit = function \(pid\) \{[\s\S]*?\n    \};/) ||
 ok('the team row splits its touchpoints', !!sp);
 ok('...on the same thirty-day cutoff, so the halves still add to the total',
    /const cut = localDay\(-30\);/.test(sp));
-ok('...by who put the row there', /if \(t\.auto\) auto\+\+; else mine\+\+;/.test(sp));
+ok('...by who put the row there', /if \(isAutoTp\(t\)\) auto\+\+; else mine\+\+;/.test(sp));
+/* AND BY THE FLAG THE ROWS ACTUALLY CARRY. The first pass read t.auto,
+   which no live row has: measured on one CSM over thirty days, 1,847 rows,
+   1,836 with source:'auto' and eleven entered by a person. The column read
+   0 auto-captured beside 1,847 logged, which is the opposite of the truth. */
+ok('...by the flag the live rows carry, with the old shape still honoured',
+   /t\.auto === true \|\| String\(t\.source \|\| ''\)\.toLowerCase\(\) === 'auto'/.test(CODE));
+ok('...defined once, and used by both splits',
+   (CODE.match(/function isAutoTp/g) || []).length === 1 &&
+   (CODE.match(/if \(isAutoTp\(t\)\) auto\+\+; else mine\+\+;/g) || []).length === 2);
 ok('...counted once per row, not once per column', /const ts = tSplit\(p\.id\);/.test(CODE) &&
    /logged: ts\.mine, autoc: ts\.auto,/.test(CODE));
 

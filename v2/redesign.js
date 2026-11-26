@@ -2097,6 +2097,23 @@
      The server already formatted each visit's start and end in the CLIENT's
      own market timezone and told us which date that was. Nothing here re-reads
      a clock, because the browser's timezone is not the client's. */
+  /* WHAT MAKES A TOUCHPOINT AUTO-CAPTURED. Measured on the live store, one
+     CSM over thirty days: 1,847 rows, of which 1,836 carry source:'auto'
+     (1,572 Family Email and 264 Family Phone Call) and ELEVEN were entered by
+     a person. Not one row in that window has an `auto` property at all.
+
+     Both splits were testing t.auto, so every synced email counted as
+     something a CSM had logged by hand: Caseload health since 24 Nov, and the
+     Team columns the day after, which is why Auto-captured read 0 for all
+     seven CSMs beside a Logged contacts of 1,847.
+
+     t.auto is kept as an alternative rather than dropped, because index.html
+     reads it on the after-hours path and a shape that is still referenced is
+     not a shape to stop honouring. */
+  function isAutoTp(t) {
+    if (!t) return false;
+    return t.auto === true || String(t.source || '').toLowerCase() === 'auto';
+  }
   function localDay(off) {
     const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + (off || 0));
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -3046,7 +3063,7 @@
       try {
         (getCl('touchpoints', pid) || []).forEach(function (t) {
           if (!t || !t.date || String(t.date).slice(0, 10) < cut) return;
-          if (t.auto) auto++; else mine++;
+          if (isAutoTp(t)) auto++; else mine++;
         });
       } catch (e) {}
       return { mine: mine, auto: auto };
@@ -4758,7 +4775,7 @@
       const cutoff = new Date(Date.now() - 30 * DAY).toISOString().slice(0, 10);
       (app.fn.get('touchpoints') || []).forEach(function (t) {
         if (!t.date || String(t.date).slice(0, 10) < cutoff) return;
-        if (t.auto) auto++; else mine++;
+        if (isAutoTp(t)) auto++; else mine++;
       });
     } catch (e) {}
 

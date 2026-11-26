@@ -51,9 +51,18 @@ ok('high need reads Pulse, and falls back to the tier only when Pulse has no vie
    /else if \(c\.tier === 'High'\) highNeed\+\+;/.test(CODE));
 
 /* ── 2. the 1730 ──────────────────────────────────────────────────────── */
-/* workloadFor counted every touchpoint row, and the Viv and email syncs write
-   them with auto:true. What a CSM can act on is what a person logged. */
-ok('touchpoints are split by who wrote them', /if \(t\.auto\) auto\+\+; else mine\+\+;/.test(CODE));
+/* workloadFor counted every touchpoint row. What a CSM can act on is what a
+   person logged.
+
+   THE FLAG IS source:'auto', NOT auto:true. Measured on the live store, one
+   CSM over thirty days: 1,847 rows, 1,836 with source:'auto' and ELEVEN
+   entered by a person. Not one row in that window has an `auto` property, so
+   this split reported every synced email as hand-logged from 24 Nov until
+   26 Nov. t.auto is still honoured because index.html reads it on the
+   after-hours path. */
+ok('touchpoints are split by who wrote them', /if \(isAutoTp\(t\)\) auto\+\+; else mine\+\+;/.test(CODE));
+ok('...by a predicate that matches the rows the Hub actually holds',
+   /t\.auto === true \|\| String\(t\.source \|\| ''\)\.toLowerCase\(\) === 'auto'/.test(CODE));
 ok('...and the card counts the ones a person logged',
    /pill\(h\.mine, 'Touchpoints you logged'/.test(CODE));
 ok('...and says how many were automatic rather than hiding them',
