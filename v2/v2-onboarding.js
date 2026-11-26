@@ -783,11 +783,38 @@ function s30WithEvidence(c,pid){
    get('s60') with no profile id, so it reads whoever is SIGNED IN. On a
    manager's page, looking at another CSM's client, that is the wrong store
    and every client came back "0 of 10". s30Progress takes the profile id. */
+/* WHICH MILESTONES THE HUB CAN ACTUALLY SEE. Six have a feed behind them:
+   the assessment and the second visit come off the CSM visit list, the four
+   weekly family contacts off the contact log. The other four -- caregiver
+   prep, the week-one check-in, and the two Viv setup fields -- have no feed
+   at all, so the only thing that can satisfy them is a person ticking.
+
+   Nobody ticks, so all four sit permanently overdue on every client. Four is
+   two or more, which is At Risk forever, which is how 22 of 30 clients came
+   back At Risk even once the evidence was flowing.
+
+   They still SHOW as outstanding, because they are and somebody should tick
+   them. They just do not get read as risk, because an item the Hub cannot
+   see says nothing about the client. */
+const S30_OBSERVABLE = { asmt:1, visit2:1, fam_wk1:1, fam_wk2:1, fam_wk3:1, fam_wk4:1 };
+function s30ObservableLate(k){
+  return (k&&k.weeks||[]).reduce((n,w)=>n+((w.items||[]).filter(i=>
+    S30_OBSERVABLE[i.id]&&!i.done&&i.overdue).length),0);
+}
+function s30D14Missed(k){
+  const all=[];
+  (k&&k.weeks||[]).forEach(w=>(w.items||[]).forEach(i=>all.push(i)));
+  const d14=all.find(i=>i.id==='visit2');
+  return !!(d14&&!d14.done&&d14.overdue);
+}
+/* EVIDENCE FROM OUTSIDE THE CHECKLIST, which no amount of not-ticking can
+   explain away. Two or more caregiver changes in the first 30 days is hers,
+   and it is now readable. A Client Complaint exception is hers too and is
+   still not readable: the feed counts exceptions without saying which kind,
+   so claiming one would be inventing it. */
 function s30Evidence(c){
-  let ses=null,cg=0;
-  try{ ses=_s30Exceptions(c); }catch(e){}
-  try{ cg=_s30CaregiverChanges(c); }catch(e){}
-  return !!(ses&&ses.complaint)||cg>1;
+  const f=s30Facts(c);
+  return f.cgChanges!==null&&f.cgChanges>1;
 }
 function s30Progress(c,pid){
   const ids=(typeof S30_MILESTONES!=='undefined')?S30_MILESTONES.map(m=>m.id):[];
@@ -812,9 +839,17 @@ function s30Adjusted(c,pid){
   const out=Object.assign({},k,{started:started,derived:derived,
                                 ticked:pr.done,total:k.total});
   if(k.state!=='atrisk'&&k.state!=='watch')return out;
-  if(started||s30Evidence(c))return out;
+  /* HER RULE, ON THE ITEMS IT CAN BE ASKED ABOUT. Two or more overdue, or
+     the day 14 visit missed -- both counted over the six with a feed -- or
+     caregiver churn, which does not depend on the checklist at all. */
+  const late=s30ObservableLate(k);
+  if(s30Evidence(c)||late>1||s30D14Missed(k))return out;
   return Object.assign(out,{state:'notstarted',
-    why:'The checklist has not been started, so an overdue item here means '+
+    why: started
+      ? 'Nothing is outstanding that the Hub can see. What is left is the '+
+        'caregiver prep call, the week-one check-in and the two Viv setup '+
+        'fields, and only a tick can record those.'
+      : 'The checklist has not been started, so an overdue item here means '+
         'nothing has been recorded rather than nothing has been done.'});
 }
 
