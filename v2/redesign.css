@@ -3781,8 +3781,14 @@ input.ob-cb:disabled { opacity: .5; cursor: not-allowed; }
    three genuinely want it. justify-content keeps the spare width at the end
    instead of stretching six buttons across a 27-inch screen. */
 .rd-cw-head .rd-cw-acts { max-width: none; }
+/* ONE ROW, WITH SEVEN BUTTONS ON IT. Her picture has a single line of
+   actions with Call first, and adding Ask made seven: at a 184px cap that
+   is 1336px of buttons in a 1256px row, so Scribe dropped to a second line.
+   Measured on the live page rather than guessed. The cap comes down to
+   168px, which fits seven and still leaves "Email family" and "Log contact"
+   their full labels. Below about 900px it wraps, which is correct. */
 .rd-cw-acts {
-  grid-template-columns: repeat(auto-fit, minmax(146px, 184px));
+  grid-template-columns: repeat(auto-fit, minmax(132px, 168px));
   justify-content: start;
 }
 
