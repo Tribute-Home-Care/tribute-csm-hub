@@ -3038,6 +3038,22 @@
        reachable; the due date is S30_MILESTONES + TODO_MS_DAYS + _todoDay,
        which is how s30Checklist computes it for the current profile. Same
        arithmetic, so the two cannot disagree. */
+    /* WHICH clients are late, not just how many. Same arithmetic as
+       lateFor, asked once so the two cannot disagree. */
+    const lateClients = function (pid, cl) {
+      if (typeof S30_MILESTONES === 'undefined' || typeof TODO_MS_DAYS === 'undefined' ||
+          typeof _todoDay !== 'function') return [];
+      const logged = getCl('s60', pid) || [];
+      const today = localDay(0);
+      return cl.filter(function (c) {
+        if (!c.startDate || !inFirstDays(c, 30)) return false;
+        return S30_MILESTONES.some(function (m) {
+          if (logged.some(function (x) { return x.clientId === c.id && x.id === m.id; })) return false;
+          const due = _todoDay(c.startDate, TODO_MS_DAYS[m.id] || 7);
+          return due && due < today;
+        });
+      });
+    };
     const lateFor = function (pid, cl) {
       if (typeof S30_MILESTONES === 'undefined' || typeof TODO_MS_DAYS === 'undefined' ||
           typeof _todoDay !== 'function') return null;
@@ -3076,8 +3092,25 @@
       const trackable = cl.filter(function (c) { return c.freq !== 'NA'; });
       const comp = trackable.length
         ? Math.round((trackable.length - over.length) / trackable.length * 100) : null;
-      return { p: p, clients: cl.length,
-               high: cl.filter(function (c) { return c.tier === 'High'; }).length,
+      /* THE CLIENTS BEHIND EACH COUNT, kept beside it. Her review: "the
+         numbers don't open the list behind them." They cannot open a list
+         the row never held, and recomputing it on click would be a second
+         definition of the same number, which is the fault this whole page
+         was rebuilt to fix. So the filters run once and both the length and
+         the list come out of the same pass. */
+      const fHigh = cl.filter(function (c) { return c.tier === 'High'; });
+      const fS30 = cl.filter(function (c) { return inFirstDays(c, 30); });
+      const fOne21 = cl.filter(function (c) {
+        return c.pulseAck && c.pulseAck.state === 'aware_1to1';
+      });
+      const fAction = cl.filter(function (c) {
+        if (pulseLevel(c) === 'red') return true;
+        const d = ago(c.lastVisit);
+        return c.freq !== 'NA' && (d === null || d > (parseInt(c.freq) || 90));
+      });
+      return { p: p, clients: cl.length, _clients: cl,
+               high: fHigh.length, _high: fHigh,
+               _over: over, _s30: fS30,
                touch: w.touches || 0, over: over.length,
                /* HER QUESTION 5, ON THE PAGE THAT PROMPTED IT. "1730 touches
                   in 30 days for one CSM isn't a number anyone can act on. It
@@ -3095,7 +3128,7 @@
                /* inFirstDays, not (daysAgo || 999) <= 30: daysAgo returns 0
                   for care starting today, so the falsy fallback dropped the
                   newest client on every CSM's row. Still live in V1. */
-               s30: cl.filter(function (c) { return inFirstDays(c, 30); }).length,
+               s30: fS30.length,
                /* NEEDS ACTION, read from what is true across profiles. The
                   layer's needsAction() leans on touchpoint history for the
                   SIGNED-IN profile, so it cannot be asked about somebody
@@ -3103,18 +3136,13 @@
                   an overdue visit is on the client record, so those two are
                   the honest reading here. It is a floor, not V1's
                   definition, and the page says so. */
-               action: cl.filter(function (c) {
-                 if (pulseLevel(c) === 'red') return true;
-                 const d = ago(c.lastVisit);
-                 return c.freq !== 'NA' && (d === null || d > (parseInt(c.freq) || 90));
-               }).length,
+               action: fAction.length, _action: fAction,
                late: lateFor(p.id, cl),
                /* Sorting a flag as "raising in the 1:1" writes pulseAck on
                   the client, so this counts what is waiting for their next
                   one-to-one. */
-               one21: cl.filter(function (c) {
-                 return c.pulseAck && c.pulseAck.state === 'aware_1to1';
-               }).length,
+               one21: fOne21.length, _one21: fOne21,
+               _late: lateClients(p.id, cl),
                comp: comp };
     });
   }
@@ -3152,7 +3180,17 @@
       }
       const v = r[k];
       const tone = (k === 'over' && v) ? 'bad' : (k === 'high' && v) ? 'warn' : '';
-      return '<td class="rd-tm-n' + (tone ? ' ' + tone : '') + '">' + v + '</td>';
+      /* A COUNT YOU CAN OPEN. Only where there is a list to open and
+         something in it: a zero opens nothing, and the touch columns count
+         rows rather than clients, so there is no list of people behind
+         them. Everything else stays exactly the number it was. */
+      const list = r['_' + k];
+      if (!list || !list.length) {
+        return '<td class="rd-tm-n' + (tone ? ' ' + tone : '') + '">' + v + '</td>';
+      }
+      return '<td class="rd-tm-n' + (tone ? ' ' + tone : '') + '">' +
+        '<button type="button" class="rd-tm-open" data-tmcell="' + esc(r.p.id) + '|' + esc(k) +
+        '" title="Show the ' + esc(String(v)) + ' behind this">' + v + '</button></td>';
     };
     const tbl = function (list, cols) {
       return '<div class="rd-clt-wrap"><table class="rd-clt rd-tm"><thead><tr>' +
@@ -3202,6 +3240,48 @@
           tbl(csps, [['logged', 'Logged contacts 30d'], ['autoc', 'Auto-captured 30d'],
                      ['clients', 'Clients named']])
         : '');
+    /* THE LIST BEHIND THE NUMBER, under the table rather than over it: a
+       manager reading a row should not lose the row to read the list. */
+    const TM_LABEL = { clients: 'clients', high: 'high need', over: 'with a visit overdue',
+                       late: 'with a milestone past its day', s30: 'in their first 30 days',
+                       one21: 'waiting for a 1:1', action: 'needing action' };
+    const panelFor = function (pid, k) {
+      const row = rows.concat(csps).filter(function (r) { return r.p.id === pid; })[0];
+      if (!row) return '';
+      const list = row['_' + k] || [];
+      return '<div class="rd-tm-panel" id="rd-tm-panel">' +
+        '<div class="rd-tm-ph"><strong>' + esc(row.p.name) + '</strong> \u00b7 ' +
+          plural(list.length, 'client') + ' ' + esc(TM_LABEL[k] || k) +
+          '<button type="button" class="rd-link" data-tmclose="1">Close</button></div>' +
+        '<ul class="rd-tm-pl">' + list.map(function (c) {
+          const ex = exceptionFor(c);
+          return '<li><span class="rd-tm-pn">' + esc(c.name) + '</span>' +
+            (c.tier ? '<span class="rd-tier ' + esc(String(c.tier).toLowerCase()) + '">' +
+              esc(c.tier) + '</span>' : '') +
+            (ex ? '<span class="rd-tm-pw">' + esc(ex.text) + '</span>' : '') + '</li>';
+        }).join('') + '</ul></div>';
+    };
+    $$('[data-tmcell]', host).forEach(function (b) {
+      b.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        const parts = String(b.dataset.tmcell).split('|');
+        const old = $('#rd-tm-panel', host);
+        const same = old && old.dataset.key === b.dataset.tmcell;
+        if (old) old.remove();
+        if (same) return;                       // a second press closes it
+        const tr = b.closest('tr');
+        const tbl = tr ? tr.closest('.rd-clt-wrap') : null;
+        if (!tbl) return;
+        tbl.insertAdjacentHTML('afterend', panelFor(parts[0], parts[1]));
+        const el = $('#rd-tm-panel', host);
+        if (el) {
+          el.dataset.key = b.dataset.tmcell;
+          const close = el.querySelector('[data-tmclose]');
+          if (close) close.addEventListener('click', function () { el.remove(); });
+          el.scrollIntoView({ block: 'nearest' });
+        }
+      });
+    });
     $$('[data-teamwho]', host).forEach(function (b) {
       b.addEventListener('click', function () { _teamWho = b.dataset.teamwho; renderTeamTable(); });
     });
