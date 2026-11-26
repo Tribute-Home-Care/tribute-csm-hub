@@ -62,16 +62,52 @@ ok('...with only the s60 read widened', /return key==='s60' \? \(v\|\|\[\]\)\.co
 ok('V1 reads an exceptions store', /get\('exceptions'\)/.test(V1));
 ok('...and a caregiver field that the CSM visit feed does not carry',
    /if\(v\.caregiver\)names\.add/.test(V1));
+/* CORRECTED 26 NOV. The exceptions were never missing: they are in the Pulse
+   payload, _PULSE.byCid[vivId].incidents, 646 rows each carrying a `types`
+   array with the full 38-type taxonomy. I checked the Hub's own empty
+   `exceptions` store and concluded the data did not exist. */
 const facts = (OB.match(/function s30Facts\(c\)\{[\s\S]*?\n\}/) || [''])[0];
-ok('both counts are parsed from the sentence the feed already writes',
-   /service exceptions\?/.test(facts) && /caregiver changes\?/.test(facts));
-ok('...and a missing count is null, not zero', /se\?parseInt\(se\[1\],10\):null/.test(facts) &&
-   /cg\?parseInt\(cg\[1\],10\):null/.test(facts));
-/* The feed counts exceptions without saying which kind, so a Client
-   Complaint cannot be claimed from it. Her At Risk condition stays unmet
-   rather than guessed. */
-ok('a complaint is never invented from a bare count',
-   /complaint: !!base\.complaint/.test(OB) && /dissatisfaction: !!base\.dissatisfaction/.test(OB));
+const incs = (OB.match(/function s30Incidents\(c\)\{[\s\S]*?\n\}/) || [''])[0];
+ok('exceptions are read from the Pulse payload', /_PULSE\.byCid\[c\.vivId\]/.test(incs));
+ok('...windowed to the client\'s own first 30 or 60 days, by the incident date',
+   /const end=_obPlus\(soc,60\)/.test(incs) && /d>=soc&&\(!end\|\|d<=end\)/.test(incs));
+ok('...and a client with no Pulse record yields none, not a crash',
+   /if\(!c\.vivId\|\|typeof _PULSE==='undefined'/.test(incs));
+/* Caregiver changes stay with the fillEvidence sentence: it is computed
+   server-side with added/removed semantics, and counting distinct names off
+   weeklyCgNames calls a five-person rotating team four changes. */
+ok('caregiver changes still come from the sentence, which has added/removed semantics',
+   /caregiver changes\?/.test(facts) && /cg\?parseInt\(cg\[1\],10\):null/.test(facts));
+/* Her complaint condition can fire at last, off the type rather than a count. */
+ok('a complaint is read from the type, not invented from a count',
+   /const S30_COMPLAINT = \/\^Client Complaint\/i;/.test(OB) &&
+   /complaint: !!base\.complaint\|\|f\.complaints>0/.test(OB));
+ok('...and dissatisfaction is still left alone, not being a type at all',
+   /dissatisfaction: !!base\.dissatisfaction/.test(OB));
+/* "No complaint:" types are 444 of the 646 rows and do not raise a Watch. */
+ok('the taxonomy\'s own non-complaints do not raise a Watch',
+   /const S30_NOT_A_COMPLAINT = \/\^No complaint:\/i;/.test(OB) &&
+   /const real=inc\.filter\(x=>!S30_NOT_A_COMPLAINT\.test\(T\(x\)\)\);/.test(OB));
+
+/* ── 10. call-outs, which are typed after all ────────────────────────── */
+ok('call-outs are read from the type', /const S30_CALLOUT = \/call \?out\/i;/.test(OB));
+ok('...and preventability is what triggers',
+   /const S30_CALLOUT_PREVENTABLE = \/preventable call \?out\/i;/.test(OB) &&
+   /f\.callOutsPreventable>=S30_CALLOUT_ATRISK/.test(OB));
+ok('...one is a Watch and two or more is At Risk, like her caregiver rule',
+   /const S30_CALLOUT_WATCH = 1, S30_CALLOUT_ATRISK = 2;/.test(OB));
+/* A caregiver whose car broke down is not evidence about the client, so the
+   non-preventable ones are counted and shown and do not move the status. */
+ok('...and a non-preventable call-out is counted but does not move the status',
+   /callOuts:f\.callOuts/.test(OB));
+
+/* ── 11. visit notes, which were there too ───────────────────────────── */
+ok('visit notes are read from the Pulse payload',
+   /pc\.visitNotes/.test(OB) && /function s30NewestVisitNote\(c\)\{/.test(OB));
+ok('...reporting no note at all separately from a stale one',
+   /No visit note on record for this client\./.test(OB) &&
+   /The last visit note is '\+age\+' days old\./.test(OB));
+ok('...against a named staleness bar', /const S30_NOTE_STALE = 7;/.test(OB));
 
 /* ── 5. only the items the Hub can see decide At Risk ────────────────── */
 /* Four milestones have no feed, so they are permanently overdue on every
@@ -118,14 +154,17 @@ ok('...naming the count rather than saying "unfilled visits" vaguely',
    and a status it raised is not the checklist's to take back. */
 ok('the schedule can only raise, never lower',
    /if\(out\.state!==k\.state\)return out;/.test(OB));
-/* CALL-OUTS ARE NOT INFERRED FROM AN OPEN VISIT. The feed says a visit is
-   unfilled, never why, and a routine gap is not a caregiver letting a
-   client down. */
-ok('call-outs are listed as something the Hub cannot see, not guessed',
-   /whether an unfilled visit was a call-out or a routine gap/.test(OB));
-ok('...alongside the other two it cannot see',
-   /which kind of service exception was raised/.test(OB) &&
-   /whether a scheduled visit has a note in Viv/.test(OB));
+/* AN UNFILLED VISIT STILL DOES NOT SAY WHY. Call-outs are now read from the
+   incident type instead, which does, so the two are separate signals rather
+   than one inferred from the other. */
+ok('an unfilled visit is not read as a call-out',
+   !/open[\s\S]{0,60}call ?out/i.test((OB.match(/function s30WithSchedule[\s\S]*?\n\}/)||[''])[0]
+     .split('const open=')[1] || ''));
+/* Two things came off the missing list because they were never missing. */
+ok('the missing list holds only what is genuinely absent',
+   /whether a particular scheduled visit has a note/.test(OB) &&
+   /whether a client dissatisfaction exception is open/.test(OB) &&
+   !/which kind of service exception was raised/.test(OB));
 
 /* ── 8. the one condition made answerable ────────────────────────────── */
 /* "The family has asked to remove a caregiver" is the At Risk condition
@@ -165,8 +204,11 @@ ok('...and is drawn as the quiet line it is', /\.rd-s30-gap \{/.test(CSSRD));
 /* The other half she describes cannot be measured: the Hub's visit log is
    synced from the same Viv feed as the CSM visit list, so comparing them is
    one list against itself. It is listed as unseeable instead. */
-ok('the visit-note half is named as something the Hub cannot see',
-   /whether a scheduled visit has a note in Viv/.test(OB));
+/* The visit-note half is BUILT now, from the payload the Hub already loads.
+   What remains out of reach is pairing a note to a particular visit, because
+   the feed carries notes rather than visits. */
+ok('what is left out of reach is pairing a note to a visit',
+   /as opposed ' \+\s*'to how long it has been since the last one/.test(OB));
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

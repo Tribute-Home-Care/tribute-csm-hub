@@ -719,11 +719,65 @@ function s30Derived(c,pid){
    wants a Client Complaint specifically, and the sentence only counts them.
    So this reports that exceptions exist, which is her Watch condition, and
    never claims a complaint it cannot see. */
+/* THE SERVICE EXCEPTIONS WERE THERE ALL ALONG, in the Pulse payload rather
+   than the Hub's own `exceptions` store. I checked the store, found it empty
+   on every profile, and concluded the data did not exist. It is one object
+   away: _PULSE.byCid[vivId].incidents, 646 rows, each carrying a `types`
+   array with the full 38-type taxonomy on it.
+
+   Which answers the two things the last round called unanswerable:
+
+     CALL-OUTS are typed, and typed by preventability:
+       "No complaint: Call out, not preventable"                   202
+       "Reliability Complaint: preventable call out within 7 days"  27
+
+     CLIENT COMPLAINTS are typed, nine subtypes, so her At Risk condition
+     fires for the first time. Five clients in the current window.
+
+   WINDOWED TO THE CLIENT'S OWN FIRST 30 OR 60 DAYS, by the incident's own
+   date, rather than the rolling 30 days the fillEvidence sentence counts.
+   Her rule is about what happened to this client since they started.
+
+   "NO COMPLAINT:" TYPES DO NOT RAISE A WATCH. Her Watch rule says "one new
+   SE of any kind", and 444 of the 646 rows are "No complaint: internal
+   communication" or "No complaint: Call out, not preventable". The taxonomy
+   itself says those are not complaints, and letting them raise a Watch would
+   put most of the company on one. This is a reading of her rule rather than
+   her rule, and it is the kind of thing she asked to calibrate. */
+const S30_CALLOUT = /call ?out/i;
+const S30_CALLOUT_PREVENTABLE = /preventable call ?out/i;
+const S30_COMPLAINT = /^Client Complaint/i;
+const S30_NOT_A_COMPLAINT = /^No complaint:/i;
+function s30Incidents(c){
+  try{
+    if(!c.vivId||typeof _PULSE==='undefined'||!_PULSE||!_PULSE.byCid)return [];
+    const pc=_PULSE.byCid[c.vivId];
+    if(!pc||!Array.isArray(pc.incidents))return [];
+    const soc=String(c.startDate||'').slice(0,10);
+    if(!soc)return [];
+    const end=_obPlus(soc,60)||'';
+    return pc.incidents.filter(x=>{
+      const d=String(x.date||'').slice(0,10);
+      return d>=soc&&(!end||d<=end);
+    });
+  }catch(e){ return []; }
+}
 function s30Facts(c){
-  const s=String((c.fillEvidence&&c.fillEvidence.serviceEvents)||'');
-  const se=s.match(/(\d+)\s+service exceptions?/i);
-  const cg=s.match(/(\d+)\s+caregiver changes?/i);
-  return { ses: se?parseInt(se[1],10):null,
+  const inc=s30Incidents(c);
+  const T=x=>(x.types||[]).join(' | ');
+  const real=inc.filter(x=>!S30_NOT_A_COMPLAINT.test(T(x)));
+  const callOuts=inc.filter(x=>S30_CALLOUT.test(T(x)));
+  /* Caregiver changes stay with the fillEvidence sentence, which the Pulse
+     feed computes with added/removed semantics. Counting distinct names off
+     weeklyCgNames calls a five-person rotating team four changes, which is
+     the flaw the dead helper had. */
+  const sent=String((c.fillEvidence&&c.fillEvidence.serviceEvents)||'');
+  const cg=sent.match(/(\d+)\s+caregiver changes?/i);
+  return { ses: real.length,
+           complaints: inc.filter(x=>S30_COMPLAINT.test(T(x))).length,
+           callOuts: callOuts.length,
+           callOutsPreventable: inc.filter(x=>S30_CALLOUT_PREVENTABLE.test(T(x))).length,
+           hasPulse: !!(c.vivId&&typeof _PULSE!=='undefined'&&_PULSE&&_PULSE.byCid&&_PULSE.byCid[c.vivId]),
            cgChanges: cg?parseInt(cg[1],10):null,
            cgKnown: !!cg };
 }
@@ -744,11 +798,14 @@ function s30WithEvidence(c,pid){
     const v=realGet.apply(this,arguments);
     return key==='s60' ? (v||[]).concat(extra) : v;
   };
-  if(f.ses!==null)window._s30Exceptions=function(x){
+  if(f.hasPulse)window._s30Exceptions=function(){
     const base=realEx.apply(this,arguments)||{};
-    // The count cannot say WHICH kind, so complaint and dissatisfaction are
-    // left exactly as the real reader found them rather than guessed at.
-    return { any: base.any||f.ses>0, complaint: !!base.complaint,
+    /* All three answerable now except dissatisfaction, which is not a type in
+       the taxonomy: it comes from the Viv discharge reason and the Service
+       Cancellation Pending form, neither of which reaches the Hub. Left as
+       the real reader found it rather than guessed. */
+    return { any: base.any||f.ses>0,
+             complaint: !!base.complaint||f.complaints>0,
              dissatisfaction: !!base.dissatisfaction };
   };
   if(f.cgKnown)window._s30CaregiverChanges=function(){
@@ -823,6 +880,7 @@ function s30D14Missed(k){
 function s30Evidence(c){
   if(s30FamilyAsk(c.id)==='yes')return true;
   const f=s30Facts(c);
+  if(f.complaints>0)return true;                 // hers, and readable at last
   return f.cgChanges!==null&&f.cgChanges>1;
 }
 function s30Progress(c,pid){
@@ -901,9 +959,41 @@ function setS30FamilyAsk(cid,answer){
    the same Viv feed as the CSM visit list, so comparing them reports 158
    matched and zero gaps, which is one list compared with itself. It needs
    Viv's visit-note field, which the Hub is not sent. */
+/* THE VISIT NOTES WERE THERE TOO. _PULSE.byCid[vivId].visitNotes holds the
+   last ten per client, 1,979 rows across 228 clients, each {date, cg, note}.
+   The last round said this needed a field the Hub is not sent; it is in the
+   payload the Hub already loads.
+
+   WHAT IT CAN AND CANNOT SAY. It cannot pair a note to a scheduled visit,
+   because it carries notes rather than visits, so "this visit has no note"
+   is still out of reach. It can say the one thing a CSM would act on: how
+   long it has been since anybody wrote anything. Eleven clients company-wide
+   have no visit note at all and twelve have none inside a week.
+
+   Stated, never scored. Part 4 says "point out documentation gaps neutrally,
+   without blaming anyone", so these name the gap and never the caregiver,
+   and they do not move the status. */
+const S30_NOTE_STALE = 7;
+function s30NewestVisitNote(c){
+  try{
+    if(!c.vivId||typeof _PULSE==='undefined'||!_PULSE||!_PULSE.byCid)return null;
+    const pc=_PULSE.byCid[c.vivId];
+    if(!pc||!Array.isArray(pc.visitNotes)||!pc.visitNotes.length)return '';
+    return pc.visitNotes.map(v=>String(v.date||'').slice(0,10)).filter(Boolean).sort().slice(-1)[0]||'';
+  }catch(e){ return null; }
+}
 function s30DocGaps(c){
   const out=[];
   const d=daysAgo(c.startDate);
+  const newest=s30NewestVisitNote(c);
+  if(newest===''){
+    out.push('No visit note on record for this client.');
+  }else if(newest){
+    const age=daysAgo(newest);
+    if(age!==null&&age>S30_NOTE_STALE){
+      out.push('The last visit note is '+age+' days old.');
+    }
+  }
   if(d!==null&&d>7&&c.carePlanEdits30===0){
     out.push('The care plan has not been edited in the last 30 days. '+
              'After the first caregiver feedback it usually is.');
@@ -913,9 +1003,13 @@ function s30DocGaps(c){
 
 /* No longer listed: whether the family has asked to remove a caregiver. It
    is a question on the card now rather than a thing the Hub gives up on. */
-const S30_MISSING = ['whether an unfilled visit was a call-out or a routine gap',
-                     'which kind of service exception was raised',
-                     'whether a scheduled visit has a note in Viv'];
+/* TWO CAME OFF THIS LIST on 26 Nov, because they were never missing: the
+   service exception's type and the visit notes were both in the Pulse
+   payload the whole time. What is left is genuinely absent. */
+const S30_MISSING = ['whether a particular scheduled visit has a note, as opposed ' +
+                     'to how long it has been since the last one',
+                     'whether a client dissatisfaction exception is open, which ' +
+                     'comes from the Viv discharge reason rather than a type'];
 function s30Adjusted(c,pid){
   let k=null;
   try{ k=s30WithEvidence(c,pid); }catch(e){ return null; }
@@ -948,7 +1042,9 @@ function s30Adjusted(c,pid){
        ignored is worse than no reason. Her order, her words. */
     return Object.assign(out,{why:
       s30FamilyAsk(c.id)==='yes' ? 'the family has asked to remove a caregiver'
-      : s30Evidence(c) ? f.cgChanges+' caregiver changes in the first 30 days'
+      : f.complaints>0 ? (f.complaints===1?'a client complaint is on file'
+                                          :f.complaints+' client complaints are on file')
+      : (f.cgChanges!==null&&f.cgChanges>1) ? f.cgChanges+' caregiver changes in the first 30 days'
       : s30D14Missed(k) ? 'the day 14 visit was missed'
       : late+' of the items the Hub can check are overdue'});
   }
@@ -964,8 +1060,28 @@ function s30Adjusted(c,pid){
    reads the checklist; this reads the schedule, which the checklist has no
    view of at all, so it is applied last and only where it would raise the
    client. A client already At Risk is not made more so. */
+/* CALL-OUTS, which Part 4 asks for and the last round said were invisible.
+   A PREVENTABLE one is the trigger: the taxonomy marks the other kind "not
+   preventable", and a caregiver whose car broke down is not evidence about
+   the client. One is a Watch, two or more is At Risk, the same shape as her
+   caregiver-change rule. Non-preventable ones are counted and shown, so the
+   CSM sees the disruption, and do not move the status.
+
+   In the current window this fires on nobody: seven new clients have had a
+   call-out and none of them was preventable. That is the right answer, not a
+   dead rule. */
+const S30_CALLOUT_WATCH = 1, S30_CALLOUT_ATRISK = 2;
 function s30WithSchedule(c,pid,k){
   if(!k)return k;
+  const f=s30Facts(c);
+  if(f.callOutsPreventable>=S30_CALLOUT_ATRISK&&k.state!=='atrisk'){
+    return Object.assign({},k,{state:'atrisk',callOuts:f.callOuts,
+      why:f.callOutsPreventable+' preventable call-outs in the first 30 days'});
+  }
+  if(f.callOutsPreventable>=S30_CALLOUT_WATCH&&(k.state==='ontrack'||k.state==='done')){
+    return Object.assign({},k,{state:'watch',callOuts:f.callOuts,
+      why:'a preventable call-out in the first 30 days'});
+  }
   const open=s30OpenVisits(c,pid);
   if(open>=S30_OPEN_ATRISK&&k.state!=='atrisk'){
     return Object.assign({},k,{state:'atrisk',openVisits:open,

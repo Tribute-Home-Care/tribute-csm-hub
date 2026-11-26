@@ -37,12 +37,16 @@ ok('...and the shim is always undone, even on a throw',
    /finally\{ window\.get=realGet; window\._s30Exceptions=realEx; window\._s30CaregiverChanges=realCg; \}/.test(OB));
 ok('...and writes the derived evidence to no store',
    !/set\('s60'/.test(OB.slice(OB.indexOf('function s30Derived'), OB.indexOf('function s30Facts'))));
-/* Tested on the CODE, with the message strings taken out: the Not started
-   sentence explains itself in English and says the word "overdue", which is
-   prose, not a condition being re-decided. */
-const adjLogic = adj.replace(/'(\\.|[^'])*'/g, "''");
-ok('...and restates none of her conditions',
-   !!adj && !/overdue|complaint|day 14|caregiver change/i.test(adjLogic));
+/* THE ACCURATE CLAIM, narrowed on 26 Nov. The layer does apply her
+   conditions, over the subset the Hub can observe, and names which one
+   fired. What it does NOT do is compute the state: s30Checklist still does
+   that, and the layer only moves a client down (Not started) or up (the
+   schedule). This asserts that, rather than hunting for her words. */
+ok('...and does not compute the state itself',
+   /k=s30WithEvidence\(c,pid\);/.test(adj) && !/let state=/.test(adj) &&
+   !/atRisk\.push|watch\.push/.test(OB));
+ok('...only moving a client down to Not started, or up from the schedule',
+   /state:'notstarted'/.test(adj) && /s30WithSchedule\(c,pid,out0\)/.test(adj));
 ok('V1 still computes At Risk exactly as she wrote it',
    /if\(late\.length>1\)atRisk\.push/.test(V1) &&
    /if\(ses\.complaint\)atRisk\.push/.test(V1) &&
@@ -54,7 +58,8 @@ const ev = (OB.match(/function s30Evidence\(c\)\{[\s\S]*?\n\}/) || [''])[0];
    exceptions without saying which kind, and her At Risk condition wants a
    Client Complaint specifically, so claiming one from a bare count would be
    inventing it. The count still raises Watch through her own rule. */
-ok('evidence is caregiver churn, counted as she wrote it',
+ok('evidence is a client complaint or caregiver churn, as she wrote them',
+   /if\(f\.complaints>0\)return true;/.test(ev) &&
    /f\.cgChanges!==null&&f\.cgChanges>1/.test(ev));
 ok('...and does not depend on anybody ticking anything',
    !/started|pr\.done|s60/.test(ev));
