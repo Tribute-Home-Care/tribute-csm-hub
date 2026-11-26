@@ -160,15 +160,13 @@ ok('the schedule can only raise, never lower',
 ok('an unfilled visit is not read as a call-out',
    !/open[\s\S]{0,60}call ?out/i.test((OB.match(/function s30WithSchedule[\s\S]*?\n\}/)||[''])[0]
      .split('const open=')[1] || ''));
-/* THREE came off, and the third is the one I was most wrong about. The
-   per-visit note figure is NOT unanswerable: the API already runs a grouped
-   visitAudit query returning queries.tasks summed per client-day, and the
-   LTC packet check has counted blank note prompts for months. So the list
-   says "one API change away", not "cannot". */
-ok('the missing list distinguishes unwired from unknowable',
-   /one API change away rather than unavailable/.test(OB) &&
+/* THE LIST IS DOWN TO ONE. Note coverage is built now, so only client
+   dissatisfaction is left: it is not an exception type at all, it comes from
+   the Viv discharge reason and the cancellation form. */
+ok('the missing list is down to the one thing genuinely absent',
    /whether a client dissatisfaction exception is open/.test(OB) &&
-   !/which kind of service exception was raised/.test(OB));
+   !/which kind of service exception was raised/.test(OB) &&
+   !/one API change away/.test(OB));
 
 /* ── 8. the one condition made answerable ────────────────────────────── */
 /* "The family has asked to remove a caregiver" is the At Risk condition
@@ -208,12 +206,25 @@ ok('...and is drawn as the quiet line it is', /\.rd-s30-gap \{/.test(CSSRD));
 /* The other half she describes cannot be measured: the Hub's visit log is
    synced from the same Viv feed as the CSM visit list, so comparing them is
    one list against itself. It is listed as unseeable instead. */
-/* The staleness half is built from the payload the Hub already loads. The
-   per-visit half is a plumbing job, and the card says which it is rather
-   than implying nobody could know. */
-ok('the per-visit figure is described as unwired, not unknowable',
-   /which particular visits are missing a note/.test(OB) &&
-   /one API change away/.test(OB));
+/* ── 12. note coverage per client ─────────────────────────────────────── */
+/* queries.tasks grouped by client and day: the denominator the feed-based
+   visitNotes never had. A "day" is a caregiver-day that HAD tasks, which is
+   a visit except where one caregiver works two shifts for one client in a
+   day, and it is named for what it is. */
+ok('the card reads note coverage when the feed carries it',
+   /function s30NoteDays\(c\)\{/.test(OB) && /pc&&pc\.noteDays/.test(OB));
+ok('...counting the days with no note and naming the first few',
+   /nd\.missing\+' of '\+nd\.days\+' days of care have no note'/.test(OB) &&
+   /\(nd\.missingDates\|\|\[\]\)\.slice\(0,3\)/.test(OB));
+/* ABSENT UNTIL THE API DEPLOYS, and handled rather than assumed. */
+ok('...falling back to the staleness line while the field is absent',
+   /\}else if\(newest===''\)\{/.test(OB) &&
+   /return \(nd&&typeof nd\.days==='number'&&nd\.days>0\)\?nd:null;/.test(OB));
+/* No care days measured is not the same as no care days missed. */
+ok('...and zero measured days is not read as all documented',
+   /nd\.days>0/.test(OB));
+ok('...and a clean client is told nothing, because a card that congratulates stops being read',
+   /\}else if\(nd\)\{/.test(OB));
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

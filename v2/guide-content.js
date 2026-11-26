@@ -653,10 +653,11 @@ window.GUIDE = (function () {
           'count. A client complaint in the first 30 days makes a client At Risk, which is ' +
           'the rule as written. Entries the exception list itself files under "No complaint" ' +
           'do not raise a Watch.' },
-        { h: 'Documentation', p: 'The card says when there is no visit note on record, or ' +
-          'when the last one is more than a week old, and when the care plan has not been ' +
-          'edited. Those are stated and never scored: they do not move the status and they ' +
-          'name the gap rather than a person.' },
+        { h: 'Documentation', p: 'The card says how many days of care have no note and ' +
+          'names the first few dates, or, where that figure has not reached your Hub yet, ' +
+          'how long it has been since the last note. It also says when the care plan has ' +
+          'not been edited. All of it is stated and never scored: it does not move the ' +
+          'status, and it names the gap rather than a person.' },
         { h: 'The one question you answer', p: '"Has the family asked to remove a ' +
           'caregiver?" is one of her At Risk rules and nothing in Viv records it, so ' +
           'the card asks you, once, and keeps the answer where your manager sees the ' +
@@ -671,9 +672,10 @@ window.GUIDE = (function () {
           'first 30 days is At Risk, as the rules say. A call-out counts when it was ' +
           'preventable; the feed marks the other kind "not preventable", and a caregiver ' +
           'whose car broke down is not evidence about the client.',
-        'The card tells you how long it has been since the last visit note. Which ' +
-          'particular visits are missing one is known to Viv and is not plumbed through to ' +
-          'the Hub yet, so the card says the part it can stand behind.',
+        'The card says how many days of care have no note, and names the first few dates. ' +
+          'A day here is a caregiver-day, which is a visit except where one caregiver works ' +
+          'two shifts for the same client on one day. Until that number reaches your Hub it ' +
+          'falls back to saying how long it has been since the last note.',
         'One thing it genuinely cannot see: whether a client dissatisfaction exception is ' +
           'open. That comes from the Viv discharge reason rather than from an exception ' +
           'type, so the rule that depends on it is still waiting.'

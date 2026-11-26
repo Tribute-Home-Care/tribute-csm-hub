@@ -982,11 +982,42 @@ function s30NewestVisitNote(c){
     return pc.visitNotes.map(v=>String(v.date||'').slice(0,10)).filter(Boolean).sort().slice(-1)[0]||'';
   }catch(e){ return null; }
 }
+/* WHICH DAYS OF CARE HAVE NO NOTE, once the feed carries it.
+
+   noteDays is {days, done, missing, missingDates[]} per client, built from
+   queries.tasks on the visitAudit dataset: the same field behind Viv's "%
+   Task Completion", grouped by client and day. A "day" is a caregiver-day
+   that HAD tasks on it, which is a visit except where one caregiver works
+   two shifts for the same client on one day, so it is named for what it is.
+
+   ABSENT UNTIL THAT BUILD DEPLOYS, and that is handled rather than assumed:
+   no field means the card falls back to the staleness line below, which is
+   what it has been saying all along. A zero days figure is not treated as
+   "all documented" either, because no care days measured is not the same
+   as no care days missed. */
+function s30NoteDays(c){
+  try{
+    if(!c.vivId||typeof _PULSE==='undefined'||!_PULSE||!_PULSE.byCid)return null;
+    const pc=_PULSE.byCid[c.vivId];
+    const nd=pc&&pc.noteDays;
+    return (nd&&typeof nd.days==='number'&&nd.days>0)?nd:null;
+  }catch(e){ return null; }
+}
 function s30DocGaps(c){
   const out=[];
   const d=daysAgo(c.startDate);
+  const nd=s30NoteDays(c);
   const newest=s30NewestVisitNote(c);
-  if(newest===''){
+  if(nd&&nd.missing>0){
+    /* The dates, not just the count: "three days" sends a CSM looking, and
+       "the 21st and the 22nd" is something they can act on in one step. */
+    const shown=(nd.missingDates||[]).slice(0,3).map(x=>fmtShortDay(x)).filter(Boolean);
+    out.push(nd.missing+' of '+nd.days+' days of care have no note'+
+             (shown.length?' ('+shown.join(', ')+(nd.missing>shown.length?' and more':'')+')':'')+'.');
+  }else if(nd){
+    // Measured and clean. Said nowhere, because a card that congratulates is
+    // a card people stop reading.
+  }else if(newest===''){
     out.push('No visit note on record for this client.');
   }else if(newest){
     const age=daysAgo(newest);
@@ -999,6 +1030,12 @@ function s30DocGaps(c){
              'After the first caregiver feedback it usually is.');
   }
   return out;
+}
+function fmtShortDay(iso){
+  try{
+    const d=new Date(String(iso).slice(0,10)+'T12:00:00');
+    return isNaN(d)?'':d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  }catch(e){ return ''; }
 }
 
 /* No longer listed: whether the family has asked to remove a caregiver. It
@@ -1018,11 +1055,9 @@ function s30DocGaps(c){
    So it is one API change away, not out of reach, and the card says so. Until
    it lands the card reports the staleness it CAN see, which is the honest
    subset rather than a claim that nothing is knowable. */
-const S30_MISSING = ['which particular visits are missing a note \u2014 the Hub shows how ' +
-                     'long it has been since the last one, and the per-visit figure is ' +
-                     'one API change away rather than unavailable',
-                     'whether a client dissatisfaction exception is open, which ' +
-                     'comes from the Viv discharge reason rather than a type'];
+const S30_MISSING = ['whether a client dissatisfaction exception is open, which ' +
+                     'comes from the Viv discharge reason rather than from an ' +
+                     'exception type'];
 function s30Adjusted(c,pid){
   let k=null;
   try{ k=s30WithEvidence(c,pid); }catch(e){ return null; }
