@@ -160,13 +160,37 @@ ok('the schedule can only raise, never lower',
 ok('an unfilled visit is not read as a call-out',
    !/open[\s\S]{0,60}call ?out/i.test((OB.match(/function s30WithSchedule[\s\S]*?\n\}/)||[''])[0]
      .split('const open=')[1] || ''));
-/* THE LIST IS DOWN TO ONE. Note coverage is built now, so only client
-   dissatisfaction is left: it is not an exception type at all, it comes from
-   the Viv discharge reason and the cancellation form. */
-ok('the missing list is down to the one thing genuinely absent',
-   /whether a client dissatisfaction exception is open/.test(OB) &&
-   !/which kind of service exception was raised/.test(OB) &&
-   !/one API change away/.test(OB));
+/* THE LIST IS EMPTY. Every condition in Part 3 is readable now. Three rounds
+   each ended with a list of things the Hub "could not see", and every one
+   turned out to be a place I had not looked. The constant stays, because the
+   next condition she adds may genuinely be unreadable and saying so on the
+   card beats implying a check happened. */
+ok('the missing list is empty, and kept for the next thing that is not',
+   /const S30_MISSING = \[\];/.test(OB));
+
+/* ── 13. dissatisfaction is a FAMILY of exception types ──────────────── */
+/* Her On Track rule says "no open Client Dissatisfaction SEs". There is no
+   type called dissatisfaction; there are five complaint prefixes carrying
+   106 rows between them. I twice wrote this off as unreadable. */
+ok('all five complaint families count as dissatisfaction',
+   /const S30_DISSATISFACTION = \/\(\^\|\[\^a-z\]\)\(client\|reliability\|communication\|connection\|flexibility\) complaint:\/i;/.test(OB));
+/* "No complaint:" and Internal Communication are not complaints by the
+   taxonomy's own naming, and the unprefixed clinical types (Change of
+   Condition, Fall, Medication Error, Lateness) are events rather than
+   somebody being unhappy. */
+ok('...and the non-complaints are excluded',
+   /!S30_NOT_A_COMPLAINT\.test\(T\(x\)\)&&\n?\s*S30_DISSATISFACTION\.test\(T\(x\)\)/.test(OB));
+/* "Open" is her word and it is readable: st is resolved 599,
+   resolvedByManager 6, submitted 41. Only submitted is open. */
+ok('open means submitted, so a closed complaint does not hold a client back',
+   /const S30_OPEN_ST = \/\^submitted\$\/i;/.test(OB) &&
+   /S30_OPEN_ST\.test\(String\(x\.st\|\|''\)\)/.test(OB));
+ok('...and it answers her third condition at last',
+   /dissatisfaction: !!base\.dissatisfaction\|\|f\.openDissatisfaction>0/.test(OB));
+/* Her At Risk rule stays narrow: she wrote "any Client Complaint SE",
+   naming that one family. Two rules, two readings, both in her words. */
+ok('the At Risk trigger still matches Client Complaint only',
+   /const S30_COMPLAINT = \/\^Client Complaint\/i;/.test(OB));
 
 /* ── 8. the one condition made answerable ────────────────────────────── */
 /* "The family has asked to remove a caregiver" is the At Risk condition

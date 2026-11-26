@@ -676,9 +676,12 @@ window.GUIDE = (function () {
           'A day here is a caregiver-day, which is a visit except where one caregiver works ' +
           'two shifts for the same client on one day. Until that number reaches your Hub it ' +
           'falls back to saying how long it has been since the last note.',
-        'One thing it genuinely cannot see: whether a client dissatisfaction exception is ' +
-          'open. That comes from the Viv discharge reason rather than from an exception ' +
-          'type, so the rule that depends on it is still waiting.'
+        'Client dissatisfaction is not one exception type, it is five families of them: ' +
+          'Client, Reliability, Communication, Connection and Flexibility complaints. An ' +
+          'OPEN one, meaning submitted and not yet resolved, keeps a client off On Track, ' +
+          'which is the rule as written. Entries the exception list files under "No ' +
+          'complaint", and clinical events like a fall or a change of condition, are not ' +
+          'complaints and do not count.'
       ],
       related: ['home', 'communication', 'team']
     },

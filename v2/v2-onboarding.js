@@ -746,8 +746,29 @@ function s30Derived(c,pid){
    her rule, and it is the kind of thing she asked to calibrate. */
 const S30_CALLOUT = /call ?out/i;
 const S30_CALLOUT_PREVENTABLE = /preventable call ?out/i;
+/* HER AT RISK RULE NAMES ONE FAMILY: "any Client Complaint SE". So this
+   stays narrow and matches that prefix only. */
 const S30_COMPLAINT = /^Client Complaint/i;
 const S30_NOT_A_COMPLAINT = /^No complaint:/i;
+/* HER ON TRACK RULE ASKS A WIDER QUESTION: "no open Client Dissatisfaction
+   SEs". Dissatisfaction is not a type, it is a FAMILY of them, and the live
+   taxonomy has five prefixes carrying 106 rows between them:
+
+     Client Complaint  31   Reliability Complaint  52
+     Communication Complaint  11   Connection Complaint  11
+     Flexibility Complaint  1
+
+   against "No complaint:" (447) and "Internal Communication" (20), which the
+   taxonomy itself says are not complaints, and the unprefixed clinical types
+   (76: Change of Condition, Fall, Medication Error, Injuries, Lateness),
+   which are events rather than somebody being unhappy.
+
+   AND "OPEN" IS READABLE. Every incident carries st: resolved 599,
+   resolvedByManager 6, submitted 41. Only submitted is open, so a complaint
+   somebody has already closed does not hold a client off On Track forever,
+   which is what her word "open" is doing in that sentence. */
+const S30_DISSATISFACTION = /(^|[^a-z])(client|reliability|communication|connection|flexibility) complaint:/i;
+const S30_OPEN_ST = /^submitted$/i;
 function s30Incidents(c){
   try{
     if(!c.vivId||typeof _PULSE==='undefined'||!_PULSE||!_PULSE.byCid)return [];
@@ -767,6 +788,9 @@ function s30Facts(c){
   const T=x=>(x.types||[]).join(' | ');
   const real=inc.filter(x=>!S30_NOT_A_COMPLAINT.test(T(x)));
   const callOuts=inc.filter(x=>S30_CALLOUT.test(T(x)));
+  const openDissat=inc.filter(x=>S30_OPEN_ST.test(String(x.st||''))&&
+                                 !S30_NOT_A_COMPLAINT.test(T(x))&&
+                                 S30_DISSATISFACTION.test(T(x)));
   /* Caregiver changes stay with the fillEvidence sentence, which the Pulse
      feed computes with added/removed semantics. Counting distinct names off
      weeklyCgNames calls a five-person rotating team four changes, which is
@@ -775,6 +799,11 @@ function s30Facts(c){
   const cg=sent.match(/(\d+)\s+caregiver changes?/i);
   return { ses: real.length,
            complaints: inc.filter(x=>S30_COMPLAINT.test(T(x))).length,
+           openDissatisfaction: openDissat.length,
+           dissatisfactionKinds: [...new Set(openDissat.map(x=>{
+             const m=T(x).match(S30_DISSATISFACTION);
+             return m?(m[2].charAt(0).toUpperCase()+m[2].slice(1).toLowerCase()):'';
+           }).filter(Boolean))],
            callOuts: callOuts.length,
            callOutsPreventable: inc.filter(x=>S30_CALLOUT_PREVENTABLE.test(T(x))).length,
            hasPulse: !!(c.vivId&&typeof _PULSE!=='undefined'&&_PULSE&&_PULSE.byCid&&_PULSE.byCid[c.vivId]),
@@ -800,13 +829,12 @@ function s30WithEvidence(c,pid){
   };
   if(f.hasPulse)window._s30Exceptions=function(){
     const base=realEx.apply(this,arguments)||{};
-    /* All three answerable now except dissatisfaction, which is not a type in
-       the taxonomy: it comes from the Viv discharge reason and the Service
-       Cancellation Pending form, neither of which reaches the Hub. Left as
-       the real reader found it rather than guessed. */
+    /* All three of hers, answerable at last. Dissatisfaction was the one I
+       kept writing off: it is not a type, it is the complaint families, and
+       "open" is the submitted status. */
     return { any: base.any||f.ses>0,
              complaint: !!base.complaint||f.complaints>0,
-             dissatisfaction: !!base.dissatisfaction };
+             dissatisfaction: !!base.dissatisfaction||f.openDissatisfaction>0 };
   };
   if(f.cgKnown)window._s30CaregiverChanges=function(){
     return Math.max(realCg.apply(this,arguments)||0, f.cgChanges||0);
@@ -1055,9 +1083,15 @@ function fmtShortDay(iso){
    So it is one API change away, not out of reach, and the card says so. Until
    it lands the card reports the staleness it CAN see, which is the honest
    subset rather than a claim that nothing is knowable. */
-const S30_MISSING = ['whether a client dissatisfaction exception is open, which ' +
-                     'comes from the Viv discharge reason rather than from an ' +
-                     'exception type'];
+/* EMPTY, AS OF 26 NOV. Every condition in Part 3 is now readable. Three
+   rounds of this work each ended with a list of things the Hub "could not
+   see", and all of them turned out to be a place I had not looked: the
+   exception type, the call-out reason, the visit notes, and finally
+   dissatisfaction, which is a family of exception types rather than one.
+   The list stays in the code because the next condition she adds may well
+   be unreadable, and saying so on the card is better than implying a check
+   happened. It is just not carrying anything today. */
+const S30_MISSING = [];
 function s30Adjusted(c,pid){
   let k=null;
   try{ k=s30WithEvidence(c,pid); }catch(e){ return null; }
