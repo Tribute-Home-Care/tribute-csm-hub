@@ -50,12 +50,18 @@ ok('V1 still computes At Risk exactly as she wrote it',
 
 /* ── 2. evidence stands on its own ───────────────────────────────────── */
 const ev = (OB.match(/function s30Evidence\(c\)\{[\s\S]*?\n\}/) || [''])[0];
-ok('evidence is a client complaint exception or caregiver churn',
-   /ses&&ses\.complaint/.test(ev) && /cg>1/.test(ev));
-/* Both come out of Viv and neither depends on anybody ticking anything, so
-   either one keeps a client At Risk whatever the checklist looks like. */
-ok('...and either one keeps the client At Risk',
-   /if\(started\|\|s30Evidence\(c\)\)return out;/.test(adj));
+/* Narrowed on 26 Nov to caregiver churn alone. The exception FEED counts
+   exceptions without saying which kind, and her At Risk condition wants a
+   Client Complaint specifically, so claiming one from a bare count would be
+   inventing it. The count still raises Watch through her own rule. */
+ok('evidence is caregiver churn, counted as she wrote it',
+   /f\.cgChanges!==null&&f\.cgChanges>1/.test(ev));
+ok('...and does not depend on anybody ticking anything',
+   !/started|pr\.done|s60/.test(ev));
+/* Evidence keeps a client At Risk whatever the checklist looks like, and so
+   does her observable overdue count and her missed day 14 visit. */
+ok('...and it keeps the client At Risk',
+   /if\(s30Evidence\(c\)\|\|late>1\|\|s30D14Missed\(k\)\)\{/.test(adj));
 /* And "started" now means the checklist can be READ, not that somebody
    typed: where the record shows an assessment and three weeks of family
    contact, an item still outstanding really is outstanding. */
