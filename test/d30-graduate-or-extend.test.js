@@ -78,7 +78,16 @@ ok('...in the shared document, so every profile sees the same answer',
 /* ── 4. the manager gets a short summary ──────────────────────────────── */
 ok('there is a summary, and it is a sentence', /function d30Summary\(c,v\)\{/.test(OB));
 ok('...that reuses the checklist\'s own reason rather than writing a new one',
-   /\(v\.why\?': '\+v\.why:''\)/.test(OB));
+   /\(why\?': '\+why:''\)/.test(OB));
+/* The Not started reason is a sentence of its own and already ends in a full
+   stop, so the summary read "...nothing has been done.. They stay...". */
+ok('...with one full stop between the two sentences, not two',
+   /const why=String\(v\.why\|\|''\)\.replace\(\/\\\.\\s\*\$\/,''\);/.test(OB));
+/* And the manager view waits for the profile instead of answering without
+   one: on a cold load the route resolves first, and a saved link ending in
+   #s60 used to land a manager on a page with no manager view at all. */
+ok('the manager view waits for the profile, for ten seconds and no longer',
+   /if\(!P\)\{ if\(_obMgrWaits<20\)\{ _obMgrWaits\+\+; setTimeout\(renderObManager,500\); \} return; \}/.test(OB));
 ok('...naming the tier a graduating client goes back to',
    /graduate to the '\+\(c\.tier\|\|'normal'\)\+/.test(OB));
 ok('...and the date an extended one runs to', /through '\+until:''\)\+' \(Success in 60\)/.test(OB));

@@ -776,8 +776,10 @@ function d30Summary(c,v){
   }
   const until=v.until?new Date(v.until+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
   const word=v.state==='atrisk'?'at risk':(v.state==='notstarted'?'with nothing logged on the checklist':'on watch');
+  // The reason is a sentence of its own and may already end in a full stop.
+  const why=String(v.why||'').replace(/\.\s*$/,'');
   return c.name+' reached '+day+' '+word+
-    (v.why?': '+v.why:'')+'. They stay on the same checks for another 30 days'+
+    (why?': '+why:'')+'. They stay on the same checks for another 30 days'+
     (until?', through '+until:'')+' (Success in 60).';
 }
 /* ACKNOWLEDGED, NOT DECIDED. The button does not change the outcome; it
@@ -829,8 +831,20 @@ function s30AtRiskBrief(){
   }).filter(Boolean).filter(r=>r.mine).sort((a,b)=>a.d-b.d);
 }
 
+let _obMgrWaits=0;
 function renderObManager(){
   const el=document.getElementById('s60-mgr'); if(!el)return;
+  /* THE ROUTE RESOLVES BEFORE THE PROFILE IS CHOSEN. On a cold load the Hub
+     restores whatever page the URL carries, and a manager whose saved link
+     ends in #s60 landed here with P still unset. This answered "not a
+     manager", hid itself, and nothing ever called it again: the manager view
+     was absent until they navigated away and came back.
+
+     Waiting for the profile rather than answering without one, for ten
+     seconds and then no longer, because a question that cannot be answered
+     should stop being asked. */
+  if(!P){ if(_obMgrWaits<20){ _obMgrWaits++; setTimeout(renderObManager,500); } return; }
+  _obMgrWaits=0;
   const isMgr=!!(P&&(P.isManager||P.isDirector));
   el.style.display=isMgr?'':'none';
   if(!isMgr)return;
