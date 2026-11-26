@@ -728,7 +728,15 @@ function d30Records(){ return ((DATA.shared&&DATA.shared.d30Results)||{}); }
 function d30Record(cid){ return d30Records()[cid]||null; }
 function d30Verdict(c){
   const d=daysAgo(c.startDate);
-  if(d===null||d<30)return null;
+  /* DAY 30 IS AN EVENT, NOT A STATE. The first pass had a floor and no
+     ceiling, so every client who had ever passed day 30 had a result waiting
+     to be cleared: on the live roster that was 216 of 238 clients, median 461
+     days in care and the oldest 1,761. Nine were inside the window.
+
+     The ceiling is day 60, which is where Success in 60 ends. Past that there
+     is no decision left to make and nothing to tell a manager, and a client
+     who started before any of this existed is not news. */
+  if(d===null||d<30||d>S60_DAYS)return null;
   const frozen=d30Record(c.id);
   if(frozen)return Object.assign({},frozen,{day:d,frozen:true});
   let k=null; try{ k=s30Adjusted(c); }catch(e){ return null; }

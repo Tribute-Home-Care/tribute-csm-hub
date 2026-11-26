@@ -27,7 +27,12 @@ const CSS = fs.readFileSync(path.join(PROTO, 'v2-onboarding.css'), 'utf8');
 /* ── 1. the verdict is her rule, and nobody picks ─────────────────────── */
 const v = (OB.match(/function d30Verdict\(c\)\{[\s\S]*?\n\}/) || [''])[0];
 ok('there is a Day 30 verdict', !!v);
-ok('...which says nothing before day 30', /if\(d===null\|\|d<30\)return null;/.test(v));
+ok('...which says nothing before day 30', /if\(d===null\|\|d<30\|\|d>S60_DAYS\)return null;/.test(v));
+/* AND NOTHING AFTER DAY 60. The first pass had a floor and no ceiling, so
+   every client who had ever passed day 30 had a result waiting to be
+   cleared: 216 of 238 on the live roster, median 461 days in care, oldest
+   1,761. Day 60 is where Success in 60 ends and the decision is over. */
+ok('...and nothing after the Success in 60 window closes', /d>S60_DAYS\)return null;/.test(v));
 ok('...reads the checklist rather than re-deciding the status',
    /s30Adjusted\(c\)/.test(v) && !/overdue|complaint/i.test(v));
 /* And a checklist nobody started does not graduate: we do not know the first
