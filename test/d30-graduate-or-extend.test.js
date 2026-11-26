@@ -29,7 +29,12 @@ const v = (OB.match(/function d30Verdict\(c\)\{[\s\S]*?\n\}/) || [''])[0];
 ok('there is a Day 30 verdict', !!v);
 ok('...which says nothing before day 30', /if\(d===null\|\|d<30\)return null;/.test(v));
 ok('...reads the checklist rather than re-deciding the status',
-   /s30Checklist\(c\)/.test(v) && !/overdue|complaint/i.test(v));
+   /s30Adjusted\(c\)/.test(v) && !/overdue|complaint/i.test(v));
+/* And a checklist nobody started does not graduate: we do not know the first
+   thirty days went well, only that nothing was written down. */
+ok('...and only a genuinely clean thirty days graduates',
+   /const grad=\(k\.state==='ontrack'\|\|k\.state==='done'\);/.test(v) &&
+   /notstarted:'Not started'/.test(OB));
 ok('...graduates On Track and Complete, and extends the other two',
    /const grad=\(k\.state==='ontrack'\|\|k\.state==='done'\);/.test(v) &&
    /outcome:grad\?'graduate':'extend'/.test(v));

@@ -110,3 +110,8 @@
    summary the room and keeps the name, the state and the button fixed. */
 .obb-r.obb-d30{grid-template-columns:minmax(0,1fr) 92px minmax(0,2.2fr) auto;align-items:center;}
 .obb-r.obb-d30 .obb-w{white-space:normal;line-height:1.45;}
+
+/* Not started is not a warning. It is the quietest state on the board,
+   because the client may be perfectly fine and simply unrecorded. */
+.obb-st.notstarted{background:#F1EEE8;color:#8C857B;}
+.obb-r.notstarted{border-left-color:#D8D2C8;}

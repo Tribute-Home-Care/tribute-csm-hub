@@ -37,11 +37,16 @@ ok('...gated on the success window, not a hardcoded thirty',
    /inFirstDays\(c, s60Win\(c\)\)/.test(risk));
 ok('...and that window is the onboarding module\'s answer, not a second copy',
    /typeof s60Window === 'function' \? s60Window\(c\) : 30/.test(CODE));
-ok('...answered by s30Checklist, not by a second copy of her status rules',
-   /s30Checklist\(c\)/.test(risk) && !/overdue|complaint|caregiver change/i.test(risk));
+/* Her rule is still computed by s30Checklist; s30Adjusted only decides what
+   the Hub DOES about the answer. Neither one is re-implemented here. */
+ok('...answered by the checklist, not by a second copy of her status rules',
+   /s30Read\(c\)/.test(risk) && !/overdue|complaint|caregiver change/i.test(risk));
+ok('...and s30Read is the onboarding module\'s adjusted answer',
+   /typeof s30Adjusted === 'function' \? s30Adjusted\(c\) : null/.test(CODE));
 ok('...and only At Risk raises it', /k\.state === 'atrisk'/.test(risk));
-ok('...a missing or throwing s30Checklist yields no signal, not a crash',
-   /typeof s30Checklist === 'function'/.test(risk) && /catch \(e\) \{ return null; \}/.test(risk));
+ok('...a missing or throwing checklist yields no signal, not a crash',
+   /typeof s30Adjusted === 'function'/.test(CODE) &&
+   /catch \(e\) \{ return null; \}/.test((CODE.match(/function s30Read\(c\) \{[\s\S]*?\n  \}/) || [''])[0]));
 
 /* ── 2. one definition reaches every surface ───────────────────────────── */
 const na = (CODE.match(/function needsAction\(c\) \{[\s\S]*?\n  \}/) || [''])[0];

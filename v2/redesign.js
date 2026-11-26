@@ -699,10 +699,18 @@
      action-bucket tie goes to the lower rank, which is the Pulse flag with
      the fuller evidence behind it. One client, one row, one reason -- and the
      SEs underneath it are counted once, by Pulse. */
+  /* The adjusted answer, not the raw one. s30Adjusted tells an At Risk that
+     has evidence behind it apart from the checklist -- a client complaint
+     exception, or two or more caregiver changes -- from one that is only the
+     overdue count on a checklist nobody has started. Measured on 26 Nov, the
+     second kind was twelve of fourteen. */
+  function s30Read(c) {
+    try { return typeof s30Adjusted === 'function' ? s30Adjusted(c) : null; }
+    catch (e) { return null; }
+  }
   function s30Risk(c) {
     if (!inFirstDays(c, s60Win(c))) return null;
-    let k = null;
-    try { k = typeof s30Checklist === 'function' ? s30Checklist(c) : null; } catch (e) { return null; }
+    const k = s30Read(c);
     return (k && k.state === 'atrisk') ? k : null;
   }
   /* The Status cell's third fallback. A client At Risk on the checklist with
@@ -3497,14 +3505,16 @@
   const S30_WHO = [['all', 'All'], ['CSM', 'Mine (CSM)'], ['CSP', 'CSP']];
   let _s30Who = 'all';
   function wsS30(c) {
-    let k = null;
-    try { k = typeof s30Checklist === 'function' ? s30Checklist(c) : null; } catch (e) { return ''; }
+    const k = s30Read(c);
     if (!k || k.finished) return '';
     // Past the window -- thirty days, or sixty on a client Day 30 extended.
     // The Onboarding page keeps the tail either way.
     if (k.daysIn > s60Win(c)) return '';
-    const TONE = { ontrack: 'ok', watch: 'warn', atrisk: 'bad', done: 'ok' };
-    const WORD = { ontrack: 'On track', watch: 'Watch', atrisk: 'At risk', done: 'Complete' };
+    /* Not started is drawn as the quiet state, not a warning: the client may
+       be perfectly fine and simply unrecorded, and that is what it says. */
+    const TONE = { ontrack: 'ok', watch: 'warn', atrisk: 'bad', done: 'ok', notstarted: '' };
+    const WORD = { ontrack: 'On track', watch: 'Watch', atrisk: 'At risk', done: 'Complete',
+                   notstarted: 'Not started' };
     const row = function (r) {
       const when = r.done
         ? '<span class="rd-s30-done">' + (r.viv ? 'picked up from Viv ' : '') + esc(fmtShort(r.at)) +

@@ -371,7 +371,7 @@ function obBoardRows(){
     const win=s60Window(c);
     if(daysIn===null||daysIn>win)return;
     const pr=_obProgress(c);
-    let k=null; try{ k=s30Checklist(c); }catch(e){ k=null; }
+    let k=null; try{ k=s30Adjusted(c); }catch(e){ k=null; }
     rows.push({tab:pr.finished&&(!k||k.finished)?'done':'onboarding',
                c,pr,k,daysIn,late:pr.late,sort:c.startDate});
     if(k&&!k.finished)rows.push({tab:'s30',c,pr,k,daysIn,win,late:k.weeks?0:0,sort:c.startDate});
@@ -524,7 +524,8 @@ function _s30NextDue(k){
   open.sort((a,b)=>(b.overdue-a.overdue)||String(a.due).localeCompare(String(b.due)));
   return open[0];
 }
-const S30_STATE_LABEL={ontrack:'On Track',watch:'Watch',atrisk:'At Risk',done:'Complete'};
+const S30_STATE_LABEL={ontrack:'On Track',watch:'Watch',atrisk:'At Risk',done:'Complete',
+                       notstarted:'Not started'};
 function _obBar(d,t){
   const pct=t?Math.round(d/t*100):0;
   return `<span class="obb-ph"><span class="obb-bar"><i style="width:${pct}%"></i></span>`+
@@ -639,6 +640,66 @@ function obMetrics(){
   return out;
 }
 
+/* ══════════════ SILENCE IS NOT RISK ═════════════════════════
+   Measured across all eleven profiles on 26 Nov 2026: 21 clients in their
+   first thirty days, 14 of them At Risk, and TEN milestone rows in the whole
+   company. Of those 14, ZERO had a client complaint exception or two or more
+   caregiver changes. Twelve were At Risk for exactly one reason: nobody has
+   ticked anything on their checklist.
+
+   Her Part 3 rule is right, once the checklist is being worked. Until then
+   "two or more items overdue" measures whether anyone has RECORDED the work,
+   not whether the work happened, and raising it as Need action today would
+   have put a dozen false alarms on Home on the first morning anybody opened
+   it. An alarm that is mostly wrong is one people learn to ignore, which is
+   the fault this whole review opened with, pointing the other way.
+
+   So the two kinds of At Risk are told apart:
+
+     EVIDENCE   a client complaint exception, or two or more caregiver
+                changes. Both come from Viv, neither depends on anyone
+                ticking anything, and either one stands on its own.
+     THE COUNT  items past their due date. This means what she says it means
+                only once that client's checklist has been started.
+
+   Where only the count fires and nothing has been started, the client reads
+   Not started, which is the true thing, and stays in the first-thirty-days
+   group rather than joining Need action today.
+
+   V1's s30Checklist is untouched. Her rule is still computed exactly as she
+   wrote it; this decides what the Hub does about the answer.
+
+   THE COUNTS ARE ALSO READ FROM THE RIGHT CASELOAD. s30Checklist calls
+   get('s60') with no profile id, so it reads whoever is SIGNED IN. On a
+   manager's page, looking at another CSM's client, that is the wrong store
+   and every client came back "0 of 10". s30Progress takes the profile id. */
+function s30Evidence(c){
+  let ses=null,cg=0;
+  try{ ses=_s30Exceptions(c); }catch(e){}
+  try{ cg=_s30CaregiverChanges(c); }catch(e){}
+  return !!(ses&&ses.complaint)||cg>1;
+}
+function s30Progress(c,pid){
+  const ids=(typeof S30_MILESTONES!=='undefined')?S30_MILESTONES.map(m=>m.id):[];
+  let rows=[];
+  try{ rows=(get('s60',pid)||[]).filter(x=>x.clientId===c.id); }catch(e){}
+  const hit={};
+  rows.forEach(r=>{ if(ids.indexOf(r.id)>-1)hit[r.id]=1; });
+  return {done:Object.keys(hit).length,total:ids.length,started:rows.length>0};
+}
+function s30Adjusted(c,pid){
+  let k=null;
+  try{ k=s30Checklist(c); }catch(e){ return null; }
+  if(!k)return null;
+  const pr=s30Progress(c,pid);
+  const out=Object.assign({},k,{done:pr.done,total:pr.total||k.total,started:pr.started});
+  if(k.state!=='atrisk'&&k.state!=='watch')return out;
+  if(pr.started||s30Evidence(c))return out;
+  return Object.assign(out,{state:'notstarted',
+    why:'The checklist has not been started, so an overdue item here means '+
+        'nothing has been recorded rather than nothing has been done.'});
+}
+
 /* ══════════ DAY 30: GRADUATE, OR EXTEND TO SUCCESS IN 60 ══════════════
    Part 3: "At Day 30: An On Track client graduates to their normal tier
    cadence. A Watch or At Risk client gets 30 more days with the same checks
@@ -670,8 +731,11 @@ function d30Verdict(c){
   if(d===null||d<30)return null;
   const frozen=d30Record(c.id);
   if(frozen)return Object.assign({},frozen,{day:d,frozen:true});
-  let k=null; try{ k=s30Checklist(c); }catch(e){ return null; }
+  let k=null; try{ k=s30Adjusted(c); }catch(e){ return null; }
   if(!k)return null;
+  /* A checklist nobody started does not graduate. We do not know that the
+     first thirty days went well; we know that nothing was written down, and
+     her rule gives anything other than a clean thirty days another thirty. */
   const grad=(k.state==='ontrack'||k.state==='done');
   return { day:d, readAt:d, state:k.state, why:k.why||'',
            outcome:grad?'graduate':'extend',
@@ -703,7 +767,8 @@ function d30Summary(c,v){
       ' tier cadence from here.';
   }
   const until=v.until?new Date(v.until+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
-  return c.name+' reached '+day+' '+(v.state==='atrisk'?'at risk':'on watch')+
+  const word=v.state==='atrisk'?'at risk':(v.state==='notstarted'?'with nothing logged on the checklist':'on watch');
+  return c.name+' reached '+day+' '+word+
     (v.why?': '+v.why:'')+'. They stay on the same checks for another 30 days'+
     (until?', through '+until:'')+' (Success in 60).';
 }
@@ -749,7 +814,7 @@ function s30AtRiskBrief(){
     const d=daysAgo(x.c.startDate);
     const win=s60Window(x.c);
     if(d===null||d>win)return null;
-    let k=null; try{ k=s30Checklist(x.c); }catch(e){ return null; }
+    let k=null; try{ k=s30Adjusted(x.c,x.csm&&x.csm.id); }catch(e){ return null; }
     if(!k||k.state!=='atrisk')return null;
     const to=esc1?esc1(x.c):null;
     return {x,k,d,win,to,mine:!to||!me||to.name===me};
