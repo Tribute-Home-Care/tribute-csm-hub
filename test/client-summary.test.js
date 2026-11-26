@@ -72,8 +72,33 @@ ok('the care snapshot is rendered once, not once per column',
    (CODE.match(/wsSnapshot\(c\)/g) || []).length === 2);   // one call, one definition
 ok('it is the right column that holds it', /out \+= wsSnapshot\(c\);[\s\S]{0,120}Quick care facts/.test(CODE));
 ok('community and LTC are on Summary', /block\('Community and LTC'/.test(CODE));
-ok('a coverage note shows only when somebody is covering',
-   /if \(cov && \(cov\.coveredBy \|\| cov\.to \|\| cov\.note\)\)/.test(CODE));
+/* REVERSED ON 26 NOV. Showing the card only while somebody was covering was
+   the wrong half: the note is written BEFORE a CSM goes away, so the one
+   moment you need to know whether this client has one was exactly when the
+   card was absent. It is always there now, and says plainly when there is
+   no note. */
+ok('the coverage card is always on the page',
+   /out \+= block\('Coverage', body\);/.test(CODE));
+ok('...naming whoever is covering, when somebody is',
+   /cov && \(cov\.coveredBy \|\| cov\.to\)/.test(CODE));
+ok('...showing the note itself when there is one', /\? covNoteHtml\(note\)/.test(CODE));
+ok('...and saying so plainly when there is not',
+   /No coverage note for this client yet\./.test(CODE));
+/* One note per client, and it is the OWNER's: a covering CSM's own note
+   about somebody else's client is not the handover. */
+ok('the note comes from the shared coverage list, so both pages agree',
+   /typeof getCov === 'function' \? getCov\(\) : \[\]/.test(CODE));
+ok('...preferring the owning CSM\'s note', /return mine\.filter\(function \(n\) \{ return n\.csmId === owner; \}\)\[0\] \|\| mine\[0\];/.test(CODE));
+/* And one way in to write it, which sets V1's own select and calls V1's own
+   loader rather than drawing a second form to keep in step. */
+ok('there is one way in to write it', /data-covopen="/.test(CODE));
+ok('...which uses V1\'s own form', /window\.loadCovNote\(\)/.test(CODE));
+
+/* ASK, from her review. */
+ok('there is an Ask button on the client', /data-askabout="/.test(CODE));
+ok('...that starts the question with the client in it',
+   /q\.value = 'About ' \+ \(c\.name \|\| 'this client'\) \+ ': ';/.test(CODE));
+ok('...in V1\'s own Assistant box, not a second one', /getElementById\('asst-q'\)/.test(CODE));
 
 // ── the More menu is gone, and nothing went with it ───────────────────────
 // This assertion used to be the opposite: it guarded the interim state where

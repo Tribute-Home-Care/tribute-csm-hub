@@ -2415,6 +2415,12 @@
         try { return typeof window.writesBlocked === 'function' && !!window.writesBlocked(); }
         catch (e) { return false; }
       })();
+    /* ASK, from her review. The only reason you press Ask from a client page
+       is to ask about THAT client, so the question is already started and
+       their name is already in it. The Assistant is V1's and is not touched:
+       this fills its box and presses its own button. */
+    acts.push('<button type="button" class="rd-act" data-askabout="' + esc(c.id) + '">' +
+      I('sparkle') + '<span>Ask</span></button>');
       acts.push('<button type="button" class="rd-act scribe' + (scribeRO ? ' soon' : '') +
         '" data-act="scribe"' +
         (scribeRO ? ' disabled aria-disabled="true" title="Read-only: unlock to use Scribe"' : '') + '>' +
@@ -4037,14 +4043,58 @@
     }
 
     /* Only when somebody is actually covering. */
+    /* THE COVERAGE NOTE, AND WHETHER THERE IS ONE. This card used to appear
+       only when the client was CURRENTLY being covered, which is the wrong
+       half of the problem: the note is written BEFORE somebody goes away, so
+       the one moment a CSM needs to know whether this client has a note is
+       exactly the moment the card was not on the page.
+
+       So it is always here. Whoever is covering now if anybody, then the
+       note itself if it exists, then plainly that there is none if it does
+       not, and either way one button that opens the Coverage page with this
+       client already picked rather than making them find it in a dropdown. */
     const cov = c.coverage;
-    if (cov && (cov.coveredBy || cov.to || cov.note)) {
-      out += block('Coverage',
-        '<p class="rd-ws-plain">' + esc(cov.to || cov.coveredBy || 'Covered') +
-        (cov.since ? '<span class="rd-sub">since ' + esc(fmtShort(cov.since)) + '</span>' : '') + '</p>' +
-        (cov.note ? '<p class="rd-ws-quiet">' + esc(cov.note) + '</p>' : ''));
-    }
+    const note = covNoteFor(c);
+    const body =
+      (cov && (cov.coveredBy || cov.to)
+        ? '<p class="rd-ws-plain">' + esc(cov.to || cov.coveredBy) +
+          (cov.since ? '<span class="rd-sub">since ' + esc(fmtShort(cov.since)) + '</span>' : '') + '</p>'
+        : '') +
+      (note
+        ? covNoteHtml(note)
+        : (cov && cov.note ? '<p class="rd-ws-quiet">' + esc(cov.note) + '</p>'
+                           : quiet('No coverage note for this client yet. '
+                                 + 'Whoever covers would be starting from the Hub alone.'))) +
+      '<p class="rd-ws-act"><button type="button" class="rd-link" data-covopen="' + esc(c.id) + '">' +
+        (note ? 'Update the coverage note' : 'Write the coverage note') + '</button></p>';
+    out += block('Coverage', body);
     return out;
+  }
+
+  /* THIS CLIENT'S NOTE, written by whoever owns them. getCov is the shared
+     list the Coverage page reads, so the client page and the Coverage page
+     cannot show different notes for one client. The owner's note is the one
+     that matters: a covering CSM's own note about somebody else's client is
+     not the handover. */
+  function covNoteFor(c) {
+    try {
+      const all = (typeof getCov === 'function' ? getCov() : []) || [];
+      const mine = all.filter(function (n) { return n.clientId === c.id; });
+      if (!mine.length) return null;
+      const owner = (A().profile || {}).id;
+      return mine.filter(function (n) { return n.csmId === owner; })[0] || mine[0];
+    } catch (e) { return null; }
+  }
+  function covNoteHtml(n) {
+    const row = function (label, v) {
+      return v ? '<div class="rd-kv"><dt>' + esc(label) + '</dt><dd>' + esc(v) + '</dd></div>' : '';
+    };
+    const body = row('Caregivers', n.cg) + row('Family contact', n.fam) +
+                 row('Watch for', n.concerns) + row('Coming up', n.upcoming) +
+                 row('Notes', n.notes);
+    return (body || quiet('The note is on file but empty.')) +
+      (n.csmName ? '<p class="rd-ws-quiet">Written by ' + esc(n.csmName) +
+        (n.savedAt ? ' \u00b7 ' + esc(fmtShort(String(n.savedAt).slice(0, 10))) : '') + '</p>' : '');
   }
 
   function wsSnapshot(c) {
@@ -4634,6 +4684,48 @@
      on the page says so instead of failing silently. */
   function wireS30Steps(ws, c) {
     /* The filter is a view, so it repaints the page and nothing else. */
+    /* WRITE THE COVERAGE NOTE: the Coverage page, with this client already
+       picked. V1's loadCovNote reads the select, so the select is set and
+       its own loader called rather than this layer drawing a second form
+       that would then have to be kept in step with V1's. */
+    $$('[data-covopen]', ws).forEach(function (b) {
+      b.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        const cid = b.dataset.covopen;
+        try {
+          const nav = document.querySelector('.nav-item[onclick*=coverage]');
+          if (typeof showPage === 'function') showPage('coverage', nav);
+          setTimeout(function () {
+            const sel = document.getElementById('cov-sel');
+            if (!sel) return;
+            sel.value = cid;
+            if (typeof window.loadCovNote === 'function') window.loadCovNote();
+            const form = document.getElementById('cov-form');
+            if (form) form.scrollIntoView({ block: 'nearest' });
+          }, 120);
+        } catch (e) {}
+      });
+    });
+    /* ASK: V1's Assistant, with the question started and the client named.
+       Its own handler is called rather than reimplemented, so the answer
+       comes from the same place it always did. */
+    $$('[data-askabout]', ws).forEach(function (b) {
+      b.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        try {
+          const nav = document.querySelector('.nav-item[onclick*=assistant]');
+          if (typeof showPage === 'function') showPage('assistant', nav);
+          setTimeout(function () {
+            const q = document.getElementById('asst-q');
+            if (!q) return;
+            q.value = 'About ' + (c.name || 'this client') + ': ';
+            q.focus();
+            try { q.setSelectionRange(q.value.length, q.value.length); } catch (e) {}
+            q.scrollIntoView({ block: 'nearest' });
+          }, 120);
+        } catch (e) {}
+      });
+    });
     $$('[data-s30ask]', ws).forEach(function (b) {
       b.addEventListener('click', function (ev) {
         ev.stopPropagation();
