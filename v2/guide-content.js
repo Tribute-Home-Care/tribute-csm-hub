@@ -110,6 +110,10 @@ window.GUIDE = (function () {
             'They still show, because somebody should tick them.',
           'UNFILLED VISITS COUNT. One in the first 30 days is a Watch, three or ' +
             'more is At Risk.',
+          'SERVICE EXCEPTIONS, CALL-OUTS AND VISIT NOTES all come from Client Pulse ' +
+            'now, so a client complaint in the first 30 days makes a client At Risk as the ' +
+            'rules say, a preventable call-out is a Watch, and the card tells you when ' +
+            'nobody has written a visit note in over a week.',
           'ONE QUESTION THE HUB HAS TO ASK YOU. "Has the family asked to remove a ' +
             'caregiver?" sits on the first-30-days card. Nothing in Viv records it ' +
             'and it is one of the At Risk rules, so it is the one thing you answer ' +
@@ -640,8 +644,19 @@ window.GUIDE = (function () {
           'those four no longer make a client At Risk on their own. They still show ' +
           'as outstanding, because somebody should tick them. A client whose only ' +
           'outstanding items are those four reads Not started, which is the truth.' },
-        { h: 'Unfilled visits', p: 'One in the first 30 days is a Watch. Three or more ' +
-          'is At Risk. A new client watching shifts go unfilled is the one who leaves.' },
+        { h: 'Unfilled visits and call-outs', p: 'One unfilled visit in the first 30 days ' +
+          'is a Watch and three or more is At Risk, because a new client watching shifts go ' +
+          'unfilled is the one who leaves. A preventable call-out is a Watch and two are At ' +
+          'Risk. Call-outs the feed marks not preventable are counted and shown but do not ' +
+          'move the status.' },
+        { h: 'Service exceptions', p: 'Read from Client Pulse, by kind and not just by ' +
+          'count. A client complaint in the first 30 days makes a client At Risk, which is ' +
+          'the rule as written. Entries the exception list itself files under "No complaint" ' +
+          'do not raise a Watch.' },
+        { h: 'Documentation', p: 'The card says when there is no visit note on record, or ' +
+          'when the last one is more than a week old, and when the care plan has not been ' +
+          'edited. Those are stated and never scored: they do not move the status and they ' +
+          'name the gap rather than a person.' },
         { h: 'The one question you answer', p: '"Has the family asked to remove a ' +
           'caregiver?" is one of her At Risk rules and nothing in Viv records it, so ' +
           'the card asks you, once, and keeps the answer where your manager sees the ' +
@@ -651,9 +666,15 @@ window.GUIDE = (function () {
       know: [
         'The Day 30 result is a fact about day 30. Once your manager has cleared it, it is ' +
           'kept as it was rather than worked out again from a later day.',
-        'Three things the Hub still cannot see, and says so rather than guessing: whether an ' +
-          'unfilled visit was a call-out or a routine gap, which kind of service exception was ' +
-          'raised, and whether a scheduled visit has a note in Viv.'
+        'Service exceptions, call-outs and visit notes all come from Client Pulse, so the ' +
+          'Hub reads the kind of exception as well as the count. A client complaint in the ' +
+          'first 30 days is At Risk, as the rules say. A call-out counts when it was ' +
+          'preventable; the feed marks the other kind "not preventable", and a caregiver ' +
+          'whose car broke down is not evidence about the client.',
+        'Two things it still cannot see, and says so rather than guessing: whether a ' +
+          'particular scheduled visit has a note, as opposed to how long it has been since ' +
+          'the last one, and whether a client dissatisfaction exception is open, which comes ' +
+          'from the Viv discharge reason rather than from a type.'
       ],
       related: ['home', 'communication', 'team']
     },
