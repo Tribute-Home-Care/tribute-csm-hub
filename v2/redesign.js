@@ -5804,7 +5804,15 @@
         out.push({ rank: 2, bucket: risk ? 'action' : 'onboarding', cid: c.id, name: c.name,
                    tier: c.tier,
                    kind: (win > 30 ? 'Success in 60' : 'Success in 30') + (risk ? ' · At Risk' : ''),
-                   why: 'Day ' + (age + 1) + ' of ' + win + ' · ' +
+                   /* A CLIENT WHOSE CARE HAS NOT STARTED read "Day -3 of 30",
+                      which is arithmetic rather than English. The board has
+                      said "Starts in 4 days" since the 21st; this now says
+                      the same thing. They can still be At Risk before day
+                      one: twenty unfilled visits four days out is exactly
+                      when somebody should know. */
+                   why: (age < 0
+                          ? 'Starts in ' + plural(-age, 'day')
+                          : 'Day ' + (age + 1) + ' of ' + win) + ' · ' +
                         (risk ? (risk.why || 'at risk')
                               : (done ? plural(done, 'milestone') + ' logged' : 'nothing logged yet')),
                    step: risk ? ('Work the checklist and brief ' + escalateFirst(c))

@@ -78,6 +78,12 @@ ok('...names the state rather than the day count alone',
 ok('...and says Success in 60 once the client has been extended',
    /\(win > 30 \? 'Success in 60' : 'Success in 30'\)/.test(row));
 ok('...carries her own reason sentence', /risk \? \(risk\.why \|\| 'at risk'\)/.test(row));
+/* A client whose care has not started read "Day -3 of 30", which is
+   arithmetic rather than English. They can still be At Risk before day one:
+   twenty unfilled visits four days out is exactly when somebody should
+   know. */
+ok('...and says Starts in N days before care begins',
+   /age < 0\n?\s*\? 'Starts in ' \+ plural\(-age, 'day'\)/.test(row));
 /* And the step NAMES the person. "Brief your manager" is a category, and on
    a Hub where three markets report to two different people the category is
    what sends somebody to the wrong person. */
