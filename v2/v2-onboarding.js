@@ -489,7 +489,7 @@ function renderObBoard(){
       return `<button type="button" class="obb-r obb-s30 ${st}" onclick="${open}"
         title="${escHtml(r.k?r.k.why:'')}">
         <span class="obb-n">${escHtml(r.c.name)}</span>
-        <span class="obb-d">${r.daysIn<0?('Starts in '+(-r.daysIn===1?'1 day':(-r.daysIn)+' days')):('Day '+(r.daysIn+1)+' of '+(r.win||30))}</span>
+        <span class="obb-d">${escHtml(s30DayLabel(r.daysIn,r.win))}</span>
         <span class="obb-st ${st}">${escHtml(S30_STATE_LABEL[st]||'On Track')}</span>
         ${wk}
         <span class="obb-next${nd&&nd.overdue?' late':''}">${nd?escHtml(nd.label):'Nothing dated outstanding'}</span>
@@ -523,6 +523,14 @@ function _s30NextDue(k){
   if(!open.length)return null;
   open.sort((a,b)=>(b.overdue-a.overdue)||String(a.due).localeCompare(String(b.due)));
   return open[0];
+}
+/* WHICH DAY OF WHICH WINDOW, said one way. Care that has not started yet is
+   "Starts in 4 days", not "Day -3 of 30", which is arithmetic rather than
+   English. Four surfaces print this; they all call this. */
+function s30DayLabel(daysIn, win){
+  if(daysIn===null||daysIn===undefined)return '';
+  if(daysIn<0)return 'Starts in '+(-daysIn===1?'1 day':(-daysIn)+' days');
+  return 'Day '+(daysIn+1)+' of '+(win||30);
 }
 const S30_STATE_LABEL={ontrack:'On Track',watch:'Watch',atrisk:'At Risk',done:'Complete',
                        notstarted:'Not started'};
@@ -1139,7 +1147,7 @@ function renderObManager(){
     <p style="font-size:11.5px;color:#8C857B;margin:-4px 0 12px;">Briefed to you because these escalate to your role. The reason is the checklist's own.</p>
     <div class="obb">${risk.map(r=>`<div class="obb-r obb-d30 atrisk" style="cursor:pointer;" onclick="openObClient('${r.x.c.id}')">
       <span class="obb-n">${escHtml(r.x.c.name)}<em class="obb-sub">${escHtml(r.x.csm.name.split(' ')[0])}${r.x.c.market?' \u00b7 '+escHtml(r.x.c.market):''}</em></span>
-      <span class="obb-st atrisk">Day ${r.d+1} of ${r.win}</span>
+      <span class="obb-st atrisk">${escHtml(s30DayLabel(r.d,r.win))}</span>
       <span class="obb-w">${escHtml(r.k.why||'At risk')}</span>
       <span style="font-size:11.5px;color:#8C857B;">${r.k.done} of ${r.k.total} done</span>
     </div>`).join('')}</div>

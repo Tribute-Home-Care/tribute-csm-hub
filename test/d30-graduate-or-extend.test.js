@@ -111,11 +111,18 @@ ok('there is one window, and the onboarding module owns it',
 ok('...which the redesign layer asks rather than copies',
    /typeof s60Window === 'function' \? s60Window\(c\) : 30/.test(RD));
 ok('the board keeps an extended client on it', /const win=s60Window\(c\);\n\s*if\(daysIn===null\|\|daysIn>win\)return;/.test(OB));
-/* And says "Starts in 4 days" before care begins, like the onboarding row
-   beside it, rather than "Day -3 of 30". */
+/* ONE WORDING, FOUR SURFACES. "Day -19 of 30" turned up on Today's list,
+   this board, the manager's At Risk brief and the client card, and I fixed
+   them one at a time across three commits instead of grepping for the lot.
+   The phrase lives in one function now so a fifth place cannot invent a
+   fifth wording. */
 ok('...and counts their day against the right total',
-   /\('Day '\+\(r\.daysIn\+1\)\+' of '\+\(r\.win\|\|30\)\)/.test(OB) &&
-   /r\.daysIn<0\?\('Starts in '/.test(OB));
+   /function s30DayLabel\(daysIn, win\)\{/.test(OB) &&
+   /return 'Day '\+\(daysIn\+1\)\+' of '\+\(win\|\|30\);/.test(OB));
+ok('...saying Starts in N days before care begins',
+   /if\(daysIn<0\)return 'Starts in '/.test(OB));
+ok('...and the board and the brief both ask it',
+   (OB.match(/s30DayLabel\(r\.(daysIn|d),r\.win\)/g) || []).length === 2);
 ok('the client page keeps the checklist card up', /if \(k\.daysIn > s60Win\(c\)\) return '';/.test(RD));
 ok('the At Risk signal keeps watching them', /inFirstDays\(c, s60Win\(c\)\)/.test(RD));
 /* Needs action reads s30Risk over the window, so Today's list has to build a

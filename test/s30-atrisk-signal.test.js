@@ -81,9 +81,10 @@ ok('...carries her own reason sentence', /risk \? \(risk\.why \|\| 'at risk'\)/.
 /* A client whose care has not started read "Day -3 of 30", which is
    arithmetic rather than English. They can still be At Risk before day one:
    twenty unfilled visits four days out is exactly when somebody should
-   know. */
-ok('...and says Starts in N days before care begins',
-   /age < 0\n?\s*\? 'Starts in ' \+ plural\(-age, 'day'\)/.test(row));
+   know. The wording is the onboarding module's, asked rather than copied. */
+ok('...and says which day through the one shared label',
+   /why: s30Day\(age, win\)/.test(row) &&
+   /typeof s30DayLabel === 'function'/.test(CODE));
 /* And the step NAMES the person. "Brief your manager" is a category, and on
    a Hub where three markets report to two different people the category is
    what sends somebody to the wrong person. */

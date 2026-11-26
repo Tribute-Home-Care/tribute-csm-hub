@@ -3788,7 +3788,8 @@
     }, 0);
     const pct = k.total ? Math.round(k.done / k.total * 100) : 0;
     return '<section class="rd-s30 ' + TONE[k.state] + '">' +
-      '<header><h4>First 30 days \u00b7 day ' + (k.daysIn + 1) + '</h4>' +
+      '<header><h4>First 30 days \u00b7 ' +
+        esc(s30Day(k.daysIn, s60Win(c)).toLowerCase()) + '</h4>' +
       '<span class="rd-s30-st">' + esc(WORD[k.state]) + '</span>' +
       '<span class="rd-s30-n">' + k.done + ' of ' + k.total + ' done' +
         (lateN ? '<span class="rd-s30-late">' + lateN + ' overdue</span>' : '') + '</span></header>' +
@@ -5735,6 +5736,16 @@
      and still means thirty: an extension continues the checks, it does not
      rename her tile. So the tile's own bucket test is left alone, and this is
      asked only by the things that decide whether a client is still watched. */
+  /* The onboarding module owns the wording; this asks it rather than keeping
+     a fourth copy, and falls back to the same sentence if it has not loaded. */
+  function s30Day(daysIn, win) {
+    try {
+      if (typeof s30DayLabel === 'function') return s30DayLabel(daysIn, win);
+    } catch (e) {}
+    if (daysIn === null || daysIn === undefined) return '';
+    return daysIn < 0 ? 'Starts in ' + plural(-daysIn, 'day')
+                      : 'Day ' + (daysIn + 1) + ' of ' + (win || 30);
+  }
   function s60Win(c) {
     try { return typeof s60Window === 'function' ? s60Window(c) : 30; }
     catch (e) { return 30; }
@@ -5810,9 +5821,7 @@
                       the same thing. They can still be At Risk before day
                       one: twenty unfilled visits four days out is exactly
                       when somebody should know. */
-                   why: (age < 0
-                          ? 'Starts in ' + plural(-age, 'day')
-                          : 'Day ' + (age + 1) + ' of ' + win) + ' · ' +
+                   why: s30Day(age, win) + ' · ' +
                         (risk ? (risk.why || 'at risk')
                               : (done ? plural(done, 'milestone') + ' logged' : 'nothing logged yet')),
                    step: risk ? ('Work the checklist and brief ' + escalateFirst(c))
