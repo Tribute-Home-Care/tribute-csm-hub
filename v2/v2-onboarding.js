@@ -489,7 +489,7 @@ function renderObBoard(){
       return `<button type="button" class="obb-r obb-s30 ${st}" onclick="${open}"
         title="${escHtml(r.k?r.k.why:'')}">
         <span class="obb-n">${escHtml(r.c.name)}</span>
-        <span class="obb-d">Day ${r.daysIn+1} of ${r.win||30}</span>
+        <span class="obb-d">${r.daysIn<0?('Starts in '+(-r.daysIn===1?'1 day':(-r.daysIn)+' days')):('Day '+(r.daysIn+1)+' of '+(r.win||30))}</span>
         <span class="obb-st ${st}">${escHtml(S30_STATE_LABEL[st]||'On Track')}</span>
         ${wk}
         <span class="obb-next${nd&&nd.overdue?' late':''}">${nd?escHtml(nd.label):'Nothing dated outstanding'}</span>
