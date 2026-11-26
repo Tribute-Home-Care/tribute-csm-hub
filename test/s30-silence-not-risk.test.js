@@ -28,7 +28,15 @@ const V1 = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
    her conditions, which would be a second rule competing with hers. */
 const adj = (OB.match(/function s30Adjusted\(c,pid\)\{[\s\S]*?\n\}/) || [''])[0];
 ok('there is an adjusted read', !!adj);
-ok('...which still asks s30Checklist for the status', /k=s30Checklist\(c\);/.test(adj));
+/* Through s30WithEvidence, which hands s30Checklist the fuller evidence for
+   the length of one call and then puts its readers back. Her rules still
+   decide; what changed is what they can see. */
+ok('...which still asks s30Checklist for the status',
+   /k=s30WithEvidence\(c,pid\);/.test(adj) && /try\{ return s30Checklist\(c\); \}/.test(OB));
+ok('...and the shim is always undone, even on a throw',
+   /finally\{ window\.get=realGet; window\._s30Exceptions=realEx; window\._s30CaregiverChanges=realCg; \}/.test(OB));
+ok('...and writes the derived evidence to no store',
+   !/set\('s60'/.test(OB.slice(OB.indexOf('function s30Derived'), OB.indexOf('function s30Facts'))));
 /* Tested on the CODE, with the message strings taken out: the Not started
    sentence explains itself in English and says the word "overdue", which is
    prose, not a condition being re-decided. */
@@ -47,7 +55,12 @@ ok('evidence is a client complaint exception or caregiver churn',
 /* Both come out of Viv and neither depends on anybody ticking anything, so
    either one keeps a client At Risk whatever the checklist looks like. */
 ok('...and either one keeps the client At Risk',
-   /if\(pr\.started\|\|s30Evidence\(c\)\)return out;/.test(adj));
+   /if\(started\|\|s30Evidence\(c\)\)return out;/.test(adj));
+/* And "started" now means the checklist can be READ, not that somebody
+   typed: where the record shows an assessment and three weeks of family
+   contact, an item still outstanding really is outstanding. */
+ok('...and a checklist with derived evidence counts as started',
+   /const started=pr\.started\|\|derived>0;/.test(adj));
 /* The day 14 visit is NOT evidence: it is a checklist item, so a missed one
    is the same silence wearing a different hat. */
 ok('the day 14 milestone is not treated as evidence', !/visit2/.test(ev));
@@ -73,8 +86,8 @@ ok('the layer takes a profile id', /get\('s60',pid\)/.test(pr));
 ok('...counts each milestone once, not each row', /hit\[r\.id\]=1;/.test(pr) &&
    /done:Object\.keys\(hit\)\.length/.test(pr));
 ok('...only against real milestone ids', /ids\.indexOf\(r\.id\)>-1/.test(pr));
-ok('...and the adjusted read uses those counts',
-   /Object\.assign\(\{\},k,\{done:pr\.done,total:pr\.total\|\|k\.total,started:pr\.started\}\)/.test(adj));
+ok('...and the adjusted read reports what a person ticked separately',
+   /ticked:pr\.done/.test(adj) && /derived:derived/.test(adj));
 ok('the manager brief passes the client\'s own CSM',
    /s30Adjusted\(x\.c,x\.csm&&x\.csm\.id\)/.test(OB));
 

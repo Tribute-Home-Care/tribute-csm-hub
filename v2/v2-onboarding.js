@@ -640,6 +640,116 @@ function obMetrics(){
   return out;
 }
 
+/* ══════ THE EVIDENCE THE HUB ALREADY HOLDS ════════════════════
+   Ten milestone ticks in the whole company, against 30 clients inside their
+   window. The checklist was not being worked, so it measured nothing.
+
+   But the Hub already holds the evidence for six of the ten, in the places
+   Courtney's own "How the Hub knows" column points at. Measured live:
+
+     asmt        viv.visits, type "Home Assessment"            10 of 30
+     visit2      viv.visits, type "Home Visit", after SOC        4 of 30
+     fam_wk1..4  a family touchpoint inside that week      14 / 14 / 10 / 8
+
+   Sixty marks the checklist could not see, against ten it could.
+
+   A DERIVED MILESTONE IS NOT A TICK. Nothing here writes to any store. The
+   evidence is handed to s30Checklist for the length of one call and then
+   taken away again; saving it would be the Hub forging a CSM's signature on
+   work it only inferred. It also means the moment somebody DOES tick, their
+   record is what stands. */
+const S30_FAM_TP = /^(Family Email|Family Phone Call|Text Follow-Up|Virtual Meeting)$/i;
+function _s30VivVisits(c){
+  try{ return ((DATA.shared&&DATA.shared.viv&&DATA.shared.viv.visits)||[])
+                .filter(v=>v.cid&&c.vivId&&v.cid===c.vivId); }
+  catch(e){ return []; }
+}
+function s30Derived(c,pid){
+  const soc=String(c.startDate||'').slice(0,10);
+  if(!soc)return [];
+  const out=[];
+  const add=(id,date)=>{ if(date)out.push({id,clientId:c.id,date:String(date).slice(0,10),
+                                           type:'EVIDENCE',by:''}); };
+  const first=(rows,key)=>rows.slice().sort((a,b)=>String(a[key]).localeCompare(String(b[key])))[0];
+  const vis=_s30VivVisits(c);
+  /* The assessment is a Home Assessment on the CSM visit feed. Not bounded to
+     the window: her checklist puts it before start of care, and an assessment
+     that happened a week early still happened. */
+  const a=first(vis.filter(v=>/assessment/i.test(String(v.type||''))),'day');
+  if(a)add('asmt',a.day);
+  /* The second in-person visit is a Home Visit dated AFTER start of care. The
+     assessment is the first; anything after it on the feed is the second. */
+  const v2=first(vis.filter(v=>/home visit/i.test(String(v.type||''))&&
+                               String(v.day).slice(0,10)>soc),'day');
+  if(v2)add('visit2',v2.day);
+  /* Weekly family contact, from the contact log, in the week it belongs to.
+     The windows are her due days: 7, 14, 21, 30. */
+  let tps=[];
+  try{ tps=(get('touchpoints',pid)||[]).filter(t=>t.clientId===c.id&&
+            S30_FAM_TP.test(String(t.type||''))); }catch(e){}
+  [[1,7,'fam_wk1'],[8,14,'fam_wk2'],[15,21,'fam_wk3'],[22,30,'fam_wk4']].forEach(w=>{
+    const lo=_obPlus(soc,w[0]),hi=_obPlus(soc,w[1]);
+    const hit=first(tps.filter(t=>{const d=String(t.date).slice(0,10);return d>=lo&&d<=hi;}),'date');
+    if(hit)add(w[2],hit.date);
+  });
+  return out;
+}
+/* THE TWO CONDITIONS THAT COULD NEVER FIRE. The exceptions store is empty on
+   every profile and in the shared document, so _s30Exceptions answered
+   all-false for all 240 clients. And viv.visits carries no caregiver field --
+   those rows are CSM Home Visits -- so _s30CaregiverChanges answered 0 for
+   all 240. Four of her six implemented conditions were dead, which is why
+   nothing in the company has ever read Watch.
+
+   Both counts are on the client record, in the sentence the Pulse feed
+   already writes: "5 events in 30 days: 3 service exceptions, 2 caregiver
+   changes (...)". All 227 rows parse for the exception count, 165 for the
+   caregiver count, and the remaining 62 say "not comparable yet", which is
+   an answer rather than a zero.
+
+   WHAT IS STILL INVISIBLE is the exception's TYPE. Her At Risk condition
+   wants a Client Complaint specifically, and the sentence only counts them.
+   So this reports that exceptions exist, which is her Watch condition, and
+   never claims a complaint it cannot see. */
+function s30Facts(c){
+  const s=String((c.fillEvidence&&c.fillEvidence.serviceEvents)||'');
+  const se=s.match(/(\d+)\s+service exceptions?/i);
+  const cg=s.match(/(\d+)\s+caregiver changes?/i);
+  return { ses: se?parseInt(se[1],10):null,
+           cgChanges: cg?parseInt(cg[1],10):null,
+           cgKnown: !!cg };
+}
+/* HER RULES, ON THE FULLER EVIDENCE. s30Checklist is not touched and not
+   restated: for the length of ONE synchronous call its three readers are
+   pointed at what the Hub actually knows, and then put back. get, and both
+   _s30 readers, are top-level function declarations in index.html, so they
+   are properties of the global object and a bare call inside s30Checklist
+   resolves to whatever is there at the time.
+
+   The restore is in a finally, so a throw inside s30Checklist cannot leave
+   the Hub running on the shim. */
+function s30WithEvidence(c,pid){
+  const extra=s30Derived(c,pid);
+  const f=s30Facts(c);
+  const realGet=window.get, realEx=window._s30Exceptions, realCg=window._s30CaregiverChanges;
+  window.get=function(key){
+    const v=realGet.apply(this,arguments);
+    return key==='s60' ? (v||[]).concat(extra) : v;
+  };
+  if(f.ses!==null)window._s30Exceptions=function(x){
+    const base=realEx.apply(this,arguments)||{};
+    // The count cannot say WHICH kind, so complaint and dissatisfaction are
+    // left exactly as the real reader found them rather than guessed at.
+    return { any: base.any||f.ses>0, complaint: !!base.complaint,
+             dissatisfaction: !!base.dissatisfaction };
+  };
+  if(f.cgKnown)window._s30CaregiverChanges=function(){
+    return Math.max(realCg.apply(this,arguments)||0, f.cgChanges||0);
+  };
+  try{ return s30Checklist(c); }
+  finally{ window.get=realGet; window._s30Exceptions=realEx; window._s30CaregiverChanges=realCg; }
+}
+
 /* ══════════════ SILENCE IS NOT RISK ═════════════════════════
    Measured across all eleven profiles on 26 Nov 2026: 21 clients in their
    first thirty days, 14 of them At Risk, and TEN milestone rows in the whole
@@ -689,12 +799,20 @@ function s30Progress(c,pid){
 }
 function s30Adjusted(c,pid){
   let k=null;
-  try{ k=s30Checklist(c); }catch(e){ return null; }
+  try{ k=s30WithEvidence(c,pid); }catch(e){ return null; }
   if(!k)return null;
+  /* STARTED NOW MEANS THE CHECKLIST CAN BE READ, not that somebody typed.
+     The silence rule was written when the Hub could see nothing: an overdue
+     item meant nobody had recorded anything. Where the record shows an
+     assessment and three weeks of family contact, an item still outstanding
+     means it is outstanding, and her count means what she wrote it to mean. */
   const pr=s30Progress(c,pid);
-  const out=Object.assign({},k,{done:pr.done,total:pr.total||k.total,started:pr.started});
+  const derived=s30Derived(c,pid).length;
+  const started=pr.started||derived>0;
+  const out=Object.assign({},k,{started:started,derived:derived,
+                                ticked:pr.done,total:k.total});
   if(k.state!=='atrisk'&&k.state!=='watch')return out;
-  if(pr.started||s30Evidence(c))return out;
+  if(started||s30Evidence(c))return out;
   return Object.assign(out,{state:'notstarted',
     why:'The checklist has not been started, so an overdue item here means '+
         'nothing has been recorded rather than nothing has been done.'});
